@@ -20,7 +20,7 @@
     "id": "goblin",
     "name": "Placeholder Goblin",
     "tier": "basic",
-    "maxHealth": 80,
+    "maxHealth": 60,
     "drawPerRound": 3,
     "handLimit": 5,
     "deck": [
@@ -37,7 +37,7 @@
     "id": "slime",
     "name": "Placeholder Slime",
     "tier": "basic",
-    "maxHealth": 120,
+    "maxHealth": 90,
     "drawPerRound": 3,
     "handLimit": 5,
     "deck": [
@@ -54,7 +54,7 @@
     "id": "wisp",
     "name": "Placeholder Wisp",
     "tier": "basic",
-    "maxHealth": 70,
+    "maxHealth": 50,
     "drawPerRound": 3,
     "handLimit": 5,
     "deck": [
@@ -71,7 +71,7 @@
     "id": "brute",
     "name": "Brute",
     "tier": "elite",
-    "maxHealth": 200,
+    "maxHealth": 180,
     "drawPerRound": 4,
     "handLimit": 6,
     "deck": [
@@ -90,7 +90,7 @@
     "id": "warden",
     "name": "Placeholder Warden",
     "tier": "elite",
-    "maxHealth": 220,
+    "maxHealth": 200,
     "drawPerRound": 4,
     "handLimit": 6,
     "deck": [
@@ -109,7 +109,7 @@
     "id": "auditor",
     "name": "The Auditor",
     "tier": "boss",
-    "maxHealth": 400,
+    "maxHealth": 200,
     "drawPerRound": 5,
     "handLimit": 7,
     "deck": [
@@ -136,7 +136,7 @@
     "id": "glutton",
     "name": "The Glutton",
     "tier": "boss",
-    "maxHealth": 400,
+    "maxHealth": 200,
     "drawPerRound": 5,
     "handLimit": 7,
     "deck": [
@@ -163,7 +163,7 @@
     "id": "bandit",
     "name": "Placeholder Bandit",
     "tier": "basic",
-    "maxHealth": 130,
+    "maxHealth": 70,
     "drawPerRound": 3,
     "handLimit": 5,
     "deck": [
@@ -180,7 +180,7 @@
     "id": "golem",
     "name": "Placeholder Golem",
     "tier": "basic",
-    "maxHealth": 170,
+    "maxHealth": 95,
     "drawPerRound": 3,
     "handLimit": 5,
     "deck": [
@@ -197,7 +197,7 @@
     "id": "harpy",
     "name": "Placeholder Harpy",
     "tier": "basic",
-    "maxHealth": 110,
+    "maxHealth": 60,
     "drawPerRound": 3,
     "handLimit": 5,
     "deck": [
@@ -214,7 +214,7 @@
     "id": "ravager",
     "name": "Placeholder Ravager",
     "tier": "elite",
-    "maxHealth": 300,
+    "maxHealth": 180,
     "drawPerRound": 4,
     "handLimit": 6,
     "deck": [
@@ -233,7 +233,7 @@
     "id": "sentinel",
     "name": "Placeholder Sentinel",
     "tier": "elite",
-    "maxHealth": 330,
+    "maxHealth": 200,
     "drawPerRound": 4,
     "handLimit": 6,
     "deck": [
@@ -252,7 +252,7 @@
     "id": "hoarder",
     "name": "The Hoarder",
     "tier": "boss",
-    "maxHealth": 600,
+    "maxHealth": 330,
     "drawPerRound": 5,
     "handLimit": 7,
     "deck": [
@@ -279,7 +279,7 @@
     "id": "smolder",
     "name": "The Smolder",
     "tier": "boss",
-    "maxHealth": 600,
+    "maxHealth": 230,
     "drawPerRound": 5,
     "handLimit": 7,
     "deck": [
@@ -306,7 +306,7 @@
     "id": "wraith",
     "name": "Placeholder Wraith",
     "tier": "basic",
-    "maxHealth": 170,
+    "maxHealth": 75,
     "drawPerRound": 3,
     "handLimit": 5,
     "deck": [
@@ -323,7 +323,7 @@
     "id": "colossus",
     "name": "Placeholder Colossus",
     "tier": "basic",
-    "maxHealth": 220,
+    "maxHealth": 100,
     "drawPerRound": 3,
     "handLimit": 5,
     "deck": [
@@ -340,7 +340,7 @@
     "id": "stormling",
     "name": "Placeholder Stormling",
     "tier": "basic",
-    "maxHealth": 150,
+    "maxHealth": 70,
     "drawPerRound": 3,
     "handLimit": 5,
     "deck": [
@@ -357,7 +357,7 @@
     "id": "tyrant",
     "name": "Placeholder Tyrant",
     "tier": "elite",
-    "maxHealth": 420,
+    "maxHealth": 230,
     "drawPerRound": 4,
     "handLimit": 6,
     "deck": [
@@ -376,7 +376,7 @@
     "id": "warlord",
     "name": "Placeholder Warlord",
     "tier": "elite",
-    "maxHealth": 450,
+    "maxHealth": 250,
     "drawPerRound": 4,
     "handLimit": 6,
     "deck": [
@@ -395,7 +395,7 @@
     "id": "long_night",
     "name": "The Long Night",
     "tier": "boss",
-    "maxHealth": 800,
+    "maxHealth": 270,
     "drawPerRound": 5,
     "handLimit": 7,
     "deck": [
@@ -422,7 +422,7 @@
     "id": "warden_of_locks",
     "name": "The Warden of Locks",
     "tier": "boss",
-    "maxHealth": 800,
+    "maxHealth": 290,
     "drawPerRound": 5,
     "handLimit": 7,
     "deck": [

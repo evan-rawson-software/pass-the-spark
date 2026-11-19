@@ -289,7 +289,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 4
+      "base": 3
     }
   },
   {
@@ -303,7 +303,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 4
+      "base": 3
     }
   },
   {
@@ -317,7 +317,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 5
+      "base": 4
     }
   },
   {
@@ -331,7 +331,7 @@
     ],
     "effect": {
       "kind": "heal",
-      "base": 4
+      "base": 3
     }
   },
   {
@@ -358,7 +358,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 4
     }
   },
   {
@@ -372,7 +372,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 3
     }
   },
   {
@@ -386,7 +386,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 3
     }
   },
   {
@@ -400,7 +400,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 6
+      "base": 4
     }
   },
   {
@@ -414,7 +414,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 4
+      "base": 3
     }
   },
   {
@@ -428,7 +428,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 4
+      "base": 3
     }
   },
   {
@@ -442,7 +442,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 4
     }
   },
   {
@@ -456,7 +456,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 3
     }
   },
   {
@@ -470,7 +470,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 3
     }
   },
   {
@@ -484,7 +484,7 @@
     ],
     "effect": {
       "kind": "heal",
-      "base": 5
+      "base": 3
     }
   },
   {
@@ -498,7 +498,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 4
+      "base": 3
     }
   },
   {
@@ -512,7 +512,7 @@
     ],
     "effect": {
       "kind": "heal",
-      "base": 4
+      "base": 3
     }
   },
   {
@@ -526,7 +526,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 4
     }
   },
   {
@@ -540,7 +540,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 4
+      "base": 2
     }
   },
   {
@@ -554,7 +554,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 3
+      "base": 2
     }
   },
   {
@@ -568,7 +568,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 3
+      "base": 2
     }
   },
   {
@@ -582,7 +582,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 3
+      "base": 2
     }
   },
   {
@@ -596,7 +596,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 3
+      "base": 2
     }
   },
   {
@@ -610,7 +610,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 2
+      "base": 1
     }
   },
   {
@@ -624,7 +624,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 4
+      "base": 2
     }
   },
   {
@@ -638,7 +638,7 @@
     ],
     "effect": {
       "kind": "heal",
-      "base": 2
+      "base": 1
     }
   },
   {
@@ -652,7 +652,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 2
+      "base": 1
     }
   },
   {
@@ -666,7 +666,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 3
+      "base": 2
     }
   },
   {
@@ -680,7 +680,7 @@
     ],
     "effect": {
       "kind": "heal",
-      "base": 2
+      "base": 1
     }
   },
   {
@@ -694,7 +694,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 3
+      "base": 2
     }
   },
   {
@@ -708,7 +708,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 3
     }
   },
   {
@@ -722,7 +722,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 2
+      "base": 1
     }
   },
   {
@@ -736,7 +736,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 4
+      "base": 2
     }
   },
   {
@@ -750,7 +750,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 2
+      "base": 1
     }
   },
   {
@@ -764,7 +764,7 @@
     ],
     "effect": {
       "kind": "heal",
-      "base": 2
+      "base": 1
     }
   },
   {
@@ -778,7 +778,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 3
+      "base": 2
     }
   },
   {
@@ -792,7 +792,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 4
     }
   },
   {
@@ -806,7 +806,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 4
     }
   },
   {
@@ -820,7 +820,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 6
+      "base": 5
     }
   },
   {
@@ -834,7 +834,7 @@
     ],
     "effect": {
       "kind": "heal",
-      "base": 4
+      "base": 3
     }
   },
   {
@@ -848,7 +848,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 4
+      "base": 3
     }
   },
   {
@@ -862,7 +862,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 4
+      "base": 3
     }
   },
   {
@@ -876,7 +876,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -890,7 +890,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -904,7 +904,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -918,7 +918,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -932,7 +932,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -946,7 +946,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -960,7 +960,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -974,7 +974,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -988,7 +988,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -1002,7 +1002,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -1016,7 +1016,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -1030,7 +1030,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -1044,7 +1044,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -1058,7 +1058,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -1072,7 +1072,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 7
+      "base": 3
     }
   },
   {
@@ -1086,7 +1086,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 3
     }
   },
   {
@@ -1100,7 +1100,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -1114,7 +1114,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -1128,7 +1128,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 4
     }
   },
   {
@@ -1142,7 +1142,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 4
     }
   },
   {
@@ -1156,7 +1156,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 8
+      "base": 4
     }
   },
   {
@@ -1170,7 +1170,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 4
     }
   },
   {
@@ -1184,7 +1184,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -1198,7 +1198,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -1212,7 +1212,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 4
     }
   },
   {
@@ -1226,7 +1226,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 4
     }
   },
   {
@@ -1240,7 +1240,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 8
+      "base": 4
     }
   },
   {
@@ -1254,7 +1254,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 4
     }
   },
   {
@@ -1268,7 +1268,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -1282,7 +1282,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -1296,7 +1296,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 3
     }
   },
   {
@@ -1310,7 +1310,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 3
     }
   },
   {
@@ -1324,7 +1324,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 8
+      "base": 4
     }
   },
   {
@@ -1338,7 +1338,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 4
     }
   },
   {
@@ -1352,7 +1352,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -1366,7 +1366,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 3
     }
   },
   {
@@ -1380,7 +1380,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 2
     }
   },
   {
@@ -1394,7 +1394,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 2
     }
   },
   {
@@ -1408,7 +1408,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 8
+      "base": 2
     }
   },
   {
@@ -1422,7 +1422,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 2
     }
   },
   {
@@ -1436,7 +1436,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -1450,7 +1450,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 5
+      "base": 2
     }
   },
   {
@@ -1464,7 +1464,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 2
     }
   },
   {
@@ -1478,7 +1478,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 2
     }
   },
   {
@@ -1492,7 +1492,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 8
+      "base": 3
     }
   },
   {
@@ -1506,7 +1506,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 3
     }
   },
   {
@@ -1520,7 +1520,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 2
     }
   },
   {
@@ -1534,7 +1534,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 2
     }
   },
   {
@@ -1548,7 +1548,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 2
     }
   },
   {
@@ -1562,7 +1562,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 2
     }
   },
   {
@@ -1576,7 +1576,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 8
+      "base": 3
     }
   },
   {
@@ -1590,7 +1590,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 3
     }
   },
   {
@@ -1604,7 +1604,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 2
     }
   },
   {
@@ -1618,7 +1618,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 6
+      "base": 2
     }
   },
   {
@@ -1632,7 +1632,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 3
     }
   },
   {
@@ -1646,7 +1646,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 3
     }
   },
   {
@@ -1660,7 +1660,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 10
+      "base": 4
     }
   },
   {
@@ -1674,7 +1674,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 10
+      "base": 4
     }
   },
   {
@@ -1688,7 +1688,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 2
     }
   },
   {
@@ -1702,7 +1702,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 2
     }
   },
   {
@@ -1716,7 +1716,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 9
+      "base": 4
     }
   },
   {
@@ -1730,7 +1730,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 9
+      "base": 4
     }
   },
   {
@@ -1744,7 +1744,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 11
+      "base": 5
     }
   },
   {
@@ -1758,7 +1758,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 11
+      "base": 5
     }
   },
   {
@@ -1772,7 +1772,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 4
     }
   },
   {
@@ -1786,7 +1786,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 4
     }
   },
   {
@@ -1800,7 +1800,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 9
+      "base": 4
     }
   },
   {
@@ -1814,7 +1814,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 9
+      "base": 4
     }
   },
   {
@@ -1828,7 +1828,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 11
+      "base": 5
     }
   },
   {
@@ -1842,7 +1842,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 11
+      "base": 5
     }
   },
   {
@@ -1856,7 +1856,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 4
     }
   },
   {
@@ -1870,7 +1870,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 4
     }
   },
   {
@@ -1884,7 +1884,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 3
     }
   },
   {
@@ -1898,7 +1898,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 9
+      "base": 3
     }
   },
   {
@@ -1912,7 +1912,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 11
+      "base": 4
     }
   },
   {
@@ -1926,7 +1926,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 11
+      "base": 4
     }
   },
   {
@@ -1940,7 +1940,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 3
     }
   },
   {
@@ -1954,7 +1954,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 3
     }
   },
   {
@@ -1968,7 +1968,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 9
+      "base": 3
     }
   },
   {
@@ -1982,7 +1982,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 9
+      "base": 3
     }
   },
   {
@@ -1996,7 +1996,7 @@
     ],
     "effect": {
       "kind": "block",
-      "base": 11
+      "base": 4
     }
   },
   {
@@ -2010,7 +2010,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 11
+      "base": 4
     }
   },
   {
@@ -2024,7 +2024,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 3
     }
   },
   {
@@ -2038,7 +2038,7 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 8
+      "base": 3
     }
   }
 ]

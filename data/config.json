@@ -1,5 +1,5 @@
 {
-  "partyMaxHealth": 60,
+  "partyMaxHealth": 90,
   "playerDrawPerRound": 3,
   "playerHandLimit": 10,
   "triggerCap": 100,

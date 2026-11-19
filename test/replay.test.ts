@@ -27,7 +27,7 @@ test("replay: same seed and choices give identical final state and the stored su
     round: first.round,
     partyHealth: first.party.health,
     enemyHealth: first.enemy.health,
-  }).toEqual({ result: null, round: 3, partyHealth: 7, enemyHealth: 168 });
+  }).toEqual({ result: null, round: 3, partyHealth: 50, enemyHealth: 145 });
 });
 
 test("smoke: 50 random battles per enemy all end and never throw", () => {

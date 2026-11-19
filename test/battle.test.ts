@@ -77,12 +77,12 @@ test("block absorbs damage before health, and resets at round end", () => {
   let s = setup(["kindle", "brace"], ["brace", "shelter"], ["ogre_stomp_a"]);
   s = opener(s, "kindle");
   s = answer(s, "brace"); // p2 block 4; enemy Stomp at strength 2 hits for 6
-  expect(s.party).toMatchObject({ health: 58, block: 0 });
+  expect(s.party).toMatchObject({ health: 88, block: 0 });
   s = answer(s, "brace"); // p1 lap 2, strength 3: 4 x 3 x 2
   expect(s.party.block).toBe(24);
   s = answer(s, "shelter"); // p2: 4 x 4 x 2, then p1 can't answer Tide
   expect(s.round).toBe(2);
-  expect(s.party).toMatchObject({ health: 58, block: 0 });
+  expect(s.party).toMatchObject({ health: 88, block: 0 });
 });
 
 test("battle ends immediately when enemy health reaches 0 mid-chain", () => {
@@ -122,7 +122,7 @@ test("leftover enemy dominoes go off at strength 1, in order, and stay in hand",
   s0.enemy.health = 90;
   s0.party.block = 4;
   const s = opener(s0, "kindle"); // chain ends at once
-  expect(s.party).toMatchObject({ health: 58, block: 0 }); // 3 + 3, block soaked 4
+  expect(s.party).toMatchObject({ health: 88, block: 0 }); // 3 + 3, block soaked 4
   expect(s.enemy.health).toBe(93);
   expect(s.enemy.hand).toHaveLength(3);
 });
@@ -155,10 +155,10 @@ test("Mimic after an enemy damage domino damages the enemy", () => {
   let s = setup(["kindle", "mimic"], ["brace"], ["ogre_stomp_a"]);
   s = opener(s, "kindle");
   s = answer(s, "brace"); // block 4; Stomp: 3 x 2 hits the party
-  expect(s.party.health).toBe(58);
+  expect(s.party.health).toBe(88);
   s = answer(s, "mimic"); // copies the Stomp toward the enemy: 3 x 3 x lap 2
   expect(s.enemy.health).toBe(100 - 18);
-  expect(s.party.health).toBe(58);
+  expect(s.party.health).toBe(88);
 });
 
 test("Spectrum adds the number of different sparks in the history to its strength", () => {
@@ -204,7 +204,7 @@ test("Reflect after a player's damage domino damages the party at the Reflect's 
   s = opener(s, "splash"); // Gale
   s = answer(s, "kindle"); // enemy takes 2 x 1; Reflect answers at strength 2, no lap: party takes 2 x 2
   expect(s.enemy.health).toBe(98);
-  expect(s.party.health).toBe(56);
+  expect(s.party.health).toBe(86);
 });
 
 test("the Auditor fires when a player repeats a spark, across an enemy pass, not on an enemy reaction", () => {
@@ -213,15 +213,15 @@ test("the Auditor fires when a player repeats a spark, across an enemy pass, not
   s.party.block = 1;
   s = opener(s, "kindle"); // Ember
   s = answer(s, "hold_ember"); // p2: history [Ember], nothing to repeat; the enemy passes
-  expect(s.party).toMatchObject({ health: 60, block: 1 });
+  expect(s.party).toMatchObject({ health: 90, block: 1 });
   s = answer(s, "hold_ember"); // p1 answers Ember again, at strength 2: 2 damage, block soaks 1
-  expect(s.party).toMatchObject({ health: 59, block: 0 });
+  expect(s.party).toMatchObject({ health: 89, block: 0 });
 
   // An enemy reaction answering the same spark as the previous entry does not fire it.
   let t = setup(["kindle"], ["hold_ember"], ["elite_slash"]);
   t.enemy.passives = [{ kind: "auditor", name: "x" }];
-  t = answer(opener(t, "kindle"), "hold_ember"); // history [Ember, Ember]; Slash hits for 4 x 2
-  expect(t.party.health).toBe(52);
+  t = answer(opener(t, "kindle"), "hold_ember"); // history [Ember, Ember]; Slash hits for 3 x 2
+  expect(t.party.health).toBe(84);
 });
 
 test("the Glutton heals once per lap increment, capped at max health", () => {
@@ -368,12 +368,12 @@ test("the Smolder leftovers go off at the chain final strength, never below 1", 
   let s = setup(["kindle", "splash"], ["jab"], ["elite_slash"]);
   s.enemy.passives = [{ kind: "smolder", name: "x" }];
   s = answer(answer(opener(s, "kindle"), "jab"), "splash"); // final strength 2; p2 cannot answer; slash is left over
-  expect(s.party.health).toBe(60 - 4 * 2);
+  expect(s.party.health).toBe(90 - 3 * 2);
 
   let t = setup(["kindle"], ["parry"], ["elite_slash"]); // no answers: strength 0 counts as 1
   t.enemy.passives = [{ kind: "smolder", name: "x" }];
   t = opener(t, "kindle");
-  expect(t.party.health).toBe(60 - 4);
+  expect(t.party.health).toBe(90 - 3);
 });
 
 test("charms: lenses, Bulwark, Keystone and Overcharge change values and strength; previews match", () => {
