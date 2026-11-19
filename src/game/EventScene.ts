@@ -351,9 +351,7 @@ export class EventScene extends Phaser.Scene {
   }
 
   // A marker per voter in their seat colour with their seat number, then their names.
-  // Single player has no voting (one pick for the party), so there is nothing to show.
   private drawVoters(run: RunState, choices: Record<string, number>, option: number, x: number, y: number): void {
-    if (!isOnlineRun()) return;
     const voters = run.players.filter((id) => choices[id] === option);
     voters.forEach((id, k) => {
       const index = run.players.indexOf(id);
@@ -381,7 +379,7 @@ export class EventScene extends Phaser.Scene {
   }
 
   // The vote is settled: show the final votes, the winner and, if it was drawn, the odds; then go on.
-  private showResult(event: EventState, outcome: Extract<RunEvent, { type: "eventOutcome" }>, events: RunEvent[], next?: RunState): void {
+  private showResult(event: EventState, outcome: Extract<RunEvent, { type: "eventOutcome" }>, events: RunEvent[]): void {
     this.resolving = true;
     this.tweens.killAll();
     this.children.removeAll(true);
@@ -412,7 +410,6 @@ export class EventScene extends Phaser.Scene {
       label(this, TEXT_X, y + 50, `Drawn: ${optionText(outcome.option)}, ${odds}%`, 36, { bold: true, color: "#ff9d7a" });
     }
     this.time.delayedCall(scaleTime(2200), () => {
-      if (next) setRun(next);
       openRunScreen(this);
     });
   }
