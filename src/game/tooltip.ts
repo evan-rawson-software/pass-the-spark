@@ -34,7 +34,7 @@ export interface TipLine {
 
 // The preview of one option, as lines.
 function previewLines(domino: Domino, p: PlayPreview): string[] {
-  if (p.fuse) return ["Fuse: starts the chain. Its effect does not trigger."];
+  if (p.opener) return ["Opener: starts the chain. Its effect does not trigger."];
   const lines: string[] = [];
   const e = p.effect?.effect;
   if (!e) {

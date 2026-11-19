@@ -11,7 +11,7 @@ export const { config, dominoes, enemies, starterDeck } = loadContent();
 export interface BattleStats {
   result: "won" | "lost" | null; // null: stopped at the step cap
   rounds: number;
-  chains: number[]; // answers (player and enemy) in each round's chain, not the fuse
+  chains: number[]; // answers (player and enemy) in each round's chain, not the opener
   steps: number;
   final: BattleState;
 }
@@ -41,10 +41,10 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
     const pending = getPendingChoice(state);
     if (pending === null) break;
     let choice: Choice;
-    if (pending.type === "fuse") {
+    if (pending.type === "opener") {
       const r = nextInt(pick, pending.dominoes.length);
       pick = r.state;
-      choice = { type: "fuse", domino: pending.dominoes[r.value] };
+      choice = { type: "opener", domino: pending.dominoes[r.value] };
     } else {
       const r = nextInt(pick, pending.options.length);
       pick = r.state;
