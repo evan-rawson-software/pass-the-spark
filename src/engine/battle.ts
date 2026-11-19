@@ -133,6 +133,12 @@ export interface StepResult {
   events: GameEvent[];
 }
 
+// An enemy's starting health: its data health scaled by the party size (percent per size, rounded up).
+export function enemyStartingHealth(config: Config, enemy: Enemy, partySize: number): number {
+  const percent = config.enemyHealthPercentByPartySize[Math.min(Math.max(partySize, 1), 4) - 1];
+  return Math.ceil((enemy.maxHealth * percent) / 100);
+}
+
 // The battle as it stands after its automatic opening (round 1 draws).
 export function createBattle(setup: BattleSetup): BattleState {
   return createBattleWithEvents(setup).state;
@@ -155,6 +161,8 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
   }
   const partyHealth = setup.partyHealth ?? config.partyMaxHealth;
   if (!(partyHealth > 0 && partyHealth <= config.partyMaxHealth)) throw new Error("partyHealth must be above 0 and at most max health");
+
+  const enemyHealth = enemyStartingHealth(config, enemyDef, seats.length);
 
   let rng = setup.seed;
   const players: PlayerState[] = [];
@@ -183,8 +191,8 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     players,
     enemy: {
       id: enemyDef.id,
-      health: enemyDef.maxHealth,
-      maxHealth: enemyDef.maxHealth,
+      health: enemyHealth,
+      maxHealth: enemyHealth,
       block: 0,
       deck: es.value,
       hand: [],

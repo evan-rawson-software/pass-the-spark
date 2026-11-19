@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { enemyStartingHealth } from "../engine/battle";
 import { applyRunChoice } from "../engine/run";
 import type { RunEvent, RunNodeType, RunState } from "../engine/run";
 import { content } from "./devBattle";
@@ -244,7 +245,7 @@ export class MapScene extends Phaser.Scene {
     const name = label(this, CENTER_X - r - 20, 24, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 1 });
     const passives = label(this, CENTER_X - r - 20, 46, passiveText(boss), 18, { color: "#ffe14d", origin: 1 }).setOrigin(1, 0).setAlign("right").setWordWrapWidth(520);
     const tip = new Tooltip(this);
-    const lines = bossTip(boss);
+    const lines = bossTip(boss, boss ? enemyStartingHealth(content.config, boss, run.players.length) : 0);
     const hit = this.add.circle(CENTER_X, BOSS_Y, r, 0, 0);
     for (const target of [name, passives, hit]) {
       target.setDepth(10); // above the vote targets, so the whole boss hovers
