@@ -40,7 +40,7 @@ export interface Refs {
   bars: Map<string, BarRef>; // "enemy" | "party"
   shields: Map<string, { text: Text; x: number; y: number }>;
   meter?: { text: Text; rect: Box; scale: number };
-  charms: Map<string, { x: number; y: number }>; // "seat:charm" -> the charm icon in the combat list (#108)
+  charms: Map<string, { x: number; y: number }>; // "seat:charm" -> the charm icon under its name plate (#108)
 }
 
 export function newRefs(): Refs {
@@ -288,6 +288,26 @@ export class Animator {
         this.tweenHealth(side, before, after);
         break;
       }
+      // Short labels for what the old log line used to say (#155).
+      case "enemyNoReaction":
+        floatText(scene, 960, 215, "No reaction", "#ffd9a0", 40, 900);
+        break;
+      case "smolder":
+        floatText(scene, 960, 215, `Leftovers at strength ${ev.strength}`, "#ffb066", 34, 900);
+        break;
+      case "auditor": {
+        const bar = refs.bars.get("party");
+        if (bar) floatText(scene, bar.x + bar.w / 2, bar.y + 70, `Auditor: -${ev.damage}`, "#ff9a94", 34, 1000);
+        break;
+      }
+      case "hoarder": {
+        const sh = refs.shields.get("enemy");
+        if (sh) floatText(scene, sh.x + 60, sh.y - 50, "Hoarder", "#9cc4ff", 30, 1000);
+        break;
+      }
+      case "chainEnd":
+        floatText(scene, 960, 580, "Chain broken", "#ffd9a0", 56, 1100);
+        break;
       case "blockReset":
         this.tweenHealth("party", before, after);
         this.tweenHealth("enemy", before, after);
