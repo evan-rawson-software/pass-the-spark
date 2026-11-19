@@ -50,7 +50,11 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 
 ### Augments
 - **Amplify +N:** adds N strength for the rest of the chain, on top of its normal +1 as an answer. N is flat and doesn't scale. Amplify has no other effect. Enemy reactions benefit from the higher strength, but enemies don't carry Amplify dominoes.
-- **Echo:** the next domino played, by anyone including an enemy reaction, triggers its whole effect twice. Both triggers resolve at the same strength and lap, and the second doesn't add strength. Echoes compound: each trigger of an Echo adds one extra trigger to the next domino (Echo → 2 triggers, Echo + Echo → 3, three Echoes → 4). If the chain ends first, Echo is wasted. Echo has no other effect. *Pending:* whether Echo carries past an enemy that doesn't react (rec: yes).
+- **Echo:** the next domino played, by anyone including an enemy reaction, triggers its whole effect twice. Both triggers resolve at the same strength and lap, and the second doesn't add strength. Echoes compound: each trigger of an Echo adds one extra trigger to the next domino (Echo → 2 triggers, Echo + Echo → 3, three Echoes → 4). If the chain ends first, Echo is wasted. Echo has no other effect. Echo carries past an enemy that doesn't react, to the next domino actually played.
+
+- **Mimic:** repeats the effect of the last domino played in this chain, at the Mimic's own strength and lap. Enemy passes don't count. It copies the fuse's effect even though the fuse's own effect never triggered. It copies enemy effects toward the enemy: damage hits the enemy, and healing or block goes to the party. Mimic never hurts the party. It copies augments too (Amplify, Echo, Lookout). Mimic after Mimic repeats the original effect. Echo on Mimic makes the copied effect happen twice.
+- **Trigger cap:** at most 100 triggers per domino (data setting).
+- **Streak:** dropped.
 
 ### Hidden information
 - The engine produces each player's own view of the game: all player hands visible, the enemy's hand hidden apart from revealed dominoes.
@@ -61,6 +65,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 
 ### UI notes for later milestones
 - Effects that ignore lap could carry a symbol on the domino.
+- Every trigger effect (Echo, Mimic, Reflect) gets a cool animation.
 - A big combo meter during combat shows strength × lap and grows bigger and redder as the chain grows.
 
 ### Still open
