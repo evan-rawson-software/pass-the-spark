@@ -113,3 +113,29 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Sim chain length:** count every answer, player and enemy, and not the fuse. That's the number of times strength went up from answers. Report player answers separately as well.
 - **Content:** stays in JSON (portable to Godot), checked by a hand-written validator when loaded (#37).
 - **Headless engine:** enforced by a DOM-free engine tsconfig and a CI check (#38).
+
+## 2026-11-19: Milestone 4 (the run)
+
+- **Run rules:** in the headless engine, deterministic from a seed and host-authoritative, like combat.
+- **Map:** one act of 10 floors plus the boss, generated from the seed, with 3-4 branching paths. Floors 1-3 are always normal fights. Elites appear only from floor 5. Rest sites sit on fixed floors (Slay the Spire style). The mix of other stops is set in data.
+- **Acts:** M4 builds one act. The run will eventually have 3 acts, and winning means beating all 3 bosses, so the run structure takes the act list from data.
+- **Route votes:** the party votes at each fork; ties are broken at random (seeded). Online, votes are simultaneous and visible live; in hot-seat they're taken in turn. A rolling animation for ties can come later.
+- **Seating:** the enemy's seat stays fixed (last). Players rotate one seat per battle. The lead order still carries over between battles.
+- **Health:** party health carries over between battles. Reaching 0 loses the run; beating the final boss wins it.
+- **Saving:** the host's saved room covers the whole run.
+- **Rewards:** after every battle, each player gets their own offer of 3 dominoes, picks one or skips, and everyone picks at the same time. Rarity: common, uncommon, rare. Elites give better odds; the boss always offers rares. Offers come from everything until unlocks exist.
+- **Generated dominoes:** dominoes outside the starter deck are generated at runtime from pools, not hand-authored. A domino's left side (intake) and right side (effect + output) are each drawn from the pool for its rarity. Rarer dominoes use different pools. Generation uses the run's seeded RNG. May be revisited.
+- **Charms:** not in M4.
+- **Coins:** personal. Every battle pays some (normal < elite < boss), and players start with some. All amounts in data.
+- **Rest sites:** each player chooses rest or upgrade. Each resting player heals the shared party health by a data-set amount, and those heals add up.
+- **Upgrades:** each side of a domino can be upgraded once, so at most 2 upgrades per domino.
+  - Left side: a single-spark intake becomes dual. The player picks the second spark from the spark pool for that domino's rarity, excluding the original spark.
+  - Right side: the effect is upgraded (stronger).
+  - Upgrades come only from rest sites.
+- **Trader:** each player has their own stock of dominoes for sale and can pay to remove a domino, with the fee rising each time. No gifting to teammates, and no selling upgrades. Charms come to the Trader later.
+- **Events:** moved to the next milestone.
+- **Screens:** map with live votes, victory and domino choice, rest site, upgrade (before-and-after preview), Trader, deck viewer (any player's deck, grouped by intake spark). Party health at the top right on every screen. Event screens come next milestone.
+- **Hot-seat:** keeps working. One person can play the whole run solo by starting a local game with 3 or 4 seats.
+
+### UI notes for later milestones
+- A rolling animation for tied route votes.
