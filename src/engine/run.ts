@@ -567,7 +567,8 @@ function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void 
   const seatOrder = [...seats, ENEMY_SEAT];
   const result = createBattleWithEvents({
     config,
-    content: { dominoes, enemies, charms: run.content.charms },
+    content: { dominoes, enemies },
+    charms: run.content.charms,
     players: run.players.map((id) => ({ id, deck: run.decks[id], charms: run.charms[id] })),
     seatOrder,
     startingLead: run.lead,

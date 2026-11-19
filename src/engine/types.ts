@@ -165,6 +165,7 @@ export interface Charm {
   name: string;
   pool: CharmPool; // normal: elite offers and the Trader; rare: boss offers
   description: string; // one line for tooltips
+  sparks?: Spark[]; // the sparks the charm reacts to (Lightning Rod)
   numbers: Record<string, number>; // this charm's own numbers (bonus, extra draws, coins, percent)
 }
 

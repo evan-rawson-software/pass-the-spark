@@ -5,7 +5,7 @@ import { shuffle } from "./rng";
 import { validateDominoes } from "./validate";
 import type { GameEvent } from "./events";
 import type { BattleView } from "./view";
-import { heldCharmNumber } from "./charms";
+import { answerStrengthBonus, blockBonus, extraDraws, extraEchoTriggers, extraLap, extraReveals, extraSpectrum, handLimitOf, lensBonus, mirrorStrength, lapRunnerBlock, lightningRodTriggers, firstEchoTriggers, sparkStarterStrength, holdsCharm } from "./battleCharms";
 import type { Charm, Config, DeckList, Domino, Effect, Enemy, Passive, Spark } from "./types";
 
 // The enemy's seat id in seatOrder.
@@ -14,7 +14,6 @@ export const ENEMY_SEAT = "enemy";
 export interface Content {
   dominoes: Domino[];
   enemies: Enemy[];
-  charms?: Charm[]; // charm definitions, needed only when a player holds charms
 }
 
 export interface PlayerSetup {
@@ -28,7 +27,7 @@ export interface PlayerState {
   deck: string[]; // domino ids, next draw first
   hand: string[];
   discard: string[];
-  charms: string[]; // charm ids the player holds for this battle
+  charms: string[]; // charm ids the player holds for this battle (definitions are in BattleState.charmDefs)
   firstEchoSpent: boolean; // First Echo has already fired this round
 }
 
@@ -81,6 +80,7 @@ export interface Blessing {
 export interface BattleState {
   config: Config;
   dominoes: Domino[];
+  charmDefs: Charm[]; // the charm data the players' charm ids refer to
   rng: number;
   seatOrder: string[];
   round: number;
@@ -94,7 +94,6 @@ export interface BattleState {
   result: "won" | "lost" | null;
   nextLead: string | null;
   blessing: Blessing | null; // set for the whole battle by the run; null for no blessing
-  charmDefs: Charm[]; // charm definitions, for the numbers of the charms players hold
 }
 
 export type PendingChoice =
@@ -117,6 +116,8 @@ export interface BattleSetup {
   startingLead?: string;
   enemyId: string;
   seed: number;
+  // Charm data, needed when any player holds charms. Defaults to none.
+  charms?: Charm[];
   // Run-unique domino definitions (instances, generated or upgraded dominoes) used by the decks,
   // in addition to content.dominoes. Their ids must not clash with any other domino id.
   extraDominoes?: Domino[];
@@ -169,6 +170,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
   const state: BattleState = {
     config,
     dominoes: [...content.dominoes, ...extra],
+    charmDefs: setup.charms ?? [],
     rng,
     seatOrder,
     round: 0,
@@ -195,7 +197,6 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     result: null,
     nextLead: null,
     blessing: setup.blessing ?? null,
-    charmDefs: content.charms ?? [],
   };
   const events: GameEvent[] = [];
   startRound(state, events);
@@ -301,8 +302,8 @@ export function previewPlay(input: BattleState | BattleView, playerId: string, d
     const state = workingCopy(input);
     const events: GameEvent[] = [];
     playOpener(state, getPlayer(state, playerId), getDomino(state, dominoId), events);
-    const preview = summarize(state, events, null);
-    if (preview.triggers > 0) preview.strength = heldCharmNumber(state.charmDefs, getPlayer(state, playerId).charms, SPARK_STARTER, "strength");
+    const preview = summarize(state, events, null, playerId);
+    if (preview.triggers > 0) preview.strength = sparkStarterStrength(state, playerId);
     return [preview];
   }
   const option = pending.options.find((o) => o.domino === dominoId);
@@ -311,12 +312,12 @@ export function previewPlay(input: BattleState | BattleView, playerId: string, d
     const state = workingCopy(input);
     const events: GameEvent[] = [];
     play(state, getDomino(state, dominoId), spark, true, events);
-    return summarize(state, events, spark);
+    return summarize(state, events, spark, playerId);
   });
 }
 
 // A PlayPreview from the events of a play run on a copy (spark null for the opener).
-function summarize(state: BattleState, events: GameEvent[], spark: Spark | null): PlayPreview {
+function summarize(state: BattleState, events: GameEvent[], spark: Spark | null, owner: string): PlayPreview {
   let strength = 0;
   let first: { effect: Effect; side: Side; value: number } | null = null;
   let triggers = 0;
@@ -338,7 +339,7 @@ function summarize(state: BattleState, events: GameEvent[], spark: Spark | null)
     effect: first === null ? null : { effect: first.effect, side: first.side },
     triggers,
     value: first === null ? 0 : first.value,
-    spectrumBonus: first !== null && first.effect.spectrum ? spectrumBonus(state.chain.history) : 0,
+    spectrumBonus: first !== null && first.effect.spectrum ? spectrumBonus(state.chain.history) + extraSpectrum(state, owner) : 0,
     lookoutReveals: reveals,
     auditorDamage,
   };
@@ -383,8 +384,8 @@ function playOpener(state: BattleState, player: PlayerState, d: Domino, events: 
   // A Mimic after the opener can copy its effect.
   if (d.effect.kind !== "mimic" && d.effect.kind !== "reflect") state.chain.last = { effect: d.effect, side: "party" };
   state.lead = player.id;
-  if (!player.charms.includes(SPARK_STARTER)) return;
-  const strength = heldCharmNumber(state.charmDefs, player.charms, SPARK_STARTER, "strength");
+  if (!holdsCharm(state, player.id, SPARK_STARTER)) return;
+  const strength = sparkStarterStrength(state, player.id);
   state.chain.strength = strength;
   const before = events.length;
   playEffect(state, d, player.id, "party", true, null, events);
@@ -449,8 +450,7 @@ function startRound(state: BattleState, events: GameEvent[]): void {
       const e = state.enemy;
       draw(state, e, e.drawPerRound, e.handLimit, events, seat, e);
     } else {
-      const { playerDrawPerRound, playerHandLimit } = state.config;
-      draw(state, getPlayer(state, seat), playerDrawPerRound, playerHandLimit, events, seat);
+      draw(state, getPlayer(state, seat), state.config.playerDrawPerRound + extraDraws(state, seat), handLimitOf(state, seat), events, seat);
     }
   }
   const seats = playerSeats(state.seatOrder);
@@ -565,15 +565,15 @@ function advance(state: BattleState, events: GameEvent[]): void {
   }
 }
 
-// Lap Runner: the party gains block when the lap goes up and the domino that brought the spark
-// to the lead was a Lap Runner holder's (an enemy reaction just before the lead completes it instead).
+// Lap Runner: the party gains block when the lap goes up and the answer that brought the spark to
+// the lead was a Lap Runner holder's. An enemy reaction just before the lead completes it instead,
+// the opener is not an answer, and nothing happens once the battle is over.
 function lapRunner(state: BattleState, events: GameEvent[]): void {
+  if (state.phase === "over" || state.chain.played.length < 2) return;
   const seat = state.chain.played[state.chain.played.length - 1].seat;
-  if (seat === ENEMY_SEAT) return;
-  const player = getPlayer(state, seat);
-  if (!player.charms.includes(LAP_RUNNER)) return;
+  if (seat === ENEMY_SEAT || !holdsCharm(state, seat, LAP_RUNNER)) return;
   charmEvent(seat, LAP_RUNNER, events);
-  resolve(state, { kind: "block" }, heldCharmNumber(state.charmDefs, player.charms, LAP_RUNNER, "block"), "party", events);
+  resolve(state, { kind: "block" }, lapRunnerBlock(state, seat), "party", events);
 }
 
 // The enemy plays its leftmost matching domino, or the spark passes unchanged.
@@ -599,7 +599,7 @@ function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean,
   // The Auditor: a player answers the same spark as the previous history entry.
   const repeated = byPlayer && chain.history[chain.history.length - 1] === answered;
   // Only the spark the answer used counts; Echo repeats and the opener add nothing here.
-  chain.strength += state.blessing && state.blessing.spark === answered ? state.blessing.strength : 1;
+  chain.strength += (state.blessing && state.blessing.spark === answered ? state.blessing.strength : 1) + answerStrengthBonus(state, byPlayer ? state.seat : null);
   chain.history.push(answered);
   chain.sparks = d.output.slice();
   const seat = byPlayer ? state.seat : ENEMY_SEAT;
@@ -650,24 +650,23 @@ function playEffect(state: BattleState, d: Domino, seat: string, side: Side, sca
   // Charms that add triggers for a player's domino; each counts toward the cap.
   if (seat !== ENEMY_SEAT) {
     const player = getPlayer(state, seat);
-    const extra = (charm: string) => {
-      const more = heldCharmNumber(state.charmDefs, player.charms, charm, "triggers") - 1;
-      if (more > 0 && triggers < state.config.triggerCap) {
-        triggers += more;
+    const extra = (charm: string, total: number) => {
+      if (total > 1 && triggers < state.config.triggerCap) {
+        triggers += total - 1;
         charmEvent(seat, charm, events);
       }
     };
-    if (!player.firstEchoSpent && player.charms.includes(FIRST_ECHO)) {
+    if (!player.firstEchoSpent && holdsCharm(state, seat, FIRST_ECHO)) {
       player.firstEchoSpent = true;
-      extra(FIRST_ECHO);
+      extra(FIRST_ECHO, firstEchoTriggers(state, seat));
     }
-    if (answered === "Storm" || answered === "Void") extra(LIGHTNING_ROD);
+    extra(LIGHTNING_ROD, lightningRodTriggers(state, seat, answered));
   }
   triggers = Math.min(triggers, state.config.triggerCap);
   // An upgraded Mimic resolves what it copied at extra strength; chain strength is unaffected.
-  const bonus = effect.kind === "mimic" ? (effect.strengthBonus ?? 0) : 0;
+  const bonus = effect.kind === "mimic" ? (effect.strengthBonus ?? 0) + (side === "party" && seat !== ENEMY_SEAT ? mirrorStrength(state, seat) : 0) : 0;
   for (let i = 0; i < triggers; i++) {
-    trigger(state, resolved.effect, resolved.side, scaleLap, events, seat, d.id, i, bonus);
+    trigger(state, resolved.effect, resolved.side, scaleLap, events, seat, d.id, i, answered, bonus);
     if (state.phase === "over") return;
   }
 }
@@ -682,10 +681,12 @@ function trigger(
   seat: string,
   dominoId: string,
   index: number,
+  answered: Spark | null,
   strengthBonus = 0,
 ): void {
   const chain = state.chain;
   const strengthNow = chain.strength + strengthBonus;
+  const owner = side === "party" && seat !== ENEMY_SEAT ? seat : null; // whose charms apply
   if (effect.kind === "amplify") {
     const amount = effect.base ?? 0;
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: amount });
@@ -693,16 +694,21 @@ function trigger(
     events.push({ type: "amplify", amount, strength: chain.strength });
   } else if (effect.kind === "echo") {
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: 0 });
-    chain.echo += 1 + (effect.extraTriggers ?? 0);
+    chain.echo += 1 + (effect.extraTriggers ?? 0) + extraEchoTriggers(state, owner);
     events.push({ type: "echoPending", count: chain.echo });
   } else if (effect.kind === "lookout") {
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: 0 });
-    if (side === "party") lookout(state, Math.ceil(strengthNow / 2) + (effect.extraReveals ?? 0), events);
+    if (side === "party") lookout(state, Math.ceil(strengthNow / 2) + (effect.extraReveals ?? 0) + extraReveals(state, owner), events);
   } else {
     let strength = strengthNow;
-    if (effect.spectrum) strength += spectrumBonus(chain.history);
+    if (effect.spectrum) strength += spectrumBonus(chain.history) + extraSpectrum(state, owner);
     let value = (effect.base ?? 0) * strength;
-    if (scaleLap) value *= chain.lap;
+    if (scaleLap) value *= chain.lap + extraLap(state, owner);
+    // Flat charm bonuses come last: the lens of the spark that set this domino off, and Bulwark.
+    if (owner !== null) {
+      value += lensBonus(state, owner, answered);
+      if (effect.kind === "block") value += blockBonus(state, owner);
+    }
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value });
     resolve(state, effect, value, side, events);
   }
