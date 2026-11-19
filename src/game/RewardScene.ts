@@ -7,6 +7,7 @@ import { drawPartyHud, drawRunHeader } from "./partyHud";
 import { actingSeat, currentRun, nextPending, seatName, submitRunChoice, watchRun } from "./runSession";
 import { charmWithTip, charmsByIds } from "./charmUi";
 import { Tooltip } from "./tooltip";
+import { artImage } from "./art";
 import { button, drawBackground, label } from "./ui";
 
 // Victory and domino choice screen (#52). Draws the run's reward state and sends picks to the
@@ -96,6 +97,7 @@ export class RewardScene extends Phaser.Scene {
         g.strokeRoundedRect(30, y, 1860, rowH - 10, 18);
       }
       label(this, 60, cy - 30, seatName(id), isActive ? 40 : 30, { bold: true, color: isActive ? "#ffe14d" : "#ffffff" });
+      artImage(this, "ui/coin", 44, cy + 26, 24, 24);
       label(this, 60, cy + 12, `+${reward.coinsEarned[id] ?? 0} coins  (${run.coins[id] ?? 0} total)`, isActive ? 26 : 22, { color: "#ffe9a0" });
       const done = choice !== undefined && (charmOffer === undefined || charmChoice !== undefined);
       const status = !done ? (isActive || online ? "choosing" : "waiting") : choice === SKIP ? "skipped" : "picked";

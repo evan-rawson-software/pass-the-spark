@@ -29,7 +29,7 @@ export type ClientMessage =
 export type HostMessage =
   | { type: "welcome"; seat: string; token: string }
   | { type: "refused"; reason: string }
-  | { type: "lobby"; players: { seat: string; name: string; away?: boolean }[]; seats: string[] }
+  | { type: "lobby"; players: { seat: string; name: string; level: number; away?: boolean }[]; seats: string[] }
   | { type: "update"; view: BattleView; events: GameEvent[] }
   // The run outside its battles: the state after a step, and the run's own events from it. Sent to
   // everyone after every step that is not a move inside a battle, and when a player (re)joins.

@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { loadContent } from "../engine/content";
 import type { Charm } from "../engine/types";
+import { artImage } from "./art";
 import { Tooltip } from "./tooltip";
 import { label } from "./ui";
 
@@ -23,6 +24,13 @@ export function charmsByIds(ids: string[]): Charm[] {
 
 // One icon, centred on its container's origin, `size` pixels across.
 export function charmIcon(scene: Phaser.Scene, charm: Charm, size: number): Phaser.GameObjects.Container {
+  const art = artImage(scene, `charms/${charm.id}`, 0, 0, size, size);
+  if (art) {
+    const c = scene.add.container(0, 0, [art]);
+    c.setSize(size, size);
+    return c;
+  }
+  const framed = artImage(scene, charm.pool === "rare" ? "ui/charm_rare" : "ui/charm_normal", 0, 0, size, size);
   const color = COLORS[Math.max(0, allCharms().findIndex((c) => c.id === charm.id)) % COLORS.length];
   const r = size / 2;
   const g = scene.add.graphics();
@@ -42,10 +50,11 @@ export function charmIcon(scene: Phaser.Scene, charm: Charm, size: number): Phas
     g.fillCircle(0, 0, r);
     g.strokeCircle(0, 0, r);
   }
+  if (framed) g.destroy();
   const letter = scene.add
     .text(0, 0, charm.name.charAt(0), { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${Math.round(size * 0.5)}px`, color: "#2a2a2a", fontStyle: "bold" })
     .setOrigin(0.5);
-  const c = scene.add.container(0, 0, [g, letter]);
+  const c = scene.add.container(0, 0, [framed ?? g, letter]);
   c.setSize(size, size);
   return c;
 }
