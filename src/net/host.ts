@@ -389,6 +389,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
       run = null;
       controlled.clear();
       clearPause();
+      save();
       sendLobby();
     },
     getState() {
