@@ -1,4 +1,6 @@
 {
+  "startingCoins": 50,
+  "battleCoins": { "fight": 10, "elite": 25, "boss": 50 },
   "acts": [
     {
       "id": "act1",
