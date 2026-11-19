@@ -29,6 +29,7 @@ import { debugPanel } from "./DebugPanel";
 import type { DebugHost } from "./DebugPanel";
 import { SPEEDS, getPlaybackSpeed, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
 import { Animator, COMBO_METER_FULL, animTime, comboLook, hexString, newRefs, paintBar } from "./animations";
+import { activeTiers, heatColor } from "./heat";
 import { applyEvent, startShown } from "./shownView";
 import type { ShownTable } from "./shownView";
 
@@ -128,8 +129,8 @@ export class CombatScene extends Phaser.Scene {
     this.seed = this.inRun ? runSeed() : data.seed ?? dev.seed;
     this.layer = undefined;
     this.shown = null;
-    this.anim = new Animator(this, dominoes);
-    this.drawTable();
+    const dim = this.drawTable();
+    this.anim = new Animator(this, dominoes, dim);
     this.locked = false;
     this.sparkPrompt = null;
     this.hlSeat = null;
@@ -371,7 +372,8 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- table (drawn once) ----
 
-  private drawTable(): void {
+  // Returns the rectangle that dims the room at lap 2+ (heat ladder, #133): above the felt, below the dominoes.
+  private drawTable(): Phaser.GameObjects.Rectangle {
     const g = this.add.graphics();
     g.fillStyle(0x2e2016, 1);
     g.fillRect(0, 0, 1920, 1080);
@@ -388,6 +390,7 @@ export class CombatScene extends Phaser.Scene {
     g.fillRoundedRect(MAT.x, MAT.y, MAT.w, MAT.h, 60);
     g.lineStyle(3, 0x2f7a5b, 0.7);
     g.strokeRoundedRect(MAT.x, MAT.y, MAT.w, MAT.h, 60);
+    return this.add.rectangle(960, 540, 1920, 1080, 0x000000, 1).setAlpha(0);
   }
 
   // ---- small helpers ----
@@ -656,7 +659,9 @@ export class CombatScene extends Phaser.Scene {
     const g = this.gfx(layer);
     g.fillStyle(0x174c38, 0.6);
     g.fillRoundedRect(x, 135, SIDE_W, 170, 40);
-    g.lineStyle(3, 0x2f7a5b, 0.7);
+    // Hotter chains light the meter's border in the heat colour, thicker with each tier.
+    const tiers = activeTiers(strength, lap).length;
+    g.lineStyle(3 + tiers * 2, tiers > 1 ? heatColor(strength, lap) : 0x2f7a5b, tiers > 1 ? 1 : 0.7);
     g.strokeRoundedRect(x, 135, SIDE_W, 170, 40);
     this.label(layer, x + SIDE_W / 2, 160, `STRENGTH ${strength}  ×  LAP ${lap}`, 21, "#9fd1b8", 0.5, true);
     const look = comboLook(total);
@@ -676,6 +681,7 @@ export class CombatScene extends Phaser.Scene {
 
   private drawChain(layer: Layer, view: BattleView): void {
     const played = view.chain.played;
+    this.anim.heat.syncRoom(view.chain.strength, view.chain.lap);
     const hasSlot = view.phase !== "over";
     const innerW = MAT.w - 100;
     const innerH = MAT.h - 40;
@@ -712,6 +718,7 @@ export class CombatScene extends Phaser.Scene {
       }
       const c = this.domino(layer, p.domino, k, enemy ? "playedFaceUp" : "normal", x, y, undefined, { zone: "chain", index: i + hidden });
       this.anim.refs.chain.push({ c, pos: { x, y, k } });
+      this.anim.heat.decorate(c, view.chain.strength, view.chain.lap); // heat ladder: glowing dominoes
       if (k >= 0.5) {
         const tag = this.nameOf(p.seat, true, 10) + (i + hidden === 0 ? " (opener)" : "");
         this.label(layer, x, y + (DH * k) / 2 + 13, tag, 16, enemy ? "#ff9a94" : "#cfe9dc", 0.5, true);

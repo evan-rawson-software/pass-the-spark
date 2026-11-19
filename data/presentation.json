@@ -1,0 +1,18 @@
+{
+  "_comment": "The heat ladder (#133): chain spectacle tiers, read by screen code only. A tier is on while the chain's links (strength) and lap are both at least its minimums. The last tier that is on sets the colour.",
+  "tiers": [
+    { "id": "clack", "minLinks": 1, "minLap": 1, "color": "0xfff2c2" },
+    { "id": "trails", "minLinks": 4, "minLap": 1, "color": "0xffe14d" },
+    { "id": "sweep", "minLinks": 1, "minLap": 2, "color": "0xffb347" },
+    { "id": "shake", "minLinks": 7, "minLap": 1, "color": "0xff6a3d" },
+    { "id": "lightning", "minLinks": 1, "minLap": 3, "color": "0x9fe8ff" }
+  ],
+  "meter": { "full": 60, "maxScale": 1.5 },
+  "dimAlpha": 0.35,
+  "sweepMs": 700,
+  "trailMs": 350,
+  "lightningMs": 260,
+  "shake": { "ms": 220, "intensity": 0.004, "perLap": 0.002 },
+  "stackedNumbers": { "step": 34, "growth": 0.04, "ms": 1400 },
+  "slowMotion": { "timeScale": 0.35, "holdMs": 350 }
+}
