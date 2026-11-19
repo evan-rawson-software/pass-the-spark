@@ -14,13 +14,14 @@ export interface RollSpot {
 
 const STEPS = 14;
 
-export function playVoteRoll(scene: Phaser.Scene, spots: RollSpot[], counts: Record<number, number>, winner: number, onDone: () => void): void {
+export function playVoteRoll(scene: Phaser.Scene, spots: RollSpot[], counts: Record<number, number>, winner: number, onDone: () => void, place: (ring: Phaser.GameObjects.Graphics) => void = () => {}): void {
   const slots: number[] = [];
   for (const spot of spots) for (let i = 0; i < (counts[spot.option] ?? 0); i++) slots.push(spot.option);
   const last = slots.indexOf(winner);
   if (last < 0 || spots.length === 0) return onDone();
   const start = (((last - STEPS) % slots.length) + slots.length) % slots.length;
   const ring = scene.add.graphics().setDepth(50);
+  place(ring); // the map scrolls, so it puts the ring in its scrolling layer
   const show = (step: number): void => {
     const spot = spots.find((s) => s.option === slots[(start + step) % slots.length]);
     ring.clear();
