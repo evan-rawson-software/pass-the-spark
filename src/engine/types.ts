@@ -64,6 +64,7 @@ export interface Enemy {
 export interface Config {
   partyMaxHealth: number;
   playerDrawPerRound: number;
+  playerFirstDraw: number; // drawn in round 1 instead of playerDrawPerRound
   playerHandLimit: number;
   triggerCap: number;
   enemyReactionsScaleWithLap: boolean;

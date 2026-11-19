@@ -29,11 +29,12 @@ Approved by the designer from the style test (2026-11-19). Every batch uses thes
 
 - Icons: `flat vector game icon, a single centred symbol, thick bold black outline, flat solid colour fills, minimal cel shading, no gradients, no shadow, isolated on a plain flat pure white background, no text`
 - Spark runes: `flat rune glyph icon, an ancient runic symbol drawn with thick bold strokes, thick black outline around every stroke, one flat solid colour, no fill inside the shapes, no gradients, no shadow, isolated on a plain flat pure white background, no text`
+- Tiles: `flat vector game asset, top-down orthographic view, a single blank wide rectangular plaque exactly twice as wide as it is tall, rounded corners, filling the frame, thick bold black outline, flat solid colour fills, minimal cel shading, no gradients, no shadow, isolated on a plain flat pure white background, no text`. Say "plaque", not "domino": the word domino makes the model add pips and dividers. Add "the inner face is completely smooth, empty and unmarked" to the subject. Render at 1408×704 and stretch to exactly 480×240.
 - Enemies: `highly detailed fantasy character illustration, hand-painted tabletop fantasy art, intricate textures, crisp dark ink linework, warm lantern light with rim light, rich colour, clean readable silhouette, no ground shadow, isolated on a plain flat pure white background, no text`
 
 **Negative prompt:** `text, letters, words, numbers, watermark, signature, border, frame, multiple objects, photo, photorealistic, 3d render, blurry, cluttered background, gradient, drop shadow`. Flux schnell runs at CFG 1, so it ignores the negative prompt; it is logged for completeness, and the "no text, no shadow" wording in the style words is what counts.
 
-**Background removal:** icons remove the flat white background by colour, from the border inward (runes also clear enclosed white). If a pale ground shadow is left, widen the colour tolerance rather than using `rembg`, which can punch holes in flat icons. Enemies use `rembg` with the `isnet-general-use` model. Then crop to the subject, pad 8% and downscale.
+**Background removal:** icons remove the flat white background by colour, from the border inward (runes also clear enclosed white). If a pale ground shadow is left, widen the colour tolerance rather than using `rembg`, which can punch holes in flat icons. Enemies use `rembg` with the `isnet-general-use` model. Then crop to the subject, pad 8% and downscale. A PNG over budget can be reduced to 256 colours (Pillow `quantize`), which is usually invisible for flat art.
 
 **Approved style test examples:** `sparks/Ember.png`, `sparks/Tide.png`, `effects/damage.png`, `effects/block.png`, `enemies/ogre.png`, `charms/ember_lens.png`.
 - **Spark colours are fixed** (from `src/game/sparks.ts`). Anything tied to a spark uses its colour and shape:
@@ -59,7 +60,7 @@ Approved by the designer from the style test (2026-11-19). Every batch uses thes
 `spectrum` (rainbow prism), `ignores_block` (arrow through a shield), `no_lap` (crossed-out loop), `locked` (padlock), `blessed` (halo or sun), `coin`, `health` (heart), `block` (small shield), `charm_normal` (round frame), `charm_rare` (gold diamond frame).
 
 ### Domino tiles: `tiles/<id>.png`, 480×240, transparent
-`starter`, `common`, `uncommon`, `rare`, `enemy`, `hidden` (face-down back). An empty two-halved domino face with a divider line. The game draws the spark, effect icon and numbers on top, so leave the halves plain. Rarity can show in the frame (plain, silver, gold); enemy tiles look darker or menacing.
+`starter`, `common`, `uncommon`, `rare`, `enemy`, `hidden` (face-down back). A completely blank face with no divider lines: the game draws its own intake, effect and output columns, the sparks, effect icons and numbers on top. Keep the face light so dark numbers stay readable. Rarity can show in the frame (plain, silver, gold); enemy tiles look darker or menacing.
 
 ### Enemies: `enemies/<id>.png`, 768×768, transparent
 Portrait, head and shoulders or full body, facing slightly toward the viewer.
