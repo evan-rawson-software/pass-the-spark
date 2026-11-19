@@ -8,7 +8,6 @@ const SPARKS = ["Ember", "Tide", "Gale", "Storm", "Void", "Rot"];
 const EFFECT_KINDS = ["damage", "block", "heal", "amplify", "echo", "mimic", "reflect", "lookout"];
 const KINDS_WITH_BASE = ["damage", "block", "heal", "amplify"];
 const TIERS = ["basic", "elite", "boss"];
-const BASIC_SPARKS = ["Ember", "Tide", "Gale"];
 const RARITIES = ["common", "uncommon", "rare"];
 const BATTLE_TYPES = ["fight", "elite", "boss"];
 const POOL_KINDS = ["damage", "block", "amplify", "echo", "lookout", "mimic"]; // never heal or reflect
@@ -170,13 +169,22 @@ export function validatePools(data: unknown): Pools {
     }
     if (total <= 0) fail(file, `${id} ${type}`, "odds must not all be 0");
   }
+  const groups = data.sparkGroups;
+  if (!isObject(groups)) fail(file, id, `"sparkGroups" must be an object`);
+  for (const g of ["basic", "advanced"]) {
+    checkSparkList(file, `${id} sparkGroups`, g, groups[g]);
+    if ((groups[g] as string[]).includes("Rot")) fail(file, `${id} sparkGroups`, `"${g}" must not contain Rot`);
+  }
+  const basic = groups.basic as string[];
+  const advanced = groups.advanced as string[];
+  if (basic.some((s) => advanced.includes(s))) fail(file, `${id} sparkGroups`, "a spark can't be both basic and advanced");
   const rarities = data.rarities;
   if (!isObject(rarities)) fail(file, id, `"rarities" must be an object`);
   for (const rarity of RARITIES) {
     const pool = rarities[rarity];
     const pid = `${rarity} pool`;
     if (!isObject(pool)) fail(file, id, `"rarities" needs "${rarity}"`);
-    // Intakes: single spark or "any". No dual intakes. Rare-only parts stay out of lower pools.
+    // Intakes: common and uncommon take one basic spark; rare takes one advanced spark or "any". No dual intakes.
     if (!Array.isArray(pool.intakes) || pool.intakes.length === 0) fail(file, pid, `"intakes" must be a non-empty list`);
     for (const intake of pool.intakes as unknown[]) {
       if (intake === "any") {
@@ -186,8 +194,13 @@ export function validatePools(data: unknown): Pools {
       checkSparkList(file, pid, "intakes", intake);
       const sparks = intake as string[];
       if (sparks.length !== 1) fail(file, pid, "intakes must be a single spark (no dual intakes)");
-      if (rarity !== "rare" && !BASIC_SPARKS.includes(sparks[0])) fail(file, pid, `intake ${sparks[0]} is rare only`);
+      const allowed = rarity === "rare" ? advanced : basic;
+      if (!allowed.includes(sparks[0])) fail(file, pid, `${rarity} intake ${sparks[0]} must be ${rarity === "rare" ? "advanced" : "basic"}`);
     }
+    // Outputs are listed as basic sparks. Only uncommons swap some for advanced ones, by this share.
+    const share = pool.advancedOutputShare;
+    if (!isNumber(share) || (share as number) < 0 || (share as number) > 1) fail(file, pid, `"advancedOutputShare" must be a number from 0 to 1`);
+    if (rarity !== "uncommon" && share !== 0) fail(file, pid, `"advancedOutputShare" must be 0 (advanced outputs are uncommon only)`);
     const traits = pool.traits;
     if (!isObject(traits)) fail(file, pid, `"traits" must be an object`);
     for (const t of ["spectrum", "ignoresBlock"]) {
@@ -227,7 +240,7 @@ export function validatePools(data: unknown): Pools {
         checkSparkList(file, eid, "outputs", out);
         for (const spark of out as string[]) {
           if (spark === "Rot") fail(file, eid, "generated dominoes never output Rot");
-          if (rarity !== "rare" && !BASIC_SPARKS.includes(spark)) fail(file, eid, `output ${spark} is rare only`);
+          if (!basic.includes(spark as string)) fail(file, eid, `output ${spark} must be basic (uncommons get advanced ones from "advancedOutputShare")`);
         }
         if ((out as string[]).length > 2) fail(file, eid, "outputs have at most two sparks");
         if (rarity === "common" && (out as string[]).length !== 1) fail(file, eid, "common outputs one spark");

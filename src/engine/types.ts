@@ -88,10 +88,13 @@ export interface RarityPool {
   intakes: (Spark[] | "any")[]; // each entry is one intake; lists hold exactly one spark
   effects: PoolEffect[];
   traits: { spectrum: number; ignoresBlock: number }; // chance 0..1 per trait
+  // Chance 0..1 that each output spark is swapped for a random advanced spark. Uncommon only; 0 elsewhere.
+  advancedOutputShare: number;
 }
 
 export interface Pools {
   offerSize: number;
+  sparkGroups: { basic: Spark[]; advanced: Spark[] }; // Rot is in neither and is never generated
   // Weights per battle type; an offered domino's rarity is drawn from these.
   rarityOdds: Record<BattleType, Record<Rarity, number>>;
   rarities: Record<Rarity, RarityPool>;

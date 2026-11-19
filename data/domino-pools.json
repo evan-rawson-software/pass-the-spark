@@ -1,4 +1,15 @@
 {
+  "sparkGroups": {
+    "basic": [
+      "Ember",
+      "Tide",
+      "Gale"
+    ],
+    "advanced": [
+      "Storm",
+      "Void"
+    ]
+  },
   "offerSize": 3,
   "rarityOdds": {
     "fight": {
@@ -88,7 +99,8 @@
             ]
           ]
         }
-      ]
+      ],
+      "advancedOutputShare": 0
     },
     "uncommon": {
       "intakes": [
@@ -278,19 +290,11 @@
             ]
           ]
         }
-      ]
+      ],
+      "advancedOutputShare": 0.3
     },
     "rare": {
       "intakes": [
-        [
-          "Ember"
-        ],
-        [
-          "Tide"
-        ],
-        [
-          "Gale"
-        ],
         [
           "Storm"
         ],
@@ -330,12 +334,6 @@
               "Gale"
             ],
             [
-              "Storm"
-            ],
-            [
-              "Void"
-            ],
-            [
               "Ember",
               "Tide"
             ],
@@ -346,26 +344,6 @@
             [
               "Gale",
               "Ember"
-            ],
-            [
-              "Ember",
-              "Storm"
-            ],
-            [
-              "Tide",
-              "Void"
-            ],
-            [
-              "Gale",
-              "Storm"
-            ],
-            [
-              "Ember",
-              "Void"
-            ],
-            [
-              "Storm",
-              "Void"
             ]
           ]
         },
@@ -394,12 +372,6 @@
               "Gale"
             ],
             [
-              "Storm"
-            ],
-            [
-              "Void"
-            ],
-            [
               "Ember",
               "Tide"
             ],
@@ -410,26 +382,6 @@
             [
               "Gale",
               "Ember"
-            ],
-            [
-              "Ember",
-              "Storm"
-            ],
-            [
-              "Tide",
-              "Void"
-            ],
-            [
-              "Gale",
-              "Storm"
-            ],
-            [
-              "Ember",
-              "Void"
-            ],
-            [
-              "Storm",
-              "Void"
             ]
           ]
         },
@@ -452,12 +404,6 @@
             ],
             [
               "Gale"
-            ],
-            [
-              "Storm"
-            ],
-            [
-              "Void"
             ]
           ]
         },
@@ -476,12 +422,6 @@
             ],
             [
               "Gale"
-            ],
-            [
-              "Storm"
-            ],
-            [
-              "Void"
             ]
           ]
         },
@@ -500,12 +440,6 @@
             ],
             [
               "Gale"
-            ],
-            [
-              "Storm"
-            ],
-            [
-              "Void"
             ]
           ]
         },
@@ -524,16 +458,11 @@
             ],
             [
               "Gale"
-            ],
-            [
-              "Storm"
-            ],
-            [
-              "Void"
             ]
           ]
         }
-      ]
+      ],
+      "advancedOutputShare": 0
     }
   }
 }

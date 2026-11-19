@@ -7,6 +7,8 @@ import type { Rarity } from "../src/engine/types";
 test("generated dominoes pass validation and respect the pool rules", () => {
   const { pools } = loadContent();
   const basic = ["Ember", "Tide", "Gale"];
+  const advanced = ["Storm", "Void"];
+  let uncommonAdvancedOutputs = 0;
   let state = 12345;
   let index = 0;
   for (const rarity of ["common", "uncommon", "rare"] as Rarity[]) {
@@ -18,10 +20,17 @@ test("generated dominoes pass validation and respect the pool rules", () => {
       expect(d.rarity).toBe(rarity);
       if (d.intake !== "any") expect(d.intake.length).toBe(1);
       expect(["heal", "reflect"]).not.toContain(d.effect.kind);
-      if (rarity !== "rare") {
-        const sparks = [...(d.intake === "any" ? ["any"] : d.intake), ...d.output];
-        expect(sparks.every((s) => basic.includes(s))).toBe(true);
+      if (rarity === "rare") {
+        expect(d.intake === "any" || advanced.includes(d.intake[0])).toBe(true);
+        expect(d.output.every((s) => basic.includes(s))).toBe(true);
+      } else {
+        expect(basic).toContain((d.intake as string[])[0]);
         expect(d.effect.kind).not.toBe("mimic");
+      }
+      if (rarity === "common") expect(d.output.every((s) => basic.includes(s))).toBe(true);
+      if (rarity === "uncommon") {
+        expect(d.output.every((s) => basic.includes(s) || advanced.includes(s))).toBe(true);
+        if (d.output.some((s) => advanced.includes(s))) uncommonAdvancedOutputs++;
       }
       if (rarity === "common") {
         expect(d.output.length).toBe(1);
@@ -30,4 +39,5 @@ test("generated dominoes pass validation and respect the pool rules", () => {
       }
     }
   }
+  expect(uncommonAdvancedOutputs).toBeGreaterThan(0);
 });
