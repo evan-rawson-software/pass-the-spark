@@ -119,22 +119,37 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 ## 2026-11-19: Milestone 4 (the run)
 
 - **Run rules:** in the headless engine, deterministic from a seed and host-authoritative, like combat.
-- **Map:** one act of 10 floors plus the boss, generated from the seed, with 3-4 branching paths. Floors 1-3 are always normal fights. Elites appear only from floor 5. Rest sites sit on fixed floors (Slay the Spire style). The mix of other stops is set in data.
+- **Map:** one act of 10 floors plus the boss, generated from the seed, with 3-4 branching paths.
+  - Floors 1-3 are always normal fights. Elites appear only from floor 5.
+  - Rest sites: always on floors 6 and 10 (floor 10 is right before the boss). Random rest sites are rare, can appear from floor 4 but never on floor 9, and no path has more than 3 rest sites in total.
+  - Traders: at most 2 on any path, and at least 1 per act.
+  - Events: none until milestone 5 (their share is 0 in data).
+  - The mix of other stops is set in data.
 - **Acts:** M4 builds one act. The run will eventually have 3 acts, and winning means beating all 3 bosses, so the run structure takes the act list from data.
 - **Route votes:** the party votes at each fork; ties are broken at random (seeded). Online, votes are simultaneous and visible live; in single player they're taken in turn. A rolling animation for ties can come later.
 - **Seating:** the enemy's seat stays fixed (last). Players rotate one seat per battle. The lead order still carries over between battles.
 - **Health:** party health carries over between battles. Reaching 0 loses the run; beating the final boss wins it.
 - **Saving:** the host's saved room covers the whole run.
 - **Rewards:** after every battle, each player gets their own offer of 3 dominoes, picks one or skips, and everyone picks at the same time. Rarity: common, uncommon, rare. Elites give better odds; the boss always offers rares. Offers come from everything until unlocks exist.
-- **Generated dominoes:** dominoes outside the starter deck are generated at runtime from pools, not hand-authored. A domino's left side (intake) and right side (effect + output) are each drawn from the pool for its rarity. Rarer dominoes use different pools. Generation uses the run's seeded RNG. May be revisited.
+- **Generated dominoes:** dominoes outside the starter deck are generated at runtime from pools, not hand-authored. A domino's left side (intake) and right side (effect + output) are each drawn from the pool for its rarity. Generation uses the run's seeded RNG. May be revisited.
+  - Common: intake is one basic spark. Right side is damage or block, giving off one basic spark.
+  - Uncommon: intake is one basic spark. Right side is a stronger damage or block, Amplify, Echo or Lookout, or two basic output sparks.
+  - Rare: intake is one spark (basic, Storm or Void) or "any". Right side adds Mimic and Spectrum, and outputs may include Storm or Void.
+  - No generated domino has a dual intake. Dual intakes come only from upgrades.
+  - No generated domino heals. Party healing comes from rest sites only.
+  - Spectrum and "ignores block" can be rolled as traits at the uncommon and rare tiers.
+  - Names are generated from effect and spark (for example "Tide Strike").
+  - Base values per effect and rarity live in data. The starter deck stays as written in the brief.
+- **Enemies:** hand-authored, not generated. For M4: 4 normal enemies, 2 elites, and the act boss (chosen at random from the Auditor and the Glutton, and shown on the map from the start).
 - **Charms:** not in M4.
 - **Coins:** personal. Every battle pays some (normal < elite < boss), and players start with some. All amounts in data.
 - **Rest sites:** each player chooses rest or upgrade. Each resting player heals the shared party health by a data-set amount, and those heals add up.
 - **Upgrades:** each side of a domino can be upgraded once, so at most 2 upgrades per domino.
   - Left side: a single-spark intake becomes dual. The player picks the second spark from the spark pool for that domino's rarity, excluding the original spark.
-  - Right side: the effect is upgraded (stronger).
+  - Right side: the effect is upgraded (stronger). It never adds an output spark. Numbered effects get +50%, rounded up. Amplify +1. Echo +1 extra trigger. Lookout +1 domino revealed. Mimic copies at +1 strength. All in data.
+  - A domino whose intake is already "any" can't take a left-side upgrade.
   - Upgrades come only from rest sites.
-- **Trader:** each player has their own stock of dominoes for sale and can pay to remove a domino, with the fee rising each time. No gifting to teammates, and no selling upgrades. Charms come to the Trader later.
+- **Trader:** each player has their own stock of 5 generated dominoes, priced by rarity, and can pay to remove a domino. The removal fee starts low and rises by a set step each time. All prices in data. No gifting to teammates, and no selling upgrades. Charms come to the Trader later.
 - **Events:** moved to the next milestone.
 - **Screens:** map with live votes, victory and domino choice, rest site, upgrade (before-and-after preview), Trader, deck viewer (any player's deck, grouped by intake spark). Party health at the top right on every screen. Event screens come next milestone.
 - **Single player:** keeps working. One person plays the whole run by controlling 3 or 4 seats.
