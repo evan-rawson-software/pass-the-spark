@@ -207,7 +207,8 @@ export async function createHost(options: HostOptions): Promise<Host> {
   function lobbyMessage(): HostMessage {
     return {
       type: "lobby",
-      players: members.map((m) => ({ seat: m.seat, name: m.name, away: !m.connected })),
+      // level is display only: one unlock per level, so the (cleaned) unlocks a player sent say which level they are
+      players: members.map((m) => ({ seat: m.seat, name: m.name, level: (m.local ? cleanUnlocks(options.unlocks()) : m.unlocks).length, away: !m.connected })),
       seats: members.map((m) => m.seat),
     };
   }

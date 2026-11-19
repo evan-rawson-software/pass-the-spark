@@ -190,5 +190,5 @@ export interface EventData {
 // data/progression.json: experience amounts and the levels. Level N needs levels[N-1].experience in total and unlocks levels[N-1].unlock.
 export interface ProgressionData {
   experience: { perFloor: number; perBoss: number; forWin: number };
-  levels: { experience: number; unlock: string }[];
+  levels: { experience: number; unlock: string; name: string; description: string }[];
 }
