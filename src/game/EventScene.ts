@@ -14,7 +14,7 @@ import { scaleTime } from "./playbackSpeed";
 import { playRunEventSounds } from "./sound";
 import { drawPartyHud, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
-import { coinButton, coinLine } from "./coinIcon";
+import { coinButton, coinLine, coinParts } from "./coinIcon";
 import type { CoinPart } from "./coinIcon";
 import { Tooltip } from "./tooltip";
 import { playVoteRoll } from "./voteRoll";
@@ -272,7 +272,7 @@ export class EventScene extends Phaser.Scene {
       event.options.forEach((option, i) => {
         const why = personalUnavailable(run, player, i);
         coinButton(this, TEXT_X, y, optionText(option), () => this.chooseOption(run, player, event, i), { size: 32, disabled: why !== null || this.resolving });
-        if (why !== null) label(this, TEXT_X + 640, y, why, 26, { color: "#ffb4a2" });
+        if (why !== null) coinLine(this, TEXT_X + 640, y, coinParts(why), 26, { color: "#ffb4a2" });
         y += 80;
       });
     }

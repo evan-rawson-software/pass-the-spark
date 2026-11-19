@@ -11,13 +11,14 @@ import { playSound } from "./sound";
 export type CoinPart = string | number;
 
 // Splits data text such as "You get +5 coins after every battle." into parts. A string with no
-// "N coins" comes back as one string part.
+// "N coins" comes back as one string part. "costs N" counts too: the engine's refusal reasons
+// ("has 3 coins, removal costs 15") use it for a price.
 export function coinParts(text: string): CoinPart[] {
   const parts: CoinPart[] = [];
   let last = 0;
-  for (const m of text.matchAll(/(\d+) coins?\b/g)) {
+  for (const m of text.matchAll(/(\d+) coins?\b|(?<=\bcosts )(\d+)/g)) {
     if (m.index > last) parts.push(text.slice(last, m.index));
-    parts.push(Number(m[1]));
+    parts.push(Number(m[1] ?? m[2]));
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));

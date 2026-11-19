@@ -7,7 +7,7 @@ import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { drawDomino } from "./dominoDrawing";
 import { charmWithTip, charmsByIds } from "./charmUi";
 import { artBackground } from "./art";
-import { coinButton, coinLine } from "./coinIcon";
+import { coinButton, coinLine, coinParts } from "./coinIcon";
 import { Tooltip } from "./tooltip";
 import { button, label } from "./ui";
 
@@ -129,7 +129,7 @@ export class TraderScene extends Phaser.Scene {
       const removeWhy = refusal(run, player, { kind: "remove", domino: deck[0] });
       add(coinLine(this, 60, 700, ["Remove a domino: fee ", fee, ", rising by ", data.removalFeeStep, " after each removal"], 28, { color: "#cfe9dc" }));
       add(button(this, 1500, 700, this.removing ? "Close deck" : "Open deck", () => { this.removing = !this.removing; this.selected = null; this.scroll = 0; this.render(); }, { size: 28 }));
-      if (removeWhy) add(label(this, 60, 745, `Can't remove now: ${removeWhy}`, 24, { color: "#ff9d7a" }));
+      if (removeWhy) add(coinLine(this, 60, 745, ["Can't remove now: ", ...coinParts(removeWhy)], 24, { color: "#ff9d7a" }));
       if (this.removing) this.drawDeck(run, player, deck, removeWhy, fee, add);
     } else {
       add(button(this, 60, 700, "Back to your stock", () => { this.viewing = null; this.render(); }, { size: 30 }));

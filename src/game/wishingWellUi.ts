@@ -27,7 +27,6 @@ export function prizeParts(kind: PrizeKind | "none", data: EventData): CoinPart[
 }
 
 export function prizeText(kind: PrizeKind | "none", data: EventData): string {
-  if (kind === "coins") return `${data.numbers.coinPrize} coins`;
   if (kind === "remove") return "remove a domino from your deck";
   if (kind === "upgrade") return "a free upgrade";
   if (kind === "rare") return "a choice of rare dominoes";
