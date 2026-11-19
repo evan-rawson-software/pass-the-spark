@@ -14,6 +14,8 @@ import { applyRunChoice } from "../engine/run";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import type { DominoState } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
+import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
+import { button } from "./ui";
 import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
 import { describeEvent, eventDelay, newLogMemory } from "./eventLog";
@@ -127,6 +129,8 @@ export class CombatScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.tooltip = new Tooltip(this);
+    // The deck viewer (#55), read-only; the draw pile is not shown in order.
+    button(this, RIGHT_X + 190, 48, "Decks", () => openDeckViewer(this, battleDeckPlayers(this.view, (id) => this.nameOf(id, false)), this.view.players.find((q) => q.id === this.tipPlayer)?.id), { size: 22, origin: 1 }).setDepth(500);
     if (this.online) {
       this.logText.setText(`Round ${data.online!.view.round}: ${this.nameOf(data.online!.view.lead, false)} leads`);
       this.setView(this.online.view);

@@ -13,6 +13,7 @@ import { HostLobbyScene } from "./HostLobbyScene";
 import { JoinScene } from "./JoinScene";
 import { DominoTestScene } from "./DominoTestScene";
 import { TitleScene } from "./TitleScene";
+import { DeckScene } from "./deckViewer";
 import { debugPanel } from "./DebugPanel";
 
 // The menu is the default; a link with ?room=CODE opens the join screen. Dev query params (see devBattle.ts) skip it and
@@ -28,7 +29,7 @@ const first =
   : MenuScene;
 const scenes = [
   first,
-  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, TraderScene, RunEndScene, TitleScene, DominoTestScene].filter(
+  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, TraderScene, RunEndScene, DeckScene, TitleScene, DominoTestScene].filter(
     (s) => s !== first,
   ),
 ];
