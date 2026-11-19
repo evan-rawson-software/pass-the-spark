@@ -31,6 +31,7 @@ export interface EnemyState {
   block: number;
   deck: string[];
   hand: string[]; // oldest on the left
+  revealed: boolean[]; // revealed[i] is true when hand[i] is revealed to the players
   discard: string[];
   drawPerRound: number;
   handLimit: number;
@@ -141,6 +142,7 @@ export function createBattle(setup: BattleSetup): BattleState {
       block: 0,
       deck: es.value,
       hand: [],
+      revealed: [],
       discard: [],
       drawPerRound: enemyDef.drawPerRound,
       handLimit: enemyDef.handLimit,
@@ -280,7 +282,7 @@ function draw(
   for (let i = 0; i < count; i++) {
     if (p.hand.length >= limit) {
       if (!enemy) break;
-      const old = p.hand.shift() as string;
+      const old = removeEnemyDomino(enemy, 0);
       p.discard.push(old);
       enemy.faceUp.push(old);
     }
@@ -292,7 +294,30 @@ function draw(
       if (enemy) enemy.faceUp = [];
     }
     if (p.deck.length === 0) break;
-    p.hand.push(p.deck.shift() as string);
+    if (enemy) addEnemyDomino(enemy, p.deck.shift() as string);
+    else p.hand.push(p.deck.shift() as string);
+  }
+}
+
+// Every change to the enemy's hand goes through these two, so `revealed` stays in step.
+function addEnemyDomino(enemy: EnemyState, id: string): void {
+  enemy.hand.push(id);
+  enemy.revealed.push(false);
+}
+
+function removeEnemyDomino(enemy: EnemyState, index: number): string {
+  enemy.revealed.splice(index, 1);
+  return enemy.hand.splice(index, 1)[0];
+}
+
+// Reveal the leftmost `count` hidden enemy dominoes.
+function lookout(state: BattleState, count: number): void {
+  const enemy = state.enemy;
+  for (let i = 0; i < enemy.hand.length && count > 0; i++) {
+    if (!enemy.revealed[i]) {
+      enemy.revealed[i] = true;
+      count -= 1;
+    }
   }
 }
 
@@ -323,7 +348,7 @@ function react(state: BattleState): void {
     const d = getDomino(state, enemy.hand[i]);
     const sparks = answeredSparks(d, state.chain.sparks);
     if (sparks.length > 0) {
-      enemy.hand.splice(i, 1);
+      removeEnemyDomino(enemy, i);
       enemy.discard.push(d.id);
       enemy.faceUp.push(d.id);
       play(state, d, sparks[0], false);
@@ -367,6 +392,8 @@ function trigger(state: BattleState, effect: Effect, side: Side, scaleLap: boole
     chain.strength += effect.base ?? 0;
   } else if (effect.kind === "echo") {
     chain.echo += 1;
+  } else if (effect.kind === "lookout") {
+    if (side === "party") lookout(state, Math.ceil(chain.strength / 2));
   } else {
     let strength = chain.strength;
     if (effect.spectrum) {
