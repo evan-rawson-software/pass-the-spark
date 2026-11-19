@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { getPendingRunChoices } from "../engine/run";
 import type { RunState } from "../engine/run";
 import { openDeckViewer, runDeckPlayers } from "./deckViewer";
-import { actingSeat, isOnlineRun, myPending, onlineRun, seatName, seatNames } from "./runSession";
+import { actingSeat, isOnlineRun, onlineRun, seatName, seatNames } from "./runSession";
 import { relay } from "./relay";
 import { artImage } from "./art";
 import { drawBlessedGlow } from "./sparkShrineArt";
@@ -17,8 +17,6 @@ import { FONT, button, label } from "./ui";
 export function drawPartyHud(scene: Phaser.Scene, run: RunState): void {
   const x = 1565;
   label(scene, x, 48, "Party", 24, { bold: true, color: "#9fd1b8" });
-  // The deck viewer (#55) opens from here on every run screen.
-  button(scene, x + 190, 48, "Decks", () => openDeckViewer(scene, runDeckPlayers(run), myPending(run)?.player), { size: 22, origin: 1 });
   const g = scene.add.graphics();
   g.fillStyle(0x0d2a20, 1);
   g.fillRoundedRect(x, 68, 190, 34, 17);
@@ -40,8 +38,8 @@ export function drawPartyHud(scene: Phaser.Scene, run: RunState): void {
   }
   const acting = actingSeat(run);
   if (acting !== null && acting !== onlineRun()?.seat) label(scene, x, 175, `Playing for ${seatName(acting)}`, 24, { bold: true, color: "#ffe14d" });
-  // Everyone's charms, by their names (#108).
-  drawPartyCharms(scene, run.players, seatNames(), run.charms);
+  // Everyone's charms, by their names (#108); clicking a name opens the deck viewer.
+  drawPartyCharms(scene, run.players, seatNames(), run.charms, (seat) => openDeckViewer(scene, runDeckPlayers(run), seat)); // a name opens that player's deck (#171)
   drawPause(scene);
 }
 

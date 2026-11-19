@@ -141,8 +141,6 @@ export class CombatScene extends Phaser.Scene {
     this.handSeat = null;
     this.tooltip = new Tooltip(this);
     this.pings = new PingMarks(this);
-    // The deck viewer (#55), read-only; the draw pile is not shown in order.
-    button(this, RIGHT_X + 190, 48, "Decks", () => openDeckViewer(this, battleDeckPlayers(this.view, (id) => this.nameOf(id, false)), this.view.players.find((q) => q.id === this.tipPlayer)?.id), { size: 22, origin: 1 }).setDepth(500);
     if (this.online) {
       this.setView(this.online.view);
       const handler = (m: HostMessage) => this.onMessage(m);
@@ -497,7 +495,8 @@ export class CombatScene extends Phaser.Scene {
   }
 
   // A seat's name plate; the seat on turn glows.
-  private plate(layer: Layer, cx: number, cy: number, text: string, onTurn: boolean, fontSize = 26): void {
+  // A seat id as `deckSeat` makes the plate open that player's deck (#171).
+  private plate(layer: Layer, cx: number, cy: number, text: string, onTurn: boolean, fontSize = 26, deckSeat?: string): void {
     const t = this.label(layer, cx, cy, text, fontSize, onTurn ? "#2a2200" : "#ffffff", 0.5, true);
     const w = t.width + 36;
     const h = fontSize + 18;
@@ -512,6 +511,14 @@ export class CombatScene extends Phaser.Scene {
     g.fillRoundedRect(cx - w / 2, cy - h / 2, w, h, h / 2);
     layer.add(g);
     layer.bringToTop(t);
+    if (deckSeat !== undefined) this.deckZone(layer, cx, cy, w, h, deckSeat);
+  }
+
+  // A click area that opens the deck viewer on one player's tab. The viewer shows everyone's deck.
+  private deckZone(layer: Layer, cx: number, cy: number, w: number, h: number, seat: string): void {
+    const z = this.add.zone(cx, cy, w, h).setInteractive({ useHandCursor: true });
+    z.on("pointerdown", () => openDeckViewer(this, battleDeckPlayers(this.view, (id) => this.nameOf(id, false)), seat));
+    layer.add(z);
   }
 
   // ---- enemy (top) ----
@@ -788,7 +795,7 @@ export class CombatScene extends Phaser.Scene {
     const you = this.online ? (p.id === this.online.seat ? " (you)" : " (playing for)") : "";
     // The plate sits on the hand's top edge so its charm row fits between it and the dominoes. The row
     // starts at the plate's left edge, leaving the area left of the hand free.
-    this.plate(layer, HAND.x + 110, HAND.y - 2, this.nameOf(p.id, true, 9) + you, onTurn, 28);
+    this.plate(layer, HAND.x + 110, HAND.y - 2, this.nameOf(p.id, true, 9) + you, onTurn, 28, p.id);
     this.plateCharms(layer, p.id, p.charms, HAND.x + 70, HAND.y + 32, 20, false);
     let hint = pendingType === "opener" ? "Play an opener" : pendingType === "answer" ? "Answer the spark" : "";
     if (this.online && view.phase !== "over" && !this.locked) {
@@ -801,7 +808,9 @@ export class CombatScene extends Phaser.Scene {
     } else {
       this.label(layer, HAND.x + 240, HAND.y - 2, `${hint}${hint ? "   ·   " : ""}Discard ${p.discard.length}`, 22, "#cfe9dc", 0);
     }
-    drawDeckStack(this, layer, this.anim.refs, p.id, this.view.dominoes[0], HAND.x + HAND.w - 70, HAND.y + 14, p.deck.length);
+    // The deck pile, face down to the left of the hand (#171); clicking it opens this player's deck.
+    drawDeckStack(this, layer, this.anim.refs, p.id, this.view.dominoes[0], HAND.x - 75, HAND.y + 110, p.deck.length);
+    this.deckZone(layer, HAND.x - 75, HAND.y + 100, 110, 80, p.id);
     if (p.hand.length === 0) {
       this.label(layer, HAND.x + HAND.w / 2, HAND.y + 130, "No dominoes in hand", 28, "#7fb59b", 0.5);
       return;
@@ -1029,7 +1038,7 @@ export class CombatScene extends Phaser.Scene {
   private drawTeammate(layer: Layer, view: BattleView, id: string, x: number, y: number, h: number): void {
     const p = view.players.find((q) => q.id === id);
     if (!p) return;
-    this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), this.online !== null && view.phase !== "over" && this.turnSeat === p.id, 26);
+    this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), this.online !== null && view.phase !== "over" && this.turnSeat === p.id, 26, p.id);
     // A row of charm icons under the plate pushes the discard line, the deck pile and the hand down.
     const extra = p.charms.length > 0 ? 28 : 0;
     this.plateCharms(layer, p.id, p.charms, x + SIDE_W / 2, y + 58, 22);
