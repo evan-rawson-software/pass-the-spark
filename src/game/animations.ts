@@ -170,7 +170,7 @@ export class Animator {
   refs: Refs = newRefs();
   private anchor: Box | null = null; // where the domino whose effect is going off sits
 
-  constructor(private scene: Phaser.Scene, private dominoes: Domino[]) {}
+  constructor(private scene: Phaser.Scene, public dominoes: Domino[]) {}
 
   // Plays an event's animation. `apply` updates the shown table and redraws it; it is called once,
   // after any "before" animation (the chain clearing) and before the "after" ones.

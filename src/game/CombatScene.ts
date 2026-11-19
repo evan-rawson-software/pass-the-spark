@@ -9,6 +9,8 @@ import type { Client } from "../net/client";
 import type { Host } from "../net/host";
 import type { HostMessage } from "../net/protocol";
 import { relay } from "./relay";
+import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
+import { applyRunChoice } from "../engine/run";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import type { DominoState } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
@@ -27,6 +29,9 @@ import type { ShownTable } from "./shownView";
 // whose turn it is and which dominoes are playable). No rules live here.
 // Clicking submits only choices getPendingChoice offers, then the step's events play back in
 // order (see playback below), animated by animations.ts. Tooltips come from tooltip.ts.
+//
+// Run mode (#50): started with { run: true }, the battle is the current run's. Choices go to
+// applyRunChoice, and when the battle is over the run's phase says which screen opens next.
 //
 // One scene serves both modes (#34). Single player owns the BattleState and steps it itself.
 // Online, the scene never has a BattleState: it holds the latest BattleView and plays back the
@@ -86,6 +91,7 @@ export class CombatScene extends Phaser.Scene {
   private anim!: Animator;
   private shown: ShownTable | null = null; // the table part-way through a step; null when idle
   private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
+  private inRun = false; // single player inside a run
   private fromQuery = false; // the setup came from the dev query params
 
   constructor() {
@@ -94,18 +100,19 @@ export class CombatScene extends Phaser.Scene {
 
   // Started by the start or end screen with { settings, seed }. With no data
   // (page opened with dev query params) the setup comes from the query.
-  create(data: { settings?: GameSettings; seed?: number; devQuery?: boolean; online?: OnlineData }): void {
+  create(data: { settings?: GameSettings; seed?: number; devQuery?: boolean; online?: OnlineData; run?: boolean }): void {
     const query = new URLSearchParams(window.location.search);
     const dev = devSettings(query);
     this.epoch++;
     this.online = data.online ?? null;
+    this.inRun = data.run === true;
     this.state = null;
     this.waiting = false;
     this.queue = [];
     this.draining = false;
-    this.fromQuery = !this.online && (!data.settings || data.devQuery === true);
+    this.fromQuery = !this.online && !this.inRun && (!data.settings || data.devQuery === true);
     this.settings = data.settings ?? dev.settings;
-    this.seed = data.seed ?? dev.seed;
+    this.seed = this.inRun ? runSeed() : data.seed ?? dev.seed;
     this.layer = undefined;
     this.shown = null;
     this.anim = new Animator(this, dominoes);
@@ -128,6 +135,8 @@ export class CombatScene extends Phaser.Scene {
       this.events.once("shutdown", () => {
         if (relay.handler === handler) relay.handler = null;
       });
+    } else if (this.inRun) {
+      this.setState(currentRun().battle!);
     } else {
       this.setState(startBattle(this.settings, this.seed, this.fromQuery ? query : undefined));
     }
@@ -141,8 +150,17 @@ export class CombatScene extends Phaser.Scene {
             getSeed: () => this.seed,
             readOnly: online !== null,
             isLocked: () => this.locked,
-            restart: (seed) => this.scene.restart({ settings: this.settings, seed, devQuery: this.fromQuery }),
-            setState: (state) => this.setState(state),
+            restart: (seed) => {
+              // In a run, a new seed starts a new run with the same names.
+              if (this.inRun) {
+                startSingleRun(currentRun().players, seed);
+                openRunScreen(this);
+              } else this.scene.restart({ settings: this.settings, seed, devQuery: this.fromQuery });
+            },
+            setState: (state) => {
+              if (this.inRun) setRun({ ...currentRun(), battle: state });
+              this.setState(state);
+            },
             redraw: () => this.redraw(),
           };
     if (host) debugPanel.attach(host);
@@ -161,11 +179,16 @@ export class CombatScene extends Phaser.Scene {
   // The one entry point for a new view (single player: from setState; online: from the host).
   private setView(view: BattleView): void {
     this.view = view;
+    this.anim.dominoes = view.dominoes; // run dominoes (instances, generated) are not in data/dominoes.json
     this.redraw();
     debugPanel.stateChanged();
     if (view.result) {
       // Leave the final table up for a moment, then show the end screen.
       const online = this.online;
+      if (this.inRun) {
+        this.time.delayedCall(1500, () => openRunScreen(this));
+        return;
+      }
       this.time.delayedCall(1500, () =>
         this.scene.start("end", {
           won: view.result === "won",
@@ -310,7 +333,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private domino(layer: Layer, id: string | null, k: number, state: DominoState, x: number, y: number, onClick?: () => void): Phaser.GameObjects.Container {
-    const d: Domino = dominoes.find((q) => q.id === id) ?? dominoes[0];
+    const d: Domino = this.view.dominoes.find((q) => q.id === id) ?? this.view.dominoes[0];
     const c = drawDomino(this, d, "large", state);
     c.setScale(k);
     c.setPosition(x, y);
@@ -724,8 +747,13 @@ export class CombatScene extends Phaser.Scene {
       return;
     }
     const result = step(this.state!, choice);
+    // In a run the run engine takes the choice too, and decides what comes after the battle.
+    // (step above only supplies the events and the final table to draw.)
+    const run = this.inRun ? applyRunChoice(currentRun(), getPendingChoice(this.view)!.player, { type: "battle", choice }).run : null;
     void this.playback(result.events).then((finished) => {
-      if (finished) this.setState(result.state);
+      if (!finished) return;
+      if (run) setRun(run);
+      this.setState(result.state);
     });
   }
 
@@ -746,7 +774,7 @@ export class CombatScene extends Phaser.Scene {
     const ctx: LogContext = {
       enemyName,
       name: (seat) => (seat === ENEMY_SEAT ? enemyName : this.nameOf(seat, false)),
-      domino: (id) => dominoes.find((d) => d.id === id)?.name ?? id,
+      domino: (id) => before.dominoes.find((d) => d.id === id)?.name ?? id,
     };
     const mem = newLogMemory();
     const epoch = this.epoch;
@@ -771,7 +799,7 @@ export class CombatScene extends Phaser.Scene {
       }
       const shown = this.shown;
       const delay = eventDelay(ev, mem);
-      const wait = ev.type === "chainEnd" ? delay : Math.max(animTime(ev, dominoes), delay);
+      const wait = ev.type === "chainEnd" ? delay : Math.max(animTime(ev, before.dominoes), delay);
       await this.anim.run(ev, shown.view, () => {
         applyEvent(shown, ev);
         this.redraw();
