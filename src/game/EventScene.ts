@@ -14,6 +14,8 @@ import { scaleTime } from "./playbackSpeed";
 import { playRunEventSounds } from "./sound";
 import { drawPartyHud, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
+import { coinButton, coinLine, coinParts } from "./coinIcon";
+import type { CoinPart } from "./coinIcon";
 import { Tooltip } from "./tooltip";
 import { playVoteRoll } from "./voteRoll";
 import { drawTollBridge } from "./tollBridgeArt";
@@ -41,18 +43,18 @@ function eventData(run: RunState, id: string): EventData {
   return data;
 }
 
-function optionText(option: EventOption): string {
+function optionText(option: EventOption): CoinPart[] {
   if (option.type === "toll") {
-    if (option.action === "pay") return `Pay the toll: ${option.amount} coins each`;
-    return option.action === "fight" ? "Fight the troll (hard fight)" : "Turn back";
+    if (option.action === "pay") return ["Pay the toll: ", option.amount, " each"];
+    return [option.action === "fight" ? "Fight the troll (hard fight)" : "Turn back"];
   }
-  if (option.type === "grab") return "Grab";
-  if (option.type === "stop") return "Stop";
-  if (option.type === "player") return `${seatName(option.player)} takes the domino`;
-  if (option.type === "action") return option.cost > 0 ? `${ACTION_LABEL[option.action]} (${option.cost} coins)` : ACTION_LABEL[option.action];
-  if (option.type === "bless") return `Bless ${option.spark}`;
-  if (option.type === "skip") return "Skip";
-  return `Everyone takes ${option.amount} coins`;
+  if (option.type === "grab") return ["Grab"];
+  if (option.type === "stop") return ["Stop"];
+  if (option.type === "player") return [`${seatName(option.player)} takes the domino`];
+  if (option.type === "action") return option.cost > 0 ? [`${ACTION_LABEL[option.action]} (`, option.cost, ")"] : [ACTION_LABEL[option.action]];
+  if (option.type === "bless") return [`Bless ${option.spark}`];
+  if (option.type === "skip") return ["Skip"];
+  return ["Everyone takes ", option.amount];
 }
 
 // The placeholder illustration for each event, drawn inside the panel (x, y, w, h).
@@ -244,7 +246,7 @@ export class EventScene extends Phaser.Scene {
     event.options.forEach((option, i) => {
       const rowY = y + i * 80;
       const canVote = pending !== null && mine === undefined && !this.resolving;
-      button(this, TEXT_X, rowY, optionText(option), () => this.castVote(run, pending!.player, i), { size: 32, disabled: !canVote, selected: mine === i });
+      coinButton(this, TEXT_X, rowY, optionText(option), () => this.castVote(run, pending!.player, i), { size: 32, disabled: !canVote, selected: mine === i });
       this.drawVoters(run, event.choices, i, 1330, rowY);
     });
     if (online && pending === null) drawWaitingFor(this, run, TEXT_X, y + event.options.length * 80 + 20);
@@ -269,8 +271,8 @@ export class EventScene extends Phaser.Scene {
       const player = pending.player;
       event.options.forEach((option, i) => {
         const why = personalUnavailable(run, player, i);
-        button(this, TEXT_X, y, optionText(option), () => this.chooseOption(run, player, event, i), { size: 32, disabled: why !== null || this.resolving });
-        if (why !== null) label(this, TEXT_X + 640, y, why, 26, { color: "#ffb4a2" });
+        coinButton(this, TEXT_X, y, optionText(option), () => this.chooseOption(run, player, event, i), { size: 32, disabled: why !== null || this.resolving });
+        if (why !== null) coinLine(this, TEXT_X + 640, y, coinParts(why), 26, { color: "#ffb4a2" });
         y += 80;
       });
     }
@@ -325,12 +327,12 @@ export class EventScene extends Phaser.Scene {
       if (r.wish) {
         const w = r.wish;
         const data = eventData(run, summary.event);
-        const text = w.prize === "coins" ? `+${w.coins} coins` : w.prize === "none" ? "Nothing" : w.prize === "remove" ? "Removed" : w.prize === "upgrade" ? "Upgraded" : "Took";
+        const text: CoinPart[] = w.prize === "coins" ? ["+", w.coins] : [w.prize === "none" ? "Nothing" : w.prize === "remove" ? "Removed" : w.prize === "upgrade" ? "Upgraded" : "Took"];
         const tip = new Tooltip(this);
         const turned = drawDomino(this, w.turned, "large", "normal").setScale(0.4).setPosition(TEXT_X + 330, y + 40);
         tip.attach(turned, w.turned);
         label(this, TEXT_X + 410, y - 6, `${w.spark ?? ""} ${w.prize === "coins" ? "" : prizeText(w.prize, data)}`.trim(), 24, { color: "#cfe9dc" });
-        label(this, TEXT_X + 410, y + 28, text, 30, { bold: true, color: w.prize === "none" ? "#9fb8aa" : "#7dffb0" });
+        coinLine(this, TEXT_X + 410, y + 28, text, 30, { bold: true, color: w.prize === "none" ? "#9fb8aa" : "#7dffb0" });
         r.before.forEach((d, k) => {
           const c = drawDomino(this, d, "large", "normal").setScale(0.4).setPosition(TEXT_X + 640 + k * 110, y + 40);
           tip.attach(c, d);
@@ -353,7 +355,7 @@ export class EventScene extends Phaser.Scene {
       label(this, TEXT_X + 440 + r.before.length * 110, y + 40, ">", 40, { bold: true, color: GOLD });
       const after = drawDomino(this, r.after, "large", "normal").setScale(0.4).setPosition(TEXT_X + 440 + r.before.length * 110 + 110, y + 40);
       tooltip.attach(after, r.after);
-      if (r.cost > 0) label(this, TEXT_X + 50, y + 44, `Paid ${r.cost} coins`, 24, { color: "#cfe9dc" });
+      if (r.cost > 0) coinLine(this, TEXT_X + 50, y + 44, ["Paid ", r.cost], 24, { color: "#cfe9dc" });
     });
     button(this, TEXT_X, 940, "Continue", () => {
       if (next) setRun(next);
@@ -416,18 +418,18 @@ export class EventScene extends Phaser.Scene {
       event.options.forEach((option, i) => {
         const y = 360 + i * 80;
         const won = reveal && i === outcome.winner;
-        optionLabels.push(label(this, TEXT_X, y, optionText(option), 32, { bold: won, color: won ? "#7dffb0" : "#9fb8aa" }));
+        optionLabels.push(coinLine(this, TEXT_X, y, optionText(option), 32, { bold: won, color: won ? "#7dffb0" : "#9fb8aa" }));
       });
     };
     event.options.forEach((_, i) => this.drawVoters(run, choices, i, 1330, 360 + i * 80));
     const finish = (): void => {
       drawOptions(true);
       const y = 360 + event.options.length * 80 + 40;
-      label(this, TEXT_X, y, `Winner: ${optionText(outcome.option)}`, 36, { bold: true, color: "#7dffb0" });
+      coinLine(this, TEXT_X, y, ["Winner: ", ...optionText(outcome.option)], 36, { bold: true, color: "#7dffb0" });
       if (outcome.drawn) {
         const total = Object.values(outcome.counts).reduce((a, b) => a + b, 0);
         const odds = Math.round((100 * (outcome.counts[outcome.winner] ?? 0)) / total);
-        label(this, TEXT_X, y + 50, `Drawn: ${optionText(outcome.option)}, ${odds}%`, 36, { bold: true, color: "#ff9d7a" });
+        coinLine(this, TEXT_X, y + 50, ["Drawn: ", ...optionText(outcome.option), `, ${odds}%`], 36, { bold: true, color: "#ff9d7a" });
       }
       this.time.delayedCall(scaleTime(2200), () => {
         openRunScreen(this);

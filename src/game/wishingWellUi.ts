@@ -8,6 +8,8 @@ import { previewUpgrade } from "../engine/upgrades";
 import type { Domino, EventData, Spark } from "../engine/types";
 import { deckViewerState, openDeckViewer, runDeckPlayers } from "./deckViewer";
 import { drawDomino } from "./dominoDrawing";
+import { coinButton, coinLine } from "./coinIcon";
+import type { CoinPart } from "./coinIcon";
 import { Tooltip } from "./tooltip";
 import { FONT, button, label } from "./ui";
 
@@ -19,8 +21,12 @@ import { FONT, button, label } from "./ui";
 const GOLD = "#ffe14d";
 
 // What a prize kind means, for the buttons and the summary.
+// The same as parts, for a coin prize to show with the icon.
+export function prizeParts(kind: PrizeKind | "none", data: EventData): CoinPart[] {
+  return kind === "coins" ? [data.numbers.coinPrize] : [prizeText(kind, data)];
+}
+
 export function prizeText(kind: PrizeKind | "none", data: EventData): string {
-  if (kind === "coins") return `${data.numbers.coinPrize} coins`;
   if (kind === "remove") return "remove a domino from your deck";
   if (kind === "upgrade") return "a free upgrade";
   if (kind === "rare") return "a choice of rare dominoes";
@@ -41,11 +47,11 @@ export function drawWellStage(scene: Phaser.Scene, run: RunState, event: EventSt
     label(scene, x, y, "It gives off two sparks. Pick the one that counts:", 30, { color: GOLD, bold: true });
     y += 60;
     for (const spark of well.domino.output) {
-      button(scene, x, y, `${spark}: ${prizeText(prizeFor(run, spark), data)}`, () => send({ dominoes: [], spark }), { size: 32 });
+      coinButton(scene, x, y, [`${spark}: `, ...prizeParts(prizeFor(run, spark), data)], () => send({ dominoes: [], spark }), { size: 32 });
       y += 80;
     }
   } else if (well.spark !== null) {
-    label(scene, x, y, `${well.spark}: ${prizeText(prizeFor(run, well.spark), data)}`, 32, { color: GOLD, bold: true });
+    coinLine(scene, x, y, [`${well.spark}: `, ...prizeParts(prizeFor(run, well.spark), data)], 32, { color: GOLD, bold: true });
     y += 60;
     if (stage === "remove") {
       button(scene, x, y, "Pick a domino to remove", () => pickToRemove(scene, run, player, send), { size: 32 });
