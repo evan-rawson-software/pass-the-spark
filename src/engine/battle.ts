@@ -5,7 +5,7 @@ import { nextInt, shuffle } from "./rng";
 import { validateDominoes } from "./validate";
 import type { GameEvent } from "./events";
 import type { BattleView } from "./view";
-import { answerStrengthBonus, blockBonus, extraDraws, extraEchoTriggers, extraLap, extraReveals, extraSpectrum, handLimitOf, lensBonus, mirrorStrength } from "./battleCharms";
+import { answerStrengthBonus, blockBonus, extraDraws, extraEchoTriggers, extraLap, extraReveals, extraSpectrum, handLimitOf, lensBonus, mirrorStrength, lapRunnerBlock, lightningRodTriggers, firstEchoTriggers, sparkStarterStrength, holdsCharm } from "./battleCharms";
 import type { Charm, Config, DeckList, Domino, Effect, Enemy, Passive, Spark } from "./types";
 
 // The enemy's seat id in seatOrder.
@@ -28,6 +28,7 @@ export interface PlayerState {
   hand: string[];
   discard: string[];
   charms: string[]; // charm ids the player holds for this battle (definitions are in BattleState.charmDefs)
+  firstEchoSpent: boolean; // First Echo has already fired this round
 }
 
 export interface EnemyState {
@@ -162,7 +163,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     if (!p || p.deck.length === 0) throw new Error("player needs a deck: " + id);
     const s = shuffle(rng, p.deck);
     rng = s.state;
-    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice() });
+    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice(), firstEchoSpent: false });
   }
   const es = shuffle(rng, enemyDef.deck);
   rng = es.state;
@@ -252,14 +253,8 @@ export function step(input: BattleState, choice: Choice): StepResult {
     if (!player.hand.includes(choice.domino)) throw new Error("domino not in hand");
     removeOne(player.hand, choice.domino);
     player.discard.push(choice.domino);
-    const d = getDomino(state, choice.domino);
-    state.chain = newChain(d.output);
-    state.chain.played.push({ seat: player.id, domino: d.id });
-    events.push({ type: "opener", player: player.id, domino: d.id, sparks: d.output.slice() });
-    // The opener's effect never triggers, but a Mimic after it can copy it.
-    if (d.effect.kind !== "mimic" && d.effect.kind !== "reflect") state.chain.last = { effect: d.effect, side: "party" };
-    state.lead = player.id;
-    advance(state, events);
+    playOpener(state, player, getDomino(state, choice.domino), events);
+    if (state.phase !== "over") advance(state, events);
   } else if (pending.type === "answer" && choice.type === "answer") {
     const option = pending.options.find((o) => o.domino === choice.domino);
     if (!option) throw new Error("illegal domino");
@@ -305,7 +300,13 @@ export function previewPlay(input: BattleState | BattleView, playerId: string, d
   if (!pending || pending.player !== playerId) return [];
   if (pending.type === "opener") {
     if (!pending.dominoes.includes(dominoId)) return [];
-    return [{ opener: true, spark: null, strength: 0, lap: input.chain.lap, effect: null, triggers: 0, value: 0, spectrumBonus: 0, lookoutReveals: 0, auditorDamage: 0 }];
+    // Without Spark Starter this finds no trigger: triggers 0 and effect null.
+    const state = workingCopy(input);
+    const events: GameEvent[] = [];
+    playOpener(state, getPlayer(state, playerId), getDomino(state, dominoId), events);
+    const preview = summarize(state, events, null, playerId);
+    if (preview.triggers > 0) preview.strength = sparkStarterStrength(state, playerId);
+    return [preview];
   }
   const option = pending.options.find((o) => o.domino === dominoId);
   if (!option) return [];
@@ -313,32 +314,37 @@ export function previewPlay(input: BattleState | BattleView, playerId: string, d
     const state = workingCopy(input);
     const events: GameEvent[] = [];
     play(state, getDomino(state, dominoId), spark, true, events);
-    let strength = 0;
-    let first: { effect: Effect; side: Side; value: number } | null = null;
-    let triggers = 0;
-    let reveals = 0;
-    let auditorDamage = 0;
-    for (const e of events) {
-      if (e.type === "play") strength = e.strength;
-      else if (e.type === "trigger") {
-        first = first ?? e;
-        triggers += 1;
-      } else if (e.type === "reveal") reveals += e.positions.length;
-      else if (e.type === "auditor") auditorDamage = e.damage;
-    }
-    return {
-      opener: false,
-      spark,
-      strength,
-      lap: state.chain.lap,
-      effect: first === null ? null : { effect: first.effect, side: first.side },
-      triggers,
-      value: first === null ? 0 : first.value,
-      spectrumBonus: first !== null && first.effect.spectrum ? spectrumBonus(state.chain.history) + extraSpectrum(state, playerId) : 0,
-      lookoutReveals: reveals,
-      auditorDamage,
-    };
+    return summarize(state, events, spark, playerId);
   });
+}
+
+// A PlayPreview from the events of a play run on a copy (spark null for the opener).
+function summarize(state: BattleState, events: GameEvent[], spark: Spark | null, owner: string): PlayPreview {
+  let strength = 0;
+  let first: { effect: Effect; side: Side; value: number } | null = null;
+  let triggers = 0;
+  let reveals = 0;
+  let auditorDamage = 0;
+  for (const e of events) {
+    if (e.type === "play") strength = e.strength;
+    else if (e.type === "trigger") {
+      first = first ?? e;
+      triggers += 1;
+    } else if (e.type === "reveal") reveals += e.positions.length;
+    else if (e.type === "auditor") auditorDamage = e.damage;
+  }
+  return {
+    opener: spark === null,
+    spark,
+    strength,
+    lap: state.chain.lap,
+    effect: first === null ? null : { effect: first.effect, side: first.side },
+    triggers,
+    value: first === null ? 0 : first.value,
+    spectrumBonus: first !== null && first.effect.spectrum ? spectrumBonus(state.chain.history) + extraSpectrum(state, owner) : 0,
+    lookoutReveals: reveals,
+    auditorDamage,
+  };
 }
 
 // A BattleState to run a preview on. From a view, the enemy's hand keeps its length and its
@@ -361,6 +367,34 @@ function workingCopy(input: BattleState | BattleView): BattleState {
 }
 
 // ---- internals (all mutate the working copy) ----
+
+const SPARK_STARTER = "spark_starter";
+const LAP_RUNNER = "lap_runner";
+const FIRST_ECHO = "first_echo";
+const LIGHTNING_ROD = "lightning_rod";
+
+function charmEvent(player: string, charm: string, events: GameEvent[]): void {
+  events.push({ type: "charm", player, charm });
+}
+
+// The opener: it starts the chain and adds no strength. Its effect never triggers, except through
+// Spark Starter (at that charm's strength; the chain's strength stays 0 unless the effect raises it).
+function playOpener(state: BattleState, player: PlayerState, d: Domino, events: GameEvent[]): void {
+  state.chain = newChain(d.output);
+  state.chain.played.push({ seat: player.id, domino: d.id });
+  events.push({ type: "opener", player: player.id, domino: d.id, sparks: d.output.slice() });
+  // A Mimic after the opener can copy its effect.
+  if (d.effect.kind !== "mimic" && d.effect.kind !== "reflect") state.chain.last = { effect: d.effect, side: "party" };
+  state.lead = player.id;
+  if (!holdsCharm(state, player.id, SPARK_STARTER)) return;
+  const strength = sparkStarterStrength(state, player.id);
+  state.chain.strength = strength;
+  const before = events.length;
+  playEffect(state, d, player.id, "party", true, null, events);
+  state.chain.strength -= strength;
+  // Name the charm only if the effect did something (a Mimic opener copies nothing).
+  if (events.slice(before).some((e) => e.type === "trigger")) events.splice(before, 0, { type: "charm", player: player.id, charm: SPARK_STARTER });
+}
 
 function newChain(sparks: Spark[]): ChainState {
   return { strength: 0, lap: 1, sparks: sparks.slice(), history: [], echo: 0, last: null, played: [] };
@@ -414,6 +448,7 @@ function startRound(state: BattleState, events: GameEvent[]): void {
   const roundStart: GameEvent = { type: "roundStart", round: state.round, lead: state.lead };
   events.push(roundStart);
   wardenLock(state, events);
+  for (const p of state.players) p.firstEchoSpent = false;
   for (const seat of state.seatOrder) {
     if (seat === ENEMY_SEAT) {
       const e = state.enemy;
@@ -518,6 +553,7 @@ function advance(state: BattleState, events: GameEvent[]): void {
       events.push({ type: "lapUp", lap: state.chain.lap });
       glutton(state, events);
       hoarder(state, events);
+      lapRunner(state, events);
     }
     if (state.seat === ENEMY_SEAT) {
       react(state, events);
@@ -532,6 +568,17 @@ function advance(state: BattleState, events: GameEvent[]): void {
     state.phase = "answer";
     return;
   }
+}
+
+// Lap Runner: the party gains block when the lap goes up and the answer that brought the spark to
+// the lead was a Lap Runner holder's. An enemy reaction just before the lead completes it instead,
+// the opener is not an answer, and nothing happens once the battle is over.
+function lapRunner(state: BattleState, events: GameEvent[]): void {
+  if (state.phase === "over" || state.chain.played.length < 2) return;
+  const seat = state.chain.played[state.chain.played.length - 1].seat;
+  if (seat === ENEMY_SEAT || !holdsCharm(state, seat, LAP_RUNNER)) return;
+  charmEvent(seat, LAP_RUNNER, events);
+  resolve(state, { kind: "block" }, lapRunnerBlock(state, seat), "party", events);
 }
 
 // The enemy plays its leftmost matching domino, or the spark passes unchanged.
@@ -564,7 +611,7 @@ function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean,
   chain.played.push({ seat, domino: d.id });
   events.push({ type: "play", seat, domino: d.id, answeredSpark: answered, strength: chain.strength, lap: chain.lap });
   const scaleLap = byPlayer || state.config.enemyReactionsScaleWithLap || hasPassive(state, "longNight");
-  playEffect(state, d, seat, byPlayer ? "party" : "enemy", scaleLap, events);
+  playEffect(state, d, seat, byPlayer ? "party" : "enemy", scaleLap, byPlayer ? answered : null, events);
   if (repeated && state.phase !== "over") auditor(state, events);
 }
 
@@ -611,7 +658,8 @@ function hoarder(state: BattleState, events: GameEvent[]): void {
 
 // Resolve a played domino's effect (a Mimic becomes the effect it copies), record it
 // as the chain's last effect, and trigger it once plus any pending Echo triggers.
-function playEffect(state: BattleState, d: Domino, seat: string, side: Side, scaleLap: boolean, events: GameEvent[]): void {
+// answered is the spark that set a player's domino off (null for the opener).
+function playEffect(state: BattleState, d: Domino, seat: string, side: Side, scaleLap: boolean, answered: Spark | null, events: GameEvent[]): void {
   const chain = state.chain;
   const effect = d.effect;
   let resolved: ResolvedEffect | null = { effect, side };
@@ -623,12 +671,28 @@ function playEffect(state: BattleState, d: Domino, seat: string, side: Side, sca
   }
   if (resolved === null) return;
   chain.last = resolved;
-  const triggers = Math.min(1 + chain.echo, state.config.triggerCap);
+  let triggers = 1 + chain.echo;
   chain.echo = 0;
+  // Charms that add triggers for a player's domino; each counts toward the cap.
+  if (seat !== ENEMY_SEAT) {
+    const player = getPlayer(state, seat);
+    const extra = (charm: string, total: number) => {
+      if (total > 1 && triggers < state.config.triggerCap) {
+        triggers += total - 1;
+        charmEvent(seat, charm, events);
+      }
+    };
+    if (!player.firstEchoSpent && holdsCharm(state, seat, FIRST_ECHO)) {
+      player.firstEchoSpent = true;
+      extra(FIRST_ECHO, firstEchoTriggers(state, seat));
+    }
+    extra(LIGHTNING_ROD, lightningRodTriggers(state, seat, answered));
+  }
+  triggers = Math.min(triggers, state.config.triggerCap);
   // An upgraded Mimic resolves what it copied at extra strength; chain strength is unaffected.
   const bonus = effect.kind === "mimic" ? (effect.strengthBonus ?? 0) + (side === "party" && seat !== ENEMY_SEAT ? mirrorStrength(state, seat) : 0) : 0;
   for (let i = 0; i < triggers; i++) {
-    trigger(state, resolved.effect, resolved.side, scaleLap, events, seat, d.id, i, bonus);
+    trigger(state, resolved.effect, resolved.side, scaleLap, events, seat, d.id, i, answered, bonus);
     if (state.phase === "over") return;
   }
 }
@@ -643,6 +707,7 @@ function trigger(
   seat: string,
   dominoId: string,
   index: number,
+  answered: Spark | null,
   strengthBonus = 0,
 ): void {
   const chain = state.chain;
@@ -667,7 +732,7 @@ function trigger(
     if (scaleLap) value *= chain.lap + extraLap(state, owner);
     // Flat charm bonuses come last: the lens of the spark that set this domino off, and Bulwark.
     if (owner !== null) {
-      value += lensBonus(state, owner, chain.history[chain.history.length - 1]);
+      value += lensBonus(state, owner, answered);
       if (effect.kind === "block") value += blockBonus(state, owner);
     }
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value });

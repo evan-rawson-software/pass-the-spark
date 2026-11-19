@@ -17,8 +17,33 @@ function number(state: CharmInput, owner: string | null, id: string, key: string
 }
 
 // Ember, Tide and Gale Lens: the flat bonus for a domino set off by this spark (damage, block, heal).
-export function lensBonus(state: CharmInput, owner: string | null, spark: Spark): number {
-  return number(state, owner, spark.toLowerCase() + "_lens", "bonus");
+// spark is null for the opener (Spark Starter), which no lens applies to.
+export function lensBonus(state: CharmInput, owner: string | null, spark: Spark | null): number {
+  return spark === null ? 0 : number(state, owner, spark.toLowerCase() + "_lens", "bonus");
+}
+
+export function holdsCharm(state: CharmInput, owner: string, id: string): boolean {
+  return state.players.some((p) => p.id === owner && p.charms.includes(id));
+}
+
+export function sparkStarterStrength(state: CharmInput, owner: string): number {
+  return number(state, owner, "spark_starter", "strength");
+}
+
+export function lapRunnerBlock(state: CharmInput, owner: string): number {
+  return number(state, owner, "lap_runner", "block");
+}
+
+// Triggers First Echo gives the first domino of the round (2 means one extra); 0 without the charm.
+export function firstEchoTriggers(state: CharmInput, owner: string): number {
+  return number(state, owner, "first_echo", "triggers");
+}
+
+// Lightning Rod: the total triggers for a domino set off by one of the charm's sparks (data), else 0.
+export function lightningRodTriggers(state: CharmInput, owner: string, answered: Spark | null): number {
+  if (answered === null || !holdsCharm(state, owner, "lightning_rod")) return 0;
+  const charm = state.charmDefs.find((c) => c.id === "lightning_rod");
+  return charm?.sparks?.includes(answered) ? number(state, owner, "lightning_rod", "triggers") : 0;
 }
 
 export function blockBonus(state: CharmInput, owner: string | null): number {

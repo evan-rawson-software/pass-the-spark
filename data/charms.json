@@ -157,6 +157,7 @@
     "name": "Lightning Rod",
     "pool": "rare",
     "description": "Your dominoes set off by Storm or Void trigger twice.",
+    "sparks": ["Storm", "Void"],
     "numbers": {
       "triggers": 2
     }
