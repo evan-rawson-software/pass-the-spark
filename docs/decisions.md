@@ -285,7 +285,7 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
   - Act 2: the Hoarder or the Smolder.
   - Act 3: the Long Night or the Warden of Locks.
 - **The Hoarder:** gains block equal to the current strength whenever the lap goes up.
-- **The Smolder:** its leftovers at round end go off at the chain's final strength instead of strength 1.
+- **The Smolder:** its leftovers at round end go off at the chain's final strength instead of strength 1, but never less than 1.
 - **The Long Night:** its reactions and leftovers scale with lap, as if `enemyReactionsScaleWithLap` were on for this boss.
 - **The Warden of Locks:** each round one basic spark is locked, picked at random (seeded) and shown at round start.
   - Player dominoes can't be set off by the locked spark; an "any" intake can't answer it either.
