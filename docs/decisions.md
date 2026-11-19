@@ -61,6 +61,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 ### Elite and boss specials
 - **Pilfer:** dropped for now.
 - **Reflect (elite):** Mimic in reverse. It repeats the last domino played in this chain (enemy passes don't count; after the fuse it repeats the fuse's effect), at its own strength without lap, like any enemy reaction. The effect is turned against the party: damage hits the party, and healing or block goes to the enemy. If the previous domino was the enemy's, it repeats unchanged. It copies augments: Amplify adds the bonus again, Echo sets up an Echo, Lookout does nothing, and after a Mimic it repeats what the Mimic copied. Echo on Reflect makes the reflected effect happen twice. At round end it repeats the last domino played in the round's chain at strength 1, or does nothing if none was played. It has no other effect.
+- **The Auditor (boss passive):** when a player domino is answered with the same spark as the previous entry in the spark history, the party takes damage after that domino resolves. Enemy dominoes and enemy passes don't trigger it. Default damage is the current strength (data setting). Block absorbs it. Strength is never reduced. Likely to be revisited.
 
 ### Hidden information
 - The engine produces each player's own view of the game: all player hands visible, the enemy's hand hidden apart from revealed dominoes.
