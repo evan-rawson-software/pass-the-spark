@@ -49,6 +49,11 @@ export function unlockAll(): void {
 // What the last run paid out, for the run end screen.
 export let lastAward: { runId: string; gained: number; newUnlocks: string[] } | null = null;
 
+// A new run is starting: forget the last payout, so the run end screen knows when its own has arrived.
+export function clearAward(): void {
+  lastAward = null;
+}
+
 // Adds a finished run's experience, once per run id.
 export function awardExperience(runId: string, gained: number): void {
   const profile = loadProfile();

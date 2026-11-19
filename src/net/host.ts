@@ -207,7 +207,8 @@ export async function createHost(options: HostOptions): Promise<Host> {
   function lobbyMessage(): HostMessage {
     return {
       type: "lobby",
-      players: members.map((m) => ({ seat: m.seat, name: m.name, away: !m.connected })),
+      // level is display only: one unlock per level, so the (cleaned) unlocks a player sent say which level they are
+      players: members.map((m) => ({ seat: m.seat, name: m.name, level: (m.local ? cleanUnlocks(options.unlocks()) : m.unlocks).length, away: !m.connected })),
       seats: members.map((m) => m.seat),
     };
   }
@@ -354,6 +355,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
     } else if (msg.type === "unlocks") {
       if (!known) return reply({ type: "error", message: "say hello first" });
       if (run === null || run.phase === "over") known.unlocks = cleanUnlocks(msg.unlocks); // the run is over: they count for the next one
+      if (run === null) sendLobby(); // already back in the lobby: show the new level (while the run screen is up, a lobby message would send everyone back)
     } else if (msg.type === "ping") {
       if (!known) return reply({ type: "error", message: "say hello first" });
       handlePing(known, msg.target);
