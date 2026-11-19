@@ -159,3 +159,22 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 
 ### UI notes for later milestones
 - A rolling animation for tied route votes.
+
+## 2026-11-19: Review of milestones 3 and 4
+
+Choices the coders made where the spec was silent, now confirmed:
+- **Play-for delay:** 60 seconds, counted from when the game starts waiting on the away player's turn, not from when they dropped. If they drop on their own turn, it starts at once. This is not a turn timer: connected players never have one.
+- **Host lost:** clients retry for 2 minutes, then show "Host disconnected" with a way back to the start screen.
+- **Host reloads in the lobby:** restored seats show "(away)" until their players return. The host can kick them, and Start is refused while anyone is away.
+- **Client auto-rejoin:** only when the browser has both a seat token and a saved name for that room. Otherwise it shows the join form.
+- **Saved room from another build:** ignored. That browser joins as a player.
+- **Small ones:** the final floor on victory is 11. Reflect has no upgrade. An upgraded Mimic's +1 strength also applies to copied Lookout reveals. Seat cap 4. Names capped at 24 characters.
+
+Follow-ups:
+- **Enemy deck sizes:** normal 6, elite 8, boss 10, so bosses no longer play almost their whole deck each round. The extra dominoes may repeat existing ones. Content only.
+- **Lead in a round with no chain** (no player holds a domino): the scheduled lead stays the lead for that round, and rotation moves on as normal. `roundStart.lead` reporting the scheduled lead is correct.
+- **Balance:** a separate milestone later. Random-play win rates against bosses are not a target until then.
+- **Online edge cases:** a client reconnecting to a host on a different build gets the "refresh the page" message; a corrupt saved room is dropped with a notice and that browser joins as a player; a page restored from the back/forward cache reloads.
+- **Hand testing:** done by people at playtests, using `docs/playtest-checklist.md`.
+- **Hosted relay:** parked until a playtester can't connect. The likely fix is a TURN server, which is a cost and credentials decision for the designer.
+- **Online behaviour in issues:** every issue with a player choice states what happens online and in single player.
