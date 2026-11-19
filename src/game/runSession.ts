@@ -1,4 +1,5 @@
 import type Phaser from "phaser";
+import { playRunEventSounds } from "./sound";
 import { runExperience } from "../engine/progression";
 import { applyRunChoice, createRun, getPendingRunChoices } from "../engine/run";
 import type { RunChoice, RunEvent, RunPendingChoice, RunState } from "../engine/run";
@@ -66,6 +67,16 @@ export function startOnlineRun(online: OnlineRun, view: RunView): void {
 // Online: the run is over and the room is back in its lobby.
 export function leaveOnlineRun(): void {
   if (session?.online) session = null;
+  relay.onRun = null;
+}
+
+// The menu's Leave game: an online host closes the room (the game ends for everyone), an online
+// player closes only their own link (their seat is kept for the room link), single player just goes.
+export function leaveRun(): void {
+  const online = session?.online;
+  online?.host?.close();
+  online?.client?.close();
+  session = null;
   relay.onRun = null;
 }
 
@@ -177,7 +188,9 @@ export function submitRunChoice(scene: Phaser.Scene, player: string, choice: Run
     else online.client?.sendRunChoice(choice, session!.window);
     return;
   }
-  setRun(applyRunChoice(currentRun(), player, choice).run);
+  const result = applyRunChoice(currentRun(), player, choice);
+  playRunEventSounds(result.events);
+  setRun(result.run);
   openRunScreen(scene);
 }
 

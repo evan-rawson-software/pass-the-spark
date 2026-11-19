@@ -21,7 +21,7 @@ export interface DebugHost {
 }
 
 const STYLE =
-  "position:fixed;top:8px;right:8px;width:340px;max-height:calc(100% - 16px);overflow:auto;z-index:1000;" +
+  "position:fixed;top:72px;right:8px;width:340px;max-height:calc(100% - 80px);overflow:auto;z-index:1000;" +
   "background:rgba(20,10,10,0.94);color:#f3e6e6;border:2px solid #e0443e;border-radius:8px;" +
   "font:13px Arial,Helvetica,sans-serif;padding:10px;box-sizing:border-box;display:none";
 const BTN = "margin:2px 4px 2px 0;padding:3px 8px;cursor:pointer";
@@ -88,7 +88,12 @@ class DebugPanel {
     }
   }
 
-  private toggle(): void {
+  // The menu shows its toggle only where the panel is available (single player and the host).
+  get available(): boolean {
+    return this.enabled;
+  }
+
+  toggle(): void {
     if (!this.root) {
       this.root = document.createElement("div");
       this.root.style.cssText = STYLE;

@@ -19,20 +19,21 @@ import { drawBlessedGlow } from "./sparkShrineArt";
 import type { DominoState } from "./dominoDrawing";
 import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { Tooltip } from "./tooltip";
-import { drawCharmList } from "./charmUi";
+import { charmWithTip, charmsByIds } from "./charmUi";
+import { drawPadlock, drawPassiveIcon } from "./passiveIcon";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
 import { PingMarks, attachHold, pingKey } from "./ping";
 import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
-import { describeEvent, eventDelay, newLogMemory } from "./eventLog";
-import type { LogContext } from "./eventLog";
+import { eventDelay, newLogMemory, trackEvent } from "./eventLog";
 import { debugPanel } from "./DebugPanel";
 import type { DebugHost } from "./DebugPanel";
-import { SPEEDS, getPlaybackSpeed, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
+import { SPEEDS, getPlaybackSpeed, onPlaybackSpeedChange, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
 import { Animator, COMBO_METER_FULL, animTime, comboLook, hexString, newRefs, paintBar } from "./animations";
 import { activeTiers, heatColor } from "./heat";
-import { applyEvent, startShown } from "./shownView";
+import { applyEvent, deckCount, startShown } from "./shownView";
+import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
 import type { ShownTable } from "./shownView";
 
 // The combat table. Draws everything from getView (and getPendingChoice for
@@ -90,7 +91,6 @@ export class CombatScene extends Phaser.Scene {
   private draining = false;
   private pauseUi: Phaser.GameObjects.GameObject[] = []; // online: "Waiting for [name]" and "Play for [name]"
   private layer?: Layer;
-  private logText?: Phaser.GameObjects.Text;
   private locked = false; // true while events play back: no input
   private sparkPrompt: string | null = null; // a clicked domino that answers both sparks of the set
   // During playback the table keeps showing the state from before the step; these two follow the
@@ -119,6 +119,8 @@ export class CombatScene extends Phaser.Scene {
   create(data: { settings?: GameSettings; seed?: number; devQuery?: boolean; online?: OnlineData; run?: boolean }): void {
     const query = new URLSearchParams(window.location.search);
     const dev = devSettings(query);
+    const stopSpeed = onPlaybackSpeedChange(() => this.redraw()); // the menu can change the speed: keep the quick control in step
+    this.events.once("shutdown", stopSpeed);
     this.epoch++;
     this.online = data.online ?? null;
     this.inRun = data.run === true;
@@ -137,17 +139,11 @@ export class CombatScene extends Phaser.Scene {
     this.sparkPrompt = null;
     this.hlSeat = null;
     this.handSeat = null;
-    this.logText = this.add
-      .text(LEFT_X + SIDE_W / 2, 925, this.online ? "" : "Play an opener: click a domino in your hand.", {
-        fontFamily: FONT, fontSize: "26px", color: "#ffffff", align: "center", wordWrap: { width: SIDE_W - 20 },
-      })
-      .setOrigin(0.5);
     this.tooltip = new Tooltip(this);
     this.pings = new PingMarks(this);
     // The deck viewer (#55), read-only; the draw pile is not shown in order.
     button(this, RIGHT_X + 190, 48, "Decks", () => openDeckViewer(this, battleDeckPlayers(this.view, (id) => this.nameOf(id, false)), this.view.players.find((q) => q.id === this.tipPlayer)?.id), { size: 22, origin: 1 }).setDepth(500);
     if (this.online) {
-      this.logText.setText(`Round ${data.online!.view.round}: ${this.nameOf(data.online!.view.lead, false)} leads`);
       this.setView(this.online.view);
       const handler = (m: HostMessage) => this.onMessage(m);
       relay.handler = handler;
@@ -162,6 +158,7 @@ export class CombatScene extends Phaser.Scene {
     } else {
       this.setState(startBattle(this.settings, this.seed, this.fromQuery ? query : undefined));
     }
+    void this.introDraw();
     // The debug panel is for single player and the host; a joined client has none.
     const online = this.online;
     const host: DebugHost | null =
@@ -191,6 +188,37 @@ export class CombatScene extends Phaser.Scene {
       this.epoch++;
       if (host) debugPanel.detach(host);
     });
+  }
+
+  // A fresh battle opens with the round 1 draw already done (no events come with it), so show it
+  // from the view: every hand starts empty and fills from its deck stack.
+  private async introDraw(): Promise<void> {
+    const view = this.view;
+    if (view.round !== 1 || view.result || view.chain.played.length > 0 || view.players.some((p) => p.discard.length > 0)) return;
+    const empty = JSON.parse(JSON.stringify(view)) as BattleView;
+    const events: GameEvent[] = [];
+    for (const p of empty.players) {
+      events.push({ type: "draw", seat: p.id, count: p.hand.length, dominoes: p.hand });
+      p.deck = p.hand.concat(p.deck);
+      p.hand = [];
+    }
+    events.push({ type: "draw", seat: ENEMY_SEAT, count: empty.enemy.hand.length });
+    empty.enemy.deckCount += empty.enemy.hand.length;
+    empty.enemy.hand = [];
+    const epoch = this.epoch;
+    // The intro holds the same lock as a playback (draining), so an update that arrives meanwhile
+    // waits in the queue and is played right after.
+    this.draining = true;
+    this.locked = true;
+    this.shown = startShown(empty, []);
+    this.redraw();
+    await playDraws(this, () => this.anim.refs, view.dominoes, events, this.shown, () => this.redraw());
+    if (epoch !== this.epoch) return;
+    this.locked = false;
+    this.shown = null;
+    this.draining = false;
+    this.redraw();
+    void this.drain();
   }
 
   // Single player: the one entry point for new state.
@@ -304,14 +332,11 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private showError(message: string): void {
-    const text = this.logText;
-    if (!text) return;
-    const shown = `The host says: ${message}`;
-    text.setText(shown).setColor("#ff9a94");
-    this.time.delayedCall(3000, () => {
-      if (text.text !== shown) return;
-      text.setColor("#ffffff").setText("");
-    });
+    const t = this.add
+      .text(HAND.x + HAND.w / 2, HAND.y - 14, `The host says: ${message}`, { fontFamily: FONT, fontSize: "26px", color: "#ff9a94", stroke: "#101010", strokeThickness: 5 })
+      .setOrigin(0.5)
+      .setDepth(600);
+    this.time.delayedCall(3000, () => t.destroy());
   }
 
   // Plays the received updates one after another, each at this player's playback speed.
@@ -370,6 +395,13 @@ export class CombatScene extends Phaser.Scene {
       this.drawTeammate(layer, view, p.id, left ? LEFT_X : RIGHT_X, y, h);
     });
     this.pings.place(this.pingBoxes);
+  }
+
+  // A player's hand slots as drawn, for the draw animation.
+  private slotsOf(seat: string): { c: Phaser.GameObjects.Container; pos: { x: number; y: number; k: number } }[] {
+    const slots = this.anim.refs.handSlots;
+    if (!slots.has(seat)) slots.set(seat, []);
+    return slots.get(seat)!;
   }
 
   // ---- table (drawn once) ----
@@ -455,13 +487,11 @@ export class CombatScene extends Phaser.Scene {
 
   private shield(layer: Layer, key: string, x: number, y: number, s: number, amount: number): void {
     const g = this.gfx(layer);
-    if (!artImage(this, "ui/block", x, y + s * 0.05, s, s, layer)) {
-      g.fillStyle(0x4a6fa5, 1);
-      g.lineStyle(3, 0x1c2b44, 1);
-      const pts = [[-1, -1], [1, -1], [1, 0.1], [0, 1.1], [-1, 0.1]].map(([a, b]) => new Phaser.Math.Vector2(x + a * s * 0.5, y + b * s * 0.5));
-      g.fillPoints(pts, true);
-      g.strokePoints(pts, true);
-    }
+    g.fillStyle(0x4a6fa5, 1);
+    g.lineStyle(3, 0x1c2b44, 1);
+    const pts = [[-1, -1], [1, -1], [1, 0.1], [0, 1.1], [-1, 0.1]].map(([a, b]) => new Phaser.Math.Vector2(x + a * s * 0.5, y + b * s * 0.5));
+    g.fillPoints(pts, true);
+    g.strokePoints(pts, true);
     const text = this.label(layer, x + s * 0.5 + 8, y, String(amount), Math.round(s * 0.7), "#dbe6f5", 0, true);
     this.anim.refs.shields.set(key, { text, x, y });
   }
@@ -485,6 +515,19 @@ export class CombatScene extends Phaser.Scene {
   }
 
   // ---- enemy (top) ----
+
+  // A seat's charm icons in a row centred under its name plate (#108, #155); nothing when it holds none.
+  // The icons register with the animator so the charm flash plays on them.
+  private plateCharms(layer: Layer, seat: string, ids: string[], cx: number, y: number, size: number, centred = true): void {
+    const charms = charmsByIds(ids);
+    const step = Math.min(size + 6, (SIDE_W - size) / Math.max(1, charms.length - 1));
+    const x0 = centred ? cx - ((charms.length - 1) * step) / 2 : cx;
+    charms.forEach((ch, i) => {
+      const c = charmWithTip(this, this.tooltip, ch, size, x0 + i * step, y);
+      layer.add(c);
+      this.anim.refs.charms.set(`${seat}:${ch.id}`, { x: x0 + i * step, y });
+    });
+  }
 
   private drawEnemy(layer: Layer, view: BattleView, turn: string): void {
     const e = view.enemy;
@@ -540,6 +583,7 @@ export class CombatScene extends Phaser.Scene {
       if (slot.revealed) this.seatBoxes.set(`${ENEMY_SEAT}:${i}`, c);
     });
     if (debug) this.label(layer, rowX - 20, 100, "(debug view)", 16, "#ff6b64", 1, true);
+    drawDeckStack(this, layer, this.anim.refs, ENEMY_SEAT, this.view.dominoes[0], 545, 112, deckCount(view, ENEMY_SEAT));
     // Its whole deck, and what it has played since the last reshuffle.
     const y = this.smallRow(layer, "Deck", e.deckList, "normal", rowX, 158);
     this.smallRow(layer, "Played", e.faceUp, "playedFaceUp", rowX, y + 8);
@@ -560,59 +604,13 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private drawPassive(layer: Layer, p: Passive, x: number, y: number): void {
-    const g = this.gfx(layer);
-    g.fillStyle(0x0d2a20, 0.9);
-    g.fillCircle(x, y, 34);
-    g.lineStyle(4, GOLD, 1);
-    g.strokeCircle(x, y, 34);
-    if (p.kind === "auditor") {
-      // A ledger page with ruled lines.
-      g.fillStyle(0xf4ecd8, 1);
-      g.fillRoundedRect(x - 16, y - 22, 32, 44, 4);
-      g.lineStyle(3, 0x2a2a2a, 1);
-      for (let i = 0; i < 4; i++) g.lineBetween(x - 10, y - 12 + i * 9, x + 10, y - 12 + i * 9);
-    } else if (p.kind === "longNight") {
-      // A crescent moon.
-      g.fillStyle(0xf4ecd8, 1);
-      g.fillCircle(x - 2, y, 20);
-      g.fillStyle(0x0d2a20, 1);
-      g.fillCircle(x + 8, y - 5, 17);
-    } else if (p.kind === "hoarder") {
-      // A shield-shaped chest.
-      g.fillStyle(0x8a6a3a, 1);
-      g.fillRoundedRect(x - 20, y - 14, 40, 30, 4);
-      g.fillStyle(0xffe14d, 1);
-      g.fillRect(x - 4, y - 4, 8, 10);
-    } else if (p.kind === "smolder") {
-      // A flame.
-      g.fillStyle(0xff7a2b, 1);
-      g.fillTriangle(x - 16, y + 20, x + 16, y + 20, x, y - 24);
-      g.fillStyle(0xffe14d, 1);
-      g.fillTriangle(x - 8, y + 20, x + 8, y + 20, x, y - 6);
-    } else if (p.kind === "warden") {
-      this.drawPadlock(g, x, y, 1.1);
-    } else {
-      // A mouth with teeth.
-      g.fillStyle(0x7a1f2b, 1);
-      g.fillEllipse(x, y + 2, 46, 30);
-      g.fillStyle(0xffffff, 1);
-      for (let i = 0; i < 4; i++) {
-        g.fillTriangle(x - 18 + i * 9, y - 8, x - 10 + i * 9, y - 8, x - 14 + i * 9, y + 2);
-      }
-    }
+    drawPassiveIcon(this, this.gfx(layer), p, x, y);
     this.label(layer, x - 44, y, p.name, 24, "#ffe14d", 1, true);
   }
 
   // A padlock centred on x, y (about 30 wide at scale 1).
   private drawPadlock(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
-    if (artImage(this, "ui/locked", x, y + 2 * scale, 34 * scale, 34 * scale, g.parentContainer)) return;
-    g.lineStyle(5 * scale, 0xd8d8d8, 1);
-    g.strokeEllipse(x, y - 9 * scale, 16 * scale, 20 * scale);
-    g.fillStyle(0xe0b341, 1);
-    g.fillRoundedRect(x - 14 * scale, y - 4 * scale, 28 * scale, 22 * scale, 4 * scale);
-    g.fillStyle(0x2a2a2a, 1);
-    g.fillCircle(x, y + 5 * scale, 3 * scale);
-    g.fillRect(x - 1.5 * scale, y + 6 * scale, 3 * scale, 7 * scale);
+    drawPadlock(this, g, x, y, scale);
   }
 
   // ---- HUD (band under the enemy) ----
@@ -662,15 +660,6 @@ export class CombatScene extends Phaser.Scene {
     this.label(layer, RIGHT_X, 48, "Party", 24, "#9fd1b8", 0, true);
     this.bar(layer, "party", RIGHT_X, 68, 190, 34, p.health, p.maxHealth, 0x3fae68);
     this.shield(layer, "party", RIGHT_X + 212, 85, 34, p.block);
-    // Everyone's charms (#108).
-    const names: Record<string, string> = {};
-    const held: Record<string, string[]> = {};
-    for (const q of view.players) {
-      names[q.id] = this.nameOf(q.id, false);
-      held[q.id] = q.charms;
-    }
-    layer.add(drawCharmList(this, RIGHT_X, 800, view.players.map((q) => q.id), names, held, (seat, ch, x, y) => this.anim.refs.charms.set(`${seat}:${ch.id}`, { x, y })));
-
     // Combo meter: strength x lap.
     const { strength, lap } = view.chain;
     const total = strength * lap;
@@ -797,7 +786,10 @@ export class CombatScene extends Phaser.Scene {
       }
     }
     const you = this.online ? (p.id === this.online.seat ? " (you)" : " (playing for)") : "";
-    this.plate(layer, HAND.x + 110, HAND.y + 4, this.nameOf(p.id, true, 9) + you, onTurn, 28);
+    // The plate sits on the hand's top edge so its charm row fits between it and the dominoes. The row
+    // starts at the plate's left edge, leaving the area left of the hand free.
+    this.plate(layer, HAND.x + 110, HAND.y - 2, this.nameOf(p.id, true, 9) + you, onTurn, 28);
+    this.plateCharms(layer, p.id, p.charms, HAND.x + 70, HAND.y + 32, 20, false);
     let hint = pendingType === "opener" ? "Play an opener" : pendingType === "answer" ? "Answer the spark" : "";
     if (this.online && view.phase !== "over" && !this.locked) {
       if (this.waiting) hint = "Waiting for the host";
@@ -807,8 +799,9 @@ export class CombatScene extends Phaser.Scene {
     if (prompt) {
       this.drawSparkPrompt(layer, prompt.domino, prompt.sparks);
     } else {
-      this.label(layer, HAND.x + 240, HAND.y + 4, `${hint}${hint ? "   ·   " : ""}Deck ${p.deck.length}   Discard ${p.discard.length}`, 22, "#cfe9dc", 0);
+      this.label(layer, HAND.x + 240, HAND.y - 2, `${hint}${hint ? "   ·   " : ""}Discard ${p.discard.length}`, 22, "#cfe9dc", 0);
     }
+    drawDeckStack(this, layer, this.anim.refs, p.id, this.view.dominoes[0], HAND.x + HAND.w - 70, HAND.y + 14, p.deck.length);
     if (p.hand.length === 0) {
       this.label(layer, HAND.x + HAND.w / 2, HAND.y + 130, "No dominoes in hand", 28, "#7fb59b", 0.5);
       return;
@@ -828,6 +821,7 @@ export class CombatScene extends Phaser.Scene {
         const c = this.domino(layer, id, k, state, hx, hy, click, { zone: "hand", seat: p.id, index: r * perRow + i });
         if (state === "playable") this.hoverHighlight(layer, c, p.id, id);
         if (!this.anim.refs.hand.has(id)) this.anim.refs.hand.set(id, { x: hx, y: hy, k });
+        this.slotsOf(p.id)[r * perRow + i] = { c, pos: { x: hx, y: hy, k } };
       });
     }
   }
@@ -890,7 +884,7 @@ export class CombatScene extends Phaser.Scene {
 
   // The inline question in the hand's header row: one button per spark the engine listed.
   private drawSparkPrompt(layer: Layer, id: string, sparks: Spark[]): void {
-    const y = HAND.y + 4;
+    const y = HAND.y - 2;
     const name = dominoes.find((d) => d.id === id)?.name ?? id;
     const t = this.label(layer, HAND.x + 240, y, `Which spark does ${name} answer?`, 22, "#ffe14d", 0, true);
     let x = HAND.x + 240 + t.width + 24;
@@ -964,8 +958,8 @@ export class CombatScene extends Phaser.Scene {
   }
 
   // Plays the step's events in order. The table follows them (shownView.ts nudges a copy of the
-  // pre-step view with each event's numbers, animations.ts animates it) while the log line and
-  // the highlighted seat follow too. The caller then redraws from the new state or view, so the
+  // pre-step view with each event's numbers, animations.ts animates it) while the highlighted
+  // seat follows too. The caller then redraws from the new state or view, so the
   // final table is exactly what the engine says. Input is locked until then.
   // Returns false if the scene was left meanwhile.
   private async playback(events: GameEvent[]): Promise<boolean> {
@@ -976,16 +970,23 @@ export class CombatScene extends Phaser.Scene {
     this.shown = startShown(JSON.parse(JSON.stringify(before)) as BattleView, enemyIds);
     this.redraw();
     debugPanel.stateChanged();
-    const enemyName = enemies.find((e) => e.id === before.enemy.id)?.name ?? before.enemy.id;
-    const ctx: LogContext = {
-      enemyName,
-      name: (seat) => (seat === ENEMY_SEAT ? enemyName : this.nameOf(seat, false)),
-      domino: (id) => before.dominoes.find((d) => d.id === id)?.name ?? id,
-    };
     const mem = newLogMemory();
     const epoch = this.epoch;
     const isPlayer = (seat: string) => seat !== ENEMY_SEAT;
-    for (const ev of events) {
+    for (let n = 0; n < events.length; n++) {
+      const ev = events[n];
+      if (isDrawEvent(ev)) {
+        // Everything drawn at round start plays at once; the table is redrawn from the end of it.
+        let end = n;
+        while (end + 1 < events.length && isDrawEvent(events[end + 1])) end++;
+        const batch = events.slice(n, end + 1);
+        for (const e of batch) trackEvent(e, mem);
+        await playDraws(this, () => this.anim.refs, this.view.dominoes, batch, this.shown!, () => this.redraw());
+        n = end;
+        if (debugPanel.stepMode) await debugPanel.waitForStep(ev.type);
+        if (epoch !== this.epoch) return false;
+        continue;
+      }
       let hl: string | null = this.hlSeat;
       let hand: string | null = this.handSeat;
       switch (ev.type) {
@@ -996,8 +997,7 @@ export class CombatScene extends Phaser.Scene {
         case "play": hl = ev.seat; if (isPlayer(ev.seat)) hand = ev.seat; break;
         case "enemyDiscard": case "enemyNoReaction": case "leftover": hl = ENEMY_SEAT; break;
       }
-      const text = describeEvent(ev, ctx, mem);
-      if (text !== null) this.logText?.setText(text);
+      trackEvent(ev, mem);
       if (hl !== this.hlSeat || hand !== this.handSeat) {
         this.hlSeat = hl;
         this.handSeat = hand;
@@ -1030,9 +1030,13 @@ export class CombatScene extends Phaser.Scene {
     const p = view.players.find((q) => q.id === id);
     if (!p) return;
     this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), this.online !== null && view.phase !== "over" && this.turnSeat === p.id, 26);
-    this.label(layer, x + SIDE_W / 2, y + 62, `Deck ${p.deck.length}   Discard ${p.discard.length}`, 20, "#cfe9dc", 0.5);
-    const top = y + 90;
-    const avail = h - 100;
+    // A row of charm icons under the plate pushes the discard line, the deck pile and the hand down.
+    const extra = p.charms.length > 0 ? 28 : 0;
+    this.plateCharms(layer, p.id, p.charms, x + SIDE_W / 2, y + 58, 22);
+    this.label(layer, x + SIDE_W / 2 + 40, y + 62 + extra, `Discard ${p.discard.length}`, 20, "#cfe9dc", 0.5);
+    drawDeckStack(this, layer, this.anim.refs, id, this.view.dominoes[0], x + 50, y + 66 + extra, p.deck.length);
+    const top = y + 90 + extra;
+    const avail = h - 100 - extra;
     // Largest scale at which the whole hand fits.
     let k = 0.33;
     for (const s of [0.5, 0.4, 0.33]) {
@@ -1049,6 +1053,7 @@ export class CombatScene extends Phaser.Scene {
       const x0 = x + (SIDE_W - inRow * stepX) / 2 + stepX / 2;
       const c = this.domino(layer, did, k, "normal", x0 + (i % per) * stepX, top + (DH * k) / 2 + row * (DH * k + 6), undefined, { zone: "hand", seat: id, index: i });
       this.seatBoxes.set(`${id}:${i}`, c);
+      this.slotsOf(id)[i] = { c, pos: { x: x0 + (i % per) * stepX, y: top + (DH * k) / 2 + row * (DH * k + 6), k } };
     });
     if (p.hand.length === 0) this.label(layer, x + SIDE_W / 2, top + 20, "No dominoes", 20, "#7fb59b", 0.5);
   }

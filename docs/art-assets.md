@@ -53,11 +53,11 @@ Approved by the designer from the style test (2026-11-19). Every batch uses thes
 ### Sparks: `sparks/<Spark>.png`, 256×256, transparent
 `Ember`, `Tide`, `Gale`, `Storm`, `Void`, `Rot`. A glowing glyph in the spark's colour and shape. These sit on domino halves, so keep them simple.
 
-### Effects: `effects/<kind>.png`, 256×256, transparent
-`damage`, `block`, `heal`, `amplify`, `echo`, `lookout`, `mimic`, `reflect`. One clear symbol each (for example a blade, a shield, a heart, a rising arrow, ripples, an eye, a mirror mask, a reversing mirror).
+### Effects: drawn in code
+**Not generated.** All effect icons (`damage`, `block`, `heal`, `amplify`, `echo`, `lookout`, `mimic`, `reflect`) are drawn in code in one consistent style, by designer choice. Don't add any `effects/` files to the manifest. One clear symbol each (for example a blade, a shield, a heart, a rising arrow, ripples, an eye, a mirror mask, a reversing mirror).
 
 ### Traits and markers: `ui/<id>.png`, 128×128, transparent
-`spectrum` (rainbow prism), `ignores_block` (arrow through a shield), `no_lap` (crossed-out loop), `locked` (padlock), `blessed` (halo or sun), `coin`, `health` (heart), `block` (small shield), `charm_normal` (round frame), `charm_rare` (gold diamond frame).
+`spectrum` (rainbow prism), `ignores_block` (arrow through a shield), `no_lap` (crossed-out loop), `locked` (padlock), `blessed` (halo or sun), `coin`, `health` (heart), `charm_normal` (round frame), `charm_rare` (gold diamond frame). The HUD block shield is drawn in code, not generated.
 
 ### Domino tiles: `tiles/<id>.png`, 480×240, transparent
 `starter`, `common`, `uncommon`, `rare`, `enemy`, `hidden` (face-down back). A completely blank face with no divider lines: the game draws its own intake, effect and output columns, the sparks, effect icons and numbers on top. Keep the face light so dark numbers stay readable. Rarity can show in the frame (plain, silver, gold); enemy tiles look darker or menacing.
