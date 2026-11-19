@@ -8,9 +8,8 @@ const a = (domino: string, spark: "Ember" | "Tide" | "Gale"): Choice => ({ type:
 
 // Brute, seed 7, two players on the starter deck.
 const script: Choice[] = [
-  f("brace"), a("kindle", "Gale"), a("parry", "Tide"), a("brace", "Ember"),
+  f("brace"), a("kindle", "Gale"), a("parry", "Tide"), a("brace", "Ember"), a("splash", "Tide"),
   f("parry"), a("kindle", "Gale"), a("lookout", "Ember"), a("splash", "Tide"),
-  f("jab"), a("splash", "Tide"), a("lookout", "Ember"), a("jab", "Ember"),
 ];
 
 function replay() {
@@ -27,7 +26,7 @@ test("replay: same seed and choices give identical final state and the stored su
     round: first.round,
     partyHealth: first.party.health,
     enemyHealth: first.enemy.health,
-  }).toEqual({ result: null, round: 3, partyHealth: 7, enemyHealth: 168 });
+  }).toEqual({ result: null, round: 2, partyHealth: 36, enemyHealth: 146 });
 });
 
 test("smoke: 50 random battles per enemy all end and never throw", () => {

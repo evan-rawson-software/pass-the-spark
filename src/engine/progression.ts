@@ -21,8 +21,17 @@ export function allUnlocks(data: ProgressionData): string[] {
   return data.levels.map((l) => l.unlock);
 }
 
-// What a finished run earns each player: per floor cleared, per boss beaten, and a bonus for winning.
-export function runExperience(run: RunState): number {
+// What a finished run earns each player, broken down: floors cleared, bosses beaten, and the win bonus.
+export interface ExperienceBreakdown {
+  floors: number;
+  floorXp: number;
+  bosses: number;
+  bossXp: number;
+  winXp: number;
+  total: number;
+}
+
+export function experienceBreakdown(run: RunState): ExperienceBreakdown {
   const x = run.content.progression.experience;
   const won = run.result === "won";
   const acts = run.content.run.acts;
@@ -31,7 +40,30 @@ export function runExperience(run: RunState): number {
   if (won) floors += acts[run.actIndex].map.floors;
   else if (run.position) floors += Math.min(run.position.floor - 1, acts[run.actIndex].map.floors); // the floor you fell on is not cleared
   const bosses = run.actIndex + (won ? 1 : 0);
-  return floors * x.perFloor + bosses * x.perBoss + (won ? x.forWin : 0);
+  const floorXp = floors * x.perFloor;
+  const bossXp = bosses * x.perBoss;
+  const winXp = won ? x.forWin : 0;
+  return { floors, floorXp, bosses, bossXp, winXp, total: floorXp + bossXp + winXp };
+}
+
+export function runExperience(run: RunState): number {
+  return experienceBreakdown(run).total;
+}
+
+// Where an experience total stands: the level, the span of the current level (from..to) and the
+// unlock the next level gives. After the last level next is null and the bar is full.
+export interface LevelProgress {
+  level: number;
+  from: number;
+  to: number | null;
+  next: { name: string; description: string } | null;
+}
+
+export function levelProgress(data: ProgressionData, experience: number): LevelProgress {
+  const level = levelFor(data, experience);
+  const from = level === 0 ? 0 : data.levels[level - 1].experience;
+  const next = data.levels[level];
+  return { level, from, to: next ? next.experience : null, next: next ? { name: next.name, description: next.description } : null };
 }
 
 // Adds experience; returns the new profile and the unlocks it just earned.

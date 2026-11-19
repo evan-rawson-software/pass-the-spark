@@ -337,6 +337,10 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - **Map screen:** drop "The party's choice". "Act N of 3" replaces "Route: floor N" as the heading.
 - **Single player votes:** no vote display. The chosen stop opens straight away. The same goes for single player event votes.
 - **First-round draw:** players draw 5 at the start of round 1 of each battle (`playerFirstDraw` in data), then 3 per round as before. This replaces the M1 ruling that round 1 draws like any other round. Enemies draw as usual. Early Riser's +1 applies to the first draw too.
+- **Combat top bar:** drop the "Spark" readout next to the turn order; the current spark already shows as an icon in the middle of the table.
+- **Draw animation:** drawing at round start is animated: dominoes slide from each seat's deck into its hand, staggered, everyone at once. Enemy draws arrive face down, its oldest-domino discard and any reshuffle are shown briefly. Shortened by playback speed.
+- **Combat side clutter:** the bottom-right list of player names (the combat charm list, which reads like a second turn order) goes; each player's charm icons sit by their own name plate instead. The bottom-left last-action text goes too.
+- **Enemy tier:** shown as an icon beside the enemy's name (the same icons as the map's fight, elite and boss stops), with a hover tooltip, instead of the BASIC / ELITE / BOSS text under the name.
 - **Map readability:** the map is too cramped on one screen. It gets more height (bigger gaps between floors, bigger stops) and scrolls vertically; headings, party display and side panels stay fixed.
 - **Hover highlight:** hovering a playable domino in your hand highlights the dominoes that could answer it in the next seat's hand: teammates' dominoes, and the enemy's revealed ones. Which dominoes count comes from the engine. When the next seat is the enemy and none of its revealed dominoes could react, the matching dominoes of the player after the enemy are highlighted too, more faintly (the spark would pass on to them if the enemy can't react).
 
