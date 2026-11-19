@@ -178,3 +178,60 @@ Follow-ups:
 - **Hand testing:** done by people at playtests, using `docs/playtest-checklist.md`.
 - **Hosted relay:** parked until a playtester can't connect. The likely fix is a TURN server, which is a cost and credentials decision for the designer.
 - **Online behaviour in issues:** every issue with a player choice states what happens online and in single player.
+
+## 2026-11-19: Milestone 5 (events)
+
+### Votes (changes milestone 4)
+- **Who votes:** only party-wide choices are voted on: route votes and the party-vote events (Toll Bridge, Spark Shrine, Lost Courier). Every other event choice is personal: each player chooses for themselves, all at the same time.
+- **Settling a vote:** a unanimous vote wins. Otherwise the result is drawn at random from the votes cast, weighted by count (3 votes for A and 1 for B gives A a 75% chance), with the run's seeded RNG. This replaces "most votes wins, ties broken at random" for route votes too.
+- **Single player:** one person makes each party-wide choice once, with no voting. Personal choices are still made for each seat, since each seat has its own deck and coins.
+- **Wording:** the option to decline an event is called "Skip".
+
+### Spark pools (changes milestone 4)
+- **Groups:** basic sparks are Ember, Tide and Gale. Advanced sparks are Storm and Void.
+- **By rarity:** a full chain needs a mix of rarities.
+
+  | Rarity | Intake | Output |
+  | --- | --- | --- |
+  | Common | one basic spark | basic |
+  | Uncommon | one basic spark | basic or advanced |
+  | Rare | one advanced spark, or "any" | basic |
+
+- Uncommons can still give off one or two sparks. Rares keep "any" as an intake.
+- Left-side upgrades take the second intake spark from the domino's rarity intake pool, excluding the original, so a rare Storm intake can only add Void.
+- Enemy dominoes and the starter deck are hand-authored and unaffected.
+
+### Events: general
+- **How often:** about 1 in 5 random map stops (event weight in data). An event stop is always an event; the Toll Bridge's optional fight is the only fight that comes from one.
+- **No repeats:** an event doesn't repeat within a run until every event has appeared; then the pool refills. The Twin Forge is about a quarter as likely as the others. Weights in data.
+- **Text and art:** 1-2 sentences of placeholder story text per event, stored in data for the designer to rewrite. A code-drawn placeholder illustration.
+- **Kinds:** party vote (Toll Bridge, Spark Shrine, Lost Courier); personal (Tinker's Bench, Wishing Well, Mirror Pond, Twin Forge); push your luck, taken in turn (Sleeping Giant). Every personal event offers Skip.
+- **Numbers:** every coin amount, chance and damage value lives in data.
+- **Adding a spark:** anything keyed by spark (such as the Wishing Well's prizes) must cover every basic and advanced spark. The content validator enforces it.
+
+### The events
+- **The Toll Bridge (vote):**
+  - Pay 15 coins each. Only offered when every player has 15. Paying just lets the party go on.
+  - Hard fight: a random elite from the act. It pays the normal elite coins, and every player's reward offer is all rare.
+  - Turn back: free, but the stops on the next floor show as "?" until the party reaches one.
+- **The Tinker's Bench (personal), one action:**
+  - Flip: free. Only for dominoes with exactly one intake spark and one output spark. The intake and output sparks swap; the effect and its upgrades stay.
+  - Repaint: 20 coins. Change one spark on either half to another spark of the same group (basic to basic, advanced to advanced) that the domino's rarity allows on that half. An "any" intake can't be repainted. A spark already on that half can't be chosen.
+- **The Wishing Well (personal):** turn over a random domino from your deck. Its output spark decides the prize; with two outputs, the player picks which one counts.
+  - Ember: coins.
+  - Tide: remove a domino from your deck for free (the brief's healing prize is replaced: healing comes from rest sites).
+  - Gale: a free upgrade, or coins if nothing in the deck can be upgraded.
+  - Storm or Void: a rare offer (3 rares, pick one or skip).
+- **The Sleeping Giant (push your luck, in turn):**
+  - Starts at the lead and goes round in seat order. Each player grabs 30 coins or stops; a player who stops is out. It ends when everyone has stopped or the Giant wakes.
+  - The wake chance starts at 10% and rises by 10% after each grab. It is shown before every decision. The wake check happens on the grab: a grab that wakes it gets no coins.
+  - Waking deals 10 damage to the party and ends the grabbing. It can end the run.
+- **The Spark Shrine (vote):** bless Ember, Tide or Gale, or skip. Advanced sparks can't be blessed.
+  - Every answer made with the blessed spark adds 2 strength instead of 1, player and enemy answers alike.
+  - The blessing lasts through the act's boss fight, then ends. A new blessing replaces an old one.
+- **The Lost Courier (vote):** one generated rare domino is shown to everyone. The vote options are each player's name (that player takes it; you can vote for yourself) or 15 coins each.
+- **The Mirror Pond (personal):** add an exact copy of one of your dominoes to your deck, upgrades and output included.
+- **The Twin Forge (rare, personal):**
+  - Pick two dominoes: the first gives its intake and effect (with their upgrades and traits), the second its output. Both are removed and the welded domino is added.
+  - Welding may break the rarity spark pools; that's allowed. The weld's rarity is the higher of the two, and its name is generated.
+  - Needs a deck of at least 6, so the deck stays at the minimum of 5.
