@@ -9,6 +9,9 @@ export const SKIP = "skip";
 export interface RewardState {
   offers: Record<string, Domino[]>; // player id -> offered dominoes
   choices: Record<string, string>; // player id -> picked domino id, or SKIP; absent while undecided
+  charmOffers: Record<string, string[]>; // player id -> offered charm ids; no entry when the player is offered no charm
+  coinsEarned: Record<string, number>; // player id -> coins the battle just paid them (Coin Purse included)
+  charmChoices: Record<string, string>; // player id -> picked charm id, or SKIP; absent while undecided
 }
 
 export interface RewardRoll {
@@ -40,7 +43,7 @@ export function rollOffers(
     }
     offers[playerId] = offer;
   }
-  return { reward: { offers, choices: {} }, state: s, nextIndex: index };
+  return { reward: { offers, choices: {}, charmOffers: {}, charmChoices: {}, coinsEarned: {} }, state: s, nextIndex: index };
 }
 
 // choice is a domino id from the player's offer, or SKIP. Returns a new state; a choice is final.
@@ -49,12 +52,12 @@ export function submitRewardChoice(reward: RewardState, playerId: string, choice
   if (!offer) throw new Error("no offer for player " + playerId);
   if (reward.choices[playerId] !== undefined) throw new Error("player " + playerId + " already chose");
   if (choice !== SKIP && !offer.some((d) => d.id === choice)) throw new Error("domino " + choice + " is not in the offer");
-  return { offers: reward.offers, choices: { ...reward.choices, [playerId]: choice } };
+  return { ...reward, choices: { ...reward.choices, [playerId]: choice } };
 }
 
 // The run moves on once everyone has picked or skipped.
 export function isRewardComplete(reward: RewardState): boolean {
-  return Object.keys(reward.offers).every((id) => reward.choices[id] !== undefined);
+  return Object.keys(reward.offers).every((id) => reward.choices[id] !== undefined) && Object.keys(reward.charmOffers).every((id) => reward.charmChoices[id] !== undefined);
 }
 
 // The dominoes players picked, to add to their decks (and to the battle's extraDominoes).
@@ -66,4 +69,13 @@ export function pickedDominoes(reward: RewardState): Record<string, Domino> {
     if (domino) out[id] = domino;
   }
   return out;
+}
+
+// choice is a charm id from the player's charm offer, or SKIP. A choice is final.
+export function submitCharmChoice(reward: RewardState, playerId: string, choice: string): RewardState {
+  const offer = reward.charmOffers[playerId];
+  if (!offer) throw new Error("no charm offer for player " + playerId);
+  if (reward.charmChoices[playerId] !== undefined) throw new Error("player " + playerId + " already chose a charm");
+  if (choice !== SKIP && !offer.includes(choice)) throw new Error("charm " + choice + " is not in the offer");
+  return { ...reward, charmChoices: { ...reward.charmChoices, [playerId]: choice } };
 }

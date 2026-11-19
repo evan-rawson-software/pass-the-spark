@@ -18,6 +18,7 @@ export interface Content {
 export interface PlayerSetup {
   id: string;
   deck: DeckList;
+  charms?: string[]; // charm ids the player holds (from the run); none by default
 }
 
 export interface PlayerState {
@@ -25,6 +26,7 @@ export interface PlayerState {
   deck: string[]; // domino ids, next draw first
   hand: string[];
   discard: string[];
+  charms: string[]; // charm ids the player holds for this battle; their effects come in later issues
 }
 
 export interface EnemyState {
@@ -155,7 +157,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     if (!p || p.deck.length === 0) throw new Error("player needs a deck: " + id);
     const s = shuffle(rng, p.deck);
     rng = s.state;
-    players.push({ id, deck: s.value, hand: [], discard: [] });
+    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice() });
   }
   const es = shuffle(rng, enemyDef.deck);
   rng = es.state;
