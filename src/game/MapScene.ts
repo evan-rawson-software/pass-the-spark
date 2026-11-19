@@ -294,16 +294,16 @@ export class MapScene extends Phaser.Scene {
     drawNodeIcon(g, "boss", CENTER_X, BOSS_Y, r);
     if (run.position?.floor === run.map.floors.length + 1) this.drawPartyMarker(CENTER_X, BOSS_Y);
     // Left of the boss, right-aligned: the party's charm strip runs along the top to its right.
-    const name: Phaser.GameObjects.Text = label(this, CENTER_X - r - 20, 24, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 1 });
+    const name: Phaser.GameObjects.Text = label(this, CENTER_X - r - 20, 36, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 1 });
     // The passive shows as icons beside the name; its text is in the tooltip.
     const icons: Phaser.GameObjects.GameObject[] = [];
     const hits: Phaser.GameObjects.Arc[] = [];
     const iconX = CENTER_X - r - 20 - name.width - 40;
     (boss?.passives ?? []).forEach((p, i) => {
       const gi = this.add.graphics();
-      drawPassiveIcon(this, gi, p, iconX - i * 60, 24, 0.7);
+      drawPassiveIcon(this, gi, p, iconX - i * 60, 36, 0.7);
       icons.push(gi);
-      hits.push(this.add.circle(iconX - i * 60, 24, 24, 0, 0));
+      hits.push(this.add.circle(iconX - i * 60, 36, 24, 0, 0));
     });
     const tip = new Tooltip(this);
     const lines = bossTip(boss);
