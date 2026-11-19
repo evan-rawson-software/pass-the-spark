@@ -3,6 +3,11 @@ import { CombatScene } from "./CombatScene";
 import { EndScene } from "./EndScene";
 import { hasDevParams } from "./devBattle";
 import { StartScene } from "./StartScene";
+import { MapScene } from "./MapScene";
+import { RewardScene } from "./RewardScene";
+import { RestScene } from "./RestScene";
+import { TraderScene } from "./TraderScene";
+import { RunEndScene } from "./RunEndScene";
 import { MenuScene } from "./MenuScene";
 import { HostLobbyScene } from "./HostLobbyScene";
 import { JoinScene } from "./JoinScene";
@@ -23,7 +28,7 @@ const first =
   : MenuScene;
 const scenes = [
   first,
-  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, TitleScene, DominoTestScene].filter(
+  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, TraderScene, RunEndScene, TitleScene, DominoTestScene].filter(
     (s) => s !== first,
   ),
 ];
