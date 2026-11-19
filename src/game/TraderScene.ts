@@ -6,6 +6,7 @@ import { submitRunChoice, currentRun, isOnlineRun, myPending, seatName, watchRun
 import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { drawDomino } from "./dominoDrawing";
 import { charmWithTip, charmsByIds } from "./charmUi";
+import { artBackground, artImage } from "./art";
 import { Tooltip } from "./tooltip";
 import { button, label } from "./ui";
 
@@ -68,6 +69,7 @@ export class TraderScene extends Phaser.Scene {
     bg.fillStyle(0x1e5a42, 1);
     bg.fillRect(0, 0, 1920, 1080);
     add(bg);
+    artBackground(this, "trader", this.root);
     if (pending?.type !== "trader") {
       // Online, this player is done: wait for the others.
       if (isOnlineRun()) {
@@ -92,6 +94,7 @@ export class TraderScene extends Phaser.Scene {
     drawPartyHud(this, run);
     drawRunHeader(this, "Trader", isOnlineRun() ? null : player, "Buy dominoes or remove one, then press Done.");
     for (const o of this.children.list.slice(before)) this.root.add(o);
+    artImage(this, "ui/coin", 490, 96, 40, 40, this.root);
     add(label(this, 520, 70, `Coins: ${run.coins[player]}`, 44, { bold: true, color: "#ffe14d" }));
 
     // Stock

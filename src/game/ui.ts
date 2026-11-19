@@ -1,4 +1,6 @@
 import Phaser from "phaser";
+import { artBackground } from "./art";
+import { playSound } from "./sound";
 
 // Small helpers for the placeholder online screens (menu, lobby, join).
 
@@ -9,10 +11,12 @@ export const INPUT_STYLE =
 // One colour per seat, used for vote markers.
 export const PLAYER_COLORS = [0xff7a59, 0x5ec8ff, 0xffe14d, 0xc78bff];
 
-export function drawBackground(scene: Phaser.Scene): void {
+// `art` names backgrounds/<art>, drawn over the plain fill when it exists.
+export function drawBackground(scene: Phaser.Scene, art?: string): void {
   const g = scene.add.graphics();
   g.fillStyle(0x1e5a42, 1);
   g.fillRect(0, 0, 1920, 1080);
+  if (art) artBackground(scene, art);
 }
 
 export function label(
@@ -39,7 +43,10 @@ export function button(
   const t = label(scene, x, y, s, opts.size ?? 30, { bold: true, origin: opts.origin });
   t.setPadding(20, 10).setBackgroundColor(opts.selected ? "#b8860b" : "#0d2a20");
   if (opts.disabled) t.setAlpha(0.4);
-  else t.setInteractive({ useHandCursor: true }).on("pointerdown", onClick);
+  else t.setInteractive({ useHandCursor: true }).on("pointerdown", () => {
+      playSound("click");
+      onClick();
+    });
   return t;
 }
 

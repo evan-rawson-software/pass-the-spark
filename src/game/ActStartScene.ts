@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import { enemyStartingHealth } from "../engine/battle";
 import { applyRunChoice } from "../engine/run";
-import { bossTip, passiveText } from "./bossInfo";
+import { bossTip } from "./bossInfo";
+import { drawPassiveIcon } from "./passiveIcon";
 import { content } from "./devBattle";
 import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, setRun, submitRunChoice, watchRun } from "./runSession";
@@ -28,7 +29,7 @@ export class ActStartScene extends Phaser.Scene {
     const run = currentRun();
     const pending = myPending(run);
     const total = run.content.run.acts.length;
-    drawBackground(this);
+    drawBackground(this, "act_transition");
     drawPartyHud(this, run);
     drawRunHeader(this, `Act ${run.actIndex} of ${total} complete`, null, "");
     label(this, 960, 260, `Act ${run.actIndex + 1} of ${total}`, 96, { bold: true, origin: 0.5, color: "#ffe14d" });
@@ -39,9 +40,16 @@ export class ActStartScene extends Phaser.Scene {
     const boss = content.enemies.find((e) => e.id === run.map.bossId);
     label(this, 960, 600, "This act's boss", 30, { origin: 0.5, color: "#9fd1b8" });
     const name = label(this, 960, 660, boss?.name ?? run.map.bossId, 56, { bold: true, origin: 0.5 });
-    const passives = label(this, 960, 740, passiveText(boss), 32, { origin: 0.5, color: "#ffe14d" }).setAlign("center").setWordWrapWidth(1300);
     const tip = new Tooltip(this);
-    for (const target of [name, passives]) tip.attachLines(target, bossTip(boss, boss ? enemyStartingHealth(content.config, boss, run.players.length) : 0));
+    const lines = bossTip(boss, boss ? enemyStartingHealth(content.config, boss, run.players.length) : 0);
+    tip.attachLines(name, lines);
+    const list = boss?.passives ?? [];
+    list.forEach((p, i) => {
+      const x = 960 + (i - (list.length - 1) / 2) * 120;
+      drawPassiveIcon(this, this.add.graphics(), p, x, 760, 1.4);
+      tip.attachLines(this.add.circle(x, 760, 48, 0, 0), lines);
+    });
+    if (list.length === 0) label(this, 960, 760, "No passive", 32, { origin: 0.5, color: "#ffe14d" });
 
     if (pending?.type === "act") {
       button(this, 960, 880, "Continue", () => this.next(pending.player), { size: 48, origin: 0.5 });

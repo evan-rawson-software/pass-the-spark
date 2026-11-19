@@ -544,6 +544,10 @@ function draw(
       events.push({ type: "enemyDiscard", domino: old });
     }
     if (p.deck.length === 0) {
+      if (p.discard.length > 0) {
+        flush();
+        events.push({ type: "reshuffle", seat });
+      }
       const s = shuffle(state.rng, p.discard);
       state.rng = s.state;
       p.deck = s.value;
@@ -653,13 +657,21 @@ function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean,
   const seat = byPlayer ? state.seat : ENEMY_SEAT;
   chain.played.push({ seat, domino: d.id });
   events.push({ type: "play", seat, domino: d.id, answeredSpark: answered, strength: chain.strength, lap: chain.lap });
-  const scaleLap = byPlayer || state.config.enemyReactionsScaleWithLap || hasPassive(state, "longNight");
+  const scaleLap = byPlayer || enemyScalesWithLap(state);
   playEffect(state, d, seat, byPlayer ? "party" : "enemy", scaleLap, byPlayer ? answered : null, events);
   if (repeated && state.phase !== "over") auditor(state, events);
 }
 
-function hasPassive(state: BattleState, kind: Passive["kind"]): boolean {
-  return state.enemy.passives.some((p) => p.kind === kind);
+// Whether the enemy's reactions and leftovers are multiplied by the lap (the config, or the Long Night).
+export function enemyScalesWithLap(state: { config: Config; enemy: { passives: Passive[] } }): boolean {
+  return state.config.enemyReactionsScaleWithLap || state.enemy.passives.some((p) => p.kind === "longNight");
+}
+
+// Whether a domino's effect ignores the lap, for the "doesn't scale with lap" symbol. Works on a
+// view too. A player's Lookout never uses the lap; an enemy domino ignores it unless
+// enemyScalesWithLap.
+export function ignoresLap(state: { config: Config; enemy: { passives: Passive[] } }, domino: Domino, byEnemy: boolean): boolean {
+  return byEnemy ? !enemyScalesWithLap(state) : domino.effect.kind === "lookout";
 }
 
 // Warden passive: at round start one of its sparks is locked, picked with the battle RNG.
@@ -843,7 +855,7 @@ function endRound(state: BattleState, events: GameEvent[]): void {
     const effect = d.effect.kind === "reflect" ? state.chain.last?.effect : d.effect;
     if (effect === undefined) continue;
     let value = (effect.base ?? 0) * leftoverStrength;
-    if (state.config.enemyReactionsScaleWithLap || hasPassive(state, "longNight")) value *= state.chain.lap;
+    if (enemyScalesWithLap(state)) value *= state.chain.lap;
     events.push({ type: "trigger", seat: ENEMY_SEAT, domino: id, index: 0, effect, side: "enemy", value });
     resolve(state, effect, value, "enemy", events);
     if (state.phase === "over") return;

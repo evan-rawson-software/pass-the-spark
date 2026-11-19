@@ -19,6 +19,8 @@ import { DominoTestScene } from "./DominoTestScene";
 import { TitleScene } from "./TitleScene";
 import { DeckScene } from "./deckViewer";
 import { debugPanel } from "./DebugPanel";
+import { SoundScene } from "./SoundScene";
+import { ArtBootScene, readArtManifest } from "./art";
 
 // The menu is the default; a link with ?room=CODE opens the join screen, or, in the browser that
 // hosts that room, resumes it as host (#35; an unreadable save is dropped there and the page joins instead). Dev query params (see devBattle.ts) skip it and
@@ -53,7 +55,8 @@ window.addEventListener("pageshow", (e) => {
   if (e.persisted) window.location.reload();
 });
 
-new Phaser.Game({
+// The art boot scene loads the listed art, then starts the first scene.
+void readArtManifest().then(() => new Phaser.Game({
   type: Phaser.AUTO,
   parent: "game",
   width: 1920,
@@ -64,5 +67,5 @@ new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   dom: { createContainer: true },
-  scene: scenes,
-});
+  scene: [ArtBootScene, ...scenes, SoundScene], // SoundScene is last, so it draws on top of every screen
+}));

@@ -1,4 +1,5 @@
 import type Phaser from "phaser";
+import { playRunEventSounds } from "./sound";
 import { runExperience } from "../engine/progression";
 import { applyRunChoice, createRun, getPendingRunChoices } from "../engine/run";
 import type { RunChoice, RunEvent, RunPendingChoice, RunState } from "../engine/run";
@@ -9,7 +10,7 @@ import type { HostMessage } from "../net/protocol";
 import { content } from "./devBattle";
 import { deckViewerState } from "./deckViewer";
 import { watchLink } from "./linkBanner";
-import { awardExperience, loadProfile } from "./profile";
+import { awardExperience, clearAward, loadProfile } from "./profile";
 import { relay } from "./relay";
 
 // The run the screens draw. Single player: the game layer keeps the RunState here and sends every
@@ -38,6 +39,7 @@ let session: RunSession | null = null;
 
 export function startSingleRun(names: string[], seed: number): RunState {
   // One profile covers every seat. runId says which run this is, so its experience is added once.
+  clearAward();
   const unlocks = Object.fromEntries(names.map((n) => [n, loadProfile().unlocks]));
   session = { run: createRun({ players: names, seed, content, unlocks }), seed, names, online: null, window: "", runId: `${seed}-${Date.now()}` };
   return session.run;
@@ -53,6 +55,7 @@ function standIn(view: RunView): RunState {
 
 // Online: a run has started (or the page reopened in the middle of one) and this is its first view.
 export function startOnlineRun(online: OnlineRun, view: RunView): void {
+  clearAward();
   session = { run: standIn(view), seed: 0, names: [], online, window: view.window, runId: "" };
   relay.onRun = (m) => {
     if (!session?.online) return;
@@ -175,7 +178,9 @@ export function submitRunChoice(scene: Phaser.Scene, player: string, choice: Run
     else online.client?.sendRunChoice(choice, session!.window);
     return;
   }
-  setRun(applyRunChoice(currentRun(), player, choice).run);
+  const result = applyRunChoice(currentRun(), player, choice);
+  playRunEventSounds(result.events);
+  setRun(result.run);
   openRunScreen(scene);
 }
 

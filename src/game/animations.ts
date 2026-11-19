@@ -3,7 +3,10 @@ import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
 import type { Domino } from "../engine/types";
 import { scaleTime } from "./playbackSpeed";
-import { Heat, METER_FULL, METER_MAX_SCALE } from "./heat";
+import { Heat, METER_FULL, METER_MAX_SCALE, heatColor } from "./heat";
+import type { EffectCue } from "./heat";
+import { playEffect, topple } from "./effects";
+import type { Tally } from "./effects";
 
 // Basic table animations (#25), driven only by engine events and the numbers in them.
 // Every duration goes through scaleTime. The scene redraws from getView when the step is over,
@@ -14,6 +17,7 @@ const DW = 240; // a domino at scale 1
 const DH = 120;
 const GOLD = 0xffe14d;
 const RED = 0xff3b2f;
+const ENEMY_ROW = { x: 630, y: 40, w: 870, h: 60 }; // the enemy's hand row (CombatScene)
 
 export const COMBO_METER_FULL = METER_FULL; // strength x lap at which the meter looks full (cosmetic only; data/presentation.json)
 
@@ -37,6 +41,8 @@ export interface Refs {
   hand: Map<string, Pos>; // the active hand, by domino id
   chain: { c: Container; pos: Pos }[];
   enemyHand: { c: Container; pos: Pos }[];
+  handSlots: Map<string, { c: Container; pos: Pos }[]>; // every player's hand, by seat and position (draw animation, #153)
+  decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck stack, "enemy" included
   bars: Map<string, BarRef>; // "enemy" | "party"
   shields: Map<string, { text: Text; x: number; y: number }>;
   meter?: { text: Text; rect: Box; scale: number };
@@ -44,7 +50,7 @@ export interface Refs {
 }
 
 export function newRefs(): Refs {
-  return { hand: new Map(), chain: [], enemyHand: [], bars: new Map(), shields: new Map(), charms: new Map() };
+  return { hand: new Map(), chain: [], enemyHand: [], handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map() };
 }
 
 export function paintBar(b: BarRef, value: number): void {
@@ -173,6 +179,11 @@ export class Animator {
   refs: Refs = newRefs();
   private anchor: Box | null = null; // where the domino whose effect is going off sits
 
+  // What each domino of the open chain did, from the engine's damage and block events, for the
+  // topple's tally (#134). One entry per opener or play, in chain order.
+  private tally: Tally[] = [];
+  private chainOpen = false;
+
   heat: Heat; // the heat ladder (#133); the scene's chain drawing also calls heat.decorate and heat.syncRoom
 
   constructor(private scene: Phaser.Scene, public dominoes: Domino[], dim: Phaser.GameObjects.Rectangle) {
@@ -192,16 +203,17 @@ export class Animator {
       if (!from) from = refs.enemyHand[0]?.pos;
     }
     if (ev.type === "chainEnd") {
+      // The chain topples back along the line, last to first, tallying what it did (#134).
       const cs = refs.chain.filter((e) => e.c.active);
-      await Promise.all(
-        cs.map((e, i) =>
-          tweenDone(scene, {
-            targets: e.c, alpha: 0, y: e.pos.y - 40, scale: e.pos.k * 0.6,
-            delay: scaleTime(Math.min(i * 25, 200)), duration: scaleTime(300), ease: "Cubic.easeIn",
-          }),
-        ),
+      const hidden = Math.max(0, this.tally.length - refs.chain.length); // dominoes scrolled off the table
+      const extra = this.tally.slice(0, hidden).reduce((t, n) => ({ damage: t.damage + n.damage, block: t.block + n.block }), { damage: 0, block: 0 });
+      await topple(
+        scene, cs.map((e) => ({ c: e.c, w: DW * e.pos.k })), this.tally.slice(hidden), extra,
+        heatColor(shown.chain.strength, shown.chain.lap), { x: 960, y: 580 }, shown.chain.lap,
       );
+      this.chainOpen = false;
     }
+    this.countChain(ev);
     apply();
     refs = this.refs;
     const after = snapshot(shown);
@@ -234,19 +246,35 @@ export class Animator {
           const f = flourishOf(ev, this.dominoes);
           const cx = this.anchor.x + this.anchor.w / 2;
           const cy = this.anchor.y + this.anchor.h / 2;
-          if (f === "echo") {
-            ring(scene, cx, cy, 0x4fd8ff);
-            ring(scene, cx, cy, 0x4fd8ff, 150);
-            floatText(scene, cx, cy - 20, `ECHO ×${ev.index + 1}`, "#7fe6ff", 40, 900);
-          } else if (f === "mimic") {
-            ring(scene, cx, cy, 0xc77dff);
-            ring(scene, cx, cy, 0xc77dff, 150);
+          const links = shown.chain.strength;
+          const lap = shown.chain.lap;
+          const prev = refs.chain[refs.chain.length - 2];
+          const effectAt = (kind: EffectCue, to?: { x: number; y: number }) =>
+            playEffect(scene, kind, { from: this.anchor!, to, prev: prev && boxOf(prev.pos), enemyRow: ENEMY_ROW }, links, lap);
+          // The domino's own flourish first: Mimic and Reflect show themselves, then what they copied.
+          if (f === "echo") floatText(scene, cx, cy - 20, `ECHO ×${ev.index + 1}`, "#7fe6ff", 40, 900);
+          else if (f === "mimic") {
+            effectAt("mimic");
             floatText(scene, cx, cy - 20, "MIMIC", "#d9a6ff", 40, 900);
           } else if (f === "reflect") {
-            ring(scene, cx, cy, 0xff8a1f);
-            ring(scene, cx, cy, 0xff8a1f, 150);
+            effectAt("reflect");
             floatText(scene, cx, cy - 20, "REFLECT", "#ffb066", 40, 900);
           }
+          // Then the effect that went off. Damage flies to the side it hits; block and heal land on their own side.
+          const kind = ev.effect.kind;
+          if (kind === "damage") {
+            const bar = refs.bars.get(ev.side === "party" ? "enemy" : "party");
+            effectAt("damage", bar && { x: bar.x + bar.w / 2, y: bar.y + bar.h / 2 });
+          } else if (kind === "block") {
+            const sh = refs.shields.get(ev.side);
+            effectAt("block", sh && { x: sh.x + 30, y: sh.y });
+          } else if (kind === "heal") {
+            const bar = refs.bars.get(ev.side);
+            effectAt("heal", bar && { x: bar.x + bar.w / 2, y: bar.y + bar.h / 2 });
+          } else if (kind === "amplify" || kind === "echo" || kind === "lookout") {
+            effectAt(kind);
+          }
+          if (ev.effect.spectrum && (kind === "damage" || kind === "block" || kind === "heal")) effectAt("spectrum");
         }
         break;
       }
@@ -254,8 +282,8 @@ export class Animator {
         // The charm icon flashes (#108); screen-only, the engine already counted the effect.
         const at = refs.charms.get(`${ev.player}:${ev.charm}`);
         if (at) {
-          ring(scene, at.x, at.y, 0xffe14d);
           flash(scene, { x: at.x - 16, y: at.y - 16, w: 32, h: 32 }, 0xffe14d);
+          playEffect(scene, "charm", { from: { x: at.x - 16, y: at.y - 16, w: 32, h: 32 } }, shown.chain.strength, shown.chain.lap);
         }
         break;
       }
@@ -308,6 +336,23 @@ export class Animator {
     if (ev.type === "chainEnd") this.heat.onChainEnd();
     // Lap 3+: slow motion after each play. Local to this screen; scaled by playback speed.
     if (ev.type === "play") await this.heat.slowMotion(ev.strength, ev.lap);
+  }
+
+  // Adds what an event did to the open chain's per-domino tally (the engine's own numbers).
+  private countChain(ev: GameEvent): void {
+    if (ev.type === "roundStart") {
+      this.tally = [];
+      this.chainOpen = false;
+    } else if (ev.type === "opener") {
+      this.tally = [{ damage: 0, block: 0 }];
+      this.chainOpen = true;
+    } else if (ev.type === "play") {
+      this.tally.push({ damage: 0, block: 0 });
+    } else if (this.chainOpen && this.tally.length > 0) {
+      const t = this.tally[this.tally.length - 1];
+      if (ev.type === "damage" && ev.side === "enemy") t.damage += ev.amount;
+      else if (ev.type === "block" && ev.side === "party") t.block += ev.amount;
+    }
   }
 
   private tweenHealth(side: "party" | "enemy", before: Snapshot, after: Snapshot): void {

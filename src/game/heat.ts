@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import presentationJson from "../../data/presentation.json";
 import { scaleTime } from "./playbackSpeed";
+import { playSound } from "./sound";
 
 // The heat ladder (#133): chain spectacle that grows with the chain. Everything here is drawn on
 // this player's own screen from events the table already plays back (animations.ts calls the
@@ -29,9 +30,12 @@ export const METER_FULL = P.meter.full;
 export const METER_MAX_SCALE = P.meter.maxScale;
 
 // One call per tier event, for sound (#137). `links` rises along the chain: pitch the tick by it.
-export type HeatCue = "clack" | "tick" | "trail" | "sweep" | "shake" | "slowMotion" | "lightning";
-export function heatSound(_cue: HeatCue, _links: number, _lap: number): void {
-  // #137 plays the sound here.
+// #134 adds "topple" (once per domino as it falls, `links` counting up the fall) and "toppleTally"
+// (the total settles), and one cue per effect kind: "effect:damage", "effect:block", and so on.
+export type EffectCue = "damage" | "block" | "heal" | "amplify" | "echo" | "lookout" | "mimic" | "reflect" | "spectrum" | "charm";
+export type HeatCue = "clack" | "tick" | "trail" | "sweep" | "shake" | "slowMotion" | "lightning" | "topple" | "toppleTally" | `effect:${EffectCue}`;
+export function heatSound(cue: HeatCue, links: number, _lap: number): void {
+  playSound(cue, links);
 }
 
 // The tiers that are on at this strength (links) and lap, lowest first.

@@ -7,9 +7,11 @@ import type { EventOption, EventState } from "../engine/eventStops";
 import type { EventData } from "../engine/types";
 import { ACTION_LABEL, DECK_EVENTS, DECK_ILLUSTRATIONS, startDeckAction } from "./deckEventUi";
 import { drawGiant, drawGiantPanel } from "./giantDrawing";
+import { artImage } from "./art";
 import { drawDomino } from "./dominoDrawing";
 import { drawSparkShrine } from "./sparkShrineArt";
 import { scaleTime } from "./playbackSpeed";
+import { playRunEventSounds } from "./sound";
 import { drawPartyHud, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
 import { Tooltip } from "./tooltip";
@@ -176,6 +178,7 @@ export class EventScene extends Phaser.Scene {
     if (this.resolving) return;
     if (isOnlineRun()) return submitRunChoice(this, player, { type: "event", option });
     const result = applyRunChoice(run, player, { type: "event", option });
+    playRunEventSounds(result.events);
     setRun(result.run);
     const wake = result.events.find((e) => e.type === "giantWake");
     if (wake !== undefined && wake.type === "giantWake") return this.showWake(event, wake.damage);
@@ -203,13 +206,19 @@ export class EventScene extends Phaser.Scene {
     this.time.delayedCall(scaleTime(2200), () => openRunScreen(this));
   }
 
+  private illustrationArt: Phaser.GameObjects.Image | null = null;
+
   private drawIllustration(id: string, awake = false): void {
-    const g = this.add.graphics();
     const x = 60;
     const y = 220;
     const w = 700;
     const h = 740;
-    if (id === "sleeping_giant") drawGiant(g, x, y, w, h, awake);
+    this.illustrationArt?.destroy();
+    this.illustrationArt = artImage(this, `events/${id}`, x + w / 2, y + h / 2, w, h, null, "cover");
+    const g = this.add.graphics(); // after the image, so the border sits on top
+    if (this.illustrationArt) {
+      // the picture fills the panel
+    } else if (id === "sleeping_giant") drawGiant(g, x, y, w, h, awake);
     else (ILLUSTRATIONS[id] ?? drawUnknown)(g, x, y, w, h);
     g.lineStyle(6, 0xf4ecd8, 1);
     g.strokeRect(x, y, w, h);
@@ -291,6 +300,7 @@ export class EventScene extends Phaser.Scene {
     const choice = pick ? { type: "event" as const, option, pick } : { type: "event" as const, option };
     if (isOnlineRun()) return submitRunChoice(this, player, choice);
     const result = applyRunChoice(run, player, choice);
+    playRunEventSounds(result.events);
     const summary = result.events.find((e) => e.type === "eventSummary");
     if (summary !== undefined && summary.type === "eventSummary") return this.showSummary(summary, result.run);
     setRun(result.run);
@@ -375,6 +385,7 @@ export class EventScene extends Phaser.Scene {
       result = { run: more.run, events: [...result.events, ...more.events] };
     }
     // Single player: no vote display, the outcome opens straight away.
+    playRunEventSounds(result.events);
     setRun(result.run);
     openRunScreen(this);
   }
