@@ -3,6 +3,7 @@ import { applyRunChoice } from "../engine/run";
 import type { RunEvent, RunNodeType, RunState } from "../engine/run";
 import { content } from "./devBattle";
 import { scaleTime } from "./playbackSpeed";
+import { playVoteRoll } from "./voteRoll";
 import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
 import { bossTip, passiveText } from "./bossInfo";
@@ -326,18 +327,24 @@ export class MapScene extends Phaser.Scene {
     const row = this.run.map.floors[chosen.floor - 1];
     const x = row ? nodeX(row.length, chosen.index) : CENTER_X;
     const y = row ? floorY(chosen.floor) : BOSS_Y;
-    const ring = this.add.graphics();
-    ring.lineStyle(10, 0x7dffb0, 1);
-    ring.strokeCircle(x, y, NODE_R + 14);
-    const nodeName = NODE_STYLE[chosen.nodeType].name;
-    label(this, 60, 245, `Winner: ${nodeName}`, 30, { bold: true, color: "#7dffb0" });
-    if (chosen.drawn) {
-      const total = Object.values(chosen.counts).reduce((a, b) => a + b, 0);
-      const odds = Math.round((100 * (chosen.counts[chosen.index] ?? 0)) / total);
-      label(this, 60, 285, `Drawn: ${nodeName}, ${odds}%`, 30, { bold: true, color: "#ff9d7a" });
-    }
-    this.time.delayedCall(scaleTime(1800), () => {
-      openRunScreen(this);
-    });
+    const reveal = (): void => {
+      const ring = this.add.graphics();
+      ring.lineStyle(10, 0x7dffb0, 1);
+      ring.strokeCircle(x, y, NODE_R + 14);
+      const nodeName = NODE_STYLE[chosen.nodeType].name;
+      label(this, 60, 245, `Winner: ${nodeName}`, 30, { bold: true, color: "#7dffb0" });
+      if (chosen.drawn) {
+        const total = Object.values(chosen.counts).reduce((a, b) => a + b, 0);
+        const odds = Math.round((100 * (chosen.counts[chosen.index] ?? 0)) / total);
+        label(this, 60, 285, `Drawn: ${nodeName}, ${odds}%`, 30, { bold: true, color: "#ff9d7a" });
+      }
+      this.time.delayedCall(scaleTime(1800), () => {
+        openRunScreen(this);
+      });
+    };
+    if (!chosen.drawn || !row) return reveal();
+    // A drawn vote rolls over the voted stops first, then lands on the winner.
+    const spots = Object.keys(chosen.counts).map((k) => ({ option: Number(k), x: nodeX(row.length, Number(k)), y, w: 2 * NODE_R + 28, h: 2 * NODE_R + 28 }));
+    playVoteRoll(this, spots, chosen.counts, chosen.index, reveal);
   }
 }
