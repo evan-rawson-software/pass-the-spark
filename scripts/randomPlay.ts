@@ -1,7 +1,7 @@
 // Random play over the engine's public functions only. Random picks come from the
 // engine's seeded RNG, so the same seed gives the same battle.
 
-import { applyChoice, createBattle, getPendingChoice } from "../src/engine/battle";
+import { createBattle, step, getPendingChoice } from "../src/engine/battle";
 import type { BattleState, Choice } from "../src/engine/battle";
 import { nextInt } from "../src/engine/rng";
 import type { Config, DeckList, Domino, Enemy } from "../src/engine/types";
@@ -18,7 +18,7 @@ export const starterDeck: DeckList = starterDeckJson;
 export interface BattleStats {
   result: "won" | "lost" | null; // null: stopped at the step cap
   rounds: number;
-  chains: number[]; // player dominoes played in each round's chain
+  chains: number[]; // every domino played in each round's chain: fuse, player answers, enemy reactions
   steps: number;
   final: BattleState;
 }
@@ -61,9 +61,10 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
       choice = { type: "answer", domino: option.domino, spark: option.sparks[s.value] };
     }
     const round = state.round;
-    state = applyChoice(state, choice);
+    const result = step(state, choice);
+    state = result.state;
     steps += 1;
-    inRound += 1;
+    for (const e of result.events) if (e.type === "fuse" || e.type === "play") inRound += 1;
     if (state.round !== round) {
       chains.push(inRound);
       inRound = 0;

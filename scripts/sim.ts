@@ -1,6 +1,6 @@
 // npm run sim [battlesPerEnemy] [seed]
 // Plays random battles against each enemy in data/ and prints averages.
-// "chain" is the number of player dominoes (fuse included) played per round.
+// "chain" is the number of dominoes played per round: the fuse, player answers and enemy reactions.
 
 import { enemies, playRandomBattle } from "./randomPlay";
 
