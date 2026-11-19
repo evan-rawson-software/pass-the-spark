@@ -49,7 +49,7 @@
     },
     {
       "id": "act2",
-      "bossPool": ["boss_act2"],
+      "bossPool": ["hoarder", "smolder"],
       "normalPool": ["bandit", "golem", "harpy"],
       "elitePool": ["ravager", "sentinel"],
       "battleCoins": { "fight": 15, "elite": 35, "boss": 75 },

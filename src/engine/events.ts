@@ -28,6 +28,8 @@ export type GameEvent =
   | { type: "echoPending"; count: number }
   | { type: "reveal"; positions: number[] } // positions in the enemy's hand
   | { type: "auditor"; damage: number }
+  | { type: "hoarder"; block: number } // block gained as the lap goes up
+  | { type: "smolder"; strength: number } // the strength its leftovers go off at
   | { type: "glutton"; heal: number } // the amount actually healed
   // A reveal event precedes this when the domino was not already revealed.
   | { type: "leftover"; domino: string; position: number }

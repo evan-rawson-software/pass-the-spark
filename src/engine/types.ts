@@ -43,8 +43,10 @@ export type AuditorDamage =
 
 // Parameters are optional overrides of the defaults in Config.
 export type Passive =
-  | { kind: "auditor"; damage?: AuditorDamage }
-  | { kind: "glutton"; heal?: number };
+  | { kind: "auditor"; damage?: AuditorDamage; text?: string }
+  | { kind: "glutton"; heal?: number; text?: string }
+  | { kind: "hoarder"; text?: string }
+  | { kind: "smolder"; text?: string };
 
 export interface Enemy {
   id: string;

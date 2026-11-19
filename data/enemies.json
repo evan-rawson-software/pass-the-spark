@@ -126,7 +126,8 @@
     ],
     "passives": [
       {
-        "kind": "auditor"
+        "kind": "auditor",
+        "text": "Charges the party when a player answers with the same spark as the previous one."
       }
     ]
   },
@@ -151,7 +152,8 @@
     ],
     "passives": [
       {
-        "kind": "glutton"
+        "kind": "glutton",
+        "text": "Heals whenever the lap goes up."
       }
     ]
   },
@@ -245,25 +247,56 @@
     "passives": []
   },
   {
-    "id": "boss_act2",
-    "name": "Placeholder Act 2 Boss",
+    "id": "hoarder",
+    "name": "The Hoarder",
     "tier": "boss",
     "maxHealth": 600,
     "drawPerRound": 5,
     "handLimit": 7,
     "deck": [
-      "boss_act2_a",
-      "boss_act2_b",
-      "boss_act2_c",
-      "boss_act2_d",
-      "boss_act2_e",
-      "boss_act2_f",
-      "boss_act2_a",
-      "boss_act2_c",
-      "boss_act2_e",
-      "boss_act2_a"
+      "hoarder_a",
+      "hoarder_b",
+      "hoarder_c",
+      "hoarder_d",
+      "hoarder_e",
+      "hoarder_f",
+      "hoarder_a",
+      "hoarder_c",
+      "hoarder_e",
+      "hoarder_a"
     ],
-    "passives": []
+    "passives": [
+      {
+        "kind": "hoarder",
+        "text": "Gains block equal to the current strength whenever the lap goes up."
+      }
+    ]
+  },
+  {
+    "id": "smolder",
+    "name": "The Smolder",
+    "tier": "boss",
+    "maxHealth": 600,
+    "drawPerRound": 5,
+    "handLimit": 7,
+    "deck": [
+      "smolder_a",
+      "smolder_b",
+      "smolder_c",
+      "smolder_d",
+      "smolder_e",
+      "smolder_f",
+      "smolder_a",
+      "smolder_c",
+      "smolder_e",
+      "smolder_a"
+    ],
+    "passives": [
+      {
+        "kind": "smolder",
+        "text": "At round end, its leftovers go off at the chain's final strength (at least 1) instead of strength 1."
+      }
+    ]
   },
   {
     "id": "wraith",
