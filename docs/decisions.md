@@ -2,6 +2,8 @@
 
 Confirmed rulings. These override the build brief where they differ. Newest last.
 
+**Terminology:** "single player" means one person controlling all 3-4 party seats on one screen. The brief and older issues called this "hot-seat". Online play is the multiplayer mode.
+
 ## 2026-11-19
 
 ### Platform and scope
@@ -85,7 +87,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 
 - **Tech:** Phaser plus Vite. Screen code only draws engine state and submits choices; no rules live in it. Only the engine and data port to Godot; screens get rebuilt there.
 - **Art:** drawn by code for now (two-halved tiles, each spark with its own colour and shape, effect icon plus number). Sprites later.
-- **Hand layout:** the active hand is large, front and centre; teammates' hands are smaller at the sides; whoever's turn it is gets a highlight. In hot-seat the front hand follows whoever's turn it is. Online, it will be your own hand.
+- **Hand layout:** the active hand is large, front and centre; teammates' hands are smaller at the sides; whoever's turn it is gets a highlight. In single player the front hand follows whoever's turn it is. Online, it will be your own hand.
 - **Animations:** basic only in M2 (domino into chain, effect triggers, floating numbers, health bars, combo meter). The full heat ladder comes in milestone 5.
 - **Screens:** a placeholder start screen (3 or 4 players, pick any enemy) and end screen (victory or defeat, play again). Both get replaced in milestone 4.
 - **Pacing:** enemy turns, passes and round-end leftovers play out automatically with short delays, scaled by a playback-speed setting. Player turns wait for a click.
@@ -100,7 +102,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Authority:** the host runs the engine. Clients send only choices; the host sends each player their own view (`getView`) and events (`getEventsView`).
 - **Joining:** the host creates a room with a short code and a shareable link. Friends open it, type a name and join. No accounts.
 - **Seats:** join order, and the host can reorder them in the lobby. The host picks the enemy and can start with 3 or 4 players (fewer only through the debug panel).
-- **Hot-seat:** kept as a "local game" option.
+- **Single player:** kept as a start-screen option.
 - **Dropped player:** they rejoin by reopening the link, and their browser remembers their seat. The game pauses on their turn with "Waiting for [name]". After a delay, the host can take that seat's turns until they return.
 - **Host drops:** the host's browser saves the room after every step. Everyone uses the same link (`?room=CODE`). A browser that has a saved hosted room with that code resumes as host; any other browser joins as a player. Resuming works only in the same browser on the same device. No host migration.
 - **No turn timer. No chat or pings yet.**
@@ -119,7 +121,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Run rules:** in the headless engine, deterministic from a seed and host-authoritative, like combat.
 - **Map:** one act of 10 floors plus the boss, generated from the seed, with 3-4 branching paths. Floors 1-3 are always normal fights. Elites appear only from floor 5. Rest sites sit on fixed floors (Slay the Spire style). The mix of other stops is set in data.
 - **Acts:** M4 builds one act. The run will eventually have 3 acts, and winning means beating all 3 bosses, so the run structure takes the act list from data.
-- **Route votes:** the party votes at each fork; ties are broken at random (seeded). Online, votes are simultaneous and visible live; in hot-seat they're taken in turn. A rolling animation for ties can come later.
+- **Route votes:** the party votes at each fork; ties are broken at random (seeded). Online, votes are simultaneous and visible live; in single player they're taken in turn. A rolling animation for ties can come later.
 - **Seating:** the enemy's seat stays fixed (last). Players rotate one seat per battle. The lead order still carries over between battles.
 - **Health:** party health carries over between battles. Reaching 0 loses the run; beating the final boss wins it.
 - **Saving:** the host's saved room covers the whole run.
@@ -135,7 +137,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Trader:** each player has their own stock of dominoes for sale and can pay to remove a domino, with the fee rising each time. No gifting to teammates, and no selling upgrades. Charms come to the Trader later.
 - **Events:** moved to the next milestone.
 - **Screens:** map with live votes, victory and domino choice, rest site, upgrade (before-and-after preview), Trader, deck viewer (any player's deck, grouped by intake spark). Party health at the top right on every screen. Event screens come next milestone.
-- **Hot-seat:** keeps working. One person can play the whole run solo by starting a local game with 3 or 4 seats.
+- **Single player:** keeps working. One person plays the whole run by controlling 3 or 4 seats.
 
 ### UI notes for later milestones
 - A rolling animation for tied route votes.
