@@ -52,7 +52,7 @@ export function charmIcon(scene: Phaser.Scene, charm: Charm, size: number): Phas
   }
   if (framed) g.destroy();
   const letter = scene.add
-    .text(0, 0, charm.name.charAt(0), { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${Math.round(size * 0.5)}px`, color: "#2a2a2a", fontStyle: "bold" })
+    .text(0, 0, charm.name.charAt(0), { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${Math.round(size * 0.62)}px`, color: "#ffffff", fontStyle: "bold", stroke: "#1a1a1a", strokeThickness: Math.max(3, Math.round(size / 7)) })
     .setOrigin(0.5);
   const c = scene.add.container(0, 0, [framed ?? g, letter]);
   c.setSize(size, size);

@@ -7,7 +7,7 @@ import { drawPartyHud, drawRunHeader } from "./partyHud";
 import { actingSeat, currentRun, nextPending, seatName, submitRunChoice, watchRun } from "./runSession";
 import { charmWithTip, charmsByIds } from "./charmUi";
 import { Tooltip } from "./tooltip";
-import { artImage } from "./art";
+import { coinLine, coinParts, hasCoins } from "./coinIcon";
 import { button, drawBackground, label } from "./ui";
 
 // Victory and domino choice screen (#52). Draws the run's reward state and sends picks to the
@@ -97,8 +97,7 @@ export class RewardScene extends Phaser.Scene {
         g.strokeRoundedRect(30, y, 1860, rowH - 10, 18);
       }
       label(this, 60, cy - 30, seatName(id), isActive ? 40 : 30, { bold: true, color: isActive ? "#ffe14d" : "#ffffff" });
-      artImage(this, "ui/coin", 44, cy + 26, 24, 24);
-      label(this, 60, cy + 12, `+${reward.coinsEarned[id] ?? 0} coins  (${run.coins[id] ?? 0} total)`, isActive ? 26 : 22, { color: "#ffe9a0" });
+      coinLine(this, 60, cy + 12, ["+", reward.coinsEarned[id] ?? 0, "  (", run.coins[id] ?? 0, " total)"], isActive ? 26 : 22, { color: "#ffe9a0" });
       const done = choice !== undefined && (charmOffer === undefined || charmChoice !== undefined);
       const status = !done ? (isActive || online ? "choosing" : "waiting") : choice === SKIP ? "skipped" : "picked";
       label(this, 60, cy + 48, status, 22, { bold: true, color: !done ? "#cfe9dc" : "#8fe3a8" });
@@ -139,7 +138,9 @@ export class RewardScene extends Phaser.Scene {
           if (taken) this.add.graphics().lineStyle(5, 0x8fe3a8, 1).strokeCircle(x, cyc, size / 2 + 8);
           if (!small) {
             label(this, x + size / 2 + 16, cyc - 14, ch.name, 28, { bold: true });
-            this.add.text(x + size / 2 + 16, cyc + 6, ch.description, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: "20px", color: "#cfe9dc", wordWrap: { width: 290 } });
+            const parts = coinParts(ch.description);
+            if (hasCoins(parts)) coinLine(this, x + size / 2 + 16, cyc + 22, parts, 20, { color: "#cfe9dc" }); // data text with "N coins": icon and number
+            else this.add.text(x + size / 2 + 16, cyc + 6, ch.description, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: "20px", color: "#cfe9dc", wordWrap: { width: 290 } });
           } else {
             label(this, x + size / 2 + 8, cyc, ch.name, 18, { color: "#cfe9dc" });
           }
