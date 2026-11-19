@@ -31,6 +31,7 @@ function setup(p1: string[], p2: string[], enemyHand: string[] = []): BattleStat
   state.players[0].hand = p1;
   state.players[1].hand = p2;
   state.enemy.hand = enemyHand;
+  state.enemy.revealed = enemyHand.map(() => false);
   return state;
 }
 
@@ -95,10 +96,12 @@ test("battle ends immediately when enemy health reaches 0 mid-chain", () => {
 test("enemy at its hand limit discards the oldest domino to make room, and keeps drawing", () => {
   const s0 = setup(["kindle"], ["parry"]);
   s0.enemy.hand = ["ogre_gulp_a", "ogre_gulp_b", "ogre_gulp_a", "ogre_gulp_b", "ogre_gulp_a"];
+  s0.enemy.revealed = [false, false, false, false, true];
   s0.enemy.deck = ["ogre_bellow_a", "ogre_bellow_b", "ogre_stomp_a"];
   const s = fuse(s0, "kindle"); // p2 can't answer, round 2 starts with the draw
   expect(s.enemy.hand).toEqual(["ogre_gulp_b", "ogre_gulp_a", "ogre_bellow_a", "ogre_bellow_b", "ogre_stomp_a"]);
   expect(s.enemy.discard).toEqual(["ogre_gulp_a", "ogre_gulp_b", "ogre_gulp_a"]);
+  expect(s.enemy.revealed).toEqual([false, true, false, false, false]); // the flag moved with its domino
 });
 
 test("the enemy plays the leftmost matching domino", () => {

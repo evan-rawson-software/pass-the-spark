@@ -265,9 +265,7 @@ function draw(
   for (let i = 0; i < count; i++) {
     if (p.hand.length >= limit) {
       if (!enemy) break;
-      const old = p.hand.shift() as string;
-      syncRevealed(enemy);
-      enemy.revealed.shift();
+      const old = removeEnemyDomino(enemy, 0);
       p.discard.push(old);
       enemy.faceUp.push(old);
     }
@@ -279,24 +277,25 @@ function draw(
       if (enemy) enemy.faceUp = [];
     }
     if (p.deck.length === 0) break;
-    p.hand.push(p.deck.shift() as string);
-    if (enemy) {
-      syncRevealed(enemy);
-      enemy.revealed.push(false);
-    }
+    if (enemy) addEnemyDomino(enemy, p.deck.shift() as string);
+    else p.hand.push(p.deck.shift() as string);
   }
 }
 
-// Keep `revealed` the same length as the hand (missing entries are hidden).
-function syncRevealed(enemy: EnemyState): void {
-  while (enemy.revealed.length < enemy.hand.length) enemy.revealed.push(false);
-  enemy.revealed.length = enemy.hand.length;
+// Every change to the enemy's hand goes through these two, so `revealed` stays in step.
+function addEnemyDomino(enemy: EnemyState, id: string): void {
+  enemy.hand.push(id);
+  enemy.revealed.push(false);
+}
+
+function removeEnemyDomino(enemy: EnemyState, index: number): string {
+  enemy.revealed.splice(index, 1);
+  return enemy.hand.splice(index, 1)[0];
 }
 
 // Reveal the leftmost `count` hidden enemy dominoes.
 function lookout(state: BattleState, count: number): void {
   const enemy = state.enemy;
-  syncRevealed(enemy);
   for (let i = 0; i < enemy.hand.length && count > 0; i++) {
     if (!enemy.revealed[i]) {
       enemy.revealed[i] = true;
@@ -332,9 +331,7 @@ function react(state: BattleState): void {
     const d = getDomino(state, enemy.hand[i]);
     const sparks = answeredSparks(d, state.chain.sparks);
     if (sparks.length > 0) {
-      syncRevealed(enemy);
-      enemy.hand.splice(i, 1);
-      enemy.revealed.splice(i, 1);
+      removeEnemyDomino(enemy, i);
       enemy.discard.push(d.id);
       enemy.faceUp.push(d.id);
       play(state, d, sparks[0], false);
