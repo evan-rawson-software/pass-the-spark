@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import type { RunState } from "../engine/run";
-import { FONT, label } from "./ui";
+import { openDeckViewer, runDeckPlayers } from "./deckViewer";
+import { nextPending } from "./runSession";
+import { FONT, button, label } from "./ui";
 
 // Shared HUD for the run screens (#50): the party's health, top right, and a header that says
 // what the screen is and whose choice it is. The combat table draws the same bar itself
@@ -9,6 +11,8 @@ import { FONT, label } from "./ui";
 export function drawPartyHud(scene: Phaser.Scene, run: RunState): void {
   const x = 1565;
   label(scene, x, 48, "Party", 24, { bold: true, color: "#9fd1b8" });
+  // The deck viewer (#55) opens from here on every run screen.
+  button(scene, x + 190, 48, "Decks", () => openDeckViewer(scene, runDeckPlayers(run), nextPending(run)?.player), { size: 22, origin: 1 });
   const g = scene.add.graphics();
   g.fillStyle(0x0d2a20, 1);
   g.fillRoundedRect(x, 68, 190, 34, 17);
