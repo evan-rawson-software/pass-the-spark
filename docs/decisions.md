@@ -26,6 +26,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Block:** soaks damage first and the rest hits health. A domino can have an "ignores block" flag.
 - **Enemy reactions and lap:** for now, enemy reactions ignore lap. This is a data setting so balance runs can test both.
 - **Player can't answer:** the chain ends and so does the round, even if players still hold dominoes. The next round starts with the draw, then the next lead's fuse. The enemy never fuses.
+- **Lead with an empty hand:** the lead is skipped and the next player in seat order fuses instead. If no player holds a domino, the round goes straight to round end.
 - **Rot:** the engine supports it, but content uses it sparingly or not at all.
 
 ### Enemy
@@ -62,6 +63,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Pilfer:** dropped for now.
 - **Reflect (elite):** Mimic in reverse. It repeats the last domino played in this chain (enemy passes don't count; after the fuse it repeats the fuse's effect), at its own strength without lap, like any enemy reaction. The effect is turned against the party: damage hits the party, and healing or block goes to the enemy. If the previous domino was the enemy's, it repeats unchanged. It copies augments: Amplify adds the bonus again, Echo sets up an Echo, Lookout does nothing, and after a Mimic it repeats what the Mimic copied. Echo on Reflect makes the reflected effect happen twice. At round end it repeats the last domino played in the round's chain at strength 1, or does nothing if none was played. It has no other effect.
 - **The Auditor (boss passive):** when a player domino is answered with the same spark as the previous entry in the spark history, the party takes damage after that domino resolves. Enemy dominoes and enemy passes don't trigger it. Default damage is the current strength (data setting). Block absorbs it. Strength is never reduced. Likely to be revisited.
+- **The Glutton (boss passive):** heals a flat amount (data setting) the moment the spark returns to the lead's seat and lap goes up, even if the lead then can't answer. Capped at maximum health.
 
 ### Hidden information
 - The engine produces each player's own view of the game: all player hands visible, the enemy's hand hidden apart from revealed dominoes.
@@ -77,4 +79,4 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - A big combo meter during combat shows strength × lap and grows bigger and redder as the chain grows.
 
 ### Still open
-- A30 (elite and boss specials), being answered one by one.
+- Nothing blocking milestone 1. Balance numbers are placeholders.
