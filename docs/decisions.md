@@ -174,7 +174,7 @@ Follow-ups:
 - **Enemy deck sizes:** normal 6, elite 8, boss 10, so bosses no longer play almost their whole deck each round. The extra dominoes may repeat existing ones. Content only.
 - **Lead in a round with no chain** (no player holds a domino): the scheduled lead stays the lead for that round, and rotation moves on as normal. `roundStart.lead` reporting the scheduled lead is correct.
 - **Balance:** a separate milestone later. Random-play win rates against bosses are not a target until then.
-- **Online edge cases:** a client reconnecting to a host on a different build gets the "refresh the page" message; a corrupt saved room is dropped with a notice and that browser joins as a player; a page restored from the back/forward cache reloads.
+- **Online edge cases:** a client reconnecting to a host on a different build gets the "refresh the page" message; a corrupt saved room is dropped with a notice and that browser joins as a player; a page restored from the back/forward cache reloads. A host that reloads on a new build still ignores its old save and does not reopen the room, so its players see "Host disconnected" after 2 minutes; the "refresh" message only comes from a live host on a different build (#83).
 - **Hand testing:** done by people at playtests, using `docs/playtest-checklist.md`.
 - **Hosted relay:** parked until a playtester can't connect. The likely fix is a TURN server, which is a cost and credentials decision for the designer.
 - **Online behaviour in issues:** every issue with a player choice states what happens online and in single player.
