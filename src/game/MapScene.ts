@@ -5,7 +5,7 @@ import { content } from "./devBattle";
 import { scaleTime } from "./playbackSpeed";
 import { drawPartyHud, drawRunHeader } from "./partyHud";
 import { currentRun, nextPending, openRunScreen, setRun } from "./runSession";
-import { button, drawBackground, FONT, label } from "./ui";
+import { drawBackground, FONT, label } from "./ui";
 
 // The map screen (#51). It draws the act the engine generated: floors bottom to top, the
 // connections, a code-drawn icon per stop type and the boss at the top. The party's position is
@@ -125,7 +125,6 @@ export class MapScene extends Phaser.Scene {
     this.drawSidePanel(run);
     this.voteLayer = this.add.container(0, 0);
     this.drawVotes(run.votes);
-    this.drawDeckButton();
   }
 
   // Every connection, dim; the ones the party can take from where it stands, bright and thick.
@@ -262,12 +261,6 @@ export class MapScene extends Phaser.Scene {
         this.voteLayer.add([dot, text]);
       });
     }
-  }
-
-  private drawDeckButton(): void {
-    // The deck viewer (#55) registers itself as the "deck" scene; until it exists the button is dimmed.
-    const available = this.scene.get("deck") !== null;
-    button(this, 1565, 150, "Deck", () => this.scene.start("deck", { back: "map" }), { size: 30, disabled: !available });
   }
 
   // Sends the vote to the run. When it was the last one, the run has already settled it:
