@@ -148,8 +148,7 @@ function drawHalf(g: Phaser.GameObjects.Graphics, sparks: Spark[] | "any", cx: n
 
 // Effect icons, centred on (0, cy), roughly 52 units across.
 function drawEffectIcon(g: Phaser.GameObjects.Graphics, kind: string, cy: number): void {
-  // Damage, block and Lookout are always drawn in code, never from generated art.
-  if (kind !== "damage" && kind !== "block" && kind !== "lookout" && artOn(g, `effects/${kind}`, 0, cy, 60)) return;
+  // Effect icons are always drawn in code, never from generated art.
   const p = (x: number, y: number): Pt => ({ x, y: cy + y });
   if (kind === "damage") {
     // A red sword, point up, in the same style as the shield.
