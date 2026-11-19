@@ -17,3 +17,7 @@ export type HostMessage =
   | { type: "update"; view: BattleView; events: GameEvent[] }
   | { type: "paused"; waitingFor: string }
   | { type: "error"; message: string };
+
+// Refusal texts the screens show as they are. The build one gets a refresh button.
+export const REFUSED_BUILD = "The game was updated. Refresh the page.";
+export const REFUSED_KICKED = "The host removed you from the room.";

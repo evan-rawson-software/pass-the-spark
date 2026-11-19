@@ -4,7 +4,7 @@ import { loadContent } from "../engine/content";
 import type { DeckList } from "../engine/types";
 
 // Validates all of data/ once, at load; bad content throws here.
-const content = loadContent();
+export const content = loadContent();
 export const dominoes = content.dominoes;
 export const enemies = content.enemies;
 

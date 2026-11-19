@@ -24,6 +24,8 @@ const BTN = "margin:2px 4px 2px 0;padding:3px 8px;cursor:pointer";
 class DebugPanel {
   showEnemyHand = false;
   stepMode = false;
+  allowFewerPlayers = false; // the online lobby's Start works with fewer than 3 players
+  onLobbyChange: (() => void) | null = null; // the lobby screen redraws when this changes
   private host: DebugHost | null = null;
   private root: HTMLDivElement | null = null;
   private release: (() => void) | null = null;
@@ -140,6 +142,16 @@ class DebugPanel {
     head.style.cssText = "font-weight:bold;color:#ff8a84";
     if (!host) {
       add(root, "div", "No battle running.").style.marginTop = "6px";
+      const l = section("Online lobby");
+      const lLabel = add(l, "label");
+      const lBox = add(lLabel, "input");
+      lBox.type = "checkbox";
+      lBox.checked = this.allowFewerPlayers;
+      lBox.addEventListener("change", () => {
+        this.allowFewerPlayers = lBox.checked;
+        this.onLobbyChange?.();
+      });
+      add(lLabel, "span", " Host can start with fewer than 3 players");
       return;
     }
     const state = host.getState();

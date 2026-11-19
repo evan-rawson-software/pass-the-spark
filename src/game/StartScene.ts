@@ -59,6 +59,7 @@ export class StartScene extends Phaser.Scene {
     this.text(830, 645, "leave empty for a random seed", 24).setOrigin(0, 0.5).setColor("#9fd1b8");
 
     this.button(960, 840, "Start", () => this.start(), 56);
+    this.button(60, 1000, "Back", () => this.scene.start("menu"));
 
     this.setCount(lastSettings?.names.length === 4 ? 4 : 3);
     this.setEnemy(lastSettings?.enemyId ?? "ogre");
