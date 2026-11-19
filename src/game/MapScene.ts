@@ -9,11 +9,11 @@ import { drawBackground, FONT, label } from "./ui";
 
 // The map screen (#51). It draws the act the engine generated: floors bottom to top, the
 // connections, a code-drawn icon per stop type and the boss at the top. The party's position is
-// marked, and the stops the engine says can be voted for are lit. In single player each seat votes in
-// turn by clicking a lit stop. Which stops are lit, the tally and the tie-break all come from
+// marked, and the stops the engine says can be voted for are lit. In single player the screen asks once and
+// sends that pick as every seat's vote. Which stops are lit, the tally and the weighted draw all come from
 // the run engine; this screen only draws them and sends the vote.
 // Online (#49) every player votes at once on their own screen; the votes appear on the map as the
-// host reports them, and when the last one is in everyone sees the winner (and the tie message).
+// host reports them, and when the last one is in everyone sees the winner (and the draw odds).
 
 const CENTER_X = 1020;
 const NODE_GAP = 250;
@@ -126,7 +126,9 @@ export class MapScene extends Phaser.Scene {
     const next = (run.position?.floor ?? 0) + 1;
     const toBoss = next > run.map.floors.length;
     const online = isOnlineRun();
-    drawRunHeader(this, toBoss ? "Route: the boss" : `Route: floor ${next}`, online ? null : (pending?.player ?? null), "Vote for the next stop.");
+    drawRunHeader(this, toBoss ? "Route: the boss" : `Route: floor ${next}`, null, "Vote for the next stop.");
+    // Single player: the screen asks once, and the pick is sent as every seat's vote.
+    if (!online && pending !== null) label(this, 60, 150, "The party's choice", 44, { bold: true, color: "#ffe14d" });
     if (online && pending === null) drawWaitingFor(this, run, 60, 200);
 
     const options = pending?.type === "vote" ? pending.options : [];
@@ -296,7 +298,13 @@ export class MapScene extends Phaser.Scene {
     if (this.resolving) return;
     // Online the host settles the vote; the screen follows when its update arrives.
     if (isOnlineRun()) return submitRunChoice(this, player, { type: "vote", node });
-    const result = applyRunChoice(this.run, player, { type: "vote", node });
+    // Single player: one pick, submitted as the same vote for every seat.
+    let result = applyRunChoice(this.run, player, { type: "vote", node });
+    for (const seat of this.run.players) {
+      if (seat === player) continue;
+      const more = applyRunChoice(result.run, seat, { type: "vote", node });
+      result = { run: more.run, events: [...result.events, ...more.events] };
+    }
     const chosen = result.events.find((e) => e.type === "routeChosen");
     if (chosen === undefined || chosen.type !== "routeChosen") {
       setRun(result.run);
@@ -318,7 +326,11 @@ export class MapScene extends Phaser.Scene {
     ring.strokeCircle(x, y, NODE_R + 14);
     const nodeName = NODE_STYLE[chosen.nodeType].name;
     label(this, 60, 245, `Winner: ${nodeName}`, 30, { bold: true, color: "#7dffb0" });
-    if (chosen.tied.length > 1) label(this, 60, 285, "Tie: decided at random", 30, { bold: true, color: "#ff9d7a" });
+    if (chosen.drawn) {
+      const total = Object.values(chosen.counts).reduce((a, b) => a + b, 0);
+      const odds = Math.round((100 * (chosen.counts[chosen.index] ?? 0)) / total);
+      label(this, 60, 285, `Drawn: ${nodeName}, ${odds}%`, 30, { bold: true, color: "#ff9d7a" });
+    }
     this.time.delayedCall(scaleTime(1800), () => {
       if (next) setRun(next);
       openRunScreen(this);

@@ -73,9 +73,9 @@ test("two battles: health carries over, seats rotate and the lead carries over",
   expect(JSON.stringify(replay)).toBe(JSON.stringify(afterSecond));
 });
 
-test("a tied vote resolves the same way for the same seed", () => {
+test("a split vote resolves the same way for the same seed", () => {
   const content = loadContent();
-  const tie = (seed: number): number => {
+  const split = (seed: number): number => {
     const run = createRun({ players: ["a", "b"], seed, content });
     const owed = getPendingRunChoices(run)[0];
     if (owed.type !== "vote") throw new Error("expected a vote");
@@ -83,11 +83,11 @@ test("a tied vote resolves the same way for the same seed", () => {
     expect(() => applyRunChoice(run, "a", { type: "vote", node: 99 })).toThrow(); // not a node on floor 1
     const voted = applyRunChoice(run, "a", { type: "vote", node: x });
     const result = applyRunChoice(voted.run, "b", { type: "vote", node: y });
-    expect(result.events.find((e) => e.type === "routeChosen")).toMatchObject({ tied: [x, y] });
+    expect(result.events.find((e) => e.type === "routeChosen")).toMatchObject({ counts: { [x]: 1, [y]: 1 }, drawn: true });
     return result.run.position!.index;
   };
   const seeds = [1, 2, 3, 4, 5, 6, 7, 8];
-  const results = seeds.map(tie);
-  expect(seeds.map(tie)).toEqual(results);
-  expect(new Set(results).size).toBe(2); // the RNG really chooses between the tied nodes
+  const results = seeds.map(split);
+  expect(seeds.map(split)).toEqual(results);
+  expect(new Set(results).size).toBe(2); // the RNG really chooses between the voted nodes
 });

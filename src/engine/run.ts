@@ -13,6 +13,7 @@ import { isRewardComplete, pickedDominoes, rollOffers, submitRewardChoice } from
 import type { RewardState } from "./rewards";
 import { nextInt, nextUint32 } from "./rng";
 import { previewUpgrade } from "./upgrades";
+import { settleVote } from "./vote";
 import { rollStock } from "./trader";
 import type { TraderState } from "./trader";
 import type { BattleType, Domino, NodeType, Rarity, Spark, UpgradeSide } from "./types";
@@ -79,9 +80,9 @@ export type RunPendingChoice =
 export type RunEvent =
   | GameEvent
   | { type: "vote"; player: string; node: number }
-  // tied lists the nodes that tied for the most votes (empty when there was no vote to settle,
-  // or one node won outright); the RNG picked among them.
-  | { type: "routeChosen"; floor: number; index: number; nodeType: RunNodeType; votes: Record<string, number>; tied: number[] }
+  // counts is the number of votes per node; drawn is true when the vote was split and the RNG
+  // drew the winner (false when unanimous, or when there was only one option and no vote).
+  | { type: "routeChosen"; floor: number; index: number; nodeType: RunNodeType; votes: Record<string, number>; counts: Record<number, number>; drawn: boolean }
   | { type: "battleStart"; enemy: string; nodeType: BattleType; seatOrder: string[]; lead: string; partyHealth: number }
   | { type: "coins"; player: string; amount: number }
   | { type: "rest"; player: string; healed: number }
@@ -279,29 +280,21 @@ function goToVote(run: RunState, events: RunEvent[]): void {
   run.phase = "vote";
   run.votes = {};
   const options = voteOptions(run);
-  if (options.length === 1) chooseNode(run, options[0], [], events);
+  if (options.length === 1) chooseNode(run, options[0], {}, false, events);
 }
 
-// Most votes wins; a tie is broken by the run RNG.
+// A unanimous vote wins; otherwise the winner is drawn from the votes, weighted by count.
 function settleVotes(run: RunState, events: RunEvent[]): void {
-  const counts: Record<number, number> = {};
-  for (const id of run.players) counts[run.votes[id]] = (counts[run.votes[id]] ?? 0) + 1;
-  const best = Math.max(...Object.values(counts));
-  const leaders = Object.keys(counts).map(Number).filter((n) => counts[n] === best).sort((a, b) => a - b);
-  let node = leaders[0];
-  if (leaders.length > 1) {
-    const r = nextInt(run.rng, leaders.length);
-    run.rng = r.state;
-    node = leaders[r.value];
-  }
-  chooseNode(run, node, leaders.length > 1 ? leaders : [], events);
+  const result = settleVote(run.rng, run.players.map((id) => run.votes[id]));
+  run.rng = result.state;
+  chooseNode(run, result.winner, result.counts, result.drawn, events);
 }
 
-function chooseNode(run: RunState, index: number, tied: number[], events: RunEvent[]): void {
+function chooseNode(run: RunState, index: number, counts: Record<number, number>, drawn: boolean, events: RunEvent[]): void {
   const floor = (run.position?.floor ?? 0) + 1;
   const type: RunNodeType = floor > run.map.floors.length ? "boss" : run.map.floors[floor - 1][index].type;
   run.position = { floor, index, type };
-  events.push({ type: "routeChosen", floor, index, nodeType: type, votes: { ...run.votes }, tied });
+  events.push({ type: "routeChosen", floor, index, nodeType: type, votes: { ...run.votes }, counts, drawn });
   run.votes = {};
   enterNode(run, events);
 }
