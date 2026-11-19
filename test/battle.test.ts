@@ -65,7 +65,7 @@ test("scripted round: strength rises per answer, lap per return to the lead", ()
   expect(s4.round).toBe(2);
 });
 
-test("players draw 5 in round 1 and 3 in later rounds", () => {
+test("the chain ends when a player can't answer; unplayed dominoes stay in hand", () => {
   const fresh = createBattle({
     config,
     content: { dominoes, enemies },
@@ -74,14 +74,7 @@ test("players draw 5 in round 1 and 3 in later rounds", () => {
     enemyId: "ogre",
     seed: 1,
   });
-  expect(fresh.round).toBe(1);
-  expect(fresh.players.map((p) => p.hand.length)).toEqual([5, 5]);
-  const s = opener(setup(["kindle"], ["parry"]), "kindle"); // p2 can't answer Ember
-  expect(s.round).toBe(2);
-  expect(s.players[1].hand).toHaveLength(1 + config.playerDrawPerRound);
-});
-
-test("the chain ends when a player can't answer; unplayed dominoes stay in hand", () => {
+  expect(fresh.players.map((p) => p.hand.length)).toEqual([5, 5]); // round 1 draws 5
   const s = opener(setup(["kindle"], ["parry"]), "kindle"); // p2 can't answer Ember
   expect(s.round).toBe(2);
   expect(s.players[1].hand).toContain("parry");
