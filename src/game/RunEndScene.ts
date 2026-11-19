@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { watchLink } from "./linkBanner";
 import { relay } from "./relay";
-import { currentRun, leaveOnlineRun, onlineRun, runSeed, seatName } from "./runSession";
+import { awardSingleRun, currentRun, leaveOnlineRun, onlineRun, runSeed, seatName } from "./runSession";
 import type { OnlineRun } from "./runSession";
 import { drawPartyHud } from "./partyHud";
 import { button, drawBackground, label } from "./ui";
@@ -26,6 +26,7 @@ export class RunEndScene extends Phaser.Scene {
     label(this, 960, 420, `Reached act ${run.actIndex + 1} of ${run.content.run.acts.length}, ${where}`, 48, { origin: 0.5 });
     const online = onlineRun();
     if (online) return this.createOnline(online);
+    awardSingleRun();
     label(this, 960, 500, `Seed: ${runSeed()}`, 48, { origin: 0.5 });
     button(this, 960, 700, "Back to start", () => this.scene.start("menu"), { size: 44, origin: 0.5 });
   }

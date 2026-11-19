@@ -9,6 +9,7 @@ import type { SavedRoom } from "../net/room";
 import { debugPanel } from "./DebugPanel";
 import { content } from "./devBattle";
 import { relay } from "./relay";
+import { loadProfile } from "./profile";
 import { openRunScreen, startOnlineRun } from "./runSession";
 import { button, drawBackground, INPUT_STYLE, label } from "./ui";
 
@@ -125,6 +126,7 @@ export class HostLobbyScene extends Phaser.Scene {
           buildId: BUILD_ID,
           hostName: name,
           content,
+          unlocks: () => loadProfile().unlocks,
           onLocalMessage: (m) => relay.deliver(m),
           resume: restore ?? undefined,
           onSave: (room) => saveHostedRoom(roomCode, room, safeStorage()),

@@ -10,6 +10,7 @@ import { getRoomToken, hasRoomToken, ROOM_CODE_LENGTH } from "../net/room";
 import { debugPanel } from "./DebugPanel";
 import { watchLink } from "./linkBanner";
 import { relay } from "./relay";
+import { loadProfile } from "./profile";
 import { openRunScreen, startOnlineRun } from "./runSession";
 import { button, drawBackground, label, saveName, savedName, textInput } from "./ui";
 
@@ -101,6 +102,7 @@ export class JoinScene extends Phaser.Scene {
         buildId: BUILD_ID,
         name,
         token: getRoomToken(code, safeStorage()),
+        unlocks: () => loadProfile().unlocks,
         onMessage: (m) => relay.deliver(m),
         onLink: (status) => relay.setLink(status),
       });
