@@ -5,6 +5,7 @@ import { drawDomino, dominoPixelSize } from "./dominoDrawing";
 import type { DominoSize } from "./dominoDrawing";
 import { drawPartyHud, drawRunHeader } from "./partyHud";
 import { actingSeat, currentRun, nextPending, seatName, submitRunChoice, watchRun } from "./runSession";
+import { charmWithTip, charmsByIds } from "./charmUi";
 import { Tooltip } from "./tooltip";
 import { button, drawBackground, label } from "./ui";
 
@@ -66,8 +67,8 @@ export class RewardScene extends Phaser.Scene {
     });
     drawBackground(this);
     drawPartyHud(this, run);
-    drawRunHeader(this, "Victory!", online ? null : (pending?.player ?? null), "Pick one domino for your deck, or skip.");
-    if (!reward || pending?.type !== "reward") return;
+    drawRunHeader(this, "Victory!", online ? null : (pending?.player ?? null), "Pick one domino for your deck, or skip. Charms too, when offered.");
+    if (!reward || (pending?.type !== "reward" && pending?.type !== "charmReward")) return;
     // Single player: the seat whose turn it is to pick is large and can pick. Online: your own
     // seat is large (and first), can pick while undecided, and teammates are small.
     const active = online ? local : pending.player;
@@ -79,8 +80,11 @@ export class RewardScene extends Phaser.Scene {
       const isActive = id === active;
       const canPick = isActive && reward.choices[id] === undefined;
       const size: DominoSize = isActive ? "large" : "small";
-      const rowH = isActive ? 250 : 140;
-      const cy = y + rowH / 2;
+      const charmOffer = reward.charmOffers[id];
+      const charmChoice = reward.charmChoices[id];
+      const canPickCharm = isActive && charmOffer !== undefined && charmChoice === undefined;
+      const rowH = isActive ? (charmOffer ? 360 : 250) : 140;
+      const cy = y + (isActive && charmOffer ? 125 : rowH / 2);
       const choice = reward.choices[id];
       const offer: Domino[] = reward.offers[id];
 
@@ -93,8 +97,9 @@ export class RewardScene extends Phaser.Scene {
       }
       label(this, 60, cy - 30, seatName(id), isActive ? 40 : 30, { bold: true, color: isActive ? "#ffe14d" : "#ffffff" });
       label(this, 60, cy + 12, `+${reward.coinsEarned[id] ?? 0} coins  (${run.coins[id] ?? 0} total)`, isActive ? 26 : 22, { color: "#ffe9a0" });
-      const status = choice === undefined ? (isActive || online ? "choosing" : "waiting") : choice === SKIP ? "skipped" : "picked";
-      label(this, 60, cy + 48, status, 22, { bold: true, color: choice === undefined ? "#cfe9dc" : "#8fe3a8" });
+      const done = choice !== undefined && (charmOffer === undefined || charmChoice !== undefined);
+      const status = !done ? (isActive || online ? "choosing" : "waiting") : choice === SKIP ? "skipped" : "picked";
+      label(this, 60, cy + 48, status, 22, { bold: true, color: !done ? "#cfe9dc" : "#8fe3a8" });
 
       const { w, h } = dominoPixelSize(size);
       const step = w + (isActive ? 90 : 60);
@@ -117,6 +122,33 @@ export class RewardScene extends Phaser.Scene {
         }
         drawRarity(this, x, c.y + h / 2 + (isActive ? 36 : 18), d.rarity, size);
       });
+      // The charm offer (#108): after an elite 1 charm to take or skip, after a boss 3 rare ones.
+      if (charmOffer) {
+        const small = !isActive;
+        const size = small ? 34 : 64;
+        const left = small ? 1100 : 560;
+        const cyc = small ? cy : y + 290;
+        if (!small) label(this, 60, cyc, "Charm", 30, { bold: true, color: "#9fd1b8" });
+        charmsByIds(charmOffer).forEach((ch, i) => {
+          const x = left + i * (small ? 150 : 400);
+          const taken = charmChoice === ch.id;
+          const icon = charmWithTip(this, tooltip, ch, size, x, cyc);
+          if (charmChoice !== undefined && !taken) icon.setAlpha(0.35);
+          if (taken) this.add.graphics().lineStyle(5, 0x8fe3a8, 1).strokeCircle(x, cyc, size / 2 + 8);
+          if (!small) {
+            label(this, x + size / 2 + 16, cyc - 14, ch.name, 28, { bold: true });
+            this.add.text(x + size / 2 + 16, cyc + 6, ch.description, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: "20px", color: "#cfe9dc", wordWrap: { width: 290 } });
+          } else {
+            label(this, x + size / 2 + 8, cyc, ch.name, 18, { color: "#cfe9dc" });
+          }
+          if (canPickCharm) {
+            icon.on("pointerdown", () => submitRunChoice(this, id, { type: "charmReward", pick: ch.id }));
+            if (icon.input) icon.input.cursor = "pointer";
+          }
+        });
+        if (small) label(this, 1100, cyc + 30, charmChoice === undefined ? "choosing a charm" : charmChoice === SKIP ? "skipped the charm" : "took a charm", 18, { color: "#cfe9dc" });
+        if (canPickCharm) button(this, 1780, cyc, "Skip", () => submitRunChoice(this, id, { type: "charmReward", pick: SKIP }), { size: 40, origin: 0.5 });
+      }
       if (canPick) button(this, 1650, cy, "Skip", () => submitRunChoice(this, id, { type: "reward", pick: SKIP }), { size: 40, origin: 0.5 });
       y += rowH;
     }

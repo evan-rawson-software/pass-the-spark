@@ -16,6 +16,7 @@ import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import type { DominoState } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
+import { drawPartyCharms } from "./charmUi";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
 import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
@@ -568,6 +569,14 @@ export class CombatScene extends Phaser.Scene {
     this.label(layer, RIGHT_X, 48, "Party", 24, "#9fd1b8", 0, true);
     this.bar(layer, "party", RIGHT_X, 68, 190, 34, p.health, p.maxHealth, 0x3fae68);
     this.shield(layer, "party", RIGHT_X + 212, 85, 34, p.block);
+    // Everyone's charms (#108).
+    const names: Record<string, string> = {};
+    const held: Record<string, string[]> = {};
+    for (const q of view.players) {
+      names[q.id] = this.nameOf(q.id, false);
+      held[q.id] = q.charms;
+    }
+    layer.add(drawPartyCharms(this, view.players.map((q) => q.id), names, held));
 
     // Combo meter: strength x lap.
     const { strength, lap } = view.chain;
