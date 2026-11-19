@@ -135,7 +135,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Rewards:** after every battle, each player gets their own offer of 3 dominoes, picks one or skips, and everyone picks at the same time. Rarity: common, uncommon, rare. Elites give better odds; the boss always offers rares. Offers come from everything until unlocks exist.
 - **Generated dominoes:** dominoes outside the starter deck are generated at runtime from pools, not hand-authored. A domino's left side (intake) and right side (effect + output) are each drawn from the pool for its rarity. Generation uses the run's seeded RNG. May be revisited.
   - Common: intake is one basic spark. Right side is damage or block, giving off one basic spark.
-  - Uncommon: intake is one basic spark. Right side is a stronger damage or block, Amplify, Echo or Lookout, or two basic output sparks.
+  - Uncommon: intake is one basic spark. Right side is a stronger damage or block, Amplify, Echo or Lookout. Any uncommon right side may give off one or two basic sparks.
   - Rare: intake is one spark (basic, Storm or Void) or "any". Right side adds Mimic and Spectrum, and outputs may include Storm or Void.
   - No generated domino has a dual intake. Dual intakes come only from upgrades.
   - No generated domino heals. Party healing comes from rest sites, with one exception: Mimic copying an enemy heal still heals the party.

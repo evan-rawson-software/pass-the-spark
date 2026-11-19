@@ -2,12 +2,16 @@
 // Error naming the file, the item id and the problem. Plain code on purpose,
 // so it is easy to rewrite in GDScript.
 
-import type { Config, DeckList, Domino, Enemy } from "./types";
+import type { Config, DeckList, Domino, Enemy, Pools } from "./types";
 
 const SPARKS = ["Ember", "Tide", "Gale", "Storm", "Void", "Rot"];
 const EFFECT_KINDS = ["damage", "block", "heal", "amplify", "echo", "mimic", "reflect", "lookout"];
 const KINDS_WITH_BASE = ["damage", "block", "heal", "amplify"];
 const TIERS = ["basic", "elite", "boss"];
+const BASIC_SPARKS = ["Ember", "Tide", "Gale"];
+const RARITIES = ["common", "uncommon", "rare"];
+const BATTLE_TYPES = ["fight", "elite", "boss"];
+const POOL_KINDS = ["damage", "block", "amplify", "echo", "lookout", "mimic"]; // never heal or reflect
 const PASSIVE_KINDS = ["auditor", "glutton"];
 
 function fail(file: string, id: string, problem: string): never {
@@ -76,6 +80,9 @@ export function validateDominoes(data: unknown, file = "data/dominoes.json"): Do
       if (effect.kind !== kind) fail(file, id, `effect "${field}" is only for "${kind}"`);
       if (!Number.isInteger(n) || (n as number) < 0) fail(file, id, `effect "${field}" must be a whole number, 0 or more`);
     }
+    if (item.rarity !== undefined && (typeof item.rarity !== "string" || !RARITIES.includes(item.rarity))) {
+      fail(file, id, `unknown rarity ${JSON.stringify(item.rarity)}`);
+    }
     for (const flag of ["spectrum", "ignoresBlock"]) {
       if (effect[flag] !== undefined && typeof effect[flag] !== "boolean") fail(file, id, `effect "${flag}" must be true or false`);
     }
@@ -142,4 +149,90 @@ export function validateStarterDeck(data: unknown, dominoes: Domino[]): DeckList
     }
   }
   return data as DeckList;
+}
+
+export function validatePools(data: unknown): Pools {
+  const file = "data/domino-pools.json";
+  const id = "(pools)";
+  if (!isObject(data)) fail(file, id, "must be an object");
+  checkPositive(file, id, data, "offerSize");
+  if (!Number.isInteger(data.offerSize)) fail(file, id, `"offerSize" must be a whole number`);
+  const odds = data.rarityOdds;
+  if (!isObject(odds)) fail(file, id, `"rarityOdds" must be an object`);
+  for (const type of BATTLE_TYPES) {
+    const row = odds[type];
+    if (!isObject(row)) fail(file, id, `"rarityOdds" needs "${type}"`);
+    let total = 0;
+    for (const rarity of RARITIES) {
+      const w = row[rarity];
+      if (!isNumber(w) || (w as number) < 0) fail(file, `${id} ${type}`, `odds for "${rarity}" must be a number, 0 or more`);
+      total += w as number;
+    }
+    if (total <= 0) fail(file, `${id} ${type}`, "odds must not all be 0");
+  }
+  const rarities = data.rarities;
+  if (!isObject(rarities)) fail(file, id, `"rarities" must be an object`);
+  for (const rarity of RARITIES) {
+    const pool = rarities[rarity];
+    const pid = `${rarity} pool`;
+    if (!isObject(pool)) fail(file, id, `"rarities" needs "${rarity}"`);
+    // Intakes: single spark or "any". No dual intakes. Rare-only parts stay out of lower pools.
+    if (!Array.isArray(pool.intakes) || pool.intakes.length === 0) fail(file, pid, `"intakes" must be a non-empty list`);
+    for (const intake of pool.intakes as unknown[]) {
+      if (intake === "any") {
+        if (rarity !== "rare") fail(file, pid, `"any" intake is rare only`);
+        continue;
+      }
+      checkSparkList(file, pid, "intakes", intake);
+      const sparks = intake as string[];
+      if (sparks.length !== 1) fail(file, pid, "intakes must be a single spark (no dual intakes)");
+      if (rarity !== "rare" && !BASIC_SPARKS.includes(sparks[0])) fail(file, pid, `intake ${sparks[0]} is rare only`);
+    }
+    const traits = pool.traits;
+    if (!isObject(traits)) fail(file, pid, `"traits" must be an object`);
+    for (const t of ["spectrum", "ignoresBlock"]) {
+      if (!isNumber(traits[t]) || (traits[t] as number) < 0 || (traits[t] as number) > 1) {
+        fail(file, pid, `trait chance "${t}" must be a number from 0 to 1`);
+      }
+      if (rarity === "common" && traits[t] !== 0) fail(file, pid, `trait "${t}" is uncommon and rare only`);
+    }
+    if (!Array.isArray(pool.effects) || pool.effects.length === 0) fail(file, pid, `"effects" must be a non-empty list`);
+    (pool.effects as unknown[]).forEach((effect, i) => {
+      const eid = `${rarity} effect #${i}`;
+      if (!isObject(effect)) fail(file, eid, "must be an object");
+      if (typeof effect.kind !== "string" || !POOL_KINDS.includes(effect.kind)) {
+        fail(file, eid, `kind ${JSON.stringify(effect.kind)} is not allowed in pools (no heal, no reflect)`);
+      }
+      if (rarity !== "rare" && effect.kind === "mimic") fail(file, eid, "mimic is rare only");
+      if (rarity === "common" && !["damage", "block"].includes(effect.kind)) fail(file, eid, "common is damage or block only");
+      if (!Array.isArray(effect.names) || effect.names.length === 0 || effect.names.some((n) => typeof n !== "string" || n === "")) {
+        fail(file, eid, `"names" must be a non-empty list of words`);
+      }
+      const range = effect.base;
+      if (KINDS_WITH_BASE.includes(effect.kind)) {
+        if (!Array.isArray(range) || range.length !== 2 || !Number.isInteger(range[0]) || !Number.isInteger(range[1]) || range[0] < 1 || range[0] > range[1]) {
+          fail(file, eid, `"base" must be [min, max], whole numbers, 1 or more, min not above max`);
+        }
+      } else if (range !== undefined) {
+        fail(file, eid, `effect "${effect.kind}" must not have a "base"`);
+      }
+      if (effect.traits !== undefined) {
+        if (!Array.isArray(effect.traits) || effect.traits.some((t) => t !== "spectrum" && t !== "ignoresBlock")) {
+          fail(file, eid, `"traits" must be a list of "spectrum" and "ignoresBlock"`);
+        }
+        if (effect.traits.includes("ignoresBlock") && effect.kind !== "damage") fail(file, eid, `"ignoresBlock" is for damage only`);
+      }
+      if (!Array.isArray(effect.outputs) || effect.outputs.length === 0) fail(file, eid, `"outputs" must be a non-empty list`);
+      for (const out of effect.outputs as unknown[]) {
+        checkSparkList(file, eid, "outputs", out);
+        for (const spark of out as string[]) {
+          if (spark === "Rot") fail(file, eid, "generated dominoes never output Rot");
+          if (rarity !== "rare" && !BASIC_SPARKS.includes(spark)) fail(file, eid, `output ${spark} is rare only`);
+        }
+        if ((out as string[]).length > 2) fail(file, eid, "outputs have at most two sparks");
+        if (rarity === "common" && (out as string[]).length !== 1) fail(file, eid, "common outputs one spark");
+      }
+    });
+  }
+  return data as unknown as Pools;
 }
