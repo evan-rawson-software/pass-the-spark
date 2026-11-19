@@ -10,12 +10,17 @@ let listed: string[] = [];
 
 // Reads the manifest. A missing, unreadable or empty one means no art, silently.
 export async function readArtManifest(): Promise<void> {
+  // A hung request must not stop the game starting: after a few seconds, go on without art.
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 3000);
   try {
-    const res = await fetch(`${BASE}manifest.json`);
+    const res = await fetch(`${BASE}manifest.json`, { signal: stop.signal });
     const data: unknown = res.ok ? await res.json() : [];
     if (Array.isArray(data)) listed = data.filter((p): p is string => typeof p === "string");
   } catch {
     listed = [];
+  } finally {
+    clearTimeout(timer);
   }
 }
 

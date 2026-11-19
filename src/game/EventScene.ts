@@ -204,13 +204,17 @@ export class EventScene extends Phaser.Scene {
     this.time.delayedCall(scaleTime(2200), () => openRunScreen(this));
   }
 
+  private illustrationArt: Phaser.GameObjects.Image | null = null;
+
   private drawIllustration(id: string, awake = false): void {
-    const g = this.add.graphics();
     const x = 60;
     const y = 220;
     const w = 700;
     const h = 740;
-    if (artImage(this, `events/${id}`, x + w / 2, y + h / 2, w, h, null, "cover")) {
+    this.illustrationArt?.destroy();
+    this.illustrationArt = artImage(this, `events/${id}`, x + w / 2, y + h / 2, w, h, null, "cover");
+    const g = this.add.graphics(); // after the image, so the border sits on top
+    if (this.illustrationArt) {
       // the picture fills the panel
     } else if (id === "sleeping_giant") drawGiant(g, x, y, w, h, awake);
     else (ILLUSTRATIONS[id] ?? drawUnknown)(g, x, y, w, h);

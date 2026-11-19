@@ -206,8 +206,8 @@ function drawEffectIcon(g: Phaser.GameObjects.Graphics, kind: string, cy: number
 }
 
 // Draws the face; returns the number text, if any, so the caller can keep it above overlays.
-function drawFace(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, c: Phaser.GameObjects.Container, domino: Domino, tile: string): Phaser.GameObjects.Text | null {
-  if (!artImage(scene, `tiles/${tile}`, 0, 0, W, H, c)) {
+function drawFace(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, c: Phaser.GameObjects.Container, domino: Domino, tileArt: boolean): Phaser.GameObjects.Text | null {
+  if (!tileArt) {
     g.fillStyle(0xf4ecd8, 1);
     g.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
     g.fillStyle(0xe3d6b3, 1);
@@ -305,10 +305,13 @@ export function drawDomino(scene: Phaser.Scene, domino: Domino, size: DominoSize
 
   const body = scene.add.container(0, raised ? -RAISE : 0);
   c.add(body);
-  const g = scene.add.graphics();
-  body.add(g);
+  // The tile image, if any, is the lowest thing on the face: the graphics layer (and the fallback
+  // drawings on it) and the glyph images all sit above it.
   const enemy = state === "revealed" || state === "playedFaceUp";
   const tile = state === "hidden" ? "hidden" : enemy ? "enemy" : (domino.rarity ?? "starter");
+  const tileArt = artImage(scene, `tiles/${tile}`, 0, 0, W, H, body) !== null;
+  const g = scene.add.graphics();
+  body.add(g);
 
   if (raised) {
     for (let i = 4; i >= 1; i--) {
@@ -319,9 +322,9 @@ export function drawDomino(scene: Phaser.Scene, domino: Domino, size: DominoSize
 
   // State marks go on their own layer, above any art, with the number text kept above them.
   if (state === "hidden") {
-    if (!artImage(scene, "tiles/hidden", 0, 0, W, H, body)) drawBack(g);
+    if (!tileArt) drawBack(g);
   } else {
-    const text = drawFace(scene, g, body, domino, tile);
+    const text = drawFace(scene, g, body, domino, tileArt);
     const over = scene.add.graphics();
     body.add(over);
     if (state === "revealed") {

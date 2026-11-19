@@ -375,9 +375,11 @@ export class CombatScene extends Phaser.Scene {
 
   // Returns the rectangle that dims the room at lap 2+ (heat ladder, #133): above the felt, below the dominoes.
   private drawTable(): Phaser.GameObjects.Rectangle {
+    // With a background image (added first, so behind everything) the frame, felt and pool of light
+    // give way to it; the chain mat stays.
+    const hasArt = artBackground(this, "combat");
     const g = this.add.graphics();
-    // With a background image the frame, felt and pool of light give way to it; the chain mat stays.
-    if (!artBackground(this, "combat")) {
+    if (!hasArt) {
       g.fillStyle(0x2e2016, 1);
       g.fillRect(0, 0, 1920, 1080);
       g.fillStyle(0x4a3322, 1);
