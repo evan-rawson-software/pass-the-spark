@@ -32,7 +32,7 @@ export class JoinScene extends Phaser.Scene {
   private roomCode = "";
 
   // With `resume`, the player is already in the room (a run just ended): show its lobby again.
-  create(data: { resume?: { client: Client; roomCode: string } } = {}): void {
+  create(data: { resume?: { client: Client; roomCode: string }; notice?: string } = {}): void {
     debugPanel.setEnabled(false); // the debug panel is the host's alone
     this.client = null;
     this.lobby = null;
@@ -55,8 +55,9 @@ export class JoinScene extends Phaser.Scene {
       return;
     }
     const room = (new URLSearchParams(window.location.search).get("room") ?? "").toUpperCase();
+    if (data.notice) this.showForm(room, data.notice);
     // Reopening the link of a room this browser was in before: go straight back to the seat.
-    if (room !== "" && savedName() !== "" && hasRoomToken(room, safeStorage())) void this.join(room, savedName());
+    else if (room !== "" && savedName() !== "" && hasRoomToken(room, safeStorage())) void this.join(room, savedName());
     else this.showForm(room);
   }
 

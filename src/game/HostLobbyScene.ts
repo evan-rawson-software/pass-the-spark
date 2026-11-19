@@ -34,7 +34,9 @@ export class HostLobbyScene extends Phaser.Scene {
   // open the same room again from the save.
   create(data: { name?: string; resume?: { host: Host; roomCode: string }; restore?: SavedRoom } = {}): void {
     const roomParam = (new URLSearchParams(window.location.search).get("room") ?? "").toUpperCase();
-    const restore = data.restore ?? (!data.name && !data.resume && roomParam !== "" ? loadHostedRoom(roomParam, BUILD_ID, safeStorage()) : null);
+    const saved = data.restore ?? (!data.name && !data.resume && roomParam !== "" ? loadHostedRoom(roomParam, BUILD_ID, safeStorage()) : null);
+    if (saved === "corrupt") return this.dropSave(roomParam);
+    const restore = saved;
     const name = data.name ?? restore?.members.find((m) => m.token === null)?.name ?? "Host";
     this.host = null;
     this.lobby = null;
@@ -83,15 +85,31 @@ export class HostLobbyScene extends Phaser.Scene {
         }
         this.drawRoom();
         this.redraw();
-        if (restore) host.announce(); // the lobby, or straight back into the run
+        if (restore) {
+          try {
+            host.announce(); // the lobby, or straight back into the run
+          } catch {
+            host.close();
+            this.dropSave(restore.roomCode);
+          }
+        }
       },
-      (e: { type?: string }) =>
+      (e: { type?: string }) => {
+        // A save that will not load throws a plain error; connection problems carry a type.
+        if (restore && e?.type === undefined) return this.dropSave(restore.roomCode);
         status.setText(
           e?.type === "unavailable-id" && restore
             ? "This room is already open in another tab."
             : "Couldn't reach the connection server. Go back and try again.",
-        ),
+        );
+      },
     );
+  }
+
+  // The saved room can't be used: forget it and carry on as a visitor to the link (join as a player).
+  private dropSave(code: string): void {
+    saveHostedRoom(code, null, safeStorage());
+    this.scene.start("join", { notice: "Couldn't resume the saved game." });
   }
 
   // A new room: the code can already be taken on the broker; try a few. A restored room has

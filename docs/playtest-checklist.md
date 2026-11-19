@@ -26,6 +26,9 @@ Things automated tests don't cover. Run through what you can at a playtest and n
 - [ ] The host reloads in the middle of an enemy turn playing out.
 - [ ] The host reloads in the lobby: away seats, kick, Start refused while anyone is away.
 - [ ] Browser back then forward on a joiner.
+- [ ] A joiner is in a game; the host reloads on a different build: the joiner sees "refresh the page" within a few seconds, not "Host disconnected" after 2 minutes.
+- [ ] Overwrite the host's saved room (`pass-the-spark-hosted-CODE`) in local storage with garbage and reload the host link: "Couldn't resume the saved game." shows and the page offers to join.
+- [ ] A joiner navigates away and presses Back: the page reloads and rejoins its seat.
 
 ## The run
 - [ ] Play a run to the boss: votes, rewards, rest, upgrades, Trader, deck viewer.
