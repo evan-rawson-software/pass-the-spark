@@ -1286,7 +1286,7 @@
     }
   },
   {
-    "id": "boss_act2_a",
+    "id": "hoarder_a",
     "name": "Strike",
     "intake": [
       "Ember"
@@ -1300,7 +1300,7 @@
     }
   },
   {
-    "id": "boss_act2_b",
+    "id": "hoarder_b",
     "name": "Slash",
     "intake": [
       "Tide"
@@ -1314,7 +1314,7 @@
     }
   },
   {
-    "id": "boss_act2_c",
+    "id": "hoarder_c",
     "name": "Ward",
     "intake": [
       "Gale"
@@ -1328,7 +1328,7 @@
     }
   },
   {
-    "id": "boss_act2_d",
+    "id": "hoarder_d",
     "name": "Crush",
     "intake": [
       "Gale"
@@ -1342,7 +1342,7 @@
     }
   },
   {
-    "id": "boss_act2_e",
+    "id": "hoarder_e",
     "name": "Lash",
     "intake": [
       "Ember"
@@ -1356,7 +1356,7 @@
     }
   },
   {
-    "id": "boss_act2_f",
+    "id": "hoarder_f",
     "name": "Rend",
     "intake": [
       "Tide"
@@ -1367,6 +1367,90 @@
     "effect": {
       "kind": "damage",
       "base": 6
+    }
+  },
+  {
+    "id": "smolder_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 6
+    }
+  },
+  {
+    "id": "smolder_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 6
+    }
+  },
+  {
+    "id": "smolder_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 8
+    }
+  },
+  {
+    "id": "smolder_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 7
+    }
+  },
+  {
+    "id": "smolder_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "smolder_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
     }
   },
   {

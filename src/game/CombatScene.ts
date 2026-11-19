@@ -461,6 +461,9 @@ export class CombatScene extends Phaser.Scene {
     this.bar(layer, "enemy", 60, 135, 400, 40, e.health, e.maxHealth, RED);
     this.shield(layer, "enemy", 80, 208, 40, e.block);
     e.passives.forEach((p, i) => this.drawPassive(layer, p, 230 + i * 130, 245));
+    e.passives.forEach((p) => {
+      if (p.text) this.label(layer, 60, 290, p.text, 18, "#ffe14d", 0, false);
+    });
 
     // The enemy's hand, oldest on the left.
     const rowX = 600;
@@ -509,6 +512,18 @@ export class CombatScene extends Phaser.Scene {
       g.fillRoundedRect(x - 16, y - 22, 32, 44, 4);
       g.lineStyle(3, 0x2a2a2a, 1);
       for (let i = 0; i < 4; i++) g.lineBetween(x - 10, y - 12 + i * 9, x + 10, y - 12 + i * 9);
+    } else if (p.kind === "hoarder") {
+      // A shield-shaped chest.
+      g.fillStyle(0x8a6a3a, 1);
+      g.fillRoundedRect(x - 20, y - 14, 40, 30, 4);
+      g.fillStyle(0xffe14d, 1);
+      g.fillRect(x - 4, y - 4, 8, 10);
+    } else if (p.kind === "smolder") {
+      // A flame.
+      g.fillStyle(0xff7a2b, 1);
+      g.fillTriangle(x - 16, y + 20, x + 16, y + 20, x, y - 24);
+      g.fillStyle(0xffe14d, 1);
+      g.fillTriangle(x - 8, y + 20, x + 8, y + 20, x, y - 6);
     } else {
       // A mouth with teeth.
       g.fillStyle(0x7a1f2b, 1);
