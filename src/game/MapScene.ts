@@ -7,7 +7,8 @@ import { playRunEventSounds } from "./sound";
 import { playVoteRoll } from "./voteRoll";
 import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
-import { bossTip, passiveText } from "./bossInfo";
+import { bossTip } from "./bossInfo";
+import { drawPassiveIcon } from "./passiveIcon";
 import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { coinLine } from "./coinIcon";
 import { Tooltip } from "./tooltip";
@@ -294,15 +295,24 @@ export class MapScene extends Phaser.Scene {
     drawNodeIcon(g, "boss", CENTER_X, BOSS_Y, r);
     if (run.position?.floor === run.map.floors.length + 1) this.drawPartyMarker(CENTER_X, BOSS_Y);
     // Left of the boss, right-aligned: the party's charm strip runs along the top to its right.
-    const name = label(this, CENTER_X - r - 20, 24, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 1 });
-    const passives = label(this, CENTER_X - r - 20, 46, passiveText(boss), 18, { color: "#ffe14d", origin: 1 }).setOrigin(1, 0).setAlign("right").setWordWrapWidth(520);
+    const name: Phaser.GameObjects.Text = label(this, CENTER_X - r - 20, 36, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 1 });
+    // The passive shows as icons beside the name; its text is in the tooltip.
+    const icons: Phaser.GameObjects.GameObject[] = [];
+    const hits: Phaser.GameObjects.Arc[] = [];
+    const iconX = CENTER_X - r - 20 - name.width - 40;
+    (boss?.passives ?? []).forEach((p, i) => {
+      const gi = this.add.graphics();
+      drawPassiveIcon(this, gi, p, iconX - i * 60, 36, 0.7);
+      icons.push(gi);
+      hits.push(this.add.circle(iconX - i * 60, 36, 24, 0, 0));
+    });
     const tip = new Tooltip(this);
     const lines = bossTip(boss);
     const hit = this.add.circle(CENTER_X, BOSS_Y, r, 0, 0);
-    // The boss itself scrolls with the map; its name and passive stay in the heading.
-    const marker = this.children.list.slice(bossStart).filter((o) => o !== name && o !== passives);
-    this.put(marker);
-    for (const target of [name, passives, hit]) {
+    // The boss itself scrolls with the map; its name and passive icons stay in the heading.
+    const fixed = new Set<Phaser.GameObjects.GameObject>([name, ...icons, ...hits]);
+    this.put(this.children.list.slice(bossStart).filter((o) => !fixed.has(o)));
+    for (const target of [name, hit, ...hits]) {
       target.setDepth(10); // above the vote targets, so the whole boss hovers
       tip.attachLines(target, lines);
     }
