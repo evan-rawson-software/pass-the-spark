@@ -16,6 +16,8 @@ Pass the Spark is a turn-based co-op deckbuilder. It will be built as a web MVP 
 - Every content item and number (dominoes, enemies, health, values) lives in data files, not in code.
 - Keep it easy to port to GDScript: plain functions and data, no clever type-level tricks, no heavy frameworks.
 
+- Screen code in `src/game/` only draws engine state (`getView`, events) and submits choices (`step`); legality, values and previews always come from the engine. Nothing in `src/engine/` may import from `src/game/`.
+
 ## Testing: keep it lean
 
 - Write few tests, and make each one count. Test rules and behaviour that could realistically break, not every function.
@@ -34,6 +36,8 @@ Pass the Spark is a turn-based co-op deckbuilder. It will be built as a web MVP 
 ## Commands
 
 - `npm ci`: install dependencies.
+- `npm run dev`: start the Vite dev server for the browser game.
+- `npm run build`: build the browser game into `dist/`.
 - `npm run typecheck`: type-check with `tsc --noEmit`.
 - `npm test`: run the Vitest tests once.
 - `npm run sim`: play random battles against every enemy and print win rate, rounds and chain length.
