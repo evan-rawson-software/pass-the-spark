@@ -41,6 +41,8 @@ export interface Refs {
   hand: Map<string, Pos>; // the active hand, by domino id
   chain: { c: Container; pos: Pos }[];
   enemyHand: { c: Container; pos: Pos }[];
+  handSlots: Map<string, { c: Container; pos: Pos }[]>; // every player's hand, by seat and position (draw animation, #153)
+  decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck stack, "enemy" included
   bars: Map<string, BarRef>; // "enemy" | "party"
   shields: Map<string, { text: Text; x: number; y: number }>;
   meter?: { text: Text; rect: Box; scale: number };
@@ -48,7 +50,7 @@ export interface Refs {
 }
 
 export function newRefs(): Refs {
-  return { hand: new Map(), chain: [], enemyHand: [], bars: new Map(), shields: new Map(), charms: new Map() };
+  return { hand: new Map(), chain: [], enemyHand: [], handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map() };
 }
 
 export function paintBar(b: BarRef, value: number): void {
@@ -311,6 +313,7 @@ export class Animator {
         const amount = ev.type === "glutton" ? ev.heal : ev.amount;
         const bar = refs.bars.get(side);
         if (amount > 0 && bar) floatText(scene, bar.x + bar.w / 2, bar.y - 10, `+${amount}`, "#7dff9e");
+        if (ev.type === "glutton" && amount > 0 && bar) floatText(scene, bar.x + bar.w / 2, bar.y + 70, "Glutton", "#7dff9e", 30, 1000);
         this.tweenHealth(side, before, after);
         break;
       }
@@ -331,6 +334,9 @@ export class Animator {
         if (sh) floatText(scene, sh.x + 60, sh.y - 50, "Hoarder", "#9cc4ff", 30, 1000);
         break;
       }
+      case "sparkLocked":
+        floatText(scene, 960, 470, `Warden locks ${ev.spark}`, "#ff8a8a", 40, 1100);
+        break;
       case "chainEnd":
         floatText(scene, 960, 470, "Chain broken", "#ffd9a0", 56, 1100);
         break;

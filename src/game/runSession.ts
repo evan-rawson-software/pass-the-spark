@@ -1,4 +1,5 @@
 import type Phaser from "phaser";
+import { playRunEventSounds } from "./sound";
 import { runExperience } from "../engine/progression";
 import { applyRunChoice, createRun, getPendingRunChoices } from "../engine/run";
 import type { RunChoice, RunEvent, RunPendingChoice, RunState } from "../engine/run";
@@ -177,7 +178,9 @@ export function submitRunChoice(scene: Phaser.Scene, player: string, choice: Run
     else online.client?.sendRunChoice(choice, session!.window);
     return;
   }
-  setRun(applyRunChoice(currentRun(), player, choice).run);
+  const result = applyRunChoice(currentRun(), player, choice);
+  playRunEventSounds(result.events);
+  setRun(result.run);
   openRunScreen(scene);
 }
 
