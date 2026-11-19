@@ -27,6 +27,8 @@ function play(start: RunState, stop: (run: RunState) => boolean): { run: RunStat
       r = applyRunChoice(run, owed.player, { type: "vote", node: owed.options[0] });
     } else if (owed.type === "reward") {
       r = applyRunChoice(run, owed.player, { type: "reward", pick: SKIP });
+    } else if (owed.type === "act") {
+      r = applyRunChoice(run, owed.player, { type: "act" });
     } else if (owed.type === "charmReward") {
       r = applyRunChoice(run, owed.player, { type: "charmReward", pick: SKIP });
     } else if (owed.type === "rest") {

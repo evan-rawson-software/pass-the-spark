@@ -5,6 +5,8 @@ import { content } from "./devBattle";
 import { scaleTime } from "./playbackSpeed";
 import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
+import { bossTip, passiveText } from "./bossInfo";
+import { Tooltip } from "./tooltip";
 import { drawBackground, FONT, label, PLAYER_COLORS } from "./ui";
 
 // The map screen (#51). It draws the act the engine generated: floors bottom to top, the
@@ -127,6 +129,7 @@ export class MapScene extends Phaser.Scene {
     const toBoss = next > run.map.floors.length;
     const online = isOnlineRun();
     drawRunHeader(this, toBoss ? "Route: the boss" : `Route: floor ${next}`, null, "Vote for the next stop.");
+    label(this, 700, 70, `Act ${run.actIndex + 1} of ${run.content.run.acts.length}`, 36, { bold: true, color: "#9fd1b8" });
     // Single player: the screen asks once, and the pick is sent as every seat's vote.
     if (!online && pending !== null) label(this, 60, 150, "The party's choice", 44, { bold: true, color: "#ffe14d" });
     if (online && pending === null) drawWaitingFor(this, run, 60, 200);
@@ -239,10 +242,16 @@ export class MapScene extends Phaser.Scene {
     g.strokeCircle(CENTER_X, BOSS_Y, r);
     drawNodeIcon(g, "boss", CENTER_X, BOSS_Y, r);
     if (run.position?.floor === run.map.floors.length + 1) this.drawPartyMarker(CENTER_X, BOSS_Y);
-    const passives = (boss?.passives ?? []).map((p) => p.text ?? p.kind.charAt(0).toUpperCase() + p.kind.slice(1)).join(" ");
     // Above the boss, where no connection runs.
-    label(this, CENTER_X, 24, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 0.5 });
-    label(this, CENTER_X, 52, passives ? `Passive: ${passives}` : "No passive", 22, { color: "#ffe14d", origin: 0.5 });
+    const name = label(this, CENTER_X, 20, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 0.5 });
+    const passives = label(this, CENTER_X, 58, passiveText(boss), 18, { color: "#ffe14d", origin: 0.5 }).setAlign("center").setWordWrapWidth(900);
+    const tip = new Tooltip(this);
+    const lines = bossTip(boss);
+    const hit = this.add.circle(CENTER_X, BOSS_Y, r, 0, 0);
+    for (const target of [name, passives, hit]) {
+      target.setDepth(10); // above the vote targets, so the whole boss hovers
+      tip.attachLines(target, lines);
+    }
   }
 
   // Coins per player (with their marker colour), what each marker means, and a legend of stop types.
