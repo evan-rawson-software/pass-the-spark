@@ -1,6 +1,7 @@
 // Event stops (the "?" nodes): which event comes up, and the working state of the one in progress.
 // Plain functions over the seeded RNG. The run applies the choices and settles the event.
 
+import { openTollBridge } from "./events/tollBridge";
 import { openGiant } from "./events/giant";
 import type { GiantState } from "./events/giant";
 import { generateDomino } from "./generate";
@@ -12,6 +13,8 @@ import type { Domino, EventData, EventKind, Pools, Spark } from "./types";
 export type EventOption =
   | { type: "player"; player: string } // that player takes the event's domino
   | { type: "coins"; amount: number } // every player takes this many coins
+  | { type: "toll"; action: "pay"; amount: number } // the Toll Bridge: every player pays this
+  | { type: "toll"; action: "fight" | "turnBack" }
   | { type: "bless"; spark: Spark } // the Spark Shrine: the party is blessed with this spark
   | { type: "skip" } // the party moves on
   | { type: "grab" } // the Sleeping Giant: take a grab
@@ -65,8 +68,9 @@ export interface OpenedEvent {
   nextIndex: number; // next unused generated-domino index
 }
 
-// Sets up the picked event. Only the Lost Courier is playable so far.
-export function openEvent(state: number, data: EventData, players: string[], pools: Pools, startIndex: number, lead: string): OpenedEvent {
+// Sets up the picked event. Playable so far: the Lost Courier, the Toll Bridge, the Spark Shrine and the Sleeping Giant.
+export function openEvent(state: number, data: EventData, players: string[], pools: Pools, startIndex: number, lead: string, coins: Record<string, number>): OpenedEvent {
+  if (data.id === "toll_bridge") return { event: openTollBridge(data, coins, players), state, nextIndex: startIndex };
   if (data.id === "spark_shrine") return { event: openSparkShrine(data, pools), state, nextIndex: startIndex };
   if (data.id === "sleeping_giant") {
     const options: EventOption[] = [{ type: "grab" }, { type: "stop" }];

@@ -10,6 +10,7 @@ import { scaleTime } from "./playbackSpeed";
 import { drawPartyHud, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
 import { Tooltip } from "./tooltip";
+import { drawTollBridge } from "./tollBridgeArt";
 import { PLAYER_COLORS, button, drawBackground, label } from "./ui";
 
 // The event screen (#87), used by every event. Illustration (drawn in code, one per event) on the
@@ -30,6 +31,10 @@ function eventData(run: RunState, id: string): EventData {
 }
 
 function optionText(option: EventOption): string {
+  if (option.type === "toll") {
+    if (option.action === "pay") return `Pay the toll: ${option.amount} coins each`;
+    return option.action === "fight" ? "Fight the troll (hard fight)" : "Turn back";
+  }
   if (option.type === "grab") return "Grab";
   if (option.type === "stop") return "Stop";
   if (option.type === "player") return `${seatName(option.player)} takes the domino`;
@@ -93,7 +98,7 @@ const drawUnknown: Illustration = (g, x, y, w, h) => {
   g.fillCircle(x + w / 2, y + h * 0.78, 16);
 };
 
-const ILLUSTRATIONS: Record<string, Illustration> = { lost_courier: drawCourier, spark_shrine: drawSparkShrine };
+const ILLUSTRATIONS: Record<string, Illustration> = { lost_courier: drawCourier, toll_bridge: drawTollBridge, spark_shrine: drawSparkShrine };
 
 export class EventScene extends Phaser.Scene {
   private resolving = false;

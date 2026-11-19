@@ -22,6 +22,7 @@ const FLOOR_Y0 = 980; // floor 1
 const FLOOR_STEP = 85;
 const NODE_R = 30;
 const GOLD = 0xffe14d;
+const HIDDEN_COLOR = 0x5a6670; // a stop whose type isn't known yet
 
 const NODE_STYLE: Record<RunNodeType, { color: number; name: string }> = {
   fight: { color: 0x8a3b35, name: "Fight" },
@@ -194,11 +195,13 @@ export class MapScene extends Phaser.Scene {
           g.lineStyle(8, GOLD, 1);
           g.strokeCircle(x, y, NODE_R + 8);
         }
-        g.fillStyle(NODE_STYLE[node.type].color, 1);
+        // After a turn back at the Toll Bridge the floor's stops are unknown: all draw as "?".
+        const shown: RunNodeType = run.hiddenFloor === floor ? "event" : node.type;
+        g.fillStyle(run.hiddenFloor === floor ? HIDDEN_COLOR : NODE_STYLE[shown].color, 1);
         g.fillCircle(x, y, NODE_R);
         g.lineStyle(3, 0xf4ecd8, 1);
         g.strokeCircle(x, y, NODE_R);
-        drawNodeIcon(g, node.type, x, y, NODE_R);
+        drawNodeIcon(g, shown, x, y, NODE_R);
         if (here) this.drawPartyMarker(x, y);
         // Stops that are neither next nor the current one fade back.
         if (!isLit && !here) g.setAlpha(floor <= doneFloor ? 0.35 : 0.65);

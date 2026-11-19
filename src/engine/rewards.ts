@@ -23,6 +23,7 @@ export function rollOffers(
   battleType: BattleType,
   pools: Pools,
   startIndex: number,
+  allRare = false, // every offered domino is rare (the Toll Bridge's hard fight)
 ): RewardRoll {
   const offers: Record<string, Domino[]> = {};
   let s = state;
@@ -30,7 +31,7 @@ export function rollOffers(
   for (const playerId of playerIds) {
     const offer: Domino[] = [];
     for (let i = 0; i < pools.offerSize; i++) {
-      const rarity = rollRarity(s, battleType, pools);
+      const rarity = allRare ? { value: "rare" as const, state: s } : rollRarity(s, battleType, pools);
       s = rarity.state;
       const domino = generateDomino(s, rarity.value, pools, index);
       s = domino.state;
