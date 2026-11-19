@@ -24,6 +24,7 @@ export const ACTION_LABEL: Record<PersonalAction, string> = {
   repaint: "Repaint a spark",
   copy: "Copy a domino",
   weld: "Weld two dominoes",
+  wish: "Turn over a domino",
 };
 const PROMPT: Record<string, string> = {
   flip: "Pick a domino to flip: its intake and output swap.",

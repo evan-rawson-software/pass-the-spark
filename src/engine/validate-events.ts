@@ -1,6 +1,7 @@
 // Checks for data/events.json. Same style as validate.ts.
 
-import type { EventData } from "./types";
+import type { EventData, Pools } from "./types";
+import { PRIZE_KINDS } from "./events/wishingWell";
 
 const FILE = "data/events.json";
 const KINDS = ["vote", "personal", "push"];
@@ -9,7 +10,7 @@ const KINDS = ["vote", "personal", "push"];
 const REQUIRED: Record<string, { kind: string; numbers: string[] }> = {
   toll_bridge: { kind: "vote", numbers: ["payCoins"] },
   tinkers_bench: { kind: "personal", numbers: ["repaintCost"] },
-  wishing_well: { kind: "personal", numbers: ["emberCoins", "galeFallbackCoins"] },
+  wishing_well: { kind: "personal", numbers: ["coinPrize", "fallbackCoins"] },
   sleeping_giant: { kind: "push", numbers: ["grabCoins", "wakeStartPercent", "wakeStepPercent", "wakeDamage"] },
   spark_shrine: { kind: "vote", numbers: ["blessedAnswerStrength"] },
   lost_courier: { kind: "vote", numbers: ["coinsEach"] },
@@ -25,7 +26,8 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-export function validateEvents(data: unknown): EventData[] {
+// pools gives the sparks every prize table must cover (every basic and advanced spark).
+export function validateEvents(data: unknown, pools: Pools): EventData[] {
   if (!isObject(data) || !Array.isArray(data.events) || data.events.length === 0) fail("(file)", `"events" must be a non-empty list`);
   const seen: string[] = [];
   for (const [i, e] of (data.events as unknown[]).entries()) {
@@ -42,6 +44,13 @@ export function validateEvents(data: unknown): EventData[] {
     if (!isObject(e.numbers)) fail(id, `"numbers" must be an object`);
     for (const [key, v] of Object.entries(e.numbers)) {
       if (typeof v !== "number" || !Number.isInteger(v) || v < 0) fail(id, `numbers.${key} must be a whole number, 0 or more`);
+    }
+    if (id === "wishing_well") {
+      const prizes = e.prizes;
+      if (!isObject(prizes)) fail(id, `"prizes" must be an object keyed by spark`);
+      for (const spark of [...pools.sparkGroups.basic, ...pools.sparkGroups.advanced]) {
+        if (!PRIZE_KINDS.includes(prizes[spark] as never)) fail(id, `prizes.${spark} must be one of ${PRIZE_KINDS.join(", ")}`);
+      }
     }
     const required = REQUIRED[id];
     if (required === undefined) fail(id, "unknown event id");

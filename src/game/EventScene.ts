@@ -14,6 +14,7 @@ import { drawPartyHud, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
 import { Tooltip } from "./tooltip";
 import { drawTollBridge } from "./tollBridgeArt";
+import { drawWell, drawWellStage, prizeText } from "./wishingWellUi";
 import { PLAYER_COLORS, button, drawBackground, label } from "./ui";
 
 // The event screen (#87), used by every event. Illustration (drawn in code, one per event) on the
@@ -106,7 +107,7 @@ const drawUnknown: Illustration = (g, x, y, w, h) => {
   g.fillCircle(x + w / 2, y + h * 0.78, 16);
 };
 
-const ILLUSTRATIONS: Record<string, Illustration> = { lost_courier: drawCourier, toll_bridge: drawTollBridge, spark_shrine: drawSparkShrine, ...DECK_ILLUSTRATIONS };
+const ILLUSTRATIONS: Record<string, Illustration> = { lost_courier: drawCourier, toll_bridge: drawTollBridge, spark_shrine: drawSparkShrine, wishing_well: drawWell, ...DECK_ILLUSTRATIONS };
 
 export class EventScene extends Phaser.Scene {
   private resolving = false;
@@ -248,7 +249,14 @@ export class EventScene extends Phaser.Scene {
     let y = top + 10;
     if (pending !== null && !online) label(this, TEXT_X, y, `${seatName(pending.player)}'s choice`, 40, { bold: true, color: GOLD });
     y += 60;
-    if (pending !== null) {
+    if (pending !== null && event.id === "wishing_well" && event.wells?.[pending.player]) {
+      // A player part-way through the Wishing Well: the domino they turned over and the next pick.
+      const player = pending.player;
+      const tooltip = new Tooltip(this);
+      y = drawWellStage(this, run, event, player, eventData(run, event.id), TEXT_X, y, (pick) => this.sendPersonal(run, player, 1, pick), tooltip);
+      button(this, TEXT_X, y, "Skip the prize", () => this.sendPersonal(run, player, 0), { size: 32, disabled: this.resolving });
+      y += 80;
+    } else if (pending !== null) {
       const player = pending.player;
       event.options.forEach((option, i) => {
         const why = personalUnavailable(run, player, i);
@@ -272,6 +280,7 @@ export class EventScene extends Phaser.Scene {
     const o = event.options[option];
     if (o.type === "skip") return this.sendPersonal(run, player, option);
     if (o.type !== "action") return;
+    if (event.id === "wishing_well") return this.sendPersonal(run, player, option);
     if (DECK_EVENTS.includes(event.id)) startDeckAction(this, run, player, o.action, (pick) => this.sendPersonal(run, player, option, pick));
   }
 
@@ -303,6 +312,26 @@ export class EventScene extends Phaser.Scene {
       const y = 220 + i * 170;
       this.add.circle(TEXT_X + 16, y, 16, PLAYER_COLORS[run.players.indexOf(r.player) % PLAYER_COLORS.length]).setStrokeStyle(3, 0x0d2a20);
       label(this, TEXT_X + 50, y, seatName(r.player), 32, { bold: true });
+      if (r.wish) {
+        const w = r.wish;
+        const data = eventData(run, summary.event);
+        const text = w.prize === "coins" ? `+${w.coins} coins` : w.prize === "none" ? "Nothing" : w.prize === "remove" ? "Removed" : w.prize === "upgrade" ? "Upgraded" : "Took";
+        const tip = new Tooltip(this);
+        const turned = drawDomino(this, w.turned, "large", "normal").setScale(0.4).setPosition(TEXT_X + 330, y + 40);
+        tip.attach(turned, w.turned);
+        label(this, TEXT_X + 410, y - 6, `${w.spark ?? ""} ${w.prize === "coins" ? "" : prizeText(w.prize, data)}`.trim(), 24, { color: "#cfe9dc" });
+        label(this, TEXT_X + 410, y + 28, text, 30, { bold: true, color: w.prize === "none" ? "#9fb8aa" : "#7dffb0" });
+        r.before.forEach((d, k) => {
+          const c = drawDomino(this, d, "large", "normal").setScale(0.4).setPosition(TEXT_X + 640 + k * 110, y + 40);
+          tip.attach(c, d);
+        });
+        if (r.before.length > 0 && r.after) label(this, TEXT_X + 700, y + 40, ">", 40, { bold: true, color: GOLD, origin: 0.5 });
+        if (r.after) {
+          const c = drawDomino(this, r.after, "large", "normal").setScale(0.4).setPosition(TEXT_X + 760, y + 40);
+          tip.attach(c, r.after);
+        }
+        return;
+      }
       if (r.action === "skip" || r.after === null) {
         label(this, TEXT_X + 360, y, "Skipped", 30, { color: "#9fb8aa" });
         return;

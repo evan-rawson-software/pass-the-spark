@@ -161,5 +161,6 @@ export interface EventData {
   weight: number; // chance weight when the next event is picked
   enabled: boolean; // false: the event is in data but not playable yet, so the pool skips it
   text: string; // placeholder story text, 1-2 sentences
+  prizes?: Record<string, string>; // events with prizes keyed by spark (the Wishing Well): spark -> prize kind
   numbers: Record<string, number>; // this event's own numbers (coin amounts, chances, damage)
 }

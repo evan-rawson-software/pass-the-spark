@@ -25,13 +25,14 @@ export interface Content {
 export function loadContent(): Content {
   const dominoes = validateDominoes(dominoesJson);
   const enemies = validateEnemies(enemiesJson, dominoes);
+  const pools = validatePools(poolsJson);
   return {
     config: validateConfig(configJson),
     dominoes,
     enemies,
     starterDeck: validateStarterDeck(starterDeckJson, dominoes),
-    pools: validatePools(poolsJson),
+    pools,
     run: validateRun(runJson, enemies),
-    events: validateEvents(eventsJson),
+    events: validateEvents(eventsJson, pools),
   };
 }
