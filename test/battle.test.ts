@@ -267,3 +267,33 @@ test("blessed spark: answers and enemy reactions made with it add 2 strength, ot
   // p2 answers Ember (+2), the enemy reacts to Ember (+2), p1 answers the enemy's Tide (+1).
   expect(plays).toEqual(["p2:Ember:2", "enemy:Ember:4", "p1:Tide:5"]);
 });
+
+test("charms: lenses, Bulwark, Keystone and Overcharge change values and strength; previews match", () => {
+  const s0 = createBattle({
+    config,
+    content: { dominoes, enemies },
+    charms: content.charms,
+    players: [
+      { id: "p1", deck: starterDeck, charms: ["ember_lens", "gale_lens", "bulwark", "keystone", "overcharge"] },
+      { id: "p2", deck: starterDeck },
+    ],
+    seatOrder: ["p2", "p1", "enemy"],
+    enemyId: "ogre",
+    seed: 1,
+  });
+  s0.players[1].hand = ["jab", "shelter"];
+  s0.players[0].hand = ["kindle", "splash"];
+  s0.enemy.hand = [];
+  s0.enemy.revealed = [];
+  const s1 = opener(s0, "kindle"); // p2 opens Ember, lap 1
+  // p1 answers Ember: strength 0+2 (Keystone), lap 1+1 (Overcharge): 3 x 2 x 2 + 2 (Ember Lens) = 14
+  expect(previewPlay(getView(s1, "p1"), "p1", "jab")[0]).toMatchObject({ strength: 2, value: 14 });
+  const s2 = answer(s1, "jab");
+  expect(s2.enemy.health).toBe(100 - 14);
+  // p2 (no charms) answers Tide at strength 3, lap 2: 2 x 3 x 2 = 12
+  const s3 = answer(s2, "splash");
+  expect(s3.enemy.health).toBe(100 - 14 - 12);
+  // p1 answers Gale: strength 3+2 = 5, lap 2+1 = 3: 4 x 5 x 3 + 2 (Gale Lens) + 2 (Bulwark) = 64
+  expect(previewPlay(s3, "p1", "shelter")[0]).toMatchObject({ strength: 5, value: 64 });
+  expect(step(s3, { type: "answer", domino: "shelter" }).events).toContainEqual({ type: "block", side: "party", amount: 64, blocked: 0 });
+});
