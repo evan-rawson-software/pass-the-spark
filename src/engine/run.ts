@@ -54,6 +54,7 @@ export interface RunState {
   rest: string[] | null; // present while phase is "rest": the players who have chosen
   trader: TraderState | null; // present while phase is "trader"
   event: EventState | null; // present while phase is "event"
+  blessing: Spark | null; // the Spark Shrine's blessed spark; lasts until the act's boss fight is over
   eventsSeen: string[]; // event ids met this run, across acts; starts again once every enabled event has been seen
   result: "won" | "lost" | null;
 }
@@ -196,6 +197,7 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     rest: null,
     trader: null,
     event: null,
+    blessing: null,
     eventsSeen: [],
     result: null,
   };
@@ -393,7 +395,11 @@ function settleEvent(run: RunState, events: RunEvent[]): void {
   run.rng = result.state;
   const option = event.options[result.winner];
   events.push({ type: "eventOutcome", event: event.id, winner: result.winner, option, counts: result.counts, drawn: result.drawn });
-  if (option.type === "player") {
+  if (option.type === "bless") {
+    run.blessing = option.spark; // replaces any earlier blessing
+  } else if (option.type === "skip") {
+    // nothing happens
+  } else if (option.type === "player") {
     const domino = event.domino as Domino;
     run.decks[option.player].push(domino.id);
     run.dominoes.push(domino);
@@ -437,6 +443,12 @@ function applyTraderAction(run: RunState, playerId: string, action: TraderAction
   }
 }
 
+function blessedStrength(run: RunState): number {
+  const shrine = run.content.events.find((e) => e.id === "spark_shrine");
+  if (!shrine) throw new Error("no spark_shrine in data/events.json");
+  return shrine.numbers.blessedAnswerStrength;
+}
+
 function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void {
   const { config, dominoes, enemies } = run.content;
   let enemyId = run.map.bossId;
@@ -465,6 +477,7 @@ function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void 
     seed: seed.value,
     extraDominoes: run.dominoes,
     partyHealth: run.health,
+    blessing: run.blessing ? { spark: run.blessing, strength: blessedStrength(run) } : null,
   });
   run.battle = result.state;
   run.battleType = type;
@@ -478,6 +491,7 @@ function finishBattle(run: RunState, events: RunEvent[]): void {
   const type = run.battleType as BattleType;
   run.battle = null;
   run.battlesFought++;
+  if (type === "boss") run.blessing = null; // the blessing ends with the act's boss fight
   run.health = Math.max(0, battle.party.health);
   if (battle.result === "lost" || run.health <= 0) {
     endRun(run, "lost", events);

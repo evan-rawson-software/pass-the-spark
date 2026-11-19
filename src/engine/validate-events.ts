@@ -50,6 +50,8 @@ export function validateEvents(data: unknown): EventData[] {
       if (e.numbers[key] === undefined) fail(id, `numbers.${key} is missing`);
     }
   }
+  const shrine = (data.events as EventData[]).find((e) => e.id === "spark_shrine");
+  if (shrine && shrine.numbers.blessedAnswerStrength < 1) fail("spark_shrine", "numbers.blessedAnswerStrength must be at least 1");
   for (const id of Object.keys(REQUIRED)) {
     if (!seen.includes(id)) fail(id, "missing: every event needs an entry");
   }

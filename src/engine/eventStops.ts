@@ -5,12 +5,15 @@ import { openGiant } from "./events/giant";
 import type { GiantState } from "./events/giant";
 import { generateDomino } from "./generate";
 import { nextFloat } from "./rng";
-import type { Domino, EventData, EventKind, Pools } from "./types";
+import { openSparkShrine } from "./events/sparkShrine";
+import type { Domino, EventData, EventKind, Pools, Spark } from "./types";
 
 // One thing a party vote can pick. A vote is stored as an index into the event's options.
 export type EventOption =
   | { type: "player"; player: string } // that player takes the event's domino
   | { type: "coins"; amount: number } // every player takes this many coins
+  | { type: "bless"; spark: Spark } // the Spark Shrine: the party is blessed with this spark
+  | { type: "skip" } // the party moves on
   | { type: "grab" } // the Sleeping Giant: take a grab
   | { type: "stop" }; // the Sleeping Giant: stop, and be out
 
@@ -64,6 +67,7 @@ export interface OpenedEvent {
 
 // Sets up the picked event. Only the Lost Courier is playable so far.
 export function openEvent(state: number, data: EventData, players: string[], pools: Pools, startIndex: number, lead: string): OpenedEvent {
+  if (data.id === "spark_shrine") return { event: openSparkShrine(data, pools), state, nextIndex: startIndex };
   if (data.id === "sleeping_giant") {
     const options: EventOption[] = [{ type: "grab" }, { type: "stop" }];
     return { event: { id: data.id, kind: data.kind, domino: null, options, choices: {}, giant: openGiant(data, players, lead) }, state, nextIndex: startIndex };
