@@ -75,5 +75,19 @@
   "map/rest.png",
   "map/trader.png",
   "map/event.png",
-  "map/hidden.png"
+  "map/hidden.png",
+  "events/toll_bridge.jpg",
+  "events/tinkers_bench.jpg",
+  "events/wishing_well.jpg",
+  "events/sleeping_giant.jpg",
+  "events/spark_shrine.jpg",
+  "events/lost_courier.jpg",
+  "events/mirror_pond.jpg",
+  "events/twin_forge.jpg",
+  "backgrounds/combat.jpg",
+  "backgrounds/map.jpg",
+  "backgrounds/title.jpg",
+  "backgrounds/rest.jpg",
+  "backgrounds/trader.jpg",
+  "backgrounds/act_transition.jpg"
 ]
