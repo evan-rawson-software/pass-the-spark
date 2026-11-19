@@ -21,6 +21,9 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
   const v = s.view;
   const side = (x: "party" | "enemy") => (x === "party" ? v.party : v.enemy);
   switch (ev.type) {
+    case "sparkLocked":
+      v.locked = ev.spark;
+      break;
     case "roundStart":
       v.round = ev.round;
       v.chain = { ...v.chain, strength: 0, lap: 1, sparks: [], played: [] };

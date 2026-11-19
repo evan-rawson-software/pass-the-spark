@@ -1,7 +1,7 @@
 // Battle state, setup and round flow. Plain functions over plain data.
 // applyChoice never changes its input: it works on a JSON copy.
 
-import { shuffle } from "./rng";
+import { nextInt, shuffle } from "./rng";
 import { validateDominoes } from "./validate";
 import type { GameEvent } from "./events";
 import type { BattleView } from "./view";
@@ -94,6 +94,7 @@ export interface BattleState {
   result: "won" | "lost" | null;
   nextLead: string | null;
   blessing: Blessing | null; // set for the whole battle by the run; null for no blessing
+  locked: Spark | null; // the Warden's locked spark this round: players' dominoes can't be set off by it
 }
 
 export type PendingChoice =
@@ -197,6 +198,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     result: null,
     nextLead: null,
     blessing: setup.blessing ?? null,
+    locked: null,
   };
   const events: GameEvent[] = [];
   startRound(state, events);
@@ -224,7 +226,7 @@ export function makeStarterInstances(
 
 // What getPendingChoice reads. A BattleState or a player's BattleView both fit, so a client can
 // work out what it may play from the view it was sent.
-export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "chain">;
+export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "chain" | "locked">;
 
 export function getPendingChoice(state: PendingInput): PendingChoice | null {
   if (state.phase === "over") return null;
@@ -427,10 +429,11 @@ function answeredSparks(d: Domino, sparks: Spark[]): Spark[] {
   return sparks.filter((s) => d.intake === "any" || d.intake.includes(s));
 }
 
+// Players can't answer the Warden's locked spark (the enemy still can).
 function legalAnswers(state: PendingInput, player: PlayerState) {
   const options: { domino: string; sparks: Spark[] }[] = [];
   for (const id of unique(player.hand)) {
-    const sparks = answeredSparks(getDomino(state, id), state.chain.sparks);
+    const sparks = answeredSparks(getDomino(state, id), state.chain.sparks).filter((s) => s !== state.locked);
     if (sparks.length > 0) options.push({ domino: id, sparks });
   }
   return options;
@@ -444,6 +447,7 @@ function startRound(state: BattleState, events: GameEvent[]): void {
   // The lead is known only after the draws (an empty-handed lead is skipped), so it is filled in below.
   const roundStart: GameEvent = { type: "roundStart", round: state.round, lead: state.lead };
   events.push(roundStart);
+  wardenLock(state, events);
   for (const p of state.players) p.firstEchoSpent = false;
   for (const seat of state.seatOrder) {
     if (seat === ENEMY_SEAT) {
@@ -606,9 +610,23 @@ function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean,
   const seat = byPlayer ? state.seat : ENEMY_SEAT;
   chain.played.push({ seat, domino: d.id });
   events.push({ type: "play", seat, domino: d.id, answeredSpark: answered, strength: chain.strength, lap: chain.lap });
-  const scaleLap = byPlayer || state.config.enemyReactionsScaleWithLap;
+  const scaleLap = byPlayer || state.config.enemyReactionsScaleWithLap || hasPassive(state, "longNight");
   playEffect(state, d, seat, byPlayer ? "party" : "enemy", scaleLap, byPlayer ? answered : null, events);
   if (repeated && state.phase !== "over") auditor(state, events);
+}
+
+function hasPassive(state: BattleState, kind: Passive["kind"]): boolean {
+  return state.enemy.passives.some((p) => p.kind === kind);
+}
+
+// Warden passive: at round start one of its sparks is locked, picked with the battle RNG.
+function wardenLock(state: BattleState, events: GameEvent[]): void {
+  const passive = state.enemy.passives.find((p) => p.kind === "warden");
+  if (!passive || passive.kind !== "warden") return;
+  const pick = nextInt(state.rng, passive.sparks.length);
+  state.rng = pick.state;
+  state.locked = passive.sparks[pick.value];
+  events.push({ type: "sparkLocked", spark: state.locked });
 }
 
 // Auditor passive: the party takes damage (block absorbs it). Strength is never reduced.
@@ -782,7 +800,7 @@ function endRound(state: BattleState, events: GameEvent[]): void {
     const effect = d.effect.kind === "reflect" ? state.chain.last?.effect : d.effect;
     if (effect === undefined) continue;
     let value = (effect.base ?? 0) * leftoverStrength;
-    if (state.config.enemyReactionsScaleWithLap) value *= state.chain.lap;
+    if (state.config.enemyReactionsScaleWithLap || hasPassive(state, "longNight")) value *= state.chain.lap;
     events.push({ type: "trigger", seat: ENEMY_SEAT, domino: id, index: 0, effect, side: "enemy", value });
     resolve(state, effect, value, "enemy", events);
     if (state.phase === "over") return;

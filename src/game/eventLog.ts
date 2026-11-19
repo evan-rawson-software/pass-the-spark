@@ -74,6 +74,8 @@ export function describeEvent(ev: GameEvent, ctx: LogContext, mem: LogMemory): s
       return `${ev.positions.length === 1 ? "A domino" : `${ev.positions.length} dominoes`} in ${ctx.enemyName}'s hand revealed`;
     case "auditor":
       return `The Auditor charges the party ${ev.damage} for repeating a spark`;
+    case "sparkLocked":
+      return `The Warden locks ${ev.spark}: players can't answer it this round`;
     case "hoarder":
       return `The Hoarder gains ${ev.block} block as the lap goes up`;
     case "smolder":

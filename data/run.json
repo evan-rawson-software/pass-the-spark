@@ -82,7 +82,7 @@
     },
     {
       "id": "act3",
-      "bossPool": ["boss_act3"],
+      "bossPool": ["long_night", "warden_of_locks"],
       "normalPool": ["wraith", "colossus", "stormling"],
       "elitePool": ["tyrant", "warlord"],
       "battleCoins": { "fight": 20, "elite": 45, "boss": 100 },

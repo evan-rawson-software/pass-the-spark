@@ -388,24 +388,60 @@
     "passives": []
   },
   {
-    "id": "boss_act3",
-    "name": "Placeholder Act 3 Boss",
+    "id": "long_night",
+    "name": "The Long Night",
     "tier": "boss",
     "maxHealth": 800,
     "drawPerRound": 5,
     "handLimit": 7,
     "deck": [
-      "boss_act3_a",
-      "boss_act3_b",
-      "boss_act3_c",
-      "boss_act3_d",
-      "boss_act3_e",
-      "boss_act3_f",
-      "boss_act3_a",
-      "boss_act3_c",
-      "boss_act3_e",
-      "boss_act3_a"
+      "long_night_a",
+      "long_night_b",
+      "long_night_c",
+      "long_night_d",
+      "long_night_e",
+      "long_night_f",
+      "long_night_a",
+      "long_night_c",
+      "long_night_e",
+      "long_night_a"
     ],
-    "passives": []
+    "passives": [
+      {
+        "kind": "longNight",
+        "text": "Its reactions and leftovers are multiplied by the lap."
+      }
+    ]
+  },
+  {
+    "id": "warden_of_locks",
+    "name": "The Warden of Locks",
+    "tier": "boss",
+    "maxHealth": 800,
+    "drawPerRound": 5,
+    "handLimit": 7,
+    "deck": [
+      "warden_of_locks_a",
+      "warden_of_locks_b",
+      "warden_of_locks_c",
+      "warden_of_locks_d",
+      "warden_of_locks_e",
+      "warden_of_locks_f",
+      "warden_of_locks_a",
+      "warden_of_locks_c",
+      "warden_of_locks_e",
+      "warden_of_locks_a"
+    ],
+    "passives": [
+      {
+        "kind": "warden",
+        "sparks": [
+          "Ember",
+          "Tide",
+          "Gale"
+        ],
+        "text": "Each round one spark is locked: players cannot answer it."
+      }
+    ]
   }
 ]
