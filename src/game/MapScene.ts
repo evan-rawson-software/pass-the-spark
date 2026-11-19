@@ -80,10 +80,11 @@ export class MapScene extends Phaser.Scene {
     const cams = this.cameras.cameras;
     cams.splice(cams.indexOf(this.cameras.main), 1);
     cams.push(this.cameras.main);
-    this.events.on(Phaser.Scenes.Events.ADDED_TO_SCENE, (obj: Phaser.GameObjects.GameObject) => {
-      this.mapCam.ignore(obj);
-      this.bgCam.ignore(obj);
-    });
+    // Flagging the object itself (not Camera.ignore, which flags a container's children only) also
+    // keeps an interactive container from being hit-tested by the map camera.
+    this.events.off(Phaser.Scenes.Events.ADDED_TO_SCENE, this.hideFromWorldCams);
+    this.events.on(Phaser.Scenes.Events.ADDED_TO_SCENE, this.hideFromWorldCams);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.ADDED_TO_SCENE, this.hideFromWorldCams));
     this.scrollY = this.openingScroll(currentRun());
     this.input.on("wheel", (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
       if (this.inView(p)) this.scrollTo(this.scrollY + dy * WHEEL_STEP);
@@ -101,6 +102,10 @@ export class MapScene extends Phaser.Scene {
     this.input.on("pointerupoutside", () => (this.press = null));
     this.build();
   }
+
+  private hideFromWorldCams = (obj: Phaser.GameObjects.GameObject): void => {
+    obj.cameraFilter |= this.mapCam.id | this.bgCam.id;
+  };
 
   private inView(p: Phaser.Input.Pointer): boolean {
     return !deckViewerState.open && p.x >= VIEW.x && p.x <= VIEW.x + VIEW.w && p.y >= VIEW.y && p.y <= VIEW.y + VIEW.h;
