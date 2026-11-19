@@ -1,5 +1,9 @@
 // Loads the files in data/. Bad data throws, so the game fails loudly.
 
+import configJson from "../../data/config.json";
+import dominoesJson from "../../data/dominoes.json";
+import enemiesJson from "../../data/enemies.json";
+import starterDeckJson from "../../data/starter-deck.json";
 import type { Config, DeckList, Domino, Enemy } from "./types";
 import { validateConfig, validateDominoes, validateEnemies, validateStarterDeck } from "./validate";
 
@@ -10,12 +14,12 @@ export interface Content {
   starterDeck: DeckList;
 }
 
-export function loadContent(raw: { config: unknown; dominoes: unknown; enemies: unknown; starterDeck: unknown }): Content {
-  const dominoes = validateDominoes(raw.dominoes);
+export function loadContent(): Content {
+  const dominoes = validateDominoes(dominoesJson);
   return {
-    config: validateConfig(raw.config),
+    config: validateConfig(configJson),
     dominoes,
-    enemies: validateEnemies(raw.enemies, dominoes),
-    starterDeck: validateStarterDeck(raw.starterDeck, dominoes),
+    enemies: validateEnemies(enemiesJson, dominoes),
+    starterDeck: validateStarterDeck(starterDeckJson, dominoes),
   };
 }
