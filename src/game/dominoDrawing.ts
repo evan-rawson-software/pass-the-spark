@@ -211,24 +211,29 @@ function drawFace(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, c: Phaser
   drawHalf(g, domino.output, 80);
 
   const e = domino.effect;
-  drawEffectIcon(g, e.kind, -8);
+  drawEffectIcon(g, e.kind, -4);
   if (e.base !== undefined) {
     const t = scene.add
       .text(0, 36, String(e.base), { fontSize: "34px", fontStyle: "bold", color: "#222222", stroke: "#ffffff", strokeThickness: 4 })
       .setOrigin(0.5);
     c.add(t);
   }
-  if (e.spectrum) {
-    [0, 1, 2].forEach((i) => {
-      g.fillStyle([0xff6a13, 0x2f80ed, 0x4cc46a][i], 1);
-      g.lineStyle(1.5, DARK, 1);
-      g.fillCircle(8 + i * 12, -48, 5);
-      g.strokeCircle(8 + i * 12, -48, 5);
-    });
-  }
+  // Flag chips in the top band of the middle column (y -56 to -34).
   if (e.ignoresBlock) {
-    polygon(g, [{ x: -32, y: -55 }, { x: -16, y: -55 }, { x: -16, y: -47 }, { x: -24, y: -39 }, { x: -32, y: -47 }], 0x4a6fa5);
-    line(g, [{ x: -36, y: -37 }, { x: -12, y: -57 }], 4, 0xd62828);
+    g.fillStyle(DARK, 1);
+    g.fillRoundedRect(-38, -56, 36, 22, 6);
+    polygon(g, [{ x: -29, y: -52 }, { x: -11, y: -52 }, { x: -11, y: -45 }, { x: -20, y: -37 }, { x: -29, y: -45 }], 0x8fb4ea, 0xffffff);
+    line(g, [{ x: -33, y: -37 }, { x: -7, y: -53 }], 5, 0xff3b3b);
+  }
+  if (e.spectrum) {
+    g.fillStyle(DARK, 1);
+    g.fillRoundedRect(2, -56, 38, 22, 6);
+    [0xff6a13, 0x2f80ed, 0x4cc46a].forEach((color, i) => {
+      g.fillStyle(color, 1);
+      g.lineStyle(1.5, 0xffffff, 1);
+      g.fillCircle(10 + i * 11, -45, 5.5);
+      g.strokeCircle(10 + i * 11, -45, 5.5);
+    });
   }
 }
 
@@ -257,17 +262,10 @@ function drawBadge(g: Phaser.GameObjects.Graphics, kind: "revealed" | "played"):
   g.fillCircle(x, y, 20);
   g.strokeCircle(x, y, 20);
   if (kind === "revealed") {
-    const top: Pt[] = [];
-    const bottom: Pt[] = [];
-    for (let i = 0; i <= 10; i++) {
-      const px = -13 + (26 * i) / 10;
-      const h = 8 * (1 - Math.pow(px / 13, 2));
-      top.push({ x: x + px, y: y - h });
-      bottom.unshift({ x: x + px, y: y + h });
-    }
-    polygon(g, [...top, ...bottom], 0xffffff);
-    g.fillStyle(DARK, 1);
-    g.fillCircle(x, y, 4.5);
+    // Gold diamond on navy, echoing the card back: "was hidden, now shown".
+    g.fillStyle(0x2c3e6b, 1);
+    g.fillCircle(x, y, 17);
+    polygon(g, [{ x, y: y - 12 }, { x: x + 9, y }, { x, y: y + 12 }, { x: x - 9, y }], 0xffd23f, 0xffffff);
   } else {
     line(g, [{ x: x - 9, y }, { x: x - 2, y: y + 8 }, { x: x + 10, y: y - 8 }], 5, 0xffffff);
   }
