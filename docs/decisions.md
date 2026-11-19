@@ -80,3 +80,16 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 
 ### Still open
 - Nothing blocking milestone 1. Balance numbers are placeholders.
+
+## 2026-11-19: Milestone 2 (combat on one machine)
+
+- **Tech:** Phaser plus Vite. Screen code only draws engine state and submits choices; no rules live in it. Only the engine and data port to Godot; screens get rebuilt there.
+- **Art:** drawn by code for now (two-halved tiles, each spark with its own colour and shape, effect icon plus number). Sprites later.
+- **Hand layout:** the active hand is large, front and centre; teammates' hands are smaller at the sides; whoever's turn it is gets a highlight. In hot-seat the front hand follows whoever's turn it is. Online, it will be your own hand.
+- **Animations:** basic only in M2 (domino into chain, effect triggers, floating numbers, health bars, combo meter). The full heat ladder comes in milestone 5.
+- **Screens:** a placeholder start screen (3 or 4 players, pick any enemy) and end screen (victory or defeat, play again). Both get replaced in milestone 4.
+- **Pacing:** enemy turns, passes and round-end leftovers play out automatically with short delays, scaled by a playback-speed setting. Player turns wait for a click.
+- **Platform:** desktop browser, mouse, 16:9 scaled to fit. No touch, no keyboard play, no accessibility options for now (reduce-motion included).
+- **Audio:** later.
+- **Debug panel:** yes.
+- **Tooltips:** yes. Hovering a domino shows name, intake, effect with its current value, and output.
