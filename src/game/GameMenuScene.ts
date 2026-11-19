@@ -51,7 +51,9 @@ export class GameMenuScene extends Phaser.Scene {
     this.drawButton();
     // Escape: the capture phase sees it before the deck viewer's own Escape handler closes the viewer.
     const onKey = (e: KeyboardEvent): void => {
+      const el = e.target as HTMLElement | null;
       if (e.key !== "Escape" || deckViewerState.open) return;
+      if (el !== null && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) return;
       this.toggle();
     };
     window.addEventListener("keydown", onKey, true);
@@ -137,8 +139,13 @@ export class GameMenuScene extends Phaser.Scene {
         button(PX + PW / 2, y, "Debug panel (`)", () => debugPanel.toggle(), { fill: "#0d2a20" });
         y += 50;
       }
-      if (this.scene.manager.isActive("menu")) button(PX + PW / 2, y, "Reset progress", () => this.ask("reset"), { fill: "#0d2a20" });
-      else button(PX + PW / 2, y, "Leave game", () => this.ask("leave"), { fill: "#0d2a20" });
+      const m = this.scene.manager;
+      const start = m.isActive("menu") || m.isActive("start");
+      if (start) button(PX + PW / 2, y, "Reset progress", () => this.ask("reset"), { fill: "#0d2a20" });
+      else {
+        const lobby = m.isActive("hostLobby") || m.isActive("join");
+        button(PX + PW / 2, y, lobby ? "Leave the room" : "Leave game", () => this.ask("leave"), { fill: "#0d2a20" });
+      }
       y += 40;
     }
     const h = y - PY + 20;
@@ -149,7 +156,11 @@ export class GameMenuScene extends Phaser.Scene {
     bg.strokeRoundedRect(PX, PY, PW, h, 14);
     // Clicks on the panel stop here; clicks outside it still reach the screen below.
     const block = this.add.zone(PX, PY, PW, h).setOrigin(0).setInteractive();
-    panel.add([bg, block, ...items]);
+    // Behind the panel, a full-screen blocker: while the menu is open the local player's clicks do not
+    // reach the screen below (nothing pauses for anyone else). A click on it closes the menu.
+    const blocker = this.add.zone(0, 0, 1920, 1080).setOrigin(0).setInteractive();
+    blocker.on("pointerdown", () => this.toggle());
+    panel.add([blocker, bg, block, ...items]);
   }
 
   private slider(items: Phaser.GameObjects.GameObject[], name: string, y: number, field: "master" | "effects"): void {
@@ -201,9 +212,12 @@ export class GameMenuScene extends Phaser.Scene {
     this.drawButton();
     if (which === "reset") {
       resetProfile();
-      this.scene.manager.getScene("menu").scene.restart(); // the start screen draws its experience bar again
+      const m = this.scene.manager;
+      if (m.isActive("menu")) m.getScene("menu").scene.restart(); // the start screen draws its experience bar again
     } else if (which === "leave") {
       leaveRun();
+      deckViewerState.open = false; // an overlay left open would block Escape and the map
+      deckViewerState.onClose = null;
       this.scene.manager.getScenes(true).find((s) => s !== this)?.scene.start("menu");
     }
   }
