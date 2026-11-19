@@ -10,6 +10,7 @@ export interface RewardState {
   offers: Record<string, Domino[]>; // player id -> offered dominoes
   choices: Record<string, string>; // player id -> picked domino id, or SKIP; absent while undecided
   charmOffers: Record<string, string[]>; // player id -> offered charm ids; no entry when the player is offered no charm
+  coinsEarned: Record<string, number>; // player id -> coins the battle just paid them (Coin Purse included)
   charmChoices: Record<string, string>; // player id -> picked charm id, or SKIP; absent while undecided
 }
 
@@ -42,7 +43,7 @@ export function rollOffers(
     }
     offers[playerId] = offer;
   }
-  return { reward: { offers, choices: {}, charmOffers: {}, charmChoices: {} }, state: s, nextIndex: index };
+  return { reward: { offers, choices: {}, charmOffers: {}, charmChoices: {}, coinsEarned: {} }, state: s, nextIndex: index };
 }
 
 // choice is a domino id from the player's offer, or SKIP. Returns a new state; a choice is final.

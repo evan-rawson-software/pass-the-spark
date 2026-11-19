@@ -73,7 +73,6 @@ export class RewardScene extends Phaser.Scene {
     const active = online ? local : pending.player;
     const order = online ? [local, ...run.players.filter((p) => p !== local)] : run.players;
     const tooltip = new Tooltip(this);
-    const earned = run.battleType ? run.content.run.battleCoins[run.battleType] : 0;
 
     let y = 290;
     for (const id of order) {
@@ -93,7 +92,7 @@ export class RewardScene extends Phaser.Scene {
         g.strokeRoundedRect(30, y, 1860, rowH - 10, 18);
       }
       label(this, 60, cy - 30, seatName(id), isActive ? 40 : 30, { bold: true, color: isActive ? "#ffe14d" : "#ffffff" });
-      label(this, 60, cy + 12, `+${earned} coins  (${run.coins[id] ?? 0} total)`, isActive ? 26 : 22, { color: "#ffe9a0" });
+      label(this, 60, cy + 12, `+${reward.coinsEarned[id] ?? 0} coins  (${run.coins[id] ?? 0} total)`, isActive ? 26 : 22, { color: "#ffe9a0" });
       const status = choice === undefined ? (isActive || online ? "choosing" : "waiting") : choice === SKIP ? "skipped" : "picked";
       label(this, 60, cy + 48, status, 22, { bold: true, color: choice === undefined ? "#cfe9dc" : "#8fe3a8" });
 

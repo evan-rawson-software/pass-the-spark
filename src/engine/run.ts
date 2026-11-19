@@ -108,7 +108,7 @@ export type RunEvent =
   | { type: "rewardOffers" }
   | { type: "rewardChosen"; player: string; pick: string }
   | { type: "charmOffered"; player: string; charms: string[] }
-  | { type: "charmTaken"; player: string; charm: string }
+  | { type: "charmTaken"; player: string; charm: string | null } // charm is null when the player skipped
   | { type: "charmBought"; player: string; charm: string; price: number }
   | { type: "traderStock" }
   | { type: "eventStart"; event: string; kind: EventKind; domino: Domino | null }
@@ -261,21 +261,13 @@ export function getPendingRunChoices(run: RunState): RunPendingChoice[] {
   }
   if (run.phase === "trader" && run.trader) {
     const trader = run.trader;
-    const data = run.content.run.trader;
-    return run.players.filter((id) => !trader.done[id]).map((id): RunPendingChoice => {
-      const price = (base: number) => traderPrice(run.content.charms, run.charms[id], base);
-      const dominoPrices: Record<string, number> = {};
-      for (const d of trader.stock[id]) dominoPrices[d.id] = price(data.prices[d.rarity as Rarity]);
-      return {
-        type: "trader",
-        player: id,
-        stock: trader.stock[id],
-        charmStock: trader.charmStock[id].map((c) => charmById(run.content.charms, c)),
-        dominoPrices,
-        charmPrice: price(data.charmPrice),
-        removalFee: price(run.removalFee[id]),
-      };
-    });
+    return run.players.filter((id) => !trader.done[id]).map((id): RunPendingChoice => ({
+      type: "trader",
+      player: id,
+      stock: trader.stock[id],
+      charmStock: trader.charmStock[id].map((c) => charmById(run.content.charms, c)),
+      ...getTraderPrices(run, id),
+    }));
   }
   if (run.phase === "event" && run.event) {
     const event = run.event;
@@ -287,6 +279,21 @@ export function getPendingRunChoices(run: RunState): RunPendingChoice[] {
     if (pending) return [{ type: "battle", player: pending.player, pending }];
   }
   return [];
+}
+
+// What each item costs this player right now (Haggler included): dominoes by id, a charm, the next removal.
+export interface TraderPrices {
+  dominoPrices: Record<string, number>;
+  charmPrice: number;
+  removalFee: number;
+}
+
+export function getTraderPrices(run: RunState, playerId: string): TraderPrices {
+  const data = run.content.run.trader;
+  const price = (base: number) => traderPrice(run.content.charms, run.charms[playerId], base);
+  const dominoPrices: Record<string, number> = {};
+  for (const d of run.trader?.stock[playerId] ?? []) dominoPrices[d.id] = price(data.prices[d.rarity as Rarity]);
+  return { dominoPrices, charmPrice: price(data.charmPrice), removalFee: price(run.removalFee[playerId]) };
 }
 
 // Apply one player's choice. Throws when the choice isn't one the player owes.
@@ -328,10 +335,8 @@ export function applyRunChoice(input: RunState, playerId: string, choice: RunCho
     if (isRewardComplete(run.reward)) finishRewards(run, events);
   } else if (choice.type === "charmReward" && run.reward) {
     run.reward = submitCharmChoice(run.reward, playerId, choice.pick);
-    if (choice.pick !== SKIP) {
-      run.charms[playerId].push(choice.pick);
-      events.push({ type: "charmTaken", player: playerId, charm: choice.pick });
-    }
+    if (choice.pick !== SKIP) run.charms[playerId].push(choice.pick);
+    events.push({ type: "charmTaken", player: playerId, charm: choice.pick === SKIP ? null : choice.pick });
     if (isRewardComplete(run.reward)) finishRewards(run, events);
   } else if (choice.type === "event" && owed.type === "event" && run.event?.kind === "personal") {
     if (applyPersonalChoice(run, playerId, choice.option, choice.pick, events)) {
@@ -585,8 +590,10 @@ function finishBattle(run: RunState, events: RunEvent[]): void {
     return;
   }
   run.lead = battle.nextLead as string;
+  const earned: Record<string, number> = {};
   for (const id of run.players) {
     const amount = run.content.run.battleCoins[type] + heldCharmNumber(run.content.charms, run.charms[id], COIN_PURSE, "coins");
+    earned[id] = amount;
     run.coins[id] += amount;
     events.push({ type: "coins", player: id, amount });
   }
@@ -598,6 +605,7 @@ function finishBattle(run: RunState, events: RunEvent[]): void {
   run.rng = roll.state;
   run.nextIndex = roll.nextIndex;
   run.reward = roll.reward;
+  run.reward.coinsEarned = earned;
   offerCharms(run, type);
   run.phase = "reward";
   events.push({ type: "rewardOffers" });
