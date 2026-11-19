@@ -34,7 +34,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Hand limit:** set per enemy in data. Defaults: basic 5, elite 6, boss 7. Every enemy discards its oldest domino to make room for each draw. Discards go to the enemy's discard pile.
 - **Reshuffle:** same as players. An empty deck is reshuffled from the discard pile when it needs to draw.
 - **Several matching dominoes:** the enemy plays the leftmost one that answers the current spark, or either spark when there are two.
-- **Leftover dominoes at round end:** they go off at strength 1, left to right, then block resets.
+- **Leftover dominoes at round end:** they go off at strength 1, left to right, then block resets. Going off reveals the domino: it stays revealed until it leaves the hand.
 - **Ogre outputs:** the same as `chain_sim.py`.
 - **Stomp:** hits the whole party for now. Tier mechanics come later.
 - **Block and healing:** enemy block lasts until the round ends, like party block. Healing stops at maximum health, for both sides.

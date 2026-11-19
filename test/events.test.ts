@@ -10,7 +10,7 @@ import starterDeckJson from "../data/starter-deck.json";
 
 const config = configJson satisfies Record<keyof Config, unknown> as Config;
 
-test("scripted round: events come out in order, and the view hides unrevealed enemy dominoes", () => {
+test("scripted round: events come out in order, and a leftover is revealed as it goes off", () => {
   let s = createBattle({
     config,
     content: { dominoes: dominoesJson as Domino[], enemies: enemiesJson as Enemy[] },
@@ -38,7 +38,7 @@ test("scripted round: events come out in order, and the view hides unrevealed en
     return r.events;
   });
   const pass = (from: string, to: string) => ({ type: "pass", from, to });
-  expect(events.slice(0, 18)).toMatchObject([
+  expect(events.slice(0, 19)).toMatchObject([
     { type: "fuse", player: "p1", domino: "kindle", sparks: ["Ember"] },
     pass("p1", "p2"),
     { type: "play", seat: "p2", domino: "jab", answeredSpark: "Ember", strength: 1, lap: 1 },
@@ -53,18 +53,17 @@ test("scripted round: events come out in order, and the view hides unrevealed en
     { type: "damage", side: "enemy", amount: 8, blocked: 0 },
     pass("p1", "p2"),
     { type: "chainEnd", reason: "cannotAnswer" },
+    { type: "reveal", positions: [0] },
     { type: "leftover", domino: "ogre_stomp_a", position: 0 },
     { type: "trigger", seat: "enemy", domino: "ogre_stomp_a", value: 3 },
     { type: "damage", side: "party", amount: 3, blocked: 0 },
     { type: "blockReset" },
   ]);
-  expect(events.slice(18).map((e) => e.type)).toEqual(["roundStart", "draw", "draw", "draw"]);
-  expect(events[18]).toMatchObject({ round: 2, lead: "p2" });
-  expect(events[21]).toEqual({ type: "draw", seat: "enemy", count: 3 });
+  expect(events.slice(19).map((e) => e.type)).toEqual(["roundStart", "draw", "draw", "draw"]);
+  expect(events[19]).toMatchObject({ round: 2, lead: "p2" });
+  expect(events[22]).toEqual({ type: "draw", seat: "enemy", count: 3 });
 
-  // The view: the unrevealed leftover (and its trigger) don't name the domino.
-  const view = getEventsView(events, "p1");
-  expect(view[14]).toMatchObject({ type: "leftover", domino: null, position: 0 });
-  expect(view[15]).toMatchObject({ type: "trigger", domino: null });
-  expect(JSON.stringify(view)).not.toContain("ogre_stomp_a");
+  // Going off revealed the leftover, and the state agrees.
+  expect(s.enemy.revealed[0]).toBe(true);
+  expect(getEventsView(events, "p1")).toEqual(events);
 });

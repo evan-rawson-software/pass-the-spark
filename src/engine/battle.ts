@@ -541,11 +541,14 @@ function endBattle(state: BattleState, result: "won" | "lost", events: GameEvent
 function endRound(state: BattleState, events: GameEvent[]): void {
   // Leftovers go off at strength 1, left to right, and stay in hand.
   const hand = state.enemy.hand.slice();
-  const wasRevealed = state.enemy.revealed.slice();
   for (let i = 0; i < hand.length; i++) {
     const id = hand[i];
     const d = getDomino(state, id);
-    events.push({ type: "leftover", domino: id, position: i, revealed: wasRevealed[i] });
+    if (!state.enemy.revealed[i]) {
+      state.enemy.revealed[i] = true;
+      events.push({ type: "reveal", positions: [i] });
+    }
+    events.push({ type: "leftover", domino: id, position: i });
     // A leftover Reflect repeats the chain's last domino (the fuse if nothing followed it).
     const effect = d.effect.kind === "reflect" ? state.chain.last?.effect : d.effect;
     if (effect === undefined) continue;

@@ -106,7 +106,8 @@ test("enemy at its hand limit discards the oldest domino to make room, and keeps
   const s = fuse(s0, "kindle"); // p2 can't answer, round 2 starts with the draw
   expect(s.enemy.hand).toEqual(["ogre_gulp_b", "ogre_gulp_a", "ogre_bellow_a", "ogre_bellow_b", "ogre_stomp_a"]);
   expect(s.enemy.discard).toEqual(["ogre_gulp_a", "ogre_gulp_b", "ogre_gulp_a"]);
-  expect(s.enemy.revealed).toEqual([false, true, false, false, false]); // the flag moved with its domino
+  // Leftovers going off reveals them (decisions.md); the flag moved with its domino.
+  expect(s.enemy.revealed).toEqual([true, true, false, false, false]);
 });
 
 test("the enemy plays the leftmost matching domino", () => {
