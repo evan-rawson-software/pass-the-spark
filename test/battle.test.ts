@@ -200,7 +200,7 @@ test("Reflect after a player's damage domino damages the party at the Reflect's 
   expect(s.party.health).toBe(56);
 });
 
-test("the Auditor fires when a player repeats a spark, not on other answers or enemy passes", () => {
+test("the Auditor fires when a player repeats a spark, across an enemy pass, not on an enemy reaction", () => {
   let s = setup(["kindle", "hold_ember"], ["hold_ember"]);
   s.enemy.passives = [{ kind: "auditor" }];
   s.party.block = 1;
@@ -210,10 +210,11 @@ test("the Auditor fires when a player repeats a spark, not on other answers or e
   s = answer(s, "hold_ember"); // p1 answers Ember again, at strength 2: 2 damage, block soaks 1
   expect(s.party).toMatchObject({ health: 59, block: 0 });
 
-  let t = setup(["kindle", "splash"], ["jab"]);
+  // An enemy reaction answering the same spark as the previous entry does not fire it.
+  let t = setup(["kindle"], ["hold_ember"], ["elite_slash"]);
   t.enemy.passives = [{ kind: "auditor" }];
-  t = answer(answer(fuse(t, "kindle"), "jab"), "splash"); // Ember, Tide: no repeat
-  expect(t.party.health).toBe(60);
+  t = answer(fuse(t, "kindle"), "hold_ember"); // history [Ember, Ember]; Slash hits for 4 x 2
+  expect(t.party.health).toBe(52);
 });
 
 test("the Glutton heals once per lap increment, capped at max health", () => {
