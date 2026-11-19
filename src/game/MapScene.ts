@@ -20,10 +20,16 @@ import { drawBackground, FONT, label, PLAYER_COLORS } from "./ui";
 
 const CENTER_X = 1020;
 const NODE_GAP = 250;
-const BOSS_Y = 128;
-const FLOOR_Y0 = 980; // floor 1
-const FLOOR_STEP = 85;
-const NODE_R = 30;
+const FLOOR_STEP = 190; // the act is laid out on a canvas taller than the screen and scrolls (#149)
+const WORLD_PAD = 130; // canvas above the boss and below floor 1
+const BOSS_Y = WORLD_PAD;
+const NODE_R = 44;
+// The part of the screen the map scrolls in: right of the side panel, under the heading, party
+// display and charms, above the bottom status line. Everything else stays put.
+const VIEW = { x: 470, y: 185, w: 1430, h: 835 };
+const BAR_X = 1906;
+const DRAG_SLOP = 8; // pixels a press may move and still count as a click
+const WHEEL_STEP = 0.8;
 const GOLD = 0xffe14d;
 const HIDDEN_COLOR = 0x5a6670; // a stop whose type isn't known yet
 
@@ -45,8 +51,9 @@ function nodeX(width: number, index: number): number {
   return CENTER_X + (index - (width - 1) / 2) * NODE_GAP;
 }
 
-function floorY(floor: number): number {
-  return FLOOR_Y0 - (floor - 1) * FLOOR_STEP;
+// World y of a floor: floor 1 at the bottom of the canvas, the boss at the top.
+function floorY(floor: number, floors: number): number {
+  return BOSS_Y + (floors - floor + 1) * FLOOR_STEP;
 }
 
 // A simple icon for each stop type, drawn with shapes, centred on (x, y).
@@ -107,6 +114,12 @@ export class MapScene extends Phaser.Scene {
   private run!: RunState;
   private voteLayer!: Phaser.GameObjects.Container;
   private resolving = false;
+  private world!: Phaser.GameObjects.Container; // the scrolling map
+  private mapCam!: Phaser.Cameras.Scene2D.Camera;
+  private bar!: Phaser.GameObjects.Graphics;
+  private scrollY = 0;
+  private press: { y: number; scroll: number } | null = null;
+  private dragged = false;
 
   constructor() {
     super("map");
@@ -114,7 +127,64 @@ export class MapScene extends Phaser.Scene {
 
   create(): void {
     this.resolving = false;
+    this.press = null;
+    this.dragged = false;
+    // The map is drawn by its own camera, which shows only the map area and scrolls.
+    this.mapCam = this.cameras.add(VIEW.x, VIEW.y, VIEW.w, VIEW.h);
+    this.scrollY = this.openingScroll(currentRun());
+    this.input.on("wheel", (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
+      if (this.inView(p)) this.scrollTo(this.scrollY + dy * WHEEL_STEP);
+    });
+    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      this.dragged = false;
+      this.press = this.inView(p) ? { y: p.y, scroll: this.scrollY } : null;
+    });
+    this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
+      if (this.press === null || !p.isDown) return;
+      if (Math.abs(p.y - this.press.y) > DRAG_SLOP) this.dragged = true;
+      if (this.dragged) this.scrollTo(this.press.scroll - (p.y - this.press.y));
+    });
+    this.input.on("pointerup", () => (this.press = null));
+    this.input.on("pointerupoutside", () => (this.press = null));
     this.build();
+  }
+
+  private inView(p: Phaser.Input.Pointer): boolean {
+    return p.x >= VIEW.x && p.x <= VIEW.x + VIEW.w && p.y >= VIEW.y && p.y <= VIEW.y + VIEW.h;
+  }
+
+  private worldHeight(run: RunState): number {
+    return floorY(1, run.map.floors.length) + WORLD_PAD;
+  }
+
+  // Where the map opens: the party's stop (or the start of the act) at the bottom of the view, so the
+  // stops it can vote for are in view above it.
+  private openingScroll(run: RunState): number {
+    const n = run.map.floors.length;
+    const bottom = floorY(Math.max(1, run.position?.floor ?? 1), n) + 110;
+    return Math.max(0, Math.min(this.worldHeight(run) - VIEW.h, bottom - VIEW.h));
+  }
+
+  private scrollTo(y: number): void {
+    this.scrollY = Math.max(0, Math.min(this.worldHeight(this.run) - VIEW.h, y));
+    this.mapCam.setScroll(VIEW.x, this.scrollY);
+    this.drawScrollBar();
+  }
+
+  // A slim bar right of the map area showing where the view is on the whole canvas.
+  private drawScrollBar(): void {
+    const total = this.worldHeight(this.run);
+    this.bar.clear();
+    this.bar.fillStyle(0x0d2a20, 0.8);
+    this.bar.fillRoundedRect(BAR_X, VIEW.y, 8, VIEW.h, 4);
+    this.bar.fillStyle(0x9fd1b8, 1);
+    this.bar.fillRoundedRect(BAR_X, VIEW.y + (this.scrollY / total) * VIEW.h, 8, (VIEW.h / total) * VIEW.h, 4);
+  }
+
+  // Moves map objects into the scrolling world: only the map camera draws them.
+  private put(objects: Phaser.GameObjects.GameObject[]): void {
+    this.world.add(objects);
+    this.cameras.main.ignore(objects);
   }
 
   // Draws the screen. Online it runs again, in place, whenever the host reports a new vote or status:
@@ -125,6 +195,7 @@ export class MapScene extends Phaser.Scene {
     this.run = run;
     const pending = myPending(run);
     drawBackground(this);
+    this.world = this.add.container(0, 0);
     drawPartyHud(this, run);
     const next = (run.position?.floor ?? 0) + 1;
     const toBoss = next > run.map.floors.length;
@@ -134,12 +205,20 @@ export class MapScene extends Phaser.Scene {
     if (online && pending === null) drawWaitingFor(this, run, 60, 200);
 
     const options = pending?.type === "vote" ? pending.options : [];
+    const mapStart = this.children.list.length;
     this.drawEdges(run, options);
     this.drawNodes(run, options, pending?.type === "vote" ? pending.player : null);
+    this.put(this.children.list.slice(mapStart));
     this.drawBoss(run, toBoss);
     this.drawSidePanel(run);
     this.voteLayer = this.add.container(0, 0);
+    this.put([this.voteLayer]);
     this.drawVotes(run.votes);
+    this.bar = this.add.graphics();
+    this.drawScrollBar();
+    this.mapCam.setScroll(VIEW.x, this.scrollY);
+    // The map camera draws the world and nothing else.
+    this.mapCam.ignore(this.children.list.filter((o) => o !== this.world));
     // A run update with the winner in it: show it, then go on (the votes before it just redraw the map).
     watchRun(this, "map", {
       redraw: () => {
@@ -165,8 +244,8 @@ export class MapScene extends Phaser.Scene {
     floors.forEach((row, f) => {
       row.forEach((node) => {
         const x = nodeX(row.length, node.index);
-        const y = floorY(f + 1);
-        const targets = f + 1 < floors.length ? node.next.map((j) => ({ x: nodeX(floors[f + 1].length, j), y: floorY(f + 2) })) : [{ x: CENTER_X, y: BOSS_Y }];
+        const y = floorY(f + 1, floors.length);
+        const targets = f + 1 < floors.length ? node.next.map((j) => ({ x: nodeX(floors[f + 1].length, j), y: floorY(f + 2, floors.length) })) : [{ x: CENTER_X, y: BOSS_Y }];
         for (const t of targets) dim.lineBetween(x, y, t.x, t.y);
       });
     });
@@ -174,9 +253,9 @@ export class MapScene extends Phaser.Scene {
     lit.lineStyle(7, GOLD, 0.9);
     const pos = run.position;
     if (pos === null) return;
-    const from = { x: pos.floor > floors.length ? CENTER_X : nodeX(floors[pos.floor - 1].length, pos.index), y: pos.floor > floors.length ? BOSS_Y : floorY(pos.floor) };
+    const from = { x: pos.floor > floors.length ? CENTER_X : nodeX(floors[pos.floor - 1].length, pos.index), y: pos.floor > floors.length ? BOSS_Y : floorY(pos.floor, floors.length) };
     for (const j of options) {
-      const to = pos.floor >= floors.length ? { x: CENTER_X, y: BOSS_Y } : { x: nodeX(floors[pos.floor].length, j), y: floorY(pos.floor + 1) };
+      const to = pos.floor >= floors.length ? { x: CENTER_X, y: BOSS_Y } : { x: nodeX(floors[pos.floor].length, j), y: floorY(pos.floor + 1, floors.length) };
       lit.lineBetween(from.x, from.y, to.x, to.y);
     }
   }
@@ -186,10 +265,10 @@ export class MapScene extends Phaser.Scene {
     const doneFloor = run.position?.floor ?? 0;
     floors.forEach((row, f) => {
       const floor = f + 1;
-      label(this, 560, floorY(floor), String(floor), 26, { origin: 0.5, color: "#9fd1b8" });
+      label(this, 560, floorY(floor, floors.length), String(floor), 26, { origin: 0.5, color: "#9fd1b8" });
       row.forEach((node) => {
         const x = nodeX(row.length, node.index);
-        const y = floorY(floor);
+        const y = floorY(floor, floors.length);
         const here = run.position?.floor === floor && run.position.index === node.index;
         const isLit = floor === doneFloor + 1 && options.includes(node.index);
         const g = this.add.graphics();
@@ -209,7 +288,10 @@ export class MapScene extends Phaser.Scene {
         if (!isLit && !here) g.setAlpha(floor <= doneFloor ? 0.35 : 0.65);
         if (isLit && voter !== null) {
           const hit = this.add.circle(x, y, NODE_R + 8, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
-          hit.on("pointerdown", () => this.castVote(voter, node.index));
+          // A click that moved the map (a drag) is not a vote.
+          hit.on("pointerup", (p: Phaser.Input.Pointer) => {
+            if (!this.dragged && this.inView(p)) this.castVote(voter, node.index);
+          });
           this.tweens.add({ targets: g, alpha: 0.7, duration: 600, yoyo: true, repeat: -1 });
         }
       });
@@ -222,12 +304,13 @@ export class MapScene extends Phaser.Scene {
     g.lineStyle(5, 0x7dffb0, 1);
     g.strokeCircle(x, y, NODE_R + 8);
     g.fillStyle(0x7dffb0, 1);
-    g.fillTriangle(x - 12, y - NODE_R - 12, x + 12, y - NODE_R - 12, x, y - NODE_R + 2);
+    g.fillTriangle(x - 14, y - NODE_R - 14, x + 14, y - NODE_R - 14, x, y - NODE_R + 2);
     label(this, x + NODE_R + 14, y, "You are here", 20, { bold: true, color: "#7dffb0" });
   }
 
   // The boss sits at the top from the start, with its name and passive.
   private drawBoss(run: RunState, lit: boolean): void {
+    const bossStart = this.children.list.length;
     const boss = content.enemies.find((e) => e.id === run.map.bossId);
     const g = this.add.graphics();
     const r = NODE_R + 12;
@@ -244,9 +327,12 @@ export class MapScene extends Phaser.Scene {
     // Left of the boss, right-aligned: the party's charm strip runs along the top to its right.
     const name = label(this, CENTER_X - r - 20, 24, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 1 });
     const passives = label(this, CENTER_X - r - 20, 46, passiveText(boss), 18, { color: "#ffe14d", origin: 1 }).setOrigin(1, 0).setAlign("right").setWordWrapWidth(520);
-    const tip = new Tooltip(this);
+    const tip = new Tooltip(this, this.mapCam);
     const lines = bossTip(boss);
     const hit = this.add.circle(CENTER_X, BOSS_Y, r, 0, 0);
+    // The boss itself scrolls with the map; its name and passive stay in the heading.
+    const marker = this.children.list.slice(bossStart).filter((o) => o !== name && o !== passives);
+    this.put(marker);
     for (const target of [name, passives, hit]) {
       target.setDepth(10); // above the vote targets, so the whole boss hovers
       tip.attachLines(target, lines);
@@ -291,13 +377,14 @@ export class MapScene extends Phaser.Scene {
     }
     for (const [node, ids] of Object.entries(byNode)) {
       const x = row ? nodeX(row.length, Number(node)) : CENTER_X;
-      const y = row ? floorY(floor) : BOSS_Y;
+      const y = row ? floorY(floor, this.run.map.floors.length) : BOSS_Y;
       ids.forEach((id, k) => {
         const mx = x + (k - (ids.length - 1) / 2) * 34;
         const color = PLAYER_COLORS[this.run.players.indexOf(id) % PLAYER_COLORS.length];
         const dot = this.add.circle(mx, y + NODE_R + 26, 15, color).setStrokeStyle(3, 0x0d2a20);
         const text = this.add.text(mx, y + NODE_R + 26, String(this.run.players.indexOf(id) + 1), { fontFamily: FONT, fontSize: "18px", color: "#0d2a20", fontStyle: "bold" }).setOrigin(0.5);
         this.voteLayer.add([dot, text]);
+        this.cameras.main.ignore([dot, text]);
       });
     }
   }
@@ -326,17 +413,18 @@ export class MapScene extends Phaser.Scene {
     this.drawVotes(chosen.votes);
     const row = this.run.map.floors[chosen.floor - 1];
     const x = row ? nodeX(row.length, chosen.index) : CENTER_X;
-    const y = row ? floorY(chosen.floor) : BOSS_Y;
+    const y = row ? floorY(chosen.floor, this.run.map.floors.length) : BOSS_Y;
     const reveal = (): void => {
       const ring = this.add.graphics();
       ring.lineStyle(10, 0x7dffb0, 1);
       ring.strokeCircle(x, y, NODE_R + 14);
+      this.put([ring]);
       const nodeName = NODE_STYLE[chosen.nodeType].name;
-      label(this, 60, 245, `Winner: ${nodeName}`, 30, { bold: true, color: "#7dffb0" });
+      this.mapCam.ignore(label(this, 60, 245, `Winner: ${nodeName}`, 30, { bold: true, color: "#7dffb0" }));
       if (chosen.drawn) {
         const total = Object.values(chosen.counts).reduce((a, b) => a + b, 0);
         const odds = Math.round((100 * (chosen.counts[chosen.index] ?? 0)) / total);
-        label(this, 60, 285, `Drawn: ${nodeName}, ${odds}%`, 30, { bold: true, color: "#ff9d7a" });
+        this.mapCam.ignore(label(this, 60, 285, `Drawn: ${nodeName}, ${odds}%`, 30, { bold: true, color: "#ff9d7a" }));
       }
       this.time.delayedCall(scaleTime(1800), () => {
         openRunScreen(this);
@@ -345,6 +433,6 @@ export class MapScene extends Phaser.Scene {
     if (!chosen.drawn || !row) return reveal();
     // A drawn vote rolls over the voted stops first, then lands on the winner.
     const spots = Object.keys(chosen.counts).map((k) => ({ option: Number(k), x: nodeX(row.length, Number(k)), y, w: 2 * NODE_R + 28, h: 2 * NODE_R + 28 }));
-    playVoteRoll(this, spots, chosen.counts, chosen.index, reveal);
+    playVoteRoll(this, spots, chosen.counts, chosen.index, reveal, (ring) => this.put([ring]));
   }
 }
