@@ -107,3 +107,9 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Version check:** a client on a different build is refused with a "refresh the page" message.
 - **Debug panel online:** host only.
 - **Tests:** only where they matter. For M3, one in-memory host-and-clients test.
+
+## 2026-11-19: Tooling
+
+- **Sim chain length:** count every answer, player and enemy, and not the fuse. That's the number of times strength went up from answers. Report player answers separately as well.
+- **Content:** stays in JSON (portable to Godot), checked by a hand-written validator when loaded (#37).
+- **Headless engine:** enforced by a DOM-free engine tsconfig and a CI check (#38).
