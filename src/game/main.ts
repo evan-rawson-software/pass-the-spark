@@ -7,6 +7,7 @@ import { loadHostedRoom } from "../net/room";
 import { StartScene } from "./StartScene";
 import { MapScene } from "./MapScene";
 import { RewardScene } from "./RewardScene";
+import { ActStartScene } from "./ActStartScene";
 import { RestScene } from "./RestScene";
 import { TraderScene } from "./TraderScene";
 import { EventScene } from "./EventScene";
@@ -40,7 +41,7 @@ function isMyRoom(code: string): boolean {
 }
 const scenes = [
   first,
-  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, TraderScene, EventScene, RunEndScene, DeckScene, TitleScene, DominoTestScene].filter(
+  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, ActStartScene, TraderScene, EventScene, RunEndScene, DeckScene, TitleScene, DominoTestScene].filter(
     (s) => s !== first,
   ),
 ];

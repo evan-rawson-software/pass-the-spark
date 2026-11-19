@@ -21,7 +21,9 @@ export class RunEndScene extends Phaser.Scene {
     drawBackground(this);
     drawPartyHud(this, run);
     label(this, 960, 260, won ? "Victory" : "Defeat", 120, { bold: true, origin: 0.5, color: won ? "#ffe14d" : "#ff9a94" });
-    label(this, 960, 420, `Floor reached: ${run.position?.floor ?? 0}`, 48, { origin: 0.5 });
+    const floor = run.position?.floor ?? 0;
+    const where = floor > run.map.floors.length ? "the boss" : `floor ${floor}`;
+    label(this, 960, 420, `Reached act ${run.actIndex + 1} of ${run.content.run.acts.length}, ${where}`, 48, { origin: 0.5 });
     const online = onlineRun();
     if (online) return this.createOnline(online);
     label(this, 960, 500, `Seed: ${runSeed()}`, 48, { origin: 0.5 });

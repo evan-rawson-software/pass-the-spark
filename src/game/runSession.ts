@@ -112,6 +112,7 @@ export function sceneFor(run: RunState): string {
     case "rest": return "rest";
     case "trader": return "trader";
     case "event": return "event";
+    case "act": return "actStart";
     case "over": return "runEnd";
   }
 }
