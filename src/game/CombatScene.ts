@@ -14,18 +14,20 @@ import type { LogContext } from "./eventLog";
 import { debugPanel } from "./DebugPanel";
 import type { DebugHost } from "./DebugPanel";
 import { SPEEDS, getPlaybackSpeed, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
+import { Animator, COMBO_METER_FULL, animTime, comboLook, hexString, newRefs, paintBar } from "./animations";
+import { applyEvent, startShown } from "./shownView";
+import type { ShownTable } from "./shownView";
 
 // The combat table. Draws everything from getView (and getPendingChoice for
 // whose turn it is and which dominoes are playable). No rules live here.
 // Clicking submits only choices getPendingChoice offers, then the step's events play back in
-// order (see playback below). Animation (#25) is not here yet. Tooltips come from tooltip.ts.
+// order (see playback below), animated by animations.ts. Tooltips come from tooltip.ts.
 
 type Layer = Phaser.GameObjects.Container;
 
 const DW = 240; // a domino at scale 1 (see dominoDrawing.ts)
 const DH = 120;
 const FONT = "Arial, Helvetica, sans-serif";
-const COMBO_METER_FULL = 60; // strength x lap at which the meter looks full (cosmetic only)
 
 // Table regions (1920x1080).
 const MAT = { x: 370, y: 400, w: 1180, h: 360 }; // the chain
@@ -53,6 +55,8 @@ export class CombatScene extends Phaser.Scene {
   private seed = 0;
   private tooltip!: Tooltip;
   private tipPlayer = ""; // whose playable dominoes get an "if played now" preview
+  private anim!: Animator;
+  private shown: ShownTable | null = null; // the table part-way through a step; null when idle
   private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
   private fromQuery = false; // the setup came from the dev query params
 
@@ -70,6 +74,8 @@ export class CombatScene extends Phaser.Scene {
     this.settings = data.settings ?? dev.settings;
     this.seed = data.seed ?? dev.seed;
     this.layer = undefined;
+    this.shown = null;
+    this.anim = new Animator(this, dominoes);
     this.drawTable();
     this.locked = false;
     this.sparkPrompt = null;
@@ -118,7 +124,9 @@ export class CombatScene extends Phaser.Scene {
     const layer = this.add.container(0, 0);
     this.layer = layer;
     const state = this.state;
-    const view = getView(state, state.players[0].id);
+    const view = this.shown?.view ?? getView(state, state.players[0].id);
+    this.anim.refs = newRefs();
+    this.anim.refs.layer = layer;
     const pending = this.locked ? null : getPendingChoice(state);
     const active = this.handSeat ?? (state.seat === ENEMY_SEAT ? state.lead : state.seat);
     const turn = this.hlSeat ?? state.seat;
@@ -178,7 +186,7 @@ export class CombatScene extends Phaser.Scene {
     return g;
   }
 
-  private domino(layer: Layer, id: string | null, k: number, state: DominoState, x: number, y: number, onClick?: () => void): void {
+  private domino(layer: Layer, id: string | null, k: number, state: DominoState, x: number, y: number, onClick?: () => void): Phaser.GameObjects.Container {
     const d: Domino = dominoes.find((q) => q.id === id) ?? dominoes[0];
     const c = drawDomino(this, d, "large", state);
     c.setScale(k);
@@ -194,30 +202,26 @@ export class CombatScene extends Phaser.Scene {
       c.setInteractive({ useHandCursor: true });
       c.on("pointerdown", onClick);
     }
+    return c;
   }
 
-  private bar(layer: Layer, x: number, y: number, w: number, h: number, value: number, max: number, color: number, text: string): void {
+  private bar(layer: Layer, key: string, x: number, y: number, w: number, h: number, value: number, max: number, color: number): void {
     const g = this.gfx(layer);
-    g.fillStyle(0x0d2a20, 0.9);
-    g.fillRoundedRect(x, y, w, h, h / 2);
-    const f = Math.max(0, Math.min(1, value / max));
-    if (f > 0) {
-      g.fillStyle(color, 1);
-      g.fillRoundedRect(x, y, Math.max(h, w * f), h, h / 2);
-    }
-    g.lineStyle(3, 0x0d2a20, 1);
-    g.strokeRoundedRect(x, y, w, h, h / 2);
-    this.label(layer, x + w / 2, y + h / 2, text, Math.round(h * 0.6), "#ffffff", 0.5, true);
+    const text = this.label(layer, x + w / 2, y + h / 2, "", Math.round(h * 0.6), "#ffffff", 0.5, true);
+    const ref = { g, text, x, y, w, h, max, color };
+    this.anim.refs.bars.set(key, ref);
+    paintBar(ref, value);
   }
 
-  private shield(layer: Layer, x: number, y: number, s: number, amount: number): void {
+  private shield(layer: Layer, key: string, x: number, y: number, s: number, amount: number): void {
     const g = this.gfx(layer);
     g.fillStyle(0x4a6fa5, 1);
     g.lineStyle(3, 0x1c2b44, 1);
     const pts = [[-1, -1], [1, -1], [1, 0.1], [0, 1.1], [-1, 0.1]].map(([a, b]) => new Phaser.Math.Vector2(x + a * s * 0.5, y + b * s * 0.5));
     g.fillPoints(pts, true);
     g.strokePoints(pts, true);
-    this.label(layer, x + s * 0.5 + 8, y, String(amount), Math.round(s * 0.7), "#dbe6f5", 0, true);
+    const text = this.label(layer, x + s * 0.5 + 8, y, String(amount), Math.round(s * 0.7), "#dbe6f5", 0, true);
+    this.anim.refs.shields.set(key, { text, x, y });
   }
 
   // A seat's name plate; the seat on turn glows.
@@ -253,8 +257,8 @@ export class CombatScene extends Phaser.Scene {
     }
     this.label(layer, 60, 62, def?.name ?? e.id, 48, onTurn ? "#ffe14d" : "#ffffff", 0, true);
     if (def) this.label(layer, 60, 108, def.tier.toUpperCase(), 20, "#9fd1b8", 0, true);
-    this.bar(layer, 60, 135, 400, 40, e.health, e.maxHealth, RED, `${e.health} / ${e.maxHealth}`);
-    this.shield(layer, 80, 208, 40, e.block);
+    this.bar(layer, "enemy", 60, 135, 400, 40, e.health, e.maxHealth, RED);
+    this.shield(layer, "enemy", 80, 208, 40, e.block);
     e.passives.forEach((p, i) => this.drawPassive(layer, p, 230 + i * 130, 245));
 
     // The enemy's hand, oldest on the left.
@@ -262,12 +266,13 @@ export class CombatScene extends Phaser.Scene {
     this.label(layer, rowX - 20, 70, "Hand", 22, "#9fd1b8", 1);
     e.hand.forEach((slot, i) => {
       const x = rowX + 60 + i * 130; // 7 slots (the largest handLimit) end at x 1500, left of the party bar
-      if (slot.revealed) this.domino(layer, slot.domino, 0.5, "revealed", x, 70);
-      else if (debugPanel.showEnemyHand) {
-        // Debug only: the true domino, read straight from the state, with a red mark.
-        this.domino(layer, this.state.enemy.hand[i], 0.5, "revealed", x, 70);
-        this.label(layer, x, 112, "DEBUG", 14, "#ff6b64", 0.5, true);
-      } else this.domino(layer, null, 0.5, "hidden", x, 70);
+      const c = slot.revealed
+        ? this.domino(layer, slot.domino, 0.5, "revealed", x, 70)
+        : debugPanel.showEnemyHand
+          ? this.domino(layer, this.shown?.enemyIds[i] || this.state.enemy.hand[i], 0.5, "revealed", x, 70) // debug only: the true domino, with a red mark
+          : this.domino(layer, null, 0.5, "hidden", x, 70);
+      if (!slot.revealed && debugPanel.showEnemyHand) this.label(layer, x, 112, "DEBUG", 14, "#ff6b64", 0.5, true);
+      this.anim.refs.enemyHand.push({ c, pos: { x, y: 70, k: 0.5 } });
     });
     if (debugPanel.showEnemyHand) this.label(layer, rowX - 20, 100, "(debug view)", 16, "#ff6b64", 1, true);
     // Its whole deck, and what it has played since the last reshuffle.
@@ -350,8 +355,8 @@ export class CombatScene extends Phaser.Scene {
   private drawParty(layer: Layer, view: BattleView): void {
     const p = view.party;
     this.label(layer, RIGHT_X, 48, "Party", 24, "#9fd1b8", 0, true);
-    this.bar(layer, RIGHT_X, 68, 190, 34, p.health, p.maxHealth, 0x3fae68, `${p.health} / ${p.maxHealth}`);
-    this.shield(layer, RIGHT_X + 212, 85, 34, p.block);
+    this.bar(layer, "party", RIGHT_X, 68, 190, 34, p.health, p.maxHealth, 0x3fae68);
+    this.shield(layer, "party", RIGHT_X + 212, 85, 34, p.block);
 
     // Combo meter: strength x lap.
     const { strength, lap } = view.chain;
@@ -363,12 +368,15 @@ export class CombatScene extends Phaser.Scene {
     g.lineStyle(3, 0x2f7a5b, 0.7);
     g.strokeRoundedRect(x, 135, SIDE_W, 170, 40);
     this.label(layer, x + SIDE_W / 2, 160, `STRENGTH ${strength}  ×  LAP ${lap}`, 21, "#9fd1b8", 0.5, true);
-    this.label(layer, x + SIDE_W / 2, 220, String(total), 84, total > 0 ? "#ffe14d" : "#5f8f7a", 0.5, true);
+    const look = comboLook(total);
+    const num = this.label(layer, x + SIDE_W / 2, 220, String(total), 84, total > 0 ? hexString(look.color) : "#5f8f7a", 0.5, true);
+    num.setScale(look.scale);
+    this.anim.refs.meter = { text: num, rect: { x, y: 135, w: SIDE_W, h: 170 }, scale: look.scale };
     const f = Math.min(1, total / COMBO_METER_FULL);
     g.fillStyle(0x0d2a20, 1);
     g.fillRoundedRect(x + 24, 272, SIDE_W - 48, 18, 9);
     if (f > 0) {
-      g.fillStyle(f < 0.5 ? 0xf2c200 : f < 0.85 ? 0xff8a1f : 0xff3b2f, 1);
+      g.fillStyle(look.color, 1);
       g.fillRoundedRect(x + 24, 272, Math.max(18, (SIDE_W - 48) * f), 18, 9);
     }
   }
@@ -411,7 +419,8 @@ export class CombatScene extends Phaser.Scene {
         g.fillStyle(RED, 0.7);
         g.fillRoundedRect(x - w / 2 - 5, y - (DH * k) / 2 - 5, w + 10, DH * k + 10, 14 * k + 5);
       }
-      this.domino(layer, p.domino, k, enemy ? "playedFaceUp" : "normal", x, y);
+      const c = this.domino(layer, p.domino, k, enemy ? "playedFaceUp" : "normal", x, y);
+      this.anim.refs.chain.push({ c, pos: { x, y, k } });
       if (k >= 0.5) {
         const tag = (enemy ? "Enemy" : p.seat) + (i + hidden === 0 ? " (opener)" : "");
         this.label(layer, x, y + (DH * k) / 2 + 13, tag, 16, enemy ? "#ff9a94" : "#cfe9dc", 0.5, true);
@@ -487,7 +496,10 @@ export class CombatScene extends Phaser.Scene {
       inRow.forEach((id, i) => {
         const state: DominoState = !onTurn ? "normal" : playable.has(id) ? "playable" : "notPlayable";
         const click = state === "playable" ? () => this.onHandClick(id) : undefined;
-        this.domino(layer, id, k, state, x0 + i * step, HAND.y + 100 + r * (DH * k + 12), click);
+        const hx = x0 + i * step;
+        const hy = HAND.y + 100 + r * (DH * k + 12);
+        this.domino(layer, id, k, state, hx, hy, click);
+        if (!this.anim.refs.hand.has(id)) this.anim.refs.hand.set(id, { x: hx, y: hy, k });
       });
     }
   }
@@ -572,14 +584,16 @@ export class CombatScene extends Phaser.Scene {
     void this.playback(step(this.state, choice));
   }
 
-  // Plays the step's events in order. The table keeps showing the state from before the step
-  // while the log line and the highlighted seat follow the events; when they are done it
-  // redraws from the new state (getView). Input is locked until then.
+  // Plays the step's events in order. The table follows them (shownView.ts nudges a copy of the
+  // pre-step view with each event's numbers, animations.ts animates it) while the log line and
+  // the highlighted seat follow too. When they are done it redraws from the new state (getView),
+  // so the final table is exactly what the engine says. Input is locked until then.
   private async playback(result: StepResult): Promise<void> {
     this.locked = true;
+    const before = this.state;
+    this.shown = startShown(getView(before, before.players[0].id), before);
     this.redraw();
     debugPanel.stateChanged();
-    const before = this.state;
     const enemyName = enemies.find((e) => e.id === before.enemy.id)?.name ?? before.enemy.id;
     const ctx: LogContext = {
       enemyName,
@@ -607,14 +621,22 @@ export class CombatScene extends Phaser.Scene {
         this.handSeat = hand;
         this.redraw();
       }
+      const shown = this.shown;
       const delay = eventDelay(ev, mem);
+      const wait = ev.type === "chainEnd" ? delay : Math.max(animTime(ev, dominoes), delay);
+      await this.anim.run(ev, shown.view, () => {
+        applyEvent(shown, ev);
+        this.redraw();
+      });
+      // Step mode: the event and its animation have started; wait for the next click instead of the timer.
       if (debugPanel.stepMode) await debugPanel.waitForStep(ev.type);
-      else if (delay > 0) await new Promise<void>((resolve) => this.time.delayedCall(scaleTime(delay), resolve));
+      else if (wait > 0) await new Promise<void>((resolve) => this.time.delayedCall(scaleTime(wait), resolve));
       if (epoch !== this.epoch) return; // the scene was restarted or left meanwhile
     }
     this.locked = false;
     this.hlSeat = null;
     this.handSeat = null;
+    this.shown = null;
     this.setState(result.state);
   }
 
