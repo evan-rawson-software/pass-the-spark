@@ -8,6 +8,7 @@ import { openGiant } from "./events/giant";
 import type { GiantState } from "./events/giant";
 import type { WellState } from "./events/wishingWell";
 import { generateDomino } from "./generate";
+import { partyUnlocks } from "./progression";
 import { nextFloat } from "./rng";
 import { openSparkShrine } from "./events/sparkShrine";
 import type { Domino, EventData, EventKind, Pools, Spark } from "./types";
@@ -75,7 +76,7 @@ export interface OpenedEvent {
 }
 
 // Sets up the picked event. Personal events open with their option list and nothing drawn.
-export function openEvent(state: number, data: EventData, players: string[], pools: Pools, startIndex: number, lead: string, coins: Record<string, number>): OpenedEvent {
+export function openEvent(state: number, data: EventData, players: string[], pools: Pools, startIndex: number, lead: string, coins: Record<string, number>, unlocks?: Record<string, string[]>): OpenedEvent {
   if (data.kind === "personal") {
     return { event: { id: data.id, kind: data.kind, domino: null, options: personalOptions(data), choices: {}, results: {} }, state, nextIndex: startIndex };
   }
@@ -86,7 +87,7 @@ export function openEvent(state: number, data: EventData, players: string[], poo
     return { event: { id: data.id, kind: data.kind, domino: null, options, choices: {}, giant: openGiant(data, players, lead) }, state, nextIndex: startIndex };
   }
   if (data.id !== "lost_courier") throw new Error(`event ${data.id} is not playable yet`);
-  const domino = generateDomino(state, "rare", pools, startIndex);
+  const domino = generateDomino(state, "rare", pools, startIndex, partyUnlocks(unlocks, players));
   const options: EventOption[] = [...players.map((player): EventOption => ({ type: "player", player })), { type: "coins", amount: data.numbers.coinsEach }];
   return {
     event: { id: data.id, kind: data.kind, domino: domino.value, options, choices: {} },
