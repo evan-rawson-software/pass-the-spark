@@ -21,13 +21,16 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 
 - **The fuse:** the lead plays any domino. It doesn't add strength, so the first answer is at strength 1. Its effect never triggers; Lookout used as the fuse reveals nothing. It goes to the owner's discard pile. It counts in the chain's history.
 - **Strength:** every answer, player or enemy, adds 1 and resolves at the new strength.
+- **Mimic and Reflect after the fuse:** they trigger the fuse's effect for real, at the strength of the Mimic or Reflect being played.
+- **"Any spark" intake:** it can be set off by Rot. That's the players' answer to Rot; there are no dedicated Rot counters.
+- **Block:** soaks damage first and the rest hits health. A domino can have an "ignores block" flag.
 - **Enemy reactions and lap:** for now, enemy reactions ignore lap. This is a data setting so balance runs can test both.
-- **Player can't answer:** the chain ends.
+- **Player can't answer:** the chain ends and so does the round, even if players still hold dominoes. The next round starts with the draw, then the next lead's fuse. The enemy never fuses.
 - **Rot:** the engine supports it, but content uses it sparingly or not at all.
 
 ### Enemy
 - **Draws per round:** basic 3, elite 4, boss 5. Set per enemy in data.
-- **Hand limit:** every enemy discards its oldest domino to make room for each draw. Discards go to the enemy's discard pile.
+- **Hand limit:** set per enemy in data. Defaults: basic 5, elite 6, boss 7. Every enemy discards its oldest domino to make room for each draw. Discards go to the enemy's discard pile.
 - **Reshuffle:** same as players. An empty deck is reshuffled from the discard pile when it needs to draw.
 - **Several matching dominoes:** the enemy plays the leftmost one that answers the current spark, or either spark when there are two.
 - **Leftover dominoes at round end:** they go off at strength 1, left to right, then block resets.
@@ -37,7 +40,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 
 ### Lookout
 - It reveals the enemy's hidden dominoes left to right; the player doesn't choose.
-- It reveals more as strength grows, at roughly 1 domino per 2 strength (exact formula to be tuned).
+- Dominoes revealed = strength ÷ 2, rounded up (1, 1, 2, 2, 3…). Lap is ignored.
 - It does nothing if every domino in the enemy's hand is already revealed.
 - A revealed domino stays revealed until it leaves the hand.
 
@@ -45,8 +48,16 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - The party wins when enemy health reaches 0 and loses when party health reaches 0. Both are checked straight away, even mid-chain.
 - There's no round limit. An anti-stall rule may be added after playtesting.
 
+### Hidden information
+- The engine produces each player's own view of the game: all player hands visible, the enemy's hand hidden apart from revealed dominoes.
+- Safe sparks are not tracked or shown.
+
+### Example dominoes
+- The brief's example dominoes beyond the starter deck are illustrations only, not confirmed content. Placeholder content will be proposed in issues.
+
 ### UI notes for later milestones
+- Effects that ignore lap could carry a symbol on the domino.
 - A big combo meter during combat shows strength × lap and grows bigger and redder as the chain grows.
 
 ### Still open
-- A26, A27, follow-ups from 2026-11-19, A28-A30.
+- A28 (augments) and A30 (elite and boss specials), being answered one by one.
