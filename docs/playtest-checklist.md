@@ -31,5 +31,16 @@ Things automated tests don't cover. Run through what you can at a playtest and n
 - [ ] Play a run to the boss: votes, rewards, rest, upgrades, Trader, deck viewer.
 - [ ] Host reloads on the map, on a reward screen and in the Trader.
 
+## Events
+Check each event screen once in single player and once online, including a 4-player room.
+- [ ] Lost Courier: the rare domino shows, votes appear live, a split vote shows the drawn result and odds.
+- [ ] Toll Bridge: Pay is hidden when a player is short; the fight gives all-rare offers; Turn back shows "?" on the next floor.
+- [ ] Spark Shrine: the blessed spark is marked in battle and adds 2 strength; the marker is gone after the boss.
+- [ ] Tinker's Bench: flip and repaint previews match the result.
+- [ ] Wishing Well: each prize comes up at least once; a two-output domino asks which spark counts.
+- [ ] Mirror Pond and Twin Forge: previews match the result in the deck viewer.
+- [ ] Sleeping Giant: the meter shows the chance before each decision; only the current player can act online.
+- [ ] Watch for: online, an enemy holding two copies of the same domino briefly shows the wrong card leaving its hand.
+
 ## The fun question
 - [ ] After the evening: was building a chain together fun? What was the best moment, and the most boring one?
