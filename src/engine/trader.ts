@@ -2,7 +2,7 @@
 // Plain data; the run applies buy, remove and done choices and moves on when everyone is done.
 
 import { generateDomino, rollRarityFromOdds } from "./generate";
-import type { Domino, Pools, TraderData } from "./types";
+import type { Domino, Pools, Rarity, TraderData } from "./types";
 
 export interface TraderState {
   stock: Record<string, Domino[]>; // player id -> dominoes still for sale (a bought one leaves the stock)
@@ -15,7 +15,7 @@ export interface TraderRoll {
   nextIndex: number; // next unused generated-domino index
 }
 
-export function rollStock(state: number, playerIds: string[], data: TraderData, pools: Pools, startIndex: number): TraderRoll {
+export function rollStock(state: number, playerIds: string[], data: TraderData, pools: Pools, startIndex: number, odds: Record<Rarity, number>): TraderRoll {
   const stock: Record<string, Domino[]> = {};
   const done: Record<string, boolean> = {};
   let s = state;
@@ -23,7 +23,7 @@ export function rollStock(state: number, playerIds: string[], data: TraderData, 
   for (const playerId of playerIds) {
     const items: Domino[] = [];
     for (let i = 0; i < data.stockSize; i++) {
-      const rarity = rollRarityFromOdds(s, data.rarityOdds);
+      const rarity = rollRarityFromOdds(s, odds);
       s = rarity.state;
       const domino = generateDomino(s, rarity.value, pools, index);
       s = domino.state;

@@ -22,7 +22,7 @@ import { previewUpgrade } from "./upgrades";
 import { settleVote } from "./vote";
 import { rollStock } from "./trader";
 import type { TraderState } from "./trader";
-import type { BattleType, Domino, EventKind, NodeType, Rarity, Spark, UpgradeSide } from "./types";
+import type { ActData, BattleType, Domino, EventKind, NodeType, Rarity, Spark, UpgradeSide } from "./types";
 
 export type RunNodeType = NodeType | "boss";
 
@@ -116,8 +116,14 @@ export type RunEvent =
   | { type: "bought"; player: string; domino: string; price: number }
   | { type: "removed"; player: string; domino: string; fee: number }
   | { type: "traderDone"; player: string }
-  | { type: "actStart"; act: string }
+  // heal is how much the act-start heal restored (0 in act 1); boss is the act's boss, chosen already.
+  | { type: "actStart"; act: string; number: number; heal: number; boss: string }
   | { type: "runEnd"; result: "won" | "lost" };
+
+// The act the party is in.
+export function currentAct(run: RunState): ActData {
+  return run.content.run.acts[run.actIndex];
+}
 
 // Names the decision the run is waiting on, so a choice made for an earlier one can be told apart
 // from one made for the current decision. It changes whenever the phase or the party's position does.
@@ -219,7 +225,7 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     run.coins[id] = content.run.startingCoins;
     run.removalFee[id] = content.run.trader.removalFeeStart;
   }
-  events.push({ type: "actStart", act: act.id });
+  events.push({ type: "actStart", act: act.id, number: 1, heal: 0, boss: map.value.bossId });
   goToVote(run, events);
   return { run, events };
 }
@@ -358,7 +364,7 @@ function enterNode(run: RunState, events: RunEvent[]): void {
     run.phase = "rest";
     run.rest = [];
   } else if (type === "trader") {
-    const roll = rollStock(run.rng, run.players, run.content.run.trader, run.content.pools, run.nextIndex);
+    const roll = rollStock(run.rng, run.players, run.content.run.trader, run.content.pools, run.nextIndex, currentAct(run).traderOdds);
     run.rng = roll.state;
     run.nextIndex = roll.nextIndex;
     run.trader = roll.trader;
@@ -489,11 +495,11 @@ function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void 
   const { config, dominoes, enemies } = run.content;
   let enemyId = run.map.bossId;
   if (type !== "boss") {
-    const pool = enemies.filter((e) => e.tier === (type === "fight" ? "basic" : "elite"));
-    if (pool.length === 0) throw new Error(`no ${type} enemies in data/enemies.json`);
+    const act = currentAct(run);
+    const pool = type === "fight" ? act.normalPool : act.elitePool; // this act's enemies only
     const r = nextInt(run.rng, pool.length);
     run.rng = r.state;
-    enemyId = pool[r.value].id;
+    enemyId = pool[r.value];
   }
   const seed = nextUint32(run.rng);
   run.rng = seed.state;
@@ -534,7 +540,7 @@ function finishBattle(run: RunState, events: RunEvent[]): void {
     return;
   }
   run.lead = battle.nextLead as string;
-  const amount = run.content.run.battleCoins[type];
+  const amount = currentAct(run).battleCoins[type];
   for (const id of run.players) {
     run.coins[id] += amount;
     events.push({ type: "coins", player: id, amount });
@@ -543,7 +549,7 @@ function finishBattle(run: RunState, events: RunEvent[]): void {
     endRun(run, "won", events);
     return;
   }
-  const roll = rollOffers(run.rng, run.players, type, run.content.pools, run.nextIndex, run.allRareRewards);
+  const roll = rollOffers(run.rng, run.players, currentAct(run).rewardOdds[type], run.content.pools, run.nextIndex, run.allRareRewards);
   run.rng = roll.state;
   run.nextIndex = roll.nextIndex;
   run.reward = roll.reward;
@@ -564,12 +570,15 @@ function finishRewards(run: RunState, events: RunEvent[]): void {
   if (run.battleType === "boss") {
     // A boss that isn't the last of the run opens the next act.
     run.actIndex++;
-    const act = run.content.run.acts[run.actIndex];
+    const act = currentAct(run);
     const map = generateActMap(act, run.rng);
     run.rng = map.state;
     run.map = map.value;
     run.position = null;
-    events.push({ type: "actStart", act: act.id });
+    // The party heals once, before the first vote of the new act.
+    const heal = Math.ceil(((run.maxHealth - run.health) * run.content.run.actStartHealPercent) / 100);
+    run.health += heal;
+    events.push({ type: "actStart", act: act.id, number: run.actIndex + 1, heal, boss: map.value.bossId });
   }
   run.battleType = null;
   goToVote(run, events);

@@ -73,7 +73,7 @@ export class RewardScene extends Phaser.Scene {
     const active = online ? local : pending.player;
     const order = online ? [local, ...run.players.filter((p) => p !== local)] : run.players;
     const tooltip = new Tooltip(this);
-    const earned = run.battleType ? run.content.run.battleCoins[run.battleType] : 0;
+    const earned = run.battleType ? run.content.run.acts[run.actIndex].battleCoins[run.battleType] : 0;
 
     let y = 290;
     for (const id of order) {

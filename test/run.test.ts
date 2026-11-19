@@ -47,7 +47,7 @@ function play(start: RunState, stop: (run: RunState) => boolean): { run: RunStat
   return { run, events };
 }
 
-test("two battles: health carries over, seats rotate and the lead carries over", () => {
+test("two battles: health carries over, seats rotate and the lead carries over; beating act 1's boss opens act 2", () => {
   const start = createRun({ players, seed: 5, content: easyContent() });
 
   const first = play(start, (r) => r.battle !== null).run;
@@ -58,8 +58,8 @@ test("two battles: health carries over, seats rotate and the lead carries over",
   const afterFirst = play(first, (r) => r.phase === "reward").run;
   expect(afterFirst.phase).toBe("reward"); // won the first battle
   expect(afterFirst.health).toBeLessThan(afterFirst.maxHealth); // and it cost something
-  const { startingCoins, battleCoins } = afterFirst.content.run;
-  expect(afterFirst.coins.a).toBe(startingCoins + battleCoins.fight);
+  const { startingCoins, acts } = afterFirst.content.run;
+  expect(afterFirst.coins.a).toBe(startingCoins + acts[0].battleCoins.fight);
   // The next lead is whoever follows the last round's lead, not simply seat 1.
   const carriedLead = afterFirst.lead;
 
@@ -75,6 +75,43 @@ test("two battles: health carries over, seats rotate and the lead carries over",
   // Same seed and choices, same run.
   const replay = play(play(start, (r) => r.phase === "reward").run, (r) => r.phase !== "battle" && r.battlesFought === 2).run;
   expect(JSON.stringify(replay)).toBe(JSON.stringify(afterSecond));
+
+  // Crossing into act 2 (act 1 cut down to one fight and the boss): the heal applies once, act 2's pools are used.
+  const shortContent = JSON.parse(JSON.stringify(easyContent())) as Content; // a copy: loadContent shares its data objects
+  shortContent.run.actStartHealPercent = 50;
+  shortContent.run.acts[0].map.floors = 1;
+  shortContent.run.acts[0].map.fixedFloors = { "1": "fight" };
+  shortContent.run.acts[0].map.minTradersPerAct = 0;
+  for (const e of shortContent.enemies) if (e.tier === "boss" || shortContent.run.acts[1].normalPool.includes(e.id)) e.maxHealth = 1; // quick wins
+  const shortStart = createRun({ players, seed: 7, content: shortContent });
+
+  const atBoss = play(shortStart, (r) => r.position?.type === "boss" && r.phase === "battle").run;
+  expect(atBoss.actIndex).toBe(0);
+  const won = play(atBoss, (r) => r.phase === "reward").run;
+  const before = won.health;
+  const missing = won.maxHealth - before;
+  expect(missing).toBeGreaterThan(0);
+
+  const next = applyRunChoice(won, "a", { type: "reward", pick: SKIP });
+  let run = next.run;
+  for (const id of ["b", "c"]) {
+    const r = applyRunChoice(run, id, { type: "reward", pick: SKIP });
+    run = r.run;
+    next.events.push(...r.events);
+  }
+  const heal = Math.ceil(missing / 2);
+  const act2 = run.content.run.acts[1];
+  expect(next.events.filter((e) => e.type === "actStart")).toEqual([{ type: "actStart", act: act2.id, number: 2, heal, boss: run.map.bossId }]);
+  expect(run.actIndex).toBe(1);
+  expect(run.health).toBe(before + heal);
+  expect(run.position).toBeNull(); // the first vote of act 2 is still to come
+  expect(act2.bossPool).toContain(run.map.bossId);
+  expect(run.coins.a).toBe(run.content.run.startingCoins + shortContent.run.acts[0].battleCoins.fight + shortContent.run.acts[0].battleCoins.boss); // coins carry over
+
+  const fight = play(run, (r) => r.battle !== null).run;
+  expect(act2.normalPool).toContain(fight.battle!.enemy.id);
+  const afterFight = play(fight, (r) => r.phase === "reward").run;
+  expect(afterFight.coins.a).toBe(run.coins.a + act2.battleCoins.fight);
 });
 
 test("a split vote resolves the same way for the same seed", () => {

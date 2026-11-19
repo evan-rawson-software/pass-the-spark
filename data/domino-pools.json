@@ -11,23 +11,6 @@
     ]
   },
   "offerSize": 3,
-  "rarityOdds": {
-    "fight": {
-      "common": 70,
-      "uncommon": 27,
-      "rare": 3
-    },
-    "elite": {
-      "common": 30,
-      "uncommon": 50,
-      "rare": 20
-    },
-    "boss": {
-      "common": 0,
-      "uncommon": 0,
-      "rare": 100
-    }
-  },
   "rarities": {
     "common": {
       "intakes": [

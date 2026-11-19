@@ -154,5 +154,225 @@
         "kind": "glutton"
       }
     ]
+  },
+  {
+    "id": "bandit",
+    "name": "Placeholder Bandit",
+    "tier": "basic",
+    "maxHealth": 130,
+    "drawPerRound": 3,
+    "handLimit": 5,
+    "deck": [
+      "bandit_a",
+      "bandit_b",
+      "bandit_c",
+      "bandit_d",
+      "bandit_e",
+      "bandit_f"
+    ],
+    "passives": []
+  },
+  {
+    "id": "golem",
+    "name": "Placeholder Golem",
+    "tier": "basic",
+    "maxHealth": 170,
+    "drawPerRound": 3,
+    "handLimit": 5,
+    "deck": [
+      "golem_a",
+      "golem_b",
+      "golem_c",
+      "golem_d",
+      "golem_e",
+      "golem_f"
+    ],
+    "passives": []
+  },
+  {
+    "id": "harpy",
+    "name": "Placeholder Harpy",
+    "tier": "basic",
+    "maxHealth": 110,
+    "drawPerRound": 3,
+    "handLimit": 5,
+    "deck": [
+      "harpy_a",
+      "harpy_b",
+      "harpy_c",
+      "harpy_d",
+      "harpy_e",
+      "harpy_f"
+    ],
+    "passives": []
+  },
+  {
+    "id": "ravager",
+    "name": "Placeholder Ravager",
+    "tier": "elite",
+    "maxHealth": 300,
+    "drawPerRound": 4,
+    "handLimit": 6,
+    "deck": [
+      "ravager_a",
+      "ravager_b",
+      "ravager_c",
+      "ravager_d",
+      "ravager_e",
+      "ravager_f",
+      "ravager_a",
+      "ravager_c"
+    ],
+    "passives": []
+  },
+  {
+    "id": "sentinel",
+    "name": "Placeholder Sentinel",
+    "tier": "elite",
+    "maxHealth": 330,
+    "drawPerRound": 4,
+    "handLimit": 6,
+    "deck": [
+      "sentinel_a",
+      "sentinel_b",
+      "sentinel_c",
+      "sentinel_d",
+      "sentinel_e",
+      "sentinel_f",
+      "sentinel_a",
+      "sentinel_c"
+    ],
+    "passives": []
+  },
+  {
+    "id": "boss_act2",
+    "name": "Placeholder Act 2 Boss",
+    "tier": "boss",
+    "maxHealth": 600,
+    "drawPerRound": 5,
+    "handLimit": 7,
+    "deck": [
+      "boss_act2_a",
+      "boss_act2_b",
+      "boss_act2_c",
+      "boss_act2_d",
+      "boss_act2_e",
+      "boss_act2_f",
+      "boss_act2_a",
+      "boss_act2_c",
+      "boss_act2_e",
+      "boss_act2_a"
+    ],
+    "passives": []
+  },
+  {
+    "id": "wraith",
+    "name": "Placeholder Wraith",
+    "tier": "basic",
+    "maxHealth": 170,
+    "drawPerRound": 3,
+    "handLimit": 5,
+    "deck": [
+      "wraith_a",
+      "wraith_b",
+      "wraith_c",
+      "wraith_d",
+      "wraith_e",
+      "wraith_f"
+    ],
+    "passives": []
+  },
+  {
+    "id": "colossus",
+    "name": "Placeholder Colossus",
+    "tier": "basic",
+    "maxHealth": 220,
+    "drawPerRound": 3,
+    "handLimit": 5,
+    "deck": [
+      "colossus_a",
+      "colossus_b",
+      "colossus_c",
+      "colossus_d",
+      "colossus_e",
+      "colossus_f"
+    ],
+    "passives": []
+  },
+  {
+    "id": "stormling",
+    "name": "Placeholder Stormling",
+    "tier": "basic",
+    "maxHealth": 150,
+    "drawPerRound": 3,
+    "handLimit": 5,
+    "deck": [
+      "stormling_a",
+      "stormling_b",
+      "stormling_c",
+      "stormling_d",
+      "stormling_e",
+      "stormling_f"
+    ],
+    "passives": []
+  },
+  {
+    "id": "tyrant",
+    "name": "Placeholder Tyrant",
+    "tier": "elite",
+    "maxHealth": 420,
+    "drawPerRound": 4,
+    "handLimit": 6,
+    "deck": [
+      "tyrant_a",
+      "tyrant_b",
+      "tyrant_c",
+      "tyrant_d",
+      "tyrant_e",
+      "tyrant_f",
+      "tyrant_a",
+      "tyrant_c"
+    ],
+    "passives": []
+  },
+  {
+    "id": "warlord",
+    "name": "Placeholder Warlord",
+    "tier": "elite",
+    "maxHealth": 450,
+    "drawPerRound": 4,
+    "handLimit": 6,
+    "deck": [
+      "warlord_a",
+      "warlord_b",
+      "warlord_c",
+      "warlord_d",
+      "warlord_e",
+      "warlord_f",
+      "warlord_a",
+      "warlord_c"
+    ],
+    "passives": []
+  },
+  {
+    "id": "boss_act3",
+    "name": "Placeholder Act 3 Boss",
+    "tier": "boss",
+    "maxHealth": 800,
+    "drawPerRound": 5,
+    "handLimit": 7,
+    "deck": [
+      "boss_act3_a",
+      "boss_act3_b",
+      "boss_act3_c",
+      "boss_act3_d",
+      "boss_act3_e",
+      "boss_act3_f",
+      "boss_act3_a",
+      "boss_act3_c",
+      "boss_act3_e",
+      "boss_act3_a"
+    ],
+    "passives": []
   }
 ]

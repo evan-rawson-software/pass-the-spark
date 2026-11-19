@@ -156,19 +156,6 @@ export function validatePools(data: unknown): Pools {
   if (!isObject(data)) fail(file, id, "must be an object");
   checkPositive(file, id, data, "offerSize");
   if (!Number.isInteger(data.offerSize)) fail(file, id, `"offerSize" must be a whole number`);
-  const odds = data.rarityOdds;
-  if (!isObject(odds)) fail(file, id, `"rarityOdds" must be an object`);
-  for (const type of BATTLE_TYPES) {
-    const row = odds[type];
-    if (!isObject(row)) fail(file, id, `"rarityOdds" needs "${type}"`);
-    let total = 0;
-    for (const rarity of RARITIES) {
-      const w = row[rarity];
-      if (!isNumber(w) || (w as number) < 0) fail(file, `${id} ${type}`, `odds for "${rarity}" must be a number, 0 or more`);
-      total += w as number;
-    }
-    if (total <= 0) fail(file, `${id} ${type}`, "odds must not all be 0");
-  }
   const groups = data.sparkGroups;
   if (!isObject(groups)) fail(file, id, `"sparkGroups" must be an object`);
   for (const g of ["basic", "advanced"]) {
