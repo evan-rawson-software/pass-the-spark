@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { PlayPreview } from "../engine/battle";
 import type { Domino, Effect } from "../engine/types";
+import { coinLine, coinParts, hasCoins } from "./coinIcon";
 
 // Domino tooltips. No rules here: it formats the domino's static data and, for a
 // playable domino in the active hand, the numbers previewPlay returns.
@@ -116,6 +117,14 @@ export class Tooltip {
       const size = line.style === "title" ? 28 : 22;
       const color = line.style === "head" ? "#ffe14d" : line.style === "dim" ? "#9fd1b8" : "#ffffff";
       const gap = line.style === "head" ? 10 : 0;
+      const parts = coinParts(line.text);
+      if (hasCoins(parts)) {
+        // Data text with "N coins" (Coin Purse): the icon and number in place of the word.
+        const row = coinLine(this.scene, PAD, y + gap + size * 0.65, parts, size, { color, bold: line.style === "title" || line.style === "head" });
+        box.add(row);
+        y += gap + size * 1.3 + 4;
+        continue;
+      }
       const t = this.scene.add.text(PAD, y + gap, line.text, {
         fontFamily: FONT,
         fontSize: `${size}px`,
