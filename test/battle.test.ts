@@ -90,3 +90,32 @@ test("battle ends immediately when enemy health reaches 0 mid-chain", () => {
   expect(getPendingChoice(s)).toBeNull();
   expect(s.players[0].hand).toEqual(["jab"]); // p1 never got another turn
 });
+
+test("enemy at its hand limit discards the oldest domino to make room, and keeps drawing", () => {
+  const s0 = setup(["kindle"], ["parry"]);
+  s0.enemy.hand = ["ogre_gulp_a", "ogre_gulp_b", "ogre_gulp_a", "ogre_gulp_b", "ogre_gulp_a"];
+  s0.enemy.deck = ["ogre_bellow_a", "ogre_bellow_b", "ogre_stomp_a"];
+  const s = fuse(s0, "kindle"); // p2 can't answer, round 2 starts with the draw
+  expect(s.enemy.hand).toEqual(["ogre_gulp_b", "ogre_gulp_a", "ogre_bellow_a", "ogre_bellow_b", "ogre_stomp_a"]);
+  expect(s.enemy.discard).toEqual(["ogre_gulp_a", "ogre_gulp_b", "ogre_gulp_a"]);
+});
+
+test("the enemy plays the leftmost matching domino", () => {
+  const s0 = setup(["kindle", "brace"], ["brace"], ["ogre_gulp_a", "ogre_stomp_a", "ogre_stomp_b"]);
+  const s = answer(fuse(s0, "kindle"), "brace"); // Gale: both Stomps match
+  expect(s.enemy.hand).toEqual(["ogre_gulp_a", "ogre_stomp_b"]);
+  expect(s.enemy.discard).toEqual(["ogre_stomp_a"]);
+  expect(s.enemy.faceUp).toEqual(["ogre_stomp_a"]);
+  expect(s.chain.strength).toBe(2);
+});
+
+test("leftover enemy dominoes go off at strength 1, in order, and stay in hand", () => {
+  const s0 = setup(["kindle"], ["parry"], ["ogre_bellow_a", "ogre_stomp_a", "ogre_gulp_a"]);
+  s0.enemy.drawPerRound = 0;
+  s0.enemy.health = 90;
+  s0.party.block = 4;
+  const s = fuse(s0, "kindle"); // chain ends at once
+  expect(s.party).toMatchObject({ health: 58, block: 0 }); // 3 + 3, block soaked 4
+  expect(s.enemy.health).toBe(93);
+  expect(s.enemy.hand).toHaveLength(3);
+});
