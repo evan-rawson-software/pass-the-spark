@@ -52,7 +52,7 @@ export function charmIcon(scene: Phaser.Scene, charm: Charm, size: number): Phas
   }
   if (framed) g.destroy();
   const letter = scene.add
-    .text(0, 0, charm.name.charAt(0), { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${Math.round(size * 0.5)}px`, color: "#2a2a2a", fontStyle: "bold" })
+    .text(0, 0, charm.name.charAt(0), { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${Math.round(size * 0.62)}px`, color: "#ffffff", fontStyle: "bold", stroke: "#1a1a1a", strokeThickness: Math.max(3, Math.round(size / 7)) })
     .setOrigin(0.5);
   const c = scene.add.container(0, 0, [framed ?? g, letter]);
   c.setSize(size, size);
@@ -81,19 +81,6 @@ export function drawCharmRow(scene: Phaser.Scene, tooltip: Tooltip, charms: Char
 
 function shorten(name: string, max: number): string {
   return name.length > max ? name.slice(0, max - 1) + "…" : name;
-}
-
-// The combat table has no free strip along the top, so there everyone's charms are a list, one
-// line per player (name, then icons), in the free spot under the right-hand column.
-export function drawCharmList(scene: Phaser.Scene, x: number, y: number, seats: string[], names: Record<string, string>, held: Record<string, string[]>, onIcon?: (seat: string, charm: Charm, x: number, y: number) => void): Phaser.GameObjects.GameObject[] {
-  const before = scene.children.list.length;
-  const tooltip = new Tooltip(scene);
-  seats.forEach((id, i) => {
-    const cy = y + i * 27;
-    label(scene, x, cy, shorten(names[id] ?? id, 9), 18, { bold: true, color: "#9fd1b8" });
-    drawCharmRow(scene, tooltip, charmsByIds(held[id] ?? []), x + 110, cy, 22, 180, (ch, ix, iy) => onIcon?.(id, ch, ix, iy));
-  });
-  return scene.children.list.slice(before);
 }
 
 // Everyone's name and charm icons in a strip along the top, left of the party bar.

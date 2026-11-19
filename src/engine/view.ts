@@ -9,6 +9,7 @@ export type HandSlot = { revealed: true; domino: string } | { revealed: false };
 
 export interface EnemyView extends Omit<EnemyState, "deck" | "hand" | "revealed"> {
   deckList: string[]; // every domino in the enemy's deck, sorted (order hidden)
+  deckCount: number; // how many are left to draw (public, like the players' deck sizes)
   hand: HandSlot[];
 }
 
@@ -28,6 +29,7 @@ export function getView(state: BattleState, playerId: string): BattleView {
     enemy: {
       ...enemyRest,
       deckList: deck.concat(hand, enemy.discard).sort(),
+      deckCount: deck.length,
       hand: hand.map((id, i): HandSlot => (revealed[i] ? { revealed: true, domino: id } : { revealed: false })),
     },
   };

@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { artBackground } from "./art";
+import { playSound } from "./sound";
 
 // Small helpers for the placeholder online screens (menu, lobby, join).
 
@@ -42,7 +43,10 @@ export function button(
   const t = label(scene, x, y, s, opts.size ?? 30, { bold: true, origin: opts.origin });
   t.setPadding(20, 10).setBackgroundColor(opts.selected ? "#b8860b" : "#0d2a20");
   if (opts.disabled) t.setAlpha(0.4);
-  else t.setInteractive({ useHandCursor: true }).on("pointerdown", onClick);
+  else t.setInteractive({ useHandCursor: true }).on("pointerdown", () => {
+      playSound("click");
+      onClick();
+    });
   return t;
 }
 

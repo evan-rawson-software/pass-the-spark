@@ -41,14 +41,16 @@ export interface Refs {
   hand: Map<string, Pos>; // the active hand, by domino id
   chain: { c: Container; pos: Pos }[];
   enemyHand: { c: Container; pos: Pos }[];
+  handSlots: Map<string, { c: Container; pos: Pos }[]>; // every player's hand, by seat and position (draw animation, #153)
+  decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck stack, "enemy" included
   bars: Map<string, BarRef>; // "enemy" | "party"
   shields: Map<string, { text: Text; x: number; y: number }>;
   meter?: { text: Text; rect: Box; scale: number };
-  charms: Map<string, { x: number; y: number }>; // "seat:charm" -> the charm icon in the combat list (#108)
+  charms: Map<string, { x: number; y: number }>; // "seat:charm" -> the charm icon under its name plate (#108)
 }
 
 export function newRefs(): Refs {
-  return { hand: new Map(), chain: [], enemyHand: [], bars: new Map(), shields: new Map(), charms: new Map() };
+  return { hand: new Map(), chain: [], enemyHand: [], handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map() };
 }
 
 export function paintBar(b: BarRef, value: number): void {
@@ -311,9 +313,33 @@ export class Animator {
         const amount = ev.type === "glutton" ? ev.heal : ev.amount;
         const bar = refs.bars.get(side);
         if (amount > 0 && bar) floatText(scene, bar.x + bar.w / 2, bar.y - 10, `+${amount}`, "#7dff9e");
+        if (ev.type === "glutton" && amount > 0 && bar) floatText(scene, bar.x + bar.w / 2, bar.y + 70, "Glutton", "#7dff9e", 30, 1000);
         this.tweenHealth(side, before, after);
         break;
       }
+      // Short labels for what the old log line used to say (#155).
+      case "enemyNoReaction":
+        floatText(scene, 960, 215, "No reaction", "#ffd9a0", 40, 900);
+        break;
+      case "smolder":
+        floatText(scene, 960, 215, `Leftovers at strength ${ev.strength}`, "#ffb066", 34, 900);
+        break;
+      case "auditor": {
+        const bar = refs.bars.get("party");
+        if (bar) floatText(scene, bar.x + bar.w / 2, bar.y + 70, `Auditor: -${ev.damage}`, "#ff9a94", 34, 1000);
+        break;
+      }
+      case "hoarder": {
+        const sh = refs.shields.get("enemy");
+        if (sh) floatText(scene, sh.x + 60, sh.y - 50, "Hoarder", "#9cc4ff", 30, 1000);
+        break;
+      }
+      case "sparkLocked":
+        floatText(scene, 960, 470, `Warden locks ${ev.spark}`, "#ff8a8a", 40, 1100);
+        break;
+      case "chainEnd":
+        floatText(scene, 960, 470, "Chain broken", "#ffd9a0", 56, 1100);
+        break;
       case "blockReset":
         this.tweenHealth("party", before, after);
         this.tweenHealth("enemy", before, after);

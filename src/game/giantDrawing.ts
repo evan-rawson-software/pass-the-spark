@@ -2,7 +2,8 @@ import Phaser from "phaser";
 import type { EventState } from "../engine/eventStops";
 import type { EventData } from "../engine/types";
 import type { RunState } from "../engine/run";
-import { FONT, PLAYER_COLORS, button, label } from "./ui";
+import { PLAYER_COLORS, button, label } from "./ui";
+import { coinLine } from "./coinIcon";
 import { seatName } from "./runSession";
 
 // The Sleeping Giant's drawing and push-your-luck panel (#92), called from the event screen. It only
@@ -66,12 +67,8 @@ export function drawGiantPanel(
   g.fillRoundedRect(left, top + 60, barW, 36, 18);
   g.fillStyle(0xd9503b, 1);
   g.fillRoundedRect(left, top + 60, Math.max(18, (barW * giant.wakePercent) / 100), 36, 18);
-  scene.add.text(left, top + 112, `Each grab: ${data.numbers.grabCoins} coins, and the chance rises ${data.numbers.wakeStepPercent} points. If he wakes: ${data.numbers.wakeDamage} damage to the party.`, {
-    fontFamily: FONT,
-    fontSize: "24px",
-    color: "#cfe9dc",
-    wordWrap: { width: 900 },
-  });
+  coinLine(scene, left, top + 112, ["Each grab: ", data.numbers.grabCoins, `, and the chance rises ${data.numbers.wakeStepPercent} points.`], 24, { color: "#cfe9dc" });
+  label(scene, left, top + 138, `If he wakes: ${data.numbers.wakeDamage} damage to the party.`, 24, { color: "#cfe9dc" });
 
   const turnName = seatName(giant.turn);
   label(scene, left, top + 170, me === null ? `${turnName}'s turn` : giant.turn === me ? "Your turn" : `${turnName}'s turn`, 40, { bold: true, color: GOLD });
@@ -85,7 +82,7 @@ export function drawGiantPanel(
     label(scene, left + 16, y, String(i + 1), 20, { bold: true, color: "#0d2a20", origin: 0.5 });
     const turn = id === giant.turn;
     label(scene, left + 50, y, `${seatName(id)}${turn ? "  <" : ""}`, 28, { bold: turn, color: out ? "#7a8f84" : "#ffffff" });
-    label(scene, left + 380, y, `${giant.grabbed[id]} coins grabbed`, 26, { color: GOLD });
+    coinLine(scene, left + 380, y, [giant.grabbed[id], " grabbed"], 26, { color: GOLD });
     if (out) label(scene, left + 640, y, "stopped", 26, { color: "#9fb8aa" });
   });
 }

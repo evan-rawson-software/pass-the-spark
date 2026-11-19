@@ -19,6 +19,7 @@ import { DominoTestScene } from "./DominoTestScene";
 import { TitleScene } from "./TitleScene";
 import { DeckScene } from "./deckViewer";
 import { debugPanel } from "./DebugPanel";
+import { GameMenuScene } from "./GameMenuScene";
 import { ArtBootScene, readArtManifest } from "./art";
 
 // The menu is the default; a link with ?room=CODE opens the join screen, or, in the browser that
@@ -66,5 +67,5 @@ void readArtManifest().then(() => new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   dom: { createContainer: true },
-  scene: [ArtBootScene, ...scenes],
+  scene: [ArtBootScene, ...scenes, GameMenuScene], // GameMenuScene is last, so it draws on top of every screen
 }));
