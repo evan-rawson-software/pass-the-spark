@@ -336,3 +336,26 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - **Map screen:** drop "The party's choice". "Act N of 3" replaces "Route: floor N" as the heading.
 - **Single player votes:** no vote display. The chosen stop opens straight away. The same goes for single player event votes.
 - **Hover highlight:** hovering a playable domino in your hand highlights the dominoes that could answer it in the next seat's hand: teammates' dominoes, and the enemy's revealed ones. Which dominoes count comes from the engine. When the next seat is the enemy and none of its revealed dominoes could react, the matching dominoes of the player after the enemy are highlighted too, more faintly (the spark would pass on to them if the enemy can't react).
+
+## 2026-11-19: Milestone 8 (progression and polish)
+
+### Scope
+- The web game gets progression, a spectacle prototype and sound effects, to answer "does it feel good?" before the port. Real art and final screen polish go into the Godot version (M9). Asset files (sounds, images) carry over; screen code doesn't.
+- **Art:** the designer will generate art locally (Stable Diffusion, with a local Claude Code session). The web game stays code-drawn unless decided otherwise.
+
+### Progression
+- **Saved per browser:** each player's profile (experience, level, unlocks) lives in their own browser. No accounts. Online, a joining player sends their unlocks to the host. In single player, one profile covers all seats.
+- **Experience:** earned by every run, win or lose: points per floor cleared, a bonus per boss beaten and a bonus for winning. All amounts and level thresholds in data.
+- **Unlocks:** new players start with damage, block and Amplify in their generated offers. Each level unlocks one more thing in a fixed order set in data, about 8 levels in all, so everything is unlocked after roughly 10-15 runs. Unlockable: Lookout, advanced sparks, Echo, two-spark outputs, ignores block, Spectrum, Mimic, the "any" intake. Charms are not unlocked; all are available from the start.
+- **Whose unlocks:** each player's reward offers, Trader stock and Wishing Well rare offer come from their own unlocks. The Lost Courier's shared domino may use anything any party member has unlocked. Unlocks only shape generated dominoes: the starter deck, enemies and existing dominoes are unaffected.
+- **Fixed at run start:** each player's unlocks are stored in the run when it starts, so saves and seeds stay deterministic. Experience is handed out at the run end screen to every seat.
+- **Screens:** the start screen shows your level and experience bar; the run end screen shows experience gained and any new unlock. A "reset progress" option, and a debug "unlock all".
+- **Balance:** M7 tunes with everything unlocked. Early runs with fewer unlocks will be somewhat harder; check at a playtest.
+
+### Spectacle
+- **Heat ladder** (the brief's, tiers and thresholds in data): links 1-3 clacks and a rising tick; 4-6 spark trails and glowing dominoes; lap 2 a light sweep and a dimmed room; 7-10 screen shake and stacking damage numbers; lap 3+ slow motion and lightning between dominoes; at chain end the dominoes topple back along the line, tallying the total. The combo meter grows bigger and redder with heat. Every trigger effect gets its own short animation.
+- **Also in M8:** a rolling animation for drawn votes, a "doesn't scale with lap" symbol on such effects, and a ping (click and hold a domino to highlight it for the whole party).
+- **Pacing:** all spectacle is played back on each player's own screen from events and never delays the host. Higher playback speeds shorten it. No reduce-motion option.
+
+### Sound
+- Free CC0 sound effects (for example Kenney's packs): clacks, ticks, hits, lightning, UI clicks. No music yet. Master and effects volume sliders and a mute, saved per browser. Licences recorded in the repo.
