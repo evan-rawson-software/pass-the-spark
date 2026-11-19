@@ -95,8 +95,6 @@ export interface RarityPool {
 export interface Pools {
   offerSize: number;
   sparkGroups: { basic: Spark[]; advanced: Spark[] }; // Rot is in neither and is never generated
-  // Weights per battle type; an offered domino's rarity is drawn from these.
-  rarityOdds: Record<BattleType, Record<Rarity, number>>;
   rarities: Record<Rarity, RarityPool>;
 }
 
@@ -118,9 +116,15 @@ export interface MapRules {
   maxAttempts: number; // re-rolls before generation gives up
 }
 
+// One act of the run. Everything that differs between acts lives here.
 export interface ActData {
   id: string;
-  bossPool: string[]; // enemy ids, tier "boss"
+  bossPool: string[]; // enemy ids, tier "boss"; one is picked when the act's map is generated
+  normalPool: string[]; // enemy ids, tier "basic": the act's normal fights draw from these
+  elitePool: string[]; // enemy ids, tier "elite": elite stops (and the Toll Bridge's hard fight) draw from these
+  battleCoins: Record<BattleType, number>; // every player earns this for winning a battle of that type in this act
+  rewardOdds: Record<BattleType, Record<Rarity, number>>; // weights for each rarity of a reward domino, by battle type
+  traderOdds: Record<Rarity, number>; // weights for each Trader stock domino's rarity
   map: MapRules;
 }
 
@@ -137,14 +141,13 @@ export interface RunData {
   restHeal: number; // party health healed by each player who rests
   upgrade: UpgradeData;
   startingCoins: number; // each player's coins at the start of the run
-  battleCoins: Record<BattleType, number>; // every player earns this for winning a battle of that type
+  actStartHealPercent: number; // at the start of acts 2 and later, the party heals this percent of its missing health
   trader: TraderData;
   acts: ActData[];
 }
 
 export interface TraderData {
   stockSize: number; // dominoes in each player's stock
-  rarityOdds: Record<Rarity, number>; // weights for each stock domino's rarity
   prices: Record<Rarity, number>; // coins per domino, by rarity
   removalFeeStart: number; // a player's first removal costs this
   removalFeeStep: number; // each removal raises that player's fee by this, for the rest of the run

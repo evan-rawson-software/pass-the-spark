@@ -1,8 +1,8 @@
 // Post-battle reward offers. Each player gets their own offer and picks one domino or skips.
 // Plain data; the run (a later issue) decides when to roll offers and adds the picks to decks.
 
-import { generateDomino, rollRarity } from "./generate";
-import type { BattleType, Domino, Pools } from "./types";
+import { generateDomino, rollRarityFromOdds } from "./generate";
+import type { Domino, Pools, Rarity } from "./types";
 
 export const SKIP = "skip";
 
@@ -20,7 +20,7 @@ export interface RewardRoll {
 export function rollOffers(
   state: number,
   playerIds: string[],
-  battleType: BattleType,
+  odds: Record<Rarity, number>, // the act's rarity weights for this battle type
   pools: Pools,
   startIndex: number,
   allRare = false, // every offered domino is rare (the Toll Bridge's hard fight)
@@ -31,7 +31,7 @@ export function rollOffers(
   for (const playerId of playerIds) {
     const offer: Domino[] = [];
     for (let i = 0; i < pools.offerSize; i++) {
-      const rarity = allRare ? { value: "rare" as const, state: s } : rollRarity(s, battleType, pools);
+      const rarity = allRare ? { value: "rare" as const, state: s } : rollRarityFromOdds(s, odds);
       s = rarity.state;
       const domino = generateDomino(s, rarity.value, pools, index);
       s = domino.state;
