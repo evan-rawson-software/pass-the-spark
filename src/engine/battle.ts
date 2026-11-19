@@ -507,6 +507,7 @@ function advance(state: BattleState, events: GameEvent[]): void {
       state.chain.lap += 1;
       events.push({ type: "lapUp", lap: state.chain.lap });
       glutton(state, events);
+      hoarder(state, events);
     }
     if (state.seat === ENEMY_SEAT) {
       react(state, events);
@@ -575,6 +576,13 @@ function glutton(state: BattleState, events: GameEvent[]): void {
   const before = enemy.health;
   enemy.health = Math.min(enemy.maxHealth, enemy.health + (passive.heal ?? state.config.gluttonHeal));
   events.push({ type: "glutton", heal: enemy.health - before });
+}
+
+// Hoarder passive: gains block equal to the current strength when lap goes up.
+function hoarder(state: BattleState, events: GameEvent[]): void {
+  if (!state.enemy.passives.some((p) => p.kind === "hoarder")) return;
+  events.push({ type: "hoarder", block: state.chain.strength });
+  resolve(state, { kind: "block" }, state.chain.strength, "enemy", events);
 }
 
 // Resolve a played domino's effect (a Mimic becomes the effect it copies), record it
@@ -680,7 +688,10 @@ function endBattle(state: BattleState, result: "won" | "lost", events: GameEvent
 }
 
 function endRound(state: BattleState, events: GameEvent[]): void {
-  // Leftovers go off at strength 1, left to right, and stay in hand.
+  // Leftovers go off at strength 1 (the Smolder: the chain's final strength, at least 1), left to right, and stay in hand.
+  const smolder = state.enemy.passives.some((p) => p.kind === "smolder");
+  const leftoverStrength = smolder ? Math.max(1, state.chain.strength) : 1;
+  if (smolder && state.enemy.hand.length > 0) events.push({ type: "smolder", strength: leftoverStrength });
   const hand = state.enemy.hand.slice();
   for (let i = 0; i < hand.length; i++) {
     const id = hand[i];
@@ -693,7 +704,7 @@ function endRound(state: BattleState, events: GameEvent[]): void {
     // A leftover Reflect repeats the chain's last domino (the opener if nothing followed it).
     const effect = d.effect.kind === "reflect" ? state.chain.last?.effect : d.effect;
     if (effect === undefined) continue;
-    let value = effect.base ?? 0;
+    let value = (effect.base ?? 0) * leftoverStrength;
     if (state.config.enemyReactionsScaleWithLap) value *= state.chain.lap;
     events.push({ type: "trigger", seat: ENEMY_SEAT, domino: id, index: 0, effect, side: "enemy", value });
     resolve(state, effect, value, "enemy", events);
