@@ -34,7 +34,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Hand limit:** set per enemy in data. Defaults: basic 5, elite 6, boss 7. Every enemy discards its oldest domino to make room for each draw. Discards go to the enemy's discard pile.
 - **Reshuffle:** same as players. An empty deck is reshuffled from the discard pile when it needs to draw.
 - **Several matching dominoes:** the enemy plays the leftmost one that answers the current spark, or either spark when there are two.
-- **Leftover dominoes at round end:** they go off at strength 1, left to right, then block resets. Going off reveals the domino: it stays revealed until it leaves the hand.
+- **Leftover dominoes at round end:** they go off at strength 1, left to right, then block resets. Each one that goes off is revealed: it shows face up and stays revealed in players' views (like a Lookout reveal) until it leaves the hand.
 - **Ogre outputs:** the same as `chain_sim.py`.
 - **Stomp:** hits the whole party for now. Tier mechanics come later.
 - **Block and healing:** enemy block lasts until the round ends, like party block. Healing stops at maximum health, for both sides.
@@ -107,3 +107,9 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Version check:** a client on a different build is refused with a "refresh the page" message.
 - **Debug panel online:** host only.
 - **Tests:** only where they matter. For M3, one in-memory host-and-clients test.
+
+## 2026-11-19: Tooling
+
+- **Sim chain length:** count every answer, player and enemy, and not the fuse. That's the number of times strength went up from answers. Report player answers separately as well.
+- **Content:** stays in JSON (portable to Godot), checked by a hand-written validator when loaded (#37).
+- **Headless engine:** enforced by a DOM-free engine tsconfig and a CI check (#38).
