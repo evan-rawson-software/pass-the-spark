@@ -11,6 +11,7 @@ import { artImage } from "./art";
 import { drawDomino } from "./dominoDrawing";
 import { drawSparkShrine } from "./sparkShrineArt";
 import { scaleTime } from "./playbackSpeed";
+import { playRunEventSounds } from "./sound";
 import { drawPartyHud, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
 import { Tooltip } from "./tooltip";
@@ -177,6 +178,7 @@ export class EventScene extends Phaser.Scene {
     if (this.resolving) return;
     if (isOnlineRun()) return submitRunChoice(this, player, { type: "event", option });
     const result = applyRunChoice(run, player, { type: "event", option });
+    playRunEventSounds(result.events);
     setRun(result.run);
     const wake = result.events.find((e) => e.type === "giantWake");
     if (wake !== undefined && wake.type === "giantWake") return this.showWake(event, wake.damage);
@@ -298,6 +300,7 @@ export class EventScene extends Phaser.Scene {
     const choice = pick ? { type: "event" as const, option, pick } : { type: "event" as const, option };
     if (isOnlineRun()) return submitRunChoice(this, player, choice);
     const result = applyRunChoice(run, player, choice);
+    playRunEventSounds(result.events);
     const summary = result.events.find((e) => e.type === "eventSummary");
     if (summary !== undefined && summary.type === "eventSummary") return this.showSummary(summary, result.run);
     setRun(result.run);
@@ -382,6 +385,7 @@ export class EventScene extends Phaser.Scene {
       result = { run: more.run, events: [...result.events, ...more.events] };
     }
     // Single player: no vote display, the outcome opens straight away.
+    playRunEventSounds(result.events);
     setRun(result.run);
     openRunScreen(this);
   }
