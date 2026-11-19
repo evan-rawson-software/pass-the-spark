@@ -324,6 +324,13 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 ### Screens
 - One issue covers the unchecked M6 screens: Playwright screenshots at 1920×1080 with 4 players and many charms, fixing any overlaps. Boss passive display names move into data. The debug panel's "give a charm" lasts for the rest of the run when used in a run.
 
+### Balance
+- **Targets** (bot playing full runs, 3 and 4 players): about 70% clear act 1, about 45% clear act 2, about 20-25% win the run. Real players should do better than the bot.
+- **Who tunes:** the coders tune data values only (enemy health and damage, party health, coins, prices, charm and event numbers) to reach the targets, and post before-and-after tables. Any rule change comes back to the designer.
+- **Enemy lap scaling:** `enemyReactionsScaleWithLap` stays off. Only the Long Night scales with lap.
+- **Warden of Locks:** re-measure with the bot. If players still average under 2 answers per chain against it, bring options to soften it to the designer; don't change the rule in tuning.
+- **Playtest:** the designer playtests again once M7 is done.
+
 ### Playtest feedback (first playtest)
 - **Single player setup:** no name inputs; seats are named Player 1-4. The seed box is filled with a random seed when the screen opens (still editable).
 - **Map screen:** drop "The party's choice". "Act N of 3" replaces "Route: floor N" as the heading.
