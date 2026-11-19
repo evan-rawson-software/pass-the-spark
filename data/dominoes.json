@@ -170,9 +170,7 @@
   {
     "id": "wildcard",
     "name": "Wildcard",
-    "intake": [
-      "any"
-    ],
+    "intake": "any",
     "output": [
       "Gale"
     ],
