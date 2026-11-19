@@ -341,6 +341,11 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - **Draw animation:** drawing at round start is animated: dominoes slide from each seat's deck into its hand, staggered, everyone at once. Enemy draws arrive face down, its oldest-domino discard and any reshuffle are shown briefly. Shortened by playback speed.
 - **Combat side clutter:** the bottom-right list of player names (the combat charm list, which reads like a second turn order) goes; each player's charm icons sit by their own name plate instead. The bottom-left last-action text goes too.
 - **Enemy tier:** shown as an icon beside the enemy's name (the same icons as the map's fight, elite and boss stops), with a hover tooltip, instead of the BASIC / ELITE / BOSS text under the name.
+- **Map boss passive:** the map shows the boss's name with its passive icon(s); the passive text moves into a hover tooltip.
+- **Coins:** every coin amount on screen shows a gold coin icon and the number instead of the word "coins". Story text in events stays prose.
+- **Menu:** a menu button at the top right replaces the "Sound" button. It holds sound settings, playback speed and leaving the game, on every screen.
+- **Decks:** no Decks button. Clicking any player's name opens the deck viewer on that player. The current player's deck shows face down to the left of their hand; clicking it opens their deck.
+- **Effect icons drawn in code:** block (blue shield), damage (red sword) and Lookout (eye) are always drawn in code, not generated, on dominoes and in the HUD. Generated files for them are removed from the art manifest.
 - **Map readability:** the map is too cramped on one screen. It gets more height (bigger gaps between floors, bigger stops) and scrolls vertically; headings, party display and side panels stay fixed.
 - **Hover highlight:** hovering a playable domino in your hand highlights the dominoes that could answer it in the next seat's hand: teammates' dominoes, and the enemy's revealed ones. Which dominoes count comes from the engine. When the next seat is the enemy and none of its revealed dominoes could react, the matching dominoes of the player after the enemy are highlighted too, more faintly (the spark would pass on to them if the enemy can't react).
 
