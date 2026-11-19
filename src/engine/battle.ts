@@ -2,7 +2,7 @@
 // applyChoice never changes its input: it works on a JSON copy.
 
 import { shuffle } from "./rng";
-import type { Config, DeckList, Domino, Enemy, Spark } from "./types";
+import type { Config, DeckList, Domino, Effect, Enemy, Spark } from "./types";
 
 // The enemy's seat id in seatOrder.
 export const ENEMY_SEAT = "enemy";
@@ -44,11 +44,22 @@ export interface PartyState {
   block: number;
 }
 
+// Whose effect it is: damage hits the other side, heal and block go to this one.
+export type Side = "party" | "enemy";
+
+// The effect a domino actually had (a Mimic stores what it copied).
+export interface ResolvedEffect {
+  effect: Effect;
+  side: Side;
+}
+
 export interface ChainState {
   strength: number;
   lap: number;
   sparks: Spark[]; // the current spark: one, or a set of two
   history: Spark[]; // the spark each domino was answered with; reset every round
+  echo: number; // pending extra triggers for the next domino played
+  last: ResolvedEffect | null; // the last domino played this chain, fuse included
 }
 
 export interface BattleState {
@@ -121,7 +132,7 @@ export function createBattle(setup: BattleSetup): BattleState {
     lead,
     seat: lead,
     phase: "fuse",
-    chain: { strength: 0, lap: 1, sparks: [], history: [] },
+    chain: newChain([]),
     party: { health: config.partyMaxHealth, maxHealth: config.partyMaxHealth, block: 0 },
     players,
     enemy: {
@@ -164,7 +175,9 @@ export function applyChoice(input: BattleState, choice: Choice): BattleState {
     removeOne(player.hand, choice.domino);
     player.discard.push(choice.domino);
     const d = getDomino(state, choice.domino);
-    state.chain = { strength: 0, lap: 1, sparks: d.output.slice(), history: [] };
+    state.chain = newChain(d.output);
+    // The fuse's effect never triggers, but a Mimic after it can copy it.
+    if (d.effect.kind !== "mimic") state.chain.last = { effect: d.effect, side: "party" };
     state.lead = player.id;
     advance(state);
   } else if (pending.type === "answer" && choice.type === "answer") {
@@ -185,6 +198,10 @@ export function applyChoice(input: BattleState, choice: Choice): BattleState {
 }
 
 // ---- internals (all mutate the working copy) ----
+
+function newChain(sparks: Spark[]): ChainState {
+  return { strength: 0, lap: 1, sparks: sparks.slice(), history: [], echo: 0, last: null };
+}
 
 function playerSeats(seatOrder: string[]): string[] {
   return seatOrder.filter((s) => s !== ENEMY_SEAT);
@@ -228,7 +245,7 @@ function legalAnswers(state: BattleState, player: PlayerState) {
 // domino fuses. If nobody has one, the round ends at once.
 function startRound(state: BattleState): void {
   state.round += 1;
-  state.chain = { strength: 0, lap: 1, sparks: [], history: [] };
+  state.chain = newChain([]);
   for (const seat of state.seatOrder) {
     if (seat === ENEMY_SEAT) {
       const e = state.enemy;
@@ -340,35 +357,70 @@ function react(state: BattleState): void {
   }
 }
 
-// An answer: strength +1, effect resolves, spark history and current spark update.
+// An answer: strength +1, spark history and current spark update, effect triggers.
 function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean): void {
   const chain = state.chain;
   chain.strength += 1;
   chain.history.push(answered);
   chain.sparks = d.output.slice();
-  let value = (d.effect.base ?? 0) * chain.strength;
-  if (byPlayer || state.config.enemyReactionsScaleWithLap) value *= chain.lap;
-  resolve(state, d, value, byPlayer);
+  const scaleLap = byPlayer || state.config.enemyReactionsScaleWithLap;
+  playEffect(state, d.effect, byPlayer ? "party" : "enemy", scaleLap);
 }
 
-function resolve(state: BattleState, d: Domino, value: number, byPlayer: boolean): void {
+// Resolve a played domino's effect (a Mimic becomes the effect it copies), record it
+// as the chain's last effect, and trigger it once plus any pending Echo triggers.
+function playEffect(state: BattleState, effect: Effect, side: Side, scaleLap: boolean): void {
+  const chain = state.chain;
+  let resolved: ResolvedEffect | null = { effect, side };
+  if (effect.kind === "mimic") {
+    resolved = chain.last === null ? null : { effect: chain.last.effect, side: "party" };
+  }
+  if (resolved === null) return;
+  chain.last = resolved;
+  const triggers = Math.min(1 + chain.echo, state.config.triggerCap);
+  chain.echo = 0;
+  for (let i = 0; i < triggers; i++) {
+    trigger(state, resolved.effect, resolved.side, scaleLap);
+    if (state.phase === "over") return;
+  }
+}
+
+// One trigger of an effect at the chain's current strength and lap.
+function trigger(state: BattleState, effect: Effect, side: Side, scaleLap: boolean): void {
+  const chain = state.chain;
+  if (effect.kind === "amplify") {
+    chain.strength += effect.base ?? 0;
+  } else if (effect.kind === "echo") {
+    chain.echo += 1;
+  } else if (effect.kind === "lookout") {
+    if (side === "party") lookout(state, Math.ceil(chain.strength / 2));
+  } else {
+    let strength = chain.strength;
+    if (effect.spectrum) {
+      strength += chain.history.filter((x, i) => chain.history.indexOf(x) === i).length;
+    }
+    let value = (effect.base ?? 0) * strength;
+    if (scaleLap) value *= chain.lap;
+    resolve(state, effect, value, side);
+  }
+}
+
+function resolve(state: BattleState, effect: Effect, value: number, side: Side): void {
   const { party, enemy } = state;
-  const target = byPlayer ? enemy : party;
-  const own = byPlayer ? party : enemy;
-  if (d.effect.kind === "damage") {
+  const own = side === "party" ? party : enemy;
+  const target = side === "party" ? enemy : party;
+  if (effect.kind === "damage") {
     let dmg = value;
-    if (!d.effect.ignoresBlock) {
+    if (!effect.ignoresBlock) {
       const soaked = Math.min(target.block, dmg);
       target.block -= soaked;
       dmg -= soaked;
     }
     target.health -= dmg;
-  } else if (d.effect.kind === "block") {
+  } else if (effect.kind === "block") {
     own.block += value;
-  } else if (d.effect.kind === "heal") {
+  } else if (effect.kind === "heal") {
     own.health = Math.min(own.maxHealth, own.health + value);
-  } else if (d.effect.kind === "lookout" && byPlayer) {
-    lookout(state, Math.ceil(state.chain.strength / 2));
   }
   if (enemy.health <= 0) endBattle(state, "won");
   else if (party.health <= 0) endBattle(state, "lost");
@@ -391,7 +443,7 @@ function endRound(state: BattleState): void {
     const d = getDomino(state, id);
     let value = d.effect.base ?? 0;
     if (state.config.enemyReactionsScaleWithLap) value *= state.chain.lap;
-    resolve(state, d, value, false);
+    resolve(state, d.effect, value, "enemy");
     if (state.phase === "over") return;
   }
   state.party.block = 0;
