@@ -48,6 +48,9 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - The party wins when enemy health reaches 0 and loses when party health reaches 0. Both are checked straight away, even mid-chain.
 - There's no round limit. An anti-stall rule may be added after playtesting.
 
+### Augments
+- **Amplify +N:** adds N strength for the rest of the chain, on top of its normal +1 as an answer. N is flat and doesn't scale. Amplify has no other effect. Enemy reactions benefit from the higher strength, but enemies don't carry Amplify dominoes.
+
 ### Hidden information
 - The engine produces each player's own view of the game: all player hands visible, the enemy's hand hidden apart from revealed dominoes.
 - Safe sparks are not tracked or shown.
