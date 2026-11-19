@@ -1,5 +1,9 @@
 import Phaser from "phaser";
+import { DominoTestScene } from "./DominoTestScene";
 import { TitleScene } from "./TitleScene";
+
+// ?scene=dominoes opens the domino drawing test page instead of the title.
+const showDominoes = new URLSearchParams(window.location.search).get("scene") === "dominoes";
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -11,5 +15,5 @@ new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [TitleScene],
+  scene: showDominoes ? [DominoTestScene, TitleScene] : [TitleScene, DominoTestScene],
 });
