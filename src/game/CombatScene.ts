@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { ENEMY_SEAT, getPendingChoice, previewPlay, step } from "../engine/battle";
+import { ENEMY_SEAT, answerHighlights, getPendingChoice, previewPlay, step } from "../engine/battle";
 import type { BattleState, Choice, PendingChoice } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView } from "../engine/view";
@@ -13,6 +13,7 @@ import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
 import { applyRunChoice } from "../engine/run";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
+import { SPARK_STYLE } from "./sparks";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import type { DominoState } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
@@ -96,6 +97,7 @@ export class CombatScene extends Phaser.Scene {
   private seed = 0;
   private tooltip!: Tooltip;
   private tipPlayer = ""; // whose playable dominoes get an "if played now" preview
+  private seatBoxes = new Map<string, Phaser.GameObjects.Container>(); // "seat:hand position" -> that domino, for the hover highlight
   private anim!: Animator;
   private shown: ShownTable | null = null; // the table part-way through a step; null when idle
   private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
@@ -319,6 +321,7 @@ export class CombatScene extends Phaser.Scene {
     const view = this.shown?.view ?? now;
     this.anim.refs = newRefs();
     this.anim.refs.layer = layer;
+    this.seatBoxes.clear();
     let pending = this.locked || this.waiting ? null : getPendingChoice(now);
     // Online, only the player whose turn it is gets anything to click.
     if (this.online && pending !== null && pending.player !== this.mySeat()) pending = null;
@@ -479,6 +482,7 @@ export class CombatScene extends Phaser.Scene {
           : this.domino(layer, null, 0.5, "hidden", x, 70);
       if (!slot.revealed && debug) this.label(layer, x, 112, "DEBUG", 14, "#ff6b64", 0.5, true);
       this.anim.refs.enemyHand.push({ c, pos: { x, y: 70, k: 0.5 } });
+      if (slot.revealed) this.seatBoxes.set(`${ENEMY_SEAT}:${i}`, c);
     });
     if (debug) this.label(layer, rowX - 20, 100, "(debug view)", 16, "#ff6b64", 1, true);
     // Its whole deck, and what it has played since the last reshuffle.
@@ -766,10 +770,44 @@ export class CombatScene extends Phaser.Scene {
         const click = state === "playable" ? () => this.onHandClick(id) : undefined;
         const hx = x0 + i * step;
         const hy = HAND.y + 100 + r * (DH * k + 12);
-        this.domino(layer, id, k, state, hx, hy, click);
+        const c = this.domino(layer, id, k, state, hx, hy, click);
+        if (state === "playable") this.hoverHighlight(layer, c, p.id, id);
         if (!this.anim.refs.hand.has(id)) this.anim.refs.hand.set(id, { x: hx, y: hy, k });
       });
     }
+  }
+
+  // While the pointer is on a playable domino, outline the next seat's dominoes that could answer it
+  // (the engine says which; the pass-through ones past the enemy are fainter).
+  private hoverHighlight(layer: Layer, target: Phaser.GameObjects.Container, player: string, domino: string): void {
+    let glow: Phaser.GameObjects.Graphics | undefined;
+    const clear = () => {
+      if (glow?.scene) glow.destroy();
+      glow = undefined;
+    };
+    target.on("pointerover", () => {
+      clear();
+      const d = this.view.dominoes.find((q) => q.id === domino);
+      if (!d) return;
+      const color = SPARK_STYLE[d.output[0]].color;
+      glow = this.gfx(layer);
+      glow.setDepth(500);
+      for (const h of answerHighlights(this.view, player, domino)) {
+        for (const pos of h.positions) {
+          const c = this.seatBoxes.get(`${h.seat}:${pos}`);
+          if (!c) continue;
+          const w = c.width * c.scaleX + 10;
+          const ht = c.height * c.scaleY + 10;
+          const alpha = h.faint ? 0.35 : 1;
+          glow.lineStyle(10, color, alpha * 0.35);
+          glow.strokeRoundedRect(c.x - w / 2 - 4, c.y - ht / 2 - 4, w + 8, ht + 8, 14);
+          glow.lineStyle(4, color, alpha);
+          glow.strokeRoundedRect(c.x - w / 2, c.y - ht / 2, w, ht, 10);
+        }
+      }
+    });
+    target.on("pointerout", clear);
+    target.on("destroy", clear);
   }
 
   // ---- input ----
@@ -954,7 +992,8 @@ export class CombatScene extends Phaser.Scene {
       const row = Math.floor(i / per);
       const inRow = Math.min(per, p.hand.length - row * per);
       const x0 = x + (SIDE_W - inRow * stepX) / 2 + stepX / 2;
-      this.domino(layer, did, k, "normal", x0 + (i % per) * stepX, top + (DH * k) / 2 + row * (DH * k + 6));
+      const c = this.domino(layer, did, k, "normal", x0 + (i % per) * stepX, top + (DH * k) / 2 + row * (DH * k + 6));
+      this.seatBoxes.set(`${id}:${i}`, c);
     });
     if (p.hand.length === 0) this.label(layer, x + SIDE_W / 2, top + 20, "No dominoes", 20, "#7fb59b", 0.5);
   }

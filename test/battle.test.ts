@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { applyChoice, createBattle, getPendingChoice, previewPlay, step } from "../src/engine/battle";
+import { answerHighlights, applyChoice, createBattle, getPendingChoice, previewPlay, step } from "../src/engine/battle";
 import type { BattleState } from "../src/engine/battle";
 import { getView } from "../src/engine/view";
 import type { Domino } from "../src/engine/types";
@@ -282,6 +282,31 @@ test("the Warden's locked spark can't be answered by a domino with that intake o
   expect(r.state.round).toBe(2);
   expect(r.events.filter((e) => e.type === "sparkLocked")).toHaveLength(1);
   expect(getView(r.state, "p1").locked).toBe(r.state.locked);
+});
+
+test("hover highlights: teammates' matches, only revealed enemy matches, the lock, and the faint pass-through", () => {
+  // p1 opens with fork (Ember and Tide out); p2 holds jab (Ember), splash (Tide), kindle (Gale).
+  const s = setup(["fork"], ["jab", "splash", "kindle"]);
+  expect(answerHighlights(getView(s, "p1"), "p1", "fork")).toEqual([{ seat: "p2", positions: [0, 1], faint: false }]);
+  // Not p2's turn: no highlight.
+  expect(answerHighlights(getView(s, "p2"), "p2", "jab")).toEqual([]);
+  // The Warden's lock: Ember is locked, so jab no longer counts.
+  const locked: BattleState = { ...s, locked: "Ember" };
+  expect(answerHighlights(getView(locked, "p1"), "p1", "fork")).toEqual([{ seat: "p2", positions: [1], faint: false }]);
+
+  // p2 opens with jab (Tide out); the enemy is next, holding a hidden Tide domino and a revealed Gale one.
+  const e = setup(["splash", "kindle"], ["jab"], ["ogre_gulp_a", "ogre_stomp_a"]);
+  e.lead = "p2";
+  e.seat = "p2";
+  e.enemy.revealed = [false, true];
+  // No revealed reaction (the hidden one never counts): faint highlight on p1's Tide answer instead.
+  expect(answerHighlights(getView(e, "p2"), "p2", "jab")).toEqual([
+    { seat: "enemy", positions: [], faint: false },
+    { seat: "p1", positions: [0], faint: true },
+  ]);
+  // Once the Tide domino is revealed it is highlighted, and the player after the enemy is not.
+  e.enemy.revealed = [true, true];
+  expect(answerHighlights(getView(e, "p2"), "p2", "jab")).toEqual([{ seat: "enemy", positions: [0], faint: false }]);
 });
 
 test("Spark Starter triggers the opener at strength 1, and First Echo fires once per round only", () => {

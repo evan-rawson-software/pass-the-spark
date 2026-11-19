@@ -318,6 +318,41 @@ export function previewPlay(input: BattleState | BattleView, playerId: string, d
   });
 }
 
+// Hover help: the dominoes in the next seat that could answer a domino the player can play now.
+// positions index into that seat's hand (a player's hand, or the enemy's hand slots; only revealed
+// enemy slots are ever listed). If the next seat is the enemy and none of its revealed dominoes
+// could react, the player after the enemy is listed too, with faint set. Works from a view.
+export interface AnswerHighlight {
+  seat: string;
+  positions: number[];
+  faint: boolean;
+}
+
+export function answerHighlights(view: BattleView, playerId: string, dominoId: string): AnswerHighlight[] {
+  const pending = getPendingChoice(view);
+  if (!pending || pending.player !== playerId) return [];
+  const playable = pending.type === "opener" ? pending.dominoes.includes(dominoId) : pending.options.some((o) => o.domino === dominoId);
+  if (!playable) return [];
+  const output = getDomino(view, dominoId).output;
+  const next = (seat: string) => view.seatOrder[(view.seatOrder.indexOf(seat) + 1) % view.seatOrder.length];
+  // Hand positions the engine's own answer rules accept for this output (the Warden's lock included).
+  const playerMatches = (seat: string, faint: boolean): AnswerHighlight => {
+    const player = getPlayer(view, seat);
+    const legal = new Set(legalAnswers({ ...view, chain: { ...view.chain, sparks: output } }, player).map((o) => o.domino));
+    const positions = player.hand.map((id, i) => (legal.has(id) ? i : -1)).filter((i) => i >= 0);
+    return { seat, positions, faint };
+  };
+  const seat = next(playerId);
+  if (seat !== ENEMY_SEAT) return [playerMatches(seat, false)];
+  const positions: number[] = [];
+  view.enemy.hand.forEach((slot, i) => {
+    if (slot.revealed && answeredSparks(getDomino(view, slot.domino), output).length > 0) positions.push(i);
+  });
+  const result: AnswerHighlight[] = [{ seat, positions, faint: false }];
+  if (positions.length === 0) result.push(playerMatches(next(seat), true));
+  return result;
+}
+
 // A PlayPreview from the events of a play run on a copy (spark null for the opener).
 function summarize(state: BattleState, events: GameEvent[], spark: Spark | null, owner: string): PlayPreview {
   let strength = 0;
