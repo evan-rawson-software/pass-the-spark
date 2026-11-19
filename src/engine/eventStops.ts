@@ -6,6 +6,7 @@ import type { PersonalAction, PersonalResult } from "./events/personal";
 import { openTollBridge } from "./events/tollBridge";
 import { openGiant } from "./events/giant";
 import type { GiantState } from "./events/giant";
+import type { WellState } from "./events/wishingWell";
 import { generateDomino } from "./generate";
 import { nextFloat } from "./rng";
 import { openSparkShrine } from "./events/sparkShrine";
@@ -31,6 +32,7 @@ export interface EventState {
   options: EventOption[]; // what a party vote chooses between
   choices: Record<string, number>; // player id -> chosen option index; visible to everyone
   results?: Record<string, PersonalResult>; // personal events: what each player who has chosen did
+  wells?: Record<string, WellState>; // the Wishing Well: each player who has turned a domino over; open to everyone
   giant?: GiantState; // the Sleeping Giant's turn, chance and coins; open to everyone
 }
 

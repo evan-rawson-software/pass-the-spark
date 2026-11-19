@@ -23,9 +23,10 @@
       "name": "The Wishing Well",
       "kind": "personal",
       "weight": 4,
-      "enabled": false,
+      "enabled": true,
       "text": "An old well hums faintly in the middle of a clearing. Drop something in, and it hums back.",
-      "numbers": { "emberCoins": 30, "galeFallbackCoins": 30 }
+      "prizes": { "Ember": "coins", "Tide": "remove", "Gale": "upgrade", "Storm": "rare", "Void": "rare" },
+      "numbers": { "coinPrize": 30, "upgradeFallbackCoins": 30 }
     },
     {
       "id": "sleeping_giant",
