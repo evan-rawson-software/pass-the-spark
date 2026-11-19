@@ -8,11 +8,13 @@ import type { Config, DeckList } from "../engine/types";
 import { getEventsView } from "../engine/events";
 import type { GameEvent } from "../engine/events";
 import { getView } from "../engine/view";
+import { REFUSED_BUILD, REFUSED_KICKED } from "./protocol";
 import type { ClientMessage, HostMessage } from "./protocol";
 import { hostPeerId } from "./room";
 import type { Connection, Transport } from "./transport";
 
 export const MAX_SEATS = 4;
+export const MIN_SEATS = 3;
 export const MAX_NAME_LENGTH = 24;
 
 export interface HostOptions {
@@ -38,7 +40,13 @@ interface Member {
 
 export interface Host {
   // Start the battle with whoever has joined. The seed comes from the caller.
-  start(seed: number): void;
+  // Needs MIN_SEATS players unless allowFewer is set (debug panel).
+  start(seed: number, allowFewer?: boolean): void;
+  // Lobby actions. They are methods on the host, not messages, so a client cannot trigger them.
+  // They do nothing once the battle has started.
+  moveSeat(seat: string, direction: -1 | 1): void;
+  kick(seat: string): void;
+  setEnemy(enemyId: string): void;
   // The host's own player submits a choice, checked like everyone else's.
   submitLocal(choice: Choice): void;
   close(): void;
@@ -52,6 +60,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
     { seat: "p1", name: options.hostName, token: null, connection: null, connected: true },
   ];
   let state: BattleState | null = null;
+  let enemyId = options.enemyId;
 
   function deliver(m: Member, message: HostMessage): void {
     if (m.connection === null) options.onLocalMessage(message);
@@ -83,9 +92,19 @@ export async function createHost(options: HostOptions): Promise<Host> {
       type: "lobby",
       players: members.map((m) => ({ seat: m.seat, name: m.name })),
       seats: members.map((m) => m.seat),
-      enemyId: options.enemyId,
+      enemyId,
     };
     for (const m of members) deliver(m, message);
+  }
+
+  // Seats are list order: p1, p2, ... Tell anyone whose seat changed.
+  function renumber(): void {
+    members.forEach((x, i) => {
+      const seat = "p" + (i + 1);
+      if (x.seat === seat) return;
+      x.seat = seat;
+      deliver(x, { type: "welcome", seat, token: x.token ?? "" });
+    });
   }
 
   // Every choice, local or remote, goes through here. The seat comes from the connection
@@ -115,7 +134,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
     if (msg.type === "hello") {
       if (known) return reply({ type: "error", message: "already joined" });
       if (msg.buildId !== buildId) {
-        return reply({ type: "refused", reason: "Different version of the game. Refresh the page." });
+        return reply({ type: "refused", reason: REFUSED_BUILD });
       }
       if (typeof msg.name !== "string" || typeof msg.token !== "string" || msg.token === "") {
         return reply({ type: "error", message: "bad hello" });
@@ -155,37 +174,56 @@ export async function createHost(options: HostOptions): Promise<Host> {
       if (!m) return;
       m.connected = false;
       if (state === null) {
-        // Not started: free the seat. Seats are join order, so renumber.
+        // Not started: free the seat.
         members.splice(members.indexOf(m), 1);
-        members.forEach((x, i) => {
-          const seat = "p" + (i + 1);
-          if (x.seat === seat) return;
-          x.seat = seat;
-          // Tell that player their new seat.
-          if (x.connection && x.token !== null) deliver(x, { type: "welcome", seat, token: x.token });
-        });
+        renumber();
         sendLobby();
       } else sendPauseIfNeeded();
     });
   });
 
   return {
-    start(seed) {
+    start(seed, allowFewer = false) {
       if (state !== null) throw new Error("already started");
+      if (members.length < MIN_SEATS && !allowFewer) throw new Error("need " + MIN_SEATS + " players");
       const seats = members.map((m) => m.seat);
       const result = createBattleWithEvents({
         config: options.config,
         content: options.content,
         players: seats.map((id) => ({ id, deck: options.starterDeck })),
         seatOrder: [...seats, "enemy"],
-        enemyId: options.enemyId,
+        enemyId,
         seed,
       });
       state = result.state;
       sendToAll(result.events);
     },
+    moveSeat(seat, direction) {
+      if (state !== null) return;
+      const i = members.findIndex((x) => x.seat === seat);
+      const j = i + direction;
+      if (i < 0 || j < 0 || j >= members.length) return;
+      [members[i], members[j]] = [members[j], members[i]];
+      renumber();
+      sendLobby();
+    },
+    kick(seat) {
+      if (state !== null) return;
+      const m = members.find((x) => x.seat === seat);
+      if (!m || m.connection === null) return; // the host cannot kick itself
+      members.splice(members.indexOf(m), 1);
+      m.connection.send({ type: "refused", reason: REFUSED_KICKED } satisfies HostMessage);
+      m.connection.close();
+      renumber();
+      sendLobby();
+    },
+    setEnemy(id) {
+      if (state !== null || !options.content.enemies.some((e) => e.id === id)) return;
+      enemyId = id;
+      sendLobby();
+    },
     submitLocal(choice) {
-      handleChoice(members[0], choice);
+      handleChoice(members.find((x) => x.connection === null)!, choice);
     },
     close() {
       transport.close();

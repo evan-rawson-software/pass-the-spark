@@ -31,7 +31,7 @@ export class EndScene extends Phaser.Scene {
     this.button(760, 700, "Play again", () =>
       this.scene.start("combat", { settings: data.settings, seed: Date.now() }),
     );
-    this.button(1160, 700, "Back to start", () => this.scene.start("start"));
+    this.button(1160, 700, "Back to start", () => this.scene.start("menu"));
   }
 
   private line(y: number, s: string, size: number, color = "#ffffff"): void {
