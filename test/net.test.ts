@@ -110,6 +110,7 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
   const run = firstRoom!.run!;
   run.position!.floor = 3;
   run.battle!.party.health = 1;
+  run.battle!.enemy.health = 1000; // the 5-domino first draw lets the scripted play win the fight otherwise
   run.health = 1;
   hostMessages = [];
   unlocks[0] = ["spectrum"];
