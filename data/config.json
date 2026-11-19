@@ -9,10 +9,5 @@
     "rule": "strength"
   },
   "gluttonHeal": 5,
-  "enemyHealthPercentByPartySize": [
-    100,
-    100,
-    70,
-    115
-  ]
+  "enemyHealthPercentByPartySize": [100, 100, 100, 165]
 }

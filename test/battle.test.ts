@@ -229,8 +229,8 @@ test("the Auditor fires when a player repeats a spark, across an enemy pass, not
   // An enemy reaction answering the same spark as the previous entry does not fire it.
   let t = setup(["kindle"], ["hold_ember"], ["elite_slash"]);
   t.enemy.passives = [{ kind: "auditor", name: "x" }];
-  t = answer(opener(t, "kindle"), "hold_ember"); // history [Ember, Ember]; Slash hits for 3 x 2
-  expect(t.party.health).toBe(84);
+  t = answer(opener(t, "kindle"), "hold_ember"); // history [Ember, Ember]; Slash hits for 4 x 2
+  expect(t.party.health).toBe(82);
 });
 
 test("the Glutton heals once per lap increment, capped at max health", () => {
@@ -377,12 +377,12 @@ test("the Smolder leftovers go off at the chain final strength, never below 1", 
   let s = setup(["kindle", "splash"], ["jab"], ["elite_slash"]);
   s.enemy.passives = [{ kind: "smolder", name: "x" }];
   s = answer(answer(opener(s, "kindle"), "jab"), "splash"); // final strength 2; p2 cannot answer; slash is left over
-  expect(s.party.health).toBe(90 - 3 * 2);
+  expect(s.party.health).toBe(90 - 4 * 2);
 
   let t = setup(["kindle"], ["parry"], ["elite_slash"]); // no answers: strength 0 counts as 1
   t.enemy.passives = [{ kind: "smolder", name: "x" }];
   t = opener(t, "kindle");
-  expect(t.party.health).toBe(90 - 3);
+  expect(t.party.health).toBe(90 - 4);
 });
 
 test("charms: lenses, Bulwark, Keystone and Overcharge change values and strength; previews match", () => {
