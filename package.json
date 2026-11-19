@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.engine.json",
-    "sim": "tsx scripts/sim.ts"
+    "sim": "tsx scripts/sim.ts",
+    "sim:run": "tsx scripts/simRun.ts"
   },
   "devDependencies": {
     "tsx": "^4.23.15",
