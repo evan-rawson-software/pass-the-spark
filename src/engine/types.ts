@@ -88,10 +88,13 @@ export interface RarityPool {
   intakes: (Spark[] | "any")[]; // each entry is one intake; lists hold exactly one spark
   effects: PoolEffect[];
   traits: { spectrum: number; ignoresBlock: number }; // chance 0..1 per trait
+  // Chance 0..1 that each output spark is swapped for a random advanced spark. Uncommon only; 0 elsewhere.
+  advancedOutputShare: number;
 }
 
 export interface Pools {
   offerSize: number;
+  sparkGroups: { basic: Spark[]; advanced: Spark[] }; // Rot is in neither and is never generated
   // Weights per battle type; an offered domino's rarity is drawn from these.
   rarityOdds: Record<BattleType, Record<Rarity, number>>;
   rarities: Record<Rarity, RarityPool>;
@@ -146,4 +149,18 @@ export interface TraderData {
   removalFeeStart: number; // a player's first removal costs this
   removalFeeStep: number; // each removal raises that player's fee by this, for the rest of the run
   minDeckSize: number; // a player can't remove a domino from a deck this small
+}
+
+// data/events.json: the question-mark stops.
+export type EventKind = "vote" | "personal" | "push";
+
+export interface EventData {
+  id: string;
+  name: string;
+  kind: EventKind;
+  weight: number; // chance weight when the next event is picked
+  enabled: boolean; // false: the event is in data but not playable yet, so the pool skips it
+  text: string; // placeholder story text, 1-2 sentences
+  prizes?: Record<string, string>; // events with prizes keyed by spark (the Wishing Well): spark -> prize kind
+  numbers: Record<string, number>; // this event's own numbers (coin amounts, chances, damage)
 }

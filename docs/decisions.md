@@ -174,7 +174,7 @@ Follow-ups:
 - **Enemy deck sizes:** normal 6, elite 8, boss 10, so bosses no longer play almost their whole deck each round. The extra dominoes may repeat existing ones. Content only.
 - **Lead in a round with no chain** (no player holds a domino): the scheduled lead stays the lead for that round, and rotation moves on as normal. `roundStart.lead` reporting the scheduled lead is correct.
 - **Balance:** a separate milestone later. Random-play win rates against bosses are not a target until then.
-- **Online edge cases:** a client reconnecting to a host on a different build gets the "refresh the page" message; a corrupt saved room is dropped with a notice and that browser joins as a player; a page restored from the back/forward cache reloads.
+- **Online edge cases:** a client reconnecting to a host on a different build gets the "refresh the page" message; a corrupt saved room is dropped with a notice and that browser joins as a player; a page restored from the back/forward cache reloads. A host that reloads on a new build still ignores its old save and does not reopen the room, so its players see "Host disconnected" after 2 minutes; the "refresh" message only comes from a live host on a different build (#83).
 - **Hand testing:** done by people at playtests, using `docs/playtest-checklist.md`.
 - **Hosted relay:** parked until a playtester can't connect. The likely fix is a TURN server, which is a cost and credentials decision for the designer.
 - **Online behaviour in issues:** every issue with a player choice states what happens online and in single player.
@@ -239,3 +239,55 @@ Follow-ups:
 ## 2026-11-19: Milestone order
 
 After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playtest fixes; 8 progression and polish (experience bar, unlocks, chain spectacle, audio, art); 9 Godot port with Steam. Balance comes before polish so playtests can answer "is building a chain together fun?" early.
+
+## 2026-11-19: Milestone 6 (charms, acts 2 and 3)
+
+### Content rule
+- **No combat effect ever takes coins away** (no enemy, boss or passive steals or taxes gold).
+
+### Charms
+- **What:** a personal passive that lasts the whole run. Hand-authored in data (`data/charms.json`), not generated. A charm is set off by its owner's actions, but its effect may help the party (for example party block).
+- **Pools:** a normal pool (elite offers and the Trader) and a rare pool (boss offers only).
+- **Getting them:**
+  - After an elite fight, each player is offered 1 random normal charm: take it or skip.
+  - After a boss fight, each player picks 1 of 3 rare charms, or skips. Only the act 1 and act 2 bosses offer charms; beating act 3's boss ends the run.
+  - The Trader stocks 3 normal charms per player, priced in data.
+  - These come on top of the usual domino offer.
+- **Limits:** no cap on how many a player holds. A player never holds two of the same charm (offers and stock skip charms they own); two players can hold the same one. No selling, gifting or upgrading.
+- **Display:** a row of charm icons by each player's name (party display and deck viewer), each with its own hover tooltip. Everyone sees everyone's charms.
+- **Normal charms** (all numbers in data, to tune later):
+  1. Ember Lens: your effects set off by Ember are worth +2.
+  2. Tide Lens: the same for Tide.
+  3. Gale Lens: the same for Gale.
+  4. Deep Pockets: your hand limit is +2.
+  5. Early Riser: you draw 1 extra domino at the start of each round.
+  6. Spark Starter: when you play the opener, its effect triggers at strength 1.
+  7. Spyglass: your Lookouts reveal 1 extra domino.
+  8. Bulwark: your block effects are worth +2.
+  9. Resonance: your Echoes add 1 extra trigger.
+  10. Lap Runner: when your answer completes a lap, the party gains 3 block.
+  11. Coin Purse: you get +5 coins after every battle.
+  12. Haggler: your Trader prices are 20% lower.
+- **Rare charms:**
+  1. Prism: your Spectrum effects count 1 extra distinct spark.
+  2. Overcharge: your effects count the lap as 1 higher.
+  3. First Echo: the first domino you play each round triggers twice.
+  4. Keystone: your answers add 2 strength instead of 1.
+  5. Hall of Mirrors: your Mimics copy at +2 strength.
+  6. Lightning Rod: your dominoes set off by Storm or Void trigger twice.
+
+### Acts
+- **Structure:** 3 acts, each 10 floors plus a boss, with the same map rules to start. Each act has its own map rules, enemy pools, reward and Trader rarity odds and coin payouts in data. Later acts have better odds and pay more; numbers are tuned in the balance milestone.
+- **Between acts:** the party heals at the start of each new act by a percentage of missing health (data, starting at 100%). Coins, decks, charms, seat rotation, lead order and the events-seen list carry over. The Spark Shrine blessing still ends with each act's boss.
+- **Enemies:** acts 2 and 3 each get 3 new normal enemies and 2 new elites. They are placeholder content, tougher than act 1's, using only existing effects. Decks: normal 6, elite 8, boss 10.
+- **Bosses:** one of two per act, picked at random and shown from the start of the act.
+  - Act 1: the Auditor or the Glutton.
+  - Act 2: the Hoarder or the Smolder.
+  - Act 3: the Long Night or the Warden of Locks.
+- **The Hoarder:** gains block equal to the current strength whenever the lap goes up.
+- **The Smolder:** its leftovers at round end go off at the chain's final strength instead of strength 1.
+- **The Long Night:** its reactions and leftovers scale with lap, as if `enemyReactionsScaleWithLap` were on for this boss.
+- **The Warden of Locks:** each round one basic spark is locked, picked at random (seeded) and shown at round start.
+  - Player dominoes can't be set off by the locked spark; an "any" intake can't answer it either.
+  - The enemy can still react to it, and dominoes can still give it off. If it's the only spark passed to a player, they can't answer and the chain ends. With a two-spark output, they can answer the other spark.
+- **Screens:** the map shows "Act N of 3"; a short act-transition screen shows the heal and the next boss with its passive; the run-end screen shows how far the party got.

@@ -4,6 +4,8 @@ import type { RunState } from "../engine/run";
 import { openDeckViewer, runDeckPlayers } from "./deckViewer";
 import { actingSeat, isOnlineRun, myPending, onlineRun, seatName } from "./runSession";
 import { relay } from "./relay";
+import { drawBlessedGlow } from "./sparkShrineArt";
+import { drawSparkGlyph } from "./dominoDrawing";
 import { FONT, button, label } from "./ui";
 
 // Shared HUD for the run screens (#50): the party's health, top right, and a header that says
@@ -26,8 +28,15 @@ export function drawPartyHud(scene: Phaser.Scene, run: RunState): void {
   scene.add
     .text(x + 95, 85, `${run.health} / ${run.maxHealth}`, { fontFamily: FONT, fontSize: "20px", color: "#ffffff", fontStyle: "bold" })
     .setOrigin(0.5);
+  // The Spark Shrine's blessing, until the act's boss fight is over.
+  if (run.blessing) {
+    const bg = scene.add.graphics();
+    drawBlessedGlow(bg, run.blessing, x + 20, 132, 14);
+    drawSparkGlyph(bg, run.blessing, x + 20, 132, 14);
+    label(scene, x + 52, 120, `Blessed ${run.blessing}`, 22, { bold: true, color: "#ffe14d" });
+  }
   const acting = actingSeat(run);
-  if (acting !== null && acting !== onlineRun()?.seat) label(scene, x, 135, `Playing for ${seatName(acting)}`, 24, { bold: true, color: "#ffe14d" });
+  if (acting !== null && acting !== onlineRun()?.seat) label(scene, x, 175, `Playing for ${seatName(acting)}`, 24, { bold: true, color: "#ffe14d" });
   drawPause(scene);
 }
 

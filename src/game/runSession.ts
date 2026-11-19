@@ -43,7 +43,7 @@ export function startSingleRun(names: string[], seed: number): RunState {
 function standIn(view: RunView): RunState {
   const { window: at, ...rest } = view;
   void at;
-  return { ...rest, content, rng: 0, battle: null };
+  return { ...rest, content, rng: 0, battle: null, eventsSeen: [] };
 }
 
 // Online: a run has started (or the page reopened in the middle of one) and this is its first view.
@@ -111,6 +111,7 @@ export function sceneFor(run: RunState): string {
     case "reward": return "reward";
     case "rest": return "rest";
     case "trader": return "trader";
+    case "event": return "event";
     case "over": return "runEnd";
   }
 }

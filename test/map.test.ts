@@ -40,7 +40,6 @@ test("200 seeds: every generated map follows the map rules on every path", () =>
           expect(n).toBeGreaterThanOrEqual(rules.restMinFloor);
           expect(rules.restBannedFloors).not.toContain(n);
         }
-        expect(node.type).not.toBe("event");
         if (node.type === "trader") traders++;
       }
     });

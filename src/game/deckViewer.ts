@@ -102,18 +102,33 @@ const LEFT = PANEL.x + 40;
 const PER_ROW = Math.floor((PANEL.w - 80 + GAP) / (DW + GAP));
 const ZONE_LABEL: Record<DeckZone, string> = { draw: "draw pile", hand: "hand", discard: "discard" };
 
+// Picking mode (for events that ask a player to pick dominoes from their own deck): pass one player,
+// and the viewer lets them pick `count` dominoes (one, or two in the order they click) and confirm.
+// Which dominoes can be picked and the before-and-after preview come from the caller, who gets them
+// from the engine; the viewer only shows them.
+export interface DeckPick {
+  count: 1 | 2;
+  prompt: string;
+  canPick?: (domino: Domino) => boolean; // default: any
+  whyNot?: (domino: Domino) => string | null; // instead of canPick: null when it can be picked, else the reason, shown on hover
+  preview?: (picked: string[]) => { before: Domino | Domino[]; after: Domino } | null; // asked once `count` are picked
+  onConfirm: (picked: string[]) => void; // instance ids, in pick order
+}
+
 // Whether a viewer is open, so an online screen can hold its redraws until it is closed.
 export const deckViewerState = { open: false, onClose: null as (() => void) | null };
 
-export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], startId?: string, onClose?: () => void): void {
+export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], startId?: string, onClose?: () => void, pick?: DeckPick): void {
   if (players.length === 0) return;
   deckViewerState.open = true;
   const root = scene.add.container(0, 0).setDepth(900);
   const tooltip = new Tooltip(scene);
   let current = Math.max(0, players.findIndex((p) => p.id === startId));
   let scroll = 0; // pixels
+  let picked: string[] = []; // picking mode: instance ids in pick order
   let body: Phaser.GameObjects.Container | undefined;
   let chrome: Phaser.GameObjects.Container | undefined;
+  let reason: Phaser.GameObjects.Text | undefined; // picking mode: why the hovered domino can't be picked
 
   // Full-screen dim; it swallows clicks so nothing underneath reacts.
   const dim = scene.add.rectangle(960, 540, 1920, 1080, 0x000000, 0.7).setInteractive();
@@ -145,6 +160,24 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
   scene.input.on("wheel", onWheel);
   scene.input.keyboard?.on("keydown-ESC", close);
 
+  function confirm(): void {
+    if (!pick || picked.length !== pick.count) return;
+    const ids = picked;
+    close();
+    pick.onConfirm(ids);
+  }
+
+  function togglePick(card: DeckCard): void {
+    if (!pick) return;
+    const id = card.domino.id;
+    if (picked.includes(id)) picked = picked.filter((p) => p !== id);
+    else if (picked.length < pick.count) picked = [...picked, id];
+    else if (pick.count === 1) picked = [id];
+    else return;
+    drawChrome();
+    drawBody();
+  }
+
   function drawChrome(): void {
     chrome?.destroy(true);
     const c = scene.add.container(0, 0);
@@ -175,6 +208,25 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
     if (cards.some((k) => k.zone)) {
       const n = (z: DeckZone) => cards.filter((k) => k.zone === z).length;
       summary += `   |   draw pile ${n("draw")}   hand ${n("hand")}   discard ${n("discard")}`;
+    }
+    if (pick) {
+      c.add(scene.add.text(LEFT, PANEL.y + 185, pick.prompt, { fontFamily: FONT, fontSize: "28px", color: "#ffe14d", fontStyle: "bold" }).setOrigin(0, 0.5));
+      c.add(button(scene, PANEL.x + PANEL.w - 40, PANEL.y + 120, "Confirm", confirm, { size: 30, origin: 1, disabled: picked.length !== pick.count }));
+      reason = scene.add.text(LEFT + 300, PANEL.y + 120, "", { fontFamily: FONT, fontSize: "28px", color: "#ffb4a2", fontStyle: "bold" }).setOrigin(0, 0.5);
+      c.add(reason);
+      const shown = picked.length === pick.count ? pick.preview?.(picked) : null;
+      if (shown) {
+        const befores = Array.isArray(shown.before) ? shown.before : [shown.before];
+        befores.forEach((d, i) => {
+          const before = drawDomino(scene, d, "large", "normal").setScale(0.45).setPosition(PANEL.x + PANEL.w - 560 - (befores.length - 1 - i) * 130, PANEL.y + 190);
+          tooltip.attach(before, d);
+          c.add(before);
+        });
+        const after = drawDomino(scene, shown.after, "large", "normal").setScale(0.45).setPosition(PANEL.x + PANEL.w - 220, PANEL.y + 190);
+        tooltip.attach(after, shown.after);
+        c.add([after, scene.add.text(PANEL.x + PANEL.w - 390, PANEL.y + 190, ">", { fontFamily: FONT, fontSize: "36px", color: "#ffe14d", fontStyle: "bold" }).setOrigin(0.5)]);
+      }
+      return;
     }
     c.add(scene.add.text(LEFT, PANEL.y + 185, summary, { fontFamily: FONT, fontSize: "28px", color: "#cfe9dc" }).setOrigin(0, 0.5));
   }
@@ -212,11 +264,31 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
         const top = y + Math.floor(i / PER_ROW) * ROW_H;
         if (top < VIEW_TOP || top + ROW_H - 10 > VIEW_BOTTOM) return;
         const cx = LEFT + DW / 2 + (i % PER_ROW) * (DW + GAP);
-        const d = drawDomino(scene, card.domino, "large", "normal");
+        const why = pick?.whyNot?.(card.domino) ?? null;
+        const pickable = !pick || (pick.whyNot ? why === null : (pick.canPick?.(card.domino) ?? true));
+        const d = drawDomino(scene, card.domino, "large", pickable ? "normal" : "notPlayable");
         addUpgradeMarks(scene, d, card.domino);
         d.setScale(K).setPosition(cx, top + DH / 2);
         b.add(d);
         tooltip.attach(d, card.domino);
+        if (pick && pickable) {
+          d.on("pointerdown", () => togglePick(card));
+          d.input!.cursor = "pointer";
+        } else if (pick && why !== null) {
+          d.on("pointerover", () => reason?.setText(why));
+          d.on("pointerout", () => reason?.setText(""));
+        }
+        const order = picked.indexOf(card.domino.id);
+        if (order >= 0) {
+          const g = scene.add.graphics();
+          g.lineStyle(6, 0xffe14d, 1);
+          g.strokeRoundedRect(cx - DW / 2 - 4, top - 4, DW + 8, DH + 8, 10);
+          b.add(g);
+          if (pick?.count === 2) {
+            b.add(scene.add.circle(cx - DW / 2 + 4, top + 4, 17, 0xffe14d).setStrokeStyle(3, 0x2a2a2a));
+            b.add(scene.add.text(cx - DW / 2 + 4, top + 4, String(order + 1), { fontFamily: FONT, fontSize: "24px", color: "#2a2a2a", fontStyle: "bold" }).setOrigin(0.5));
+          }
+        }
         if (card.zone) {
           b.add(scene.add.text(cx, top + DH + 10, ZONE_LABEL[card.zone], { fontFamily: FONT, fontSize: "20px", color: "#9fd1b8" }).setOrigin(0.5, 0));
         }

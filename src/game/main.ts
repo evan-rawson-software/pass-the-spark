@@ -9,6 +9,7 @@ import { MapScene } from "./MapScene";
 import { RewardScene } from "./RewardScene";
 import { RestScene } from "./RestScene";
 import { TraderScene } from "./TraderScene";
+import { EventScene } from "./EventScene";
 import { RunEndScene } from "./RunEndScene";
 import { MenuScene } from "./MenuScene";
 import { HostLobbyScene } from "./HostLobbyScene";
@@ -39,7 +40,7 @@ function isMyRoom(code: string): boolean {
 }
 const scenes = [
   first,
-  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, TraderScene, RunEndScene, DeckScene, TitleScene, DominoTestScene].filter(
+  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, TraderScene, EventScene, RunEndScene, DeckScene, TitleScene, DominoTestScene].filter(
     (s) => s !== first,
   ),
 ];

@@ -59,6 +59,17 @@ export function generateDomino(state: number, rarity: Rarity, pools: Pools, inde
   const outputRoll = pick(s, entry.outputs);
   s = outputRoll.state;
   const output: Spark[] = outputRoll.value.slice();
+  if (pool.advancedOutputShare > 0) {
+    for (let i = 0; i < output.length; i++) {
+      const swap = nextFloat(s);
+      s = swap.state;
+      if (swap.value < pool.advancedOutputShare) {
+        const advanced = pick(s, pools.sparkGroups.advanced);
+        s = advanced.state;
+        output[i] = advanced.value;
+      }
+    }
+  }
 
   const wordRoll = pick(s, entry.names);
   s = wordRoll.state;

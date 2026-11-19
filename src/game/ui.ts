@@ -6,6 +6,9 @@ export const FONT = "Arial, Helvetica, sans-serif";
 export const INPUT_STYLE =
   "width:300px;height:44px;font:28px Arial,Helvetica,sans-serif;padding:0 12px;box-sizing:border-box;border-radius:8px;border:2px solid #2f7a5b;background:#f4ecd8;color:#222";
 
+// One colour per seat, used for vote markers.
+export const PLAYER_COLORS = [0xff7a59, 0x5ec8ff, 0xffe14d, 0xc78bff];
+
 export function drawBackground(scene: Phaser.Scene): void {
   const g = scene.add.graphics();
   g.fillStyle(0x1e5a42, 1);

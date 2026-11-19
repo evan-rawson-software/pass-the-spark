@@ -80,6 +80,8 @@
       "elite_guard",
       "elite_mend",
       "elite_reflect",
+      "elite_slam",
+      "elite_slash",
       "elite_slam"
     ],
     "passives": []
@@ -97,7 +99,9 @@
       "warden_shield",
       "warden_rally",
       "warden_sweep",
-      "warden_counter"
+      "warden_counter",
+      "warden_strike",
+      "warden_bash"
     ],
     "passives": []
   },
@@ -114,7 +118,11 @@
       "auditor_bulwark",
       "auditor_tally",
       "auditor_audit",
-      "auditor_crush"
+      "auditor_crush",
+      "auditor_strike",
+      "auditor_sweep",
+      "auditor_crush",
+      "auditor_audit"
     ],
     "passives": [
       {
@@ -135,7 +143,11 @@
       "glutton_feast",
       "glutton_chomp",
       "glutton_gorge",
-      "glutton_maul"
+      "glutton_maul",
+      "glutton_bite",
+      "glutton_gnash",
+      "glutton_maul",
+      "glutton_chomp"
     ],
     "passives": [
       {
