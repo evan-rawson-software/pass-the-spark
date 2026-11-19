@@ -14,7 +14,9 @@ const config = configJson satisfies Record<keyof Config, unknown> as Config;
 // Plus one test-only domino so two Echoes can follow each other (Echo Stone takes Gale).
 const echoTide: Domino = { id: "echo_tide", name: "Echo Tide", intake: ["Tide"], output: ["Gale"], effect: { kind: "echo" } };
 const spectrumJab: Domino = { id: "spectrum_jab", name: "Spectrum Jab", intake: ["Tide"], output: ["Storm"], effect: { kind: "damage", base: 3, spectrum: true } };
-const dominoes = [...(dominoesJson as Domino[]), echoTide, spectrumJab];
+// Test-only: answers Ember with Ember, so a player can repeat a spark.
+const holdEmber: Domino = { id: "hold_ember", name: "Hold Ember", intake: ["Ember"], output: ["Ember"], effect: { kind: "damage", base: 1 } };
+const dominoes = [...(dominoesJson as Domino[]), echoTide, spectrumJab, holdEmber];
 const enemies = enemiesJson as Enemy[];
 const starterDeck: DeckList = starterDeckJson;
 
@@ -189,4 +191,42 @@ test("a player's view never includes a hidden enemy domino's identity", () => {
   expect(v.enemy).not.toHaveProperty("deck");
   expect(v.enemy.deckList).toContain("ogre_gulp_b"); // the deck list is public
   expect(v.players[0].hand).toEqual(["kindle"]); // open hands
+});
+
+test("Reflect after a player's damage domino damages the party at the Reflect's strength", () => {
+  let s = setup(["splash"], ["kindle"], ["elite_reflect"]);
+  s = fuse(s, "splash"); // Gale
+  s = answer(s, "kindle"); // enemy takes 2 x 1; Reflect answers at strength 2, no lap: party takes 2 x 2
+  expect(s.enemy.health).toBe(98);
+  expect(s.party.health).toBe(56);
+});
+
+test("the Auditor fires when a player repeats a spark, across an enemy pass, not on an enemy reaction", () => {
+  let s = setup(["kindle", "hold_ember"], ["hold_ember"]);
+  s.enemy.passives = [{ kind: "auditor" }];
+  s.party.block = 1;
+  s = fuse(s, "kindle"); // Ember
+  s = answer(s, "hold_ember"); // p2: history [Ember], nothing to repeat; the enemy passes
+  expect(s.party).toMatchObject({ health: 60, block: 1 });
+  s = answer(s, "hold_ember"); // p1 answers Ember again, at strength 2: 2 damage, block soaks 1
+  expect(s.party).toMatchObject({ health: 59, block: 0 });
+
+  // An enemy reaction answering the same spark as the previous entry does not fire it.
+  let t = setup(["kindle"], ["hold_ember"], ["elite_slash"]);
+  t.enemy.passives = [{ kind: "auditor" }];
+  t = answer(fuse(t, "kindle"), "hold_ember"); // history [Ember, Ember]; Slash hits for 4 x 2
+  expect(t.party.health).toBe(52);
+});
+
+test("the Glutton heals once per lap increment, capped at max health", () => {
+  let s = setup(["kindle", "splash"], ["jab", "kindle"]);
+  s.enemy.passives = [{ kind: "glutton" }];
+  s.enemy.health = 90;
+  s = fuse(s, "kindle");
+  s = answer(s, "jab"); // 3 damage, then lap 2: +5
+  expect(s.enemy.health).toBe(92);
+  s = answer(s, "splash"); // 2 x 2 x 2 = 8
+  s = answer(s, "kindle"); // 2 x 3 x 2 = 12, then lap 3: +5 even though p1 can't answer
+  expect(s.enemy.health).toBe(77);
+  expect(s.round).toBe(2);
 });
