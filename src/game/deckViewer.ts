@@ -110,7 +110,8 @@ export interface DeckPick {
   count: 1 | 2;
   prompt: string;
   canPick?: (domino: Domino) => boolean; // default: any
-  preview?: (picked: string[]) => { before: Domino; after: Domino } | null; // asked once `count` are picked
+  whyNot?: (domino: Domino) => string | null; // instead of canPick: null when it can be picked, else the reason, shown on hover
+  preview?: (picked: string[]) => { before: Domino | Domino[]; after: Domino } | null; // asked once `count` are picked
   onConfirm: (picked: string[]) => void; // instance ids, in pick order
 }
 
@@ -127,6 +128,7 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
   let picked: string[] = []; // picking mode: instance ids in pick order
   let body: Phaser.GameObjects.Container | undefined;
   let chrome: Phaser.GameObjects.Container | undefined;
+  let reason: Phaser.GameObjects.Text | undefined; // picking mode: why the hovered domino can't be picked
 
   // Full-screen dim; it swallows clicks so nothing underneath reacts.
   const dim = scene.add.rectangle(960, 540, 1920, 1080, 0x000000, 0.7).setInteractive();
@@ -210,13 +212,19 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
     if (pick) {
       c.add(scene.add.text(LEFT, PANEL.y + 185, pick.prompt, { fontFamily: FONT, fontSize: "28px", color: "#ffe14d", fontStyle: "bold" }).setOrigin(0, 0.5));
       c.add(button(scene, PANEL.x + PANEL.w - 40, PANEL.y + 120, "Confirm", confirm, { size: 30, origin: 1, disabled: picked.length !== pick.count }));
+      reason = scene.add.text(LEFT + 300, PANEL.y + 120, "", { fontFamily: FONT, fontSize: "28px", color: "#ffb4a2", fontStyle: "bold" }).setOrigin(0, 0.5);
+      c.add(reason);
       const shown = picked.length === pick.count ? pick.preview?.(picked) : null;
       if (shown) {
-        const before = drawDomino(scene, shown.before, "large", "normal").setScale(0.45).setPosition(PANEL.x + PANEL.w - 560, PANEL.y + 190);
+        const befores = Array.isArray(shown.before) ? shown.before : [shown.before];
+        befores.forEach((d, i) => {
+          const before = drawDomino(scene, d, "large", "normal").setScale(0.45).setPosition(PANEL.x + PANEL.w - 560 - (befores.length - 1 - i) * 130, PANEL.y + 190);
+          tooltip.attach(before, d);
+          c.add(before);
+        });
         const after = drawDomino(scene, shown.after, "large", "normal").setScale(0.45).setPosition(PANEL.x + PANEL.w - 220, PANEL.y + 190);
-        tooltip.attach(before, shown.before);
         tooltip.attach(after, shown.after);
-        c.add([before, after, scene.add.text(PANEL.x + PANEL.w - 390, PANEL.y + 190, ">", { fontFamily: FONT, fontSize: "36px", color: "#ffe14d", fontStyle: "bold" }).setOrigin(0.5)]);
+        c.add([after, scene.add.text(PANEL.x + PANEL.w - 390, PANEL.y + 190, ">", { fontFamily: FONT, fontSize: "36px", color: "#ffe14d", fontStyle: "bold" }).setOrigin(0.5)]);
       }
       return;
     }
@@ -256,7 +264,8 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
         const top = y + Math.floor(i / PER_ROW) * ROW_H;
         if (top < VIEW_TOP || top + ROW_H - 10 > VIEW_BOTTOM) return;
         const cx = LEFT + DW / 2 + (i % PER_ROW) * (DW + GAP);
-        const pickable = !pick || (pick.canPick?.(card.domino) ?? true);
+        const why = pick?.whyNot?.(card.domino) ?? null;
+        const pickable = !pick || (pick.whyNot ? why === null : (pick.canPick?.(card.domino) ?? true));
         const d = drawDomino(scene, card.domino, "large", pickable ? "normal" : "notPlayable");
         addUpgradeMarks(scene, d, card.domino);
         d.setScale(K).setPosition(cx, top + DH / 2);
@@ -265,6 +274,9 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
         if (pick && pickable) {
           d.on("pointerdown", () => togglePick(card));
           d.input!.cursor = "pointer";
+        } else if (pick && why !== null) {
+          d.on("pointerover", () => reason?.setText(why));
+          d.on("pointerout", () => reason?.setText(""));
         }
         const order = picked.indexOf(card.domino.id);
         if (order >= 0) {

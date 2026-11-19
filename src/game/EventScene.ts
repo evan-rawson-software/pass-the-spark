@@ -1,8 +1,11 @@
 import Phaser from "phaser";
 import { applyRunChoice } from "../engine/run";
 import type { RunEvent, RunState } from "../engine/run";
+import { personalUnavailable } from "../engine/events/personal";
+import type { EventPick } from "../engine/events/personal";
 import type { EventOption, EventState } from "../engine/eventStops";
 import type { EventData } from "../engine/types";
+import { ACTION_LABEL, DECK_EVENTS, DECK_ILLUSTRATIONS, startDeckAction } from "./deckEventUi";
 import { drawGiant, drawGiantPanel } from "./giantDrawing";
 import { drawDomino } from "./dominoDrawing";
 import { drawSparkShrine } from "./sparkShrineArt";
@@ -19,7 +22,11 @@ import { PLAYER_COLORS, button, drawBackground, label } from "./ui";
 // "event" choices. Party votes: each option shows who has voted for it, live; when the vote settles
 // the winner is shown, with the odds if it was drawn. In single player the party vote is asked once
 // and sent as every seat's vote. Online everyone votes at once on their own screen.
-// Personal events, pushing your luck and the domino picker come with the events that use them.
+// Personal events (#90): every player picks for themselves at the same time, and every event offers
+// Skip. The screen lists the options (greyed out, with the reason, when this player can't take one),
+// who has chosen and who is still choosing, and when everyone has chosen a summary of what each
+// player did. What an option asks the player to do next is in the event's own file: the deck events
+// are in deckEventUi.ts. In single player each seat chooses in turn. Pushing your luck comes later.
 
 const TEXT_X = 820;
 const GOLD = "#ffe14d";
@@ -38,6 +45,7 @@ function optionText(option: EventOption): string {
   if (option.type === "grab") return "Grab";
   if (option.type === "stop") return "Stop";
   if (option.type === "player") return `${seatName(option.player)} takes the domino`;
+  if (option.type === "action") return option.cost > 0 ? `${ACTION_LABEL[option.action]} (${option.cost} coins)` : ACTION_LABEL[option.action];
   if (option.type === "bless") return `Bless ${option.spark}`;
   if (option.type === "skip") return "Skip";
   return `Everyone takes ${option.amount} coins`;
@@ -98,7 +106,7 @@ const drawUnknown: Illustration = (g, x, y, w, h) => {
   g.fillCircle(x + w / 2, y + h * 0.78, 16);
 };
 
-const ILLUSTRATIONS: Record<string, Illustration> = { lost_courier: drawCourier, toll_bridge: drawTollBridge, spark_shrine: drawSparkShrine };
+const ILLUSTRATIONS: Record<string, Illustration> = { lost_courier: drawCourier, toll_bridge: drawTollBridge, spark_shrine: drawSparkShrine, ...DECK_ILLUSTRATIONS };
 
 export class EventScene extends Phaser.Scene {
   private resolving = false;
@@ -126,6 +134,11 @@ export class EventScene extends Phaser.Scene {
         this.build();
       },
       onUpdate: (events) => {
+        const summary = events.find((e) => e.type === "eventSummary");
+        if (summary !== undefined && summary.type === "eventSummary" && event) {
+          this.showSummary(summary);
+          return true;
+        }
         const wake = events.find((e) => e.type === "giantWake");
         if (wake !== undefined && wake.type === "giantWake" && event) {
           this.showWake(event, wake.damage);
@@ -144,6 +157,7 @@ export class EventScene extends Phaser.Scene {
     label(this, TEXT_X, 90, data.name, 56, { bold: true });
     const text = this.add.text(TEXT_X, 150, data.text, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: "30px", color: "#cfe9dc", wordWrap: { width: 920 } });
     if (event.kind === "vote") this.drawVote(run, event, 150 + text.height + 30);
+    else if (event.kind === "personal") this.drawPersonal(run, event, 150 + text.height + 30);
     else if (event.giant) this.drawGiantTurn(run, event, data, 150 + text.height + 30);
   }
 
@@ -224,6 +238,88 @@ export class EventScene extends Phaser.Scene {
       this.drawVoters(run, event.choices, i, 1330, rowY);
     });
     if (online && pending === null) drawWaitingFor(this, run, TEXT_X, y + event.options.length * 80 + 20);
+  }
+
+  // A personal event: this player's options, then who has chosen and who is still choosing.
+  // Online everyone sees their own options at once; in single player the seats choose in turn.
+  private drawPersonal(run: RunState, event: EventState, top: number): void {
+    const pending = myPending(run);
+    const online = isOnlineRun();
+    let y = top + 10;
+    if (pending !== null && !online) label(this, TEXT_X, y, `${seatName(pending.player)}'s choice`, 40, { bold: true, color: GOLD });
+    y += 60;
+    if (pending !== null) {
+      const player = pending.player;
+      event.options.forEach((option, i) => {
+        const why = personalUnavailable(run, player, i);
+        button(this, TEXT_X, y, optionText(option), () => this.chooseOption(run, player, event, i), { size: 32, disabled: why !== null || this.resolving });
+        if (why !== null) label(this, TEXT_X + 640, y, why, 26, { color: "#ffb4a2" });
+        y += 80;
+      });
+    }
+    y += 20;
+    for (const [i, id] of run.players.entries()) {
+      const done = event.choices[id] !== undefined;
+      this.add.circle(TEXT_X + 16, y, 16, PLAYER_COLORS[i % PLAYER_COLORS.length]).setStrokeStyle(3, 0x0d2a20).setAlpha(done ? 1 : 0.4);
+      label(this, TEXT_X + 50, y, `${seatName(id)}: ${done ? "has chosen" : "still choosing"}`, 28, { color: done ? "#7dffb0" : "#cfe9dc" });
+      y += 46;
+    }
+    if (online && pending === null) drawWaitingFor(this, run, TEXT_X, y + 20);
+  }
+
+  // The player picked an option: Skip is sent at once; the others go on to their event's own screens.
+  private chooseOption(run: RunState, player: string, event: EventState, option: number): void {
+    const o = event.options[option];
+    if (o.type === "skip") return this.sendPersonal(run, player, option);
+    if (o.type !== "action") return;
+    if (DECK_EVENTS.includes(event.id)) startDeckAction(this, run, player, o.action, (pick) => this.sendPersonal(run, player, option, pick));
+  }
+
+  // Sends the choice. Online the host applies it and the screen follows its update; in single player
+  // the next seat is asked, or, when this was the last, the summary is shown.
+  private sendPersonal(run: RunState, player: string, option: number, pick?: EventPick): void {
+    if (this.resolving) return;
+    const choice = pick ? { type: "event" as const, option, pick } : { type: "event" as const, option };
+    if (isOnlineRun()) return submitRunChoice(this, player, choice);
+    const result = applyRunChoice(run, player, choice);
+    const summary = result.events.find((e) => e.type === "eventSummary");
+    if (summary !== undefined && summary.type === "eventSummary") return this.showSummary(summary, result.run);
+    setRun(result.run);
+    openRunScreen(this);
+  }
+
+  // Everyone has chosen: show what each player did, then go on.
+  private showSummary(summary: Extract<RunEvent, { type: "eventSummary" }>, next?: RunState): void {
+    this.resolving = true;
+    this.tweens.killAll();
+    this.children.removeAll(true);
+    const run = currentRun();
+    drawBackground(this);
+    drawPartyHud(this, run);
+    this.drawIllustration(summary.event);
+    label(this, TEXT_X, 90, eventData(run, summary.event).name, 56, { bold: true });
+    const tooltip = new Tooltip(this);
+    summary.results.forEach((r, i) => {
+      const y = 220 + i * 170;
+      this.add.circle(TEXT_X + 16, y, 16, PLAYER_COLORS[run.players.indexOf(r.player) % PLAYER_COLORS.length]).setStrokeStyle(3, 0x0d2a20);
+      label(this, TEXT_X + 50, y, seatName(r.player), 32, { bold: true });
+      if (r.action === "skip" || r.after === null) {
+        label(this, TEXT_X + 360, y, "Skipped", 30, { color: "#9fb8aa" });
+        return;
+      }
+      r.before.forEach((d, k) => {
+        const c = drawDomino(this, d, "large", "normal").setScale(0.4).setPosition(TEXT_X + 440 + k * 110, y + 40);
+        tooltip.attach(c, d);
+      });
+      label(this, TEXT_X + 440 + r.before.length * 110, y + 40, ">", 40, { bold: true, color: GOLD });
+      const after = drawDomino(this, r.after, "large", "normal").setScale(0.4).setPosition(TEXT_X + 440 + r.before.length * 110 + 110, y + 40);
+      tooltip.attach(after, r.after);
+      if (r.cost > 0) label(this, TEXT_X + 50, y + 44, `Paid ${r.cost} coins`, 24, { color: "#cfe9dc" });
+    });
+    button(this, TEXT_X, 940, "Continue", () => {
+      if (next) setRun(next);
+      openRunScreen(this);
+    }, { size: 36 });
   }
 
   // A marker per voter in their seat colour with their seat number, then their names.

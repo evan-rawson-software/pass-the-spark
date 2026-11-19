@@ -14,7 +14,7 @@
       "name": "The Tinker's Bench",
       "kind": "personal",
       "weight": 4,
-      "enabled": false,
+      "enabled": true,
       "text": "A traveling tinker has set up a workbench by the road, tools laid out and a kettle on the boil. \"Something need fixing?\"",
       "numbers": { "repaintCost": 20 }
     },
@@ -59,7 +59,7 @@
       "name": "The Mirror Pond",
       "kind": "personal",
       "weight": 4,
-      "enabled": false,
+      "enabled": true,
       "text": "The pond is perfectly still. Lean over it and your reflection reaches back, holding something familiar.",
       "numbers": {}
     },
@@ -68,7 +68,7 @@
       "name": "The Twin Forge",
       "kind": "personal",
       "weight": 1,
-      "enabled": false,
+      "enabled": true,
       "text": "Two anvils face each other in a ruined smithy, a single fire burning between them. Something could be joined here.",
       "numbers": { "minDeckSize": 6 }
     }

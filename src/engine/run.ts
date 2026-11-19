@@ -11,6 +11,8 @@ import { openEvent, pickEvent } from "./eventStops";
 import { floorHiddenAfterTurnBack } from "./events/tollBridge";
 import { stepGiant } from "./events/giant";
 import type { EventOption, EventState } from "./eventStops";
+import { applyPersonalChoice, personalSummary } from "./events/personal";
+import type { EventPick, PersonalResult } from "./events/personal";
 import { generateActMap } from "./map";
 import type { ActMap } from "./map";
 import { isRewardComplete, pickedDominoes, rollOffers, submitRewardChoice } from "./rewards";
@@ -75,7 +77,7 @@ export type RunChoice =
   | { type: "rest" }
   | { type: "upgrade"; domino: string; side: UpgradeSide; spark?: Spark } // spark: the second intake, left side only
   | { type: "trader"; action: TraderAction }
-  | { type: "event"; option: number }; // an index into the pending choice's options
+  | { type: "event"; option: number; pick?: EventPick }; // an index into the pending choice's options; pick: the dominoes (and spark) a personal event's option works on
 
 // Any number of buys and removes, in any order, then done. domino is an id: from your stock to buy, from your deck to remove.
 export type TraderAction = { kind: "buy"; domino: string } | { kind: "remove"; domino: string } | { kind: "done" };
@@ -109,6 +111,8 @@ export type RunEvent =
   // The Sleeping Giant woke: the party took this much damage and the event is over.
   | { type: "giantWake"; damage: number }
   | { type: "eventOutcome"; event: string; winner: number; option: EventOption; counts: Record<number, number>; drawn: boolean }
+  // Personal events, once everyone has chosen: what each player did, in seat order.
+  | { type: "eventSummary"; event: string; results: ({ player: string } & PersonalResult)[] }
   | { type: "bought"; player: string; domino: string; price: number }
   | { type: "removed"; player: string; domino: string; fee: number }
   | { type: "traderDone"; player: string }
@@ -138,6 +142,7 @@ const RUN_ONLY: Record<RunOnlyEvent["type"], true> = {
   eventStart: true,
   eventChoice: true,
   eventOutcome: true,
+  eventSummary: true,
   giantWake: true,
   bought: true,
   removed: true,
@@ -287,6 +292,12 @@ export function applyRunChoice(input: RunState, playerId: string, choice: RunCho
     run.reward = submitRewardChoice(run.reward, playerId, choice.pick);
     events.push({ type: "rewardChosen", player: playerId, pick: choice.pick });
     if (isRewardComplete(run.reward)) finishRewards(run, events);
+  } else if (choice.type === "event" && owed.type === "event" && run.event?.kind === "personal") {
+    if (applyPersonalChoice(run, playerId, choice.option, choice.pick, events)) {
+      events.push(personalSummary(run));
+      run.event = null;
+      goToVote(run, events);
+    }
   } else if (choice.type === "event" && owed.type === "event" && run.event) {
     if (!Number.isInteger(choice.option) || choice.option < 0 || choice.option >= owed.options.length) throw new Error(`option ${choice.option} is not offered`);
     events.push({ type: "eventChoice", player: playerId, option: choice.option });
