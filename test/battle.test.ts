@@ -267,3 +267,48 @@ test("blessed spark: answers and enemy reactions made with it add 2 strength, ot
   // p2 answers Ember (+2), the enemy reacts to Ember (+2), p1 answers the enemy's Tide (+1).
   expect(plays).toEqual(["p2:Ember:2", "enemy:Ember:4", "p1:Tide:5"]);
 });
+
+test("Spark Starter triggers the opener at strength 1, and First Echo fires once per round only", () => {
+  const s0 = createBattle({
+    config,
+    content: { dominoes, enemies, charms: content.charms },
+    players: [
+      { id: "p1", deck: starterDeck, charms: ["spark_starter", "first_echo"] },
+      { id: "p2", deck: starterDeck },
+    ],
+    seatOrder: ["p1", "p2", "enemy"],
+    enemyId: "ogre",
+    seed: 1,
+  });
+  s0.players[0].hand = ["kindle", "splash"];
+  s0.players[1].hand = ["jab"];
+  s0.enemy.hand = [];
+  s0.enemy.revealed = [];
+  const health = s0.enemy.health;
+
+  // The opener (damage 2) triggers at strength 1 and First Echo repeats it: 2 + 2, but the chain still starts at strength 0.
+  const preview = previewPlay(s0, "p1", "kindle")[0];
+  expect(preview).toMatchObject({ opener: true, strength: 1, triggers: 2, value: 2 });
+  const r1 = step(s0, { type: "opener", domino: "kindle" });
+  expect(r1.events.filter((e) => e.type === "trigger")).toHaveLength(2);
+  expect(r1.events.filter((e) => e.type === "charm")).toEqual([
+    { type: "charm", player: "p1", charm: "spark_starter" },
+    { type: "charm", player: "p1", charm: "first_echo" },
+  ]);
+  expect(r1.state.chain.strength).toBe(0);
+  expect(r1.state.enemy.health).toBe(health - 4);
+
+  // Later in the same round First Echo is spent: p2 jab 3 x 1, p1 splash 2 x 2 x lap 2, once.
+  let s = answer(r1.state, "jab");
+  s = answer(s, "splash");
+  expect(s.enemy.health).toBe(health - 4 - 3 - 8);
+  expect(s.round).toBe(2);
+
+  // Next round it is back: p2 opens (no charms), p1's jab triggers twice.
+  s.players[0].hand = ["jab"];
+  s.players[1].hand = ["kindle"];
+  s.enemy.hand = [];
+  s.enemy.revealed = [];
+  s = answer(opener(s, "kindle"), "jab");
+  expect(s.enemy.health).toBe(health - 4 - 3 - 8 - 6);
+});
