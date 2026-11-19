@@ -4,6 +4,7 @@ import type { RunEvent, RunState } from "../engine/run";
 import type { EventOption, EventState } from "../engine/eventStops";
 import type { EventData } from "../engine/types";
 import { drawDomino } from "./dominoDrawing";
+import { drawSparkShrine } from "./sparkShrineArt";
 import { scaleTime } from "./playbackSpeed";
 import { drawPartyHud, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
@@ -29,6 +30,8 @@ function eventData(run: RunState, id: string): EventData {
 
 function optionText(option: EventOption): string {
   if (option.type === "player") return `${seatName(option.player)} takes the domino`;
+  if (option.type === "bless") return `Bless ${option.spark}`;
+  if (option.type === "skip") return "Skip";
   return `Everyone takes ${option.amount} coins`;
 }
 
@@ -87,7 +90,7 @@ const drawUnknown: Illustration = (g, x, y, w, h) => {
   g.fillCircle(x + w / 2, y + h * 0.78, 16);
 };
 
-const ILLUSTRATIONS: Record<string, Illustration> = { lost_courier: drawCourier };
+const ILLUSTRATIONS: Record<string, Illustration> = { lost_courier: drawCourier, spark_shrine: drawSparkShrine };
 
 export class EventScene extends Phaser.Scene {
   private resolving = false;

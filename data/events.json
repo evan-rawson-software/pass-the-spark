@@ -41,7 +41,7 @@
       "name": "The Spark Shrine",
       "kind": "vote",
       "weight": 4,
-      "enabled": false,
+      "enabled": true,
       "text": "Three stone bowls glow at a mossy shrine, one each for Ember, Tide and Gale. The party may kneel at one.",
       "numbers": { "blessedAnswerStrength": 2 }
     },

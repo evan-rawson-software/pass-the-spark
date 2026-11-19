@@ -67,6 +67,12 @@ export interface ChainState {
   played: { seat: string; domino: string }[]; // every domino laid in this chain in order, opener first, for the screen
 }
 
+// The Spark Shrine's blessing: every answer made with this spark adds `strength` instead of 1.
+export interface Blessing {
+  spark: Spark;
+  strength: number;
+}
+
 export interface BattleState {
   config: Config;
   dominoes: Domino[];
@@ -82,6 +88,7 @@ export interface BattleState {
   enemy: EnemyState;
   result: "won" | "lost" | null;
   nextLead: string | null;
+  blessing: Blessing | null; // set for the whole battle by the run; null for no blessing
 }
 
 export type PendingChoice =
@@ -109,6 +116,8 @@ export interface BattleSetup {
   extraDominoes?: Domino[];
   // The party's current health, for a battle inside a run. Defaults to max health.
   partyHealth?: number;
+  // The party's blessed spark, for a battle inside a run. Defaults to none.
+  blessing?: Blessing | null;
 }
 
 export interface StepResult {
@@ -179,6 +188,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     },
     result: null,
     nextLead: null,
+    blessing: setup.blessing ?? null,
   };
   const events: GameEvent[] = [];
   startRound(state, events);
@@ -530,12 +540,13 @@ function react(state: BattleState, events: GameEvent[]): void {
   events.push({ type: "enemyNoReaction", sparks: state.chain.sparks.slice() });
 }
 
-// An answer: strength +1, spark history and current spark update, effect triggers.
+// An answer: strength +1 (or the blessing's amount for the blessed spark), spark history and current spark update, effect triggers.
 function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean, events: GameEvent[]): void {
   const chain = state.chain;
   // The Auditor: a player answers the same spark as the previous history entry.
   const repeated = byPlayer && chain.history[chain.history.length - 1] === answered;
-  chain.strength += 1;
+  // Only the spark the answer used counts; Echo repeats and the opener add nothing here.
+  chain.strength += state.blessing && state.blessing.spark === answered ? state.blessing.strength : 1;
   chain.history.push(answered);
   chain.sparks = d.output.slice();
   const seat = byPlayer ? state.seat : ENEMY_SEAT;

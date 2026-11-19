@@ -3,12 +3,15 @@
 
 import { generateDomino } from "./generate";
 import { nextFloat } from "./rng";
-import type { Domino, EventData, EventKind, Pools } from "./types";
+import { openSparkShrine } from "./events/sparkShrine";
+import type { Domino, EventData, EventKind, Pools, Spark } from "./types";
 
 // One thing a party vote can pick. A vote is stored as an index into the event's options.
 export type EventOption =
   | { type: "player"; player: string } // that player takes the event's domino
-  | { type: "coins"; amount: number }; // every player takes this many coins
+  | { type: "coins"; amount: number } // every player takes this many coins
+  | { type: "bless"; spark: Spark } // the Spark Shrine: the party is blessed with this spark
+  | { type: "skip" }; // the party moves on
 
 // The event the party is standing at.
 export interface EventState {
@@ -59,6 +62,7 @@ export interface OpenedEvent {
 
 // Sets up the picked event. Only the Lost Courier is playable so far.
 export function openEvent(state: number, data: EventData, players: string[], pools: Pools, startIndex: number): OpenedEvent {
+  if (data.id === "spark_shrine") return { event: openSparkShrine(data, pools), state, nextIndex: startIndex };
   if (data.id !== "lost_courier") throw new Error(`event ${data.id} is not playable yet`);
   const domino = generateDomino(state, "rare", pools, startIndex);
   const options: EventOption[] = [...players.map((player): EventOption => ({ type: "player", player })), { type: "coins", amount: data.numbers.coinsEach }];
