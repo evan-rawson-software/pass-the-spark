@@ -81,8 +81,7 @@ export function tipLines(domino: Domino, previews?: PlayPreview[]): TipLine[] {
 export class Tooltip {
   private box?: Phaser.GameObjects.Container;
 
-  // `hiddenFrom`: a camera that must not draw the box (the map's scrolling camera).
-  constructor(private scene: Phaser.Scene, private hiddenFrom?: Phaser.Cameras.Scene2D.Camera) {}
+  constructor(private scene: Phaser.Scene) {}
 
   attach(target: Phaser.GameObjects.Container, domino: Domino, previews?: () => PlayPreview[]): void {
     target.setInteractive();
@@ -132,7 +131,6 @@ export class Tooltip {
     bg.lineStyle(3, 0xffe14d, 1);
     bg.strokeRoundedRect(0, 0, WIDTH, h, 14);
     box.setSize(WIDTH, h);
-    this.hiddenFrom?.ignore(box);
     this.box = box;
     this.move(pointer);
   }

@@ -8,6 +8,7 @@ import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
 import { bossTip, passiveText } from "./bossInfo";
 import { Tooltip } from "./tooltip";
+import { deckViewerState } from "./deckViewer";
 import { drawBackground, FONT, label, PLAYER_COLORS } from "./ui";
 
 // The map screen (#51). It draws the act the engine generated: floors bottom to top, the
@@ -116,6 +117,7 @@ export class MapScene extends Phaser.Scene {
   private resolving = false;
   private world!: Phaser.GameObjects.Container; // the scrolling map
   private mapCam!: Phaser.Cameras.Scene2D.Camera;
+  private bgCam!: Phaser.Cameras.Scene2D.Camera;
   private bar!: Phaser.GameObjects.Graphics;
   private scrollY = 0;
   private press: { y: number; scroll: number } | null = null;
@@ -130,7 +132,19 @@ export class MapScene extends Phaser.Scene {
     this.press = null;
     this.dragged = false;
     // The map is drawn by its own camera, which shows only the map area and scrolls.
+    this.bgCam = this.cameras.add(0, 0, 1920, 1080);
     this.mapCam = this.cameras.add(VIEW.x, VIEW.y, VIEW.w, VIEW.h);
+    // Whitelist: the map camera draws only what put() moves into the scrolling world. Everything
+    // else added to the scene, now or later (overlays, tooltips, banners), is hidden from it.
+    // Draw order: background, then the map, then everything else (so overlays such as the deck
+    // viewer cover the map). The background has its own camera for that.
+    const cams = this.cameras.cameras;
+    cams.splice(cams.indexOf(this.cameras.main), 1);
+    cams.push(this.cameras.main);
+    this.events.on(Phaser.Scenes.Events.ADDED_TO_SCENE, (obj: Phaser.GameObjects.GameObject) => {
+      this.mapCam.ignore(obj);
+      this.bgCam.ignore(obj);
+    });
     this.scrollY = this.openingScroll(currentRun());
     this.input.on("wheel", (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
       if (this.inView(p)) this.scrollTo(this.scrollY + dy * WHEEL_STEP);
@@ -150,7 +164,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   private inView(p: Phaser.Input.Pointer): boolean {
-    return p.x >= VIEW.x && p.x <= VIEW.x + VIEW.w && p.y >= VIEW.y && p.y <= VIEW.y + VIEW.h;
+    return !deckViewerState.open && p.x >= VIEW.x && p.x <= VIEW.x + VIEW.w && p.y >= VIEW.y && p.y <= VIEW.y + VIEW.h;
   }
 
   private worldHeight(run: RunState): number {
@@ -185,6 +199,7 @@ export class MapScene extends Phaser.Scene {
   private put(objects: Phaser.GameObjects.GameObject[]): void {
     this.world.add(objects);
     this.cameras.main.ignore(objects);
+    for (const o of objects) o.cameraFilter &= ~this.mapCam.id;
   }
 
   // Draws the screen. Online it runs again, in place, whenever the host reports a new vote or status:
@@ -195,7 +210,12 @@ export class MapScene extends Phaser.Scene {
     this.run = run;
     const pending = myPending(run);
     drawBackground(this);
+    for (const o of this.children.list) {
+      o.cameraFilter &= ~this.bgCam.id; // the background is drawn by the background camera only
+      this.cameras.main.ignore(o);
+    }
     this.world = this.add.container(0, 0);
+    this.world.cameraFilter &= ~this.mapCam.id;
     drawPartyHud(this, run);
     const next = (run.position?.floor ?? 0) + 1;
     const toBoss = next > run.map.floors.length;
@@ -217,8 +237,6 @@ export class MapScene extends Phaser.Scene {
     this.bar = this.add.graphics();
     this.drawScrollBar();
     this.mapCam.setScroll(VIEW.x, this.scrollY);
-    // The map camera draws the world and nothing else.
-    this.mapCam.ignore(this.children.list.filter((o) => o !== this.world));
     // A run update with the winner in it: show it, then go on (the votes before it just redraw the map).
     watchRun(this, "map", {
       redraw: () => {
@@ -290,7 +308,7 @@ export class MapScene extends Phaser.Scene {
           const hit = this.add.circle(x, y, NODE_R + 8, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
           // A click that moved the map (a drag) is not a vote.
           hit.on("pointerup", (p: Phaser.Input.Pointer) => {
-            if (!this.dragged && this.inView(p)) this.castVote(voter, node.index);
+            if (this.press !== null && !this.dragged && this.inView(p)) this.castVote(voter, node.index);
           });
           this.tweens.add({ targets: g, alpha: 0.7, duration: 600, yoyo: true, repeat: -1 });
         }
@@ -327,7 +345,7 @@ export class MapScene extends Phaser.Scene {
     // Left of the boss, right-aligned: the party's charm strip runs along the top to its right.
     const name = label(this, CENTER_X - r - 20, 24, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 1 });
     const passives = label(this, CENTER_X - r - 20, 46, passiveText(boss), 18, { color: "#ffe14d", origin: 1 }).setOrigin(1, 0).setAlign("right").setWordWrapWidth(520);
-    const tip = new Tooltip(this, this.mapCam);
+    const tip = new Tooltip(this);
     const lines = bossTip(boss);
     const hit = this.add.circle(CENTER_X, BOSS_Y, r, 0, 0);
     // The boss itself scrolls with the map; its name and passive stay in the heading.
@@ -385,6 +403,7 @@ export class MapScene extends Phaser.Scene {
         const text = this.add.text(mx, y + NODE_R + 26, String(this.run.players.indexOf(id) + 1), { fontFamily: FONT, fontSize: "18px", color: "#0d2a20", fontStyle: "bold" }).setOrigin(0.5);
         this.voteLayer.add([dot, text]);
         this.cameras.main.ignore([dot, text]);
+        for (const o of [dot, text]) o.cameraFilter &= ~this.mapCam.id;
       });
     }
   }
@@ -420,11 +439,11 @@ export class MapScene extends Phaser.Scene {
       ring.strokeCircle(x, y, NODE_R + 14);
       this.put([ring]);
       const nodeName = NODE_STYLE[chosen.nodeType].name;
-      this.mapCam.ignore(label(this, 60, 245, `Winner: ${nodeName}`, 30, { bold: true, color: "#7dffb0" }));
+      label(this, 60, 245, `Winner: ${nodeName}`, 30, { bold: true, color: "#7dffb0" });
       if (chosen.drawn) {
         const total = Object.values(chosen.counts).reduce((a, b) => a + b, 0);
         const odds = Math.round((100 * (chosen.counts[chosen.index] ?? 0)) / total);
-        this.mapCam.ignore(label(this, 60, 285, `Drawn: ${nodeName}, ${odds}%`, 30, { bold: true, color: "#ff9d7a" }));
+        label(this, 60, 285, `Drawn: ${nodeName}, ${odds}%`, 30, { bold: true, color: "#ff9d7a" });
       }
       this.time.delayedCall(scaleTime(1800), () => {
         openRunScreen(this);
