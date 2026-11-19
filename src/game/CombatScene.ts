@@ -7,7 +7,7 @@ import type { Domino, Passive, Spark } from "../engine/types";
 import type { GameEvent } from "../engine/events";
 import type { Client } from "../net/client";
 import type { Host } from "../net/host";
-import type { HostMessage } from "../net/protocol";
+import type { HostMessage, PingTarget } from "../net/protocol";
 import { relay } from "./relay";
 import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
@@ -20,6 +20,7 @@ import { Tooltip } from "./tooltip";
 import { drawCharmList } from "./charmUi";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
+import { PingMarks, attachHold, pingKey } from "./ping";
 import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
 import { describeEvent, eventDelay, newLogMemory } from "./eventLog";
@@ -96,6 +97,8 @@ export class CombatScene extends Phaser.Scene {
   private settings!: GameSettings;
   private seed = 0;
   private tooltip!: Tooltip;
+  private pings!: PingMarks; // online only: rings from other players' pings
+  private pingBoxes = new Map<string, Phaser.GameObjects.Container>(); // pingKey -> that domino
   private tipPlayer = ""; // whose playable dominoes get an "if played now" preview
   private seatBoxes = new Map<string, Phaser.GameObjects.Container>(); // "seat:hand position" -> that domino, for the hover highlight
   private anim!: Animator;
@@ -137,6 +140,7 @@ export class CombatScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.tooltip = new Tooltip(this);
+    this.pings = new PingMarks(this);
     // The deck viewer (#55), read-only; the draw pile is not shown in order.
     button(this, RIGHT_X + 190, 48, "Decks", () => openDeckViewer(this, battleDeckPlayers(this.view, (id) => this.nameOf(id, false)), this.view.players.find((q) => q.id === this.tipPlayer)?.id), { size: 22, origin: 1 }).setDepth(500);
     if (this.online) {
@@ -240,6 +244,8 @@ export class CombatScene extends Phaser.Scene {
       // runSession already has the new run. If the battle ended while this table was not told (we were
       // away), move on; otherwise the last update is still playing and the table moves on after it.
       if (this.inRun && m.view.phase !== "battle" && !this.draining && !this.locked) openRunScreen(this);
+    } else if (m.type === "ping") {
+      this.pings.show(m.seat, m.name, m.target);
     } else if (m.type === "error") {
       // The host rejected the choice: say so briefly and unlock.
       this.waiting = false;
@@ -286,6 +292,14 @@ export class CombatScene extends Phaser.Scene {
     }
   }
 
+  // Hold on a domino: the host checks it and sends the ring to everyone (this player included).
+  private sendPing(target: PingTarget): void {
+    const online = this.online;
+    if (!online) return;
+    if (online.host) online.host.submitLocalPing(target);
+    else online.client?.sendPing(target);
+  }
+
   private showError(message: string): void {
     const text = this.logText;
     if (!text) return;
@@ -323,6 +337,7 @@ export class CombatScene extends Phaser.Scene {
     this.anim.refs = newRefs();
     this.anim.refs.layer = layer;
     this.seatBoxes.clear();
+    this.pingBoxes = new Map();
     let pending = this.locked || this.waiting ? null : getPendingChoice(now);
     // Online, only the player whose turn it is gets anything to click.
     if (this.online && pending !== null && pending.player !== this.mySeat()) pending = null;
@@ -351,6 +366,7 @@ export class CombatScene extends Phaser.Scene {
       const y = SIDE_TOP + (sharing && i === 2 ? SIDE_H / 2 : 0);
       this.drawTeammate(layer, view, p.id, left ? LEFT_X : RIGHT_X, y, h);
     });
+    this.pings.place(this.pingBoxes);
   }
 
   // ---- table (drawn once) ----
@@ -390,7 +406,7 @@ export class CombatScene extends Phaser.Scene {
     return g;
   }
 
-  private domino(layer: Layer, id: string | null, k: number, state: DominoState, x: number, y: number, onClick?: () => void): Phaser.GameObjects.Container {
+  private domino(layer: Layer, id: string | null, k: number, state: DominoState, x: number, y: number, onClick?: () => void, ping?: PingTarget): Phaser.GameObjects.Container {
     const d: Domino = this.view.dominoes.find((q) => q.id === id) ?? this.view.dominoes[0];
     const c = drawDomino(this, d, "large", state);
     c.setScale(k);
@@ -403,7 +419,14 @@ export class CombatScene extends Phaser.Scene {
       const preview = state === "playable" ? () => previewPlay(this.view, this.tipPlayer, d.id) : undefined;
       this.tooltip.attach(c, d, preview);
     }
-    if (onClick) {
+    if (this.online && ping && state !== "hidden") {
+      // Online, a visible domino can be pinged by holding on it. A tap (the normal click) then
+      // fires on release instead of on press, so a hold never also plays the domino.
+      this.pingBoxes.set(pingKey(ping), c);
+      if (!c.input) c.setInteractive();
+      attachHold(this, c, () => this.sendPing(ping), onClick);
+      if (onClick) c.input!.cursor = "pointer";
+    } else if (onClick) {
       c.setInteractive({ useHandCursor: true });
       c.on("pointerdown", onClick);
     }
@@ -479,7 +502,7 @@ export class CombatScene extends Phaser.Scene {
     e.hand.forEach((slot, i) => {
       const x = rowX + 60 + i * 130; // 7 slots (the largest handLimit) end at x 1500, left of the party bar
       const c = slot.revealed
-        ? this.domino(layer, slot.domino, 0.5, "revealed", x, 70)
+        ? this.domino(layer, slot.domino, 0.5, "revealed", x, 70, undefined, { zone: "enemy", index: i })
         : debug
           ? this.domino(layer, this.shown?.enemyIds[i] || trueHand![i], 0.5, "revealed", x, 70) // debug only: the true domino, with a red mark
           : this.domino(layer, null, 0.5, "hidden", x, 70);
@@ -687,7 +710,7 @@ export class CombatScene extends Phaser.Scene {
         g.fillStyle(RED, 0.7);
         g.fillRoundedRect(x - w / 2 - 5, y - (DH * k) / 2 - 5, w + 10, DH * k + 10, 14 * k + 5);
       }
-      const c = this.domino(layer, p.domino, k, enemy ? "playedFaceUp" : "normal", x, y);
+      const c = this.domino(layer, p.domino, k, enemy ? "playedFaceUp" : "normal", x, y, undefined, { zone: "chain", index: i + hidden });
       this.anim.refs.chain.push({ c, pos: { x, y, k } });
       if (k >= 0.5) {
         const tag = this.nameOf(p.seat, true, 10) + (i + hidden === 0 ? " (opener)" : "");
@@ -772,7 +795,7 @@ export class CombatScene extends Phaser.Scene {
         const click = state === "playable" ? () => this.onHandClick(id) : undefined;
         const hx = x0 + i * step;
         const hy = HAND.y + 100 + r * (DH * k + 12);
-        const c = this.domino(layer, id, k, state, hx, hy, click);
+        const c = this.domino(layer, id, k, state, hx, hy, click, { zone: "hand", seat: p.id, index: r * perRow + i });
         if (state === "playable") this.hoverHighlight(layer, c, p.id, id);
         if (!this.anim.refs.hand.has(id)) this.anim.refs.hand.set(id, { x: hx, y: hy, k });
       });
@@ -994,7 +1017,7 @@ export class CombatScene extends Phaser.Scene {
       const row = Math.floor(i / per);
       const inRow = Math.min(per, p.hand.length - row * per);
       const x0 = x + (SIDE_W - inRow * stepX) / 2 + stepX / 2;
-      const c = this.domino(layer, did, k, "normal", x0 + (i % per) * stepX, top + (DH * k) / 2 + row * (DH * k + 6));
+      const c = this.domino(layer, did, k, "normal", x0 + (i % per) * stepX, top + (DH * k) / 2 + row * (DH * k + 6), undefined, { zone: "hand", seat: id, index: i });
       this.seatBoxes.set(`${id}:${i}`, c);
     });
     if (p.hand.length === 0) this.label(layer, x + SIDE_W / 2, top + 20, "No dominoes", 20, "#7fb59b", 0.5);
