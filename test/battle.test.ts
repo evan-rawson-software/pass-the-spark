@@ -2,23 +2,19 @@ import { expect, test } from "vitest";
 import { applyChoice, createBattle, getPendingChoice, previewPlay, step } from "../src/engine/battle";
 import type { BattleState } from "../src/engine/battle";
 import { getView } from "../src/engine/view";
-import type { Config, DeckList, Domino, Enemy } from "../src/engine/types";
-import configJson from "../data/config.json";
-import dominoesJson from "../data/dominoes.json";
-import enemiesJson from "../data/enemies.json";
-import starterDeckJson from "../data/starter-deck.json";
+import type { Domino } from "../src/engine/types";
+import { loadContent } from "../src/engine/content";
 
-// JSON string literals widen to string, so a plain annotation fails on Spark.
-// For the single-object config, satisfies still catches a missing key.
-const config = configJson satisfies Record<keyof Config, unknown> as Config;
+const content = loadContent();
+const config = content.config;
 // Plus one test-only domino so two Echoes can follow each other (Echo Stone takes Gale).
 const echoTide: Domino = { id: "echo_tide", name: "Echo Tide", intake: ["Tide"], output: ["Gale"], effect: { kind: "echo" } };
 const spectrumJab: Domino = { id: "spectrum_jab", name: "Spectrum Jab", intake: ["Tide"], output: ["Storm"], effect: { kind: "damage", base: 3, spectrum: true } };
 // Test-only: answers Ember with Ember, so a player can repeat a spark.
 const holdEmber: Domino = { id: "hold_ember", name: "Hold Ember", intake: ["Ember"], output: ["Ember"], effect: { kind: "damage", base: 1 } };
-const dominoes = [...(dominoesJson as Domino[]), echoTide, spectrumJab, holdEmber];
-const enemies = enemiesJson as Enemy[];
-const starterDeck: DeckList = starterDeckJson;
+const dominoes = [...content.dominoes, echoTide, spectrumJab, holdEmber];
+const enemies = content.enemies;
+const starterDeck = content.starterDeck;
 
 // A fresh battle (seats p1, p2, enemy) with hands set to known dominoes.
 function setup(p1: string[], p2: string[], enemyHand: string[] = []): BattleState {

@@ -1,11 +1,10 @@
 import Phaser from "phaser";
-import type { Domino } from "../engine/types";
-import dominoesJson from "../../data/dominoes.json";
+import { loadContent } from "../engine/content";
 import { DOMINO_STATES, drawAnySymbol, drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import type { DominoState } from "./dominoDrawing";
 import { SPARK_ORDER, SPARK_STYLE } from "./sparks";
 
-const dominoes = dominoesJson as Domino[];
+const dominoes = loadContent().dominoes;
 
 // Debug page: every domino in data/ in every visual state and both sizes.
 // Open with ?scene=dominoes. Scroll with the mouse wheel or the up/down keys.

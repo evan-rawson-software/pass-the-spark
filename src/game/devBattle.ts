@@ -1,10 +1,7 @@
 import { createBattle, getPendingChoice, step } from "../engine/battle";
 import type { BattleState } from "../engine/battle";
-import type { Config, DeckList, Domino, Enemy } from "../engine/types";
-import configJson from "../../data/config.json";
-import dominoesJson from "../../data/dominoes.json";
-import enemiesJson from "../../data/enemies.json";
-import starterDeckJson from "../../data/starter-deck.json";
+import { loadContent } from "../engine/content";
+import type { DeckList } from "../engine/types";
 
 // The placeholder battle the combat table shows until the start screen (#27)
 // exists. #27 replaces startPlaceholderBattle with the real setup.
@@ -14,17 +11,19 @@ import starterDeckJson from "../../data/starter-deck.json";
 //   draw=<n>    players draw n per round (to build long chains)
 //   deck=wild   every player's deck is Wildcards (answers anything)
 //   edraw=<n>   the enemy draws n per round (edraw=7 on a boss shows a full hand)
-export const dominoes = dominoesJson as Domino[];
-export const enemies = enemiesJson as Enemy[];
+// Validates all of data/ once, at load; bad content throws here.
+const content = loadContent();
+export const dominoes = content.dominoes;
+export const enemies = content.enemies;
 const PLAYER_NAMES = ["Ana", "Ben", "Cy", "Dee"];
 
 export function startPlaceholderBattle(query: URLSearchParams): BattleState {
   const playerCount = query.get("players") === "4" ? 4 : 3;
   const names = PLAYER_NAMES.slice(0, playerCount);
-  const config = { ...(configJson as Config) };
+  const config = { ...content.config };
   const draw = Number(query.get("draw"));
   if (draw > 0) config.playerDrawPerRound = draw;
-  const deck: DeckList = query.get("deck") === "wild" ? Array(10).fill("wildcard") : starterDeckJson;
+  const deck: DeckList = query.get("deck") === "wild" ? Array(10).fill("wildcard") : content.starterDeck;
 
   let state = createBattle({
     config,
