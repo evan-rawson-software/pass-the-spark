@@ -17,9 +17,10 @@ export function startShown(view: BattleView, enemyIds: string[]): ShownTable {
   return { view, enemyIds };
 }
 
-// How many dominoes are left in a seat's deck (the enemy's is its whole deck less its hand and discard).
+// How many dominoes are left in a seat's deck. Both come from the view, and applyEvent keeps them
+// (and the discard piles) in step with the engine as the events play.
 export function deckCount(v: BattleView, seat: string): number {
-  if (seat === ENEMY_SEAT) return v.enemy.deckList.length - v.enemy.hand.length - v.enemy.discard.length;
+  if (seat === ENEMY_SEAT) return v.enemy.deckCount;
   return v.players.find((p) => p.id === seat)?.deck.length ?? 0;
 }
 
@@ -45,15 +46,18 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
         p?.hand.push(...(ev.dominoes ?? []));
         p?.deck.splice(0, ev.count);
       }
+      if (ev.seat === ENEMY_SEAT) v.enemy.deckCount -= ev.count;
       break;
     case "enemyDiscard":
       v.enemy.hand.shift();
       s.enemyIds.shift();
       v.enemy.discard.push(ev.domino);
+      v.enemy.faceUp.push(ev.domino);
       break;
     case "reshuffle": {
       // Only the counts matter on screen: the discard pile becomes the deck.
       if (ev.seat === ENEMY_SEAT) {
+        v.enemy.deckCount += v.enemy.discard.length;
         v.enemy.discard = [];
         v.enemy.faceUp = [];
       } else {
@@ -66,8 +70,11 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
       break;
     }
     case "opener": {
-      const hand = v.players.find((p) => p.id === ev.player)?.hand;
-      if (hand) removeOne(hand, ev.domino);
+      const player = v.players.find((p) => p.id === ev.player);
+      if (player) {
+        removeOne(player.hand, ev.domino);
+        player.discard.push(ev.domino);
+      }
       v.chain.played.push({ seat: ev.player, domino: ev.domino });
       v.chain.sparks = ev.sparks.slice();
       break;
@@ -91,9 +98,14 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
           v.enemy.hand.splice(i, 1);
           s.enemyIds.splice(i, 1);
         }
+        v.enemy.discard.push(ev.domino);
+        v.enemy.faceUp.push(ev.domino);
       } else {
-        const hand = v.players.find((p) => p.id === ev.seat)?.hand;
-        if (hand) removeOne(hand, ev.domino);
+        const player = v.players.find((p) => p.id === ev.seat);
+        if (player) {
+          removeOne(player.hand, ev.domino);
+          player.discard.push(ev.domino);
+        }
       }
       break;
     case "amplify":

@@ -208,8 +208,12 @@ export class CombatScene extends Phaser.Scene {
       p.hand = [];
     }
     events.push({ type: "draw", seat: ENEMY_SEAT, count: empty.enemy.hand.length });
+    empty.enemy.deckCount += empty.enemy.hand.length;
     empty.enemy.hand = [];
     const epoch = this.epoch;
+    // The intro holds the same lock as a playback (draining), so an update that arrives meanwhile
+    // waits in the queue and is played right after.
+    this.draining = true;
     this.locked = true;
     this.shown = startShown(empty, []);
     this.redraw();
@@ -217,7 +221,9 @@ export class CombatScene extends Phaser.Scene {
     if (epoch !== this.epoch) return;
     this.locked = false;
     this.shown = null;
+    this.draining = false;
     this.redraw();
+    void this.drain();
   }
 
   // Single player: the one entry point for new state.
