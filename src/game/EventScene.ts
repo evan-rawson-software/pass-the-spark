@@ -13,6 +13,7 @@ import { scaleTime } from "./playbackSpeed";
 import { drawPartyHud, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
 import { Tooltip } from "./tooltip";
+import { playVoteRoll } from "./voteRoll";
 import { drawTollBridge } from "./tollBridgeArt";
 import { drawWell, drawWellStage, prizeText } from "./wishingWellUi";
 import { PLAYER_COLORS, button, drawBackground, label } from "./ui";
@@ -396,21 +397,34 @@ export class EventScene extends Phaser.Scene {
       const c = drawDomino(this, event.domino, "large", "normal").setPosition(TEXT_X + 120, 230);
       new Tooltip(this).attach(c, event.domino);
     }
-    event.options.forEach((option, i) => {
-      const y = 360 + i * 80;
-      const won = i === outcome.winner;
-      label(this, TEXT_X, y, optionText(option), 32, { bold: won, color: won ? "#7dffb0" : "#9fb8aa" });
-      this.drawVoters(run, choices, i, 1330, y);
-    });
-    const y = 360 + event.options.length * 80 + 40;
-    label(this, TEXT_X, y, `Winner: ${optionText(outcome.option)}`, 36, { bold: true, color: "#7dffb0" });
-    if (outcome.drawn) {
-      const total = Object.values(outcome.counts).reduce((a, b) => a + b, 0);
-      const odds = Math.round((100 * (outcome.counts[outcome.winner] ?? 0)) / total);
-      label(this, TEXT_X, y + 50, `Drawn: ${optionText(outcome.option)}, ${odds}%`, 36, { bold: true, color: "#ff9d7a" });
-    }
-    this.time.delayedCall(scaleTime(2200), () => {
-      openRunScreen(this);
-    });
+    // A drawn vote first rolls over the options (all drawn alike), then shows the winner and its odds.
+    const optionLabels: Phaser.GameObjects.GameObject[] = [];
+    const drawOptions = (reveal: boolean): void => {
+      optionLabels.forEach((o) => o.destroy());
+      optionLabels.length = 0;
+      event.options.forEach((option, i) => {
+        const y = 360 + i * 80;
+        const won = reveal && i === outcome.winner;
+        optionLabels.push(label(this, TEXT_X, y, optionText(option), 32, { bold: won, color: won ? "#7dffb0" : "#9fb8aa" }));
+      });
+    };
+    event.options.forEach((_, i) => this.drawVoters(run, choices, i, 1330, 360 + i * 80));
+    const finish = (): void => {
+      drawOptions(true);
+      const y = 360 + event.options.length * 80 + 40;
+      label(this, TEXT_X, y, `Winner: ${optionText(outcome.option)}`, 36, { bold: true, color: "#7dffb0" });
+      if (outcome.drawn) {
+        const total = Object.values(outcome.counts).reduce((a, b) => a + b, 0);
+        const odds = Math.round((100 * (outcome.counts[outcome.winner] ?? 0)) / total);
+        label(this, TEXT_X, y + 50, `Drawn: ${optionText(outcome.option)}, ${odds}%`, 36, { bold: true, color: "#ff9d7a" });
+      }
+      this.time.delayedCall(scaleTime(2200), () => {
+        openRunScreen(this);
+      });
+    };
+    if (!outcome.drawn) return finish();
+    drawOptions(false);
+    const spots = event.options.map((_, i) => ({ option: i, x: 1100, y: 360 + i * 80, w: 1000, h: 64 }));
+    playVoteRoll(this, spots, outcome.counts, outcome.winner, finish);
   }
 }
