@@ -4,7 +4,7 @@ import type { TipLine } from "./tooltip";
 // How a boss and its passives read on the map and the act screen. Names and numbers come from the enemy's data.
 
 function kindName(kind: string): string {
-  return kind.charAt(0).toUpperCase() + kind.slice(1);
+  return kind.charAt(0).toUpperCase() + kind.slice(1).replace(/([A-Z])/g, " $1");
 }
 
 export function passiveText(boss: Enemy | undefined): string {
