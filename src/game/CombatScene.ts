@@ -18,7 +18,6 @@ import type { DominoState } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
-import { passiveName } from "./passives";
 import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
 import { describeEvent, eventDelay, newLogMemory } from "./eventLog";
@@ -461,6 +460,9 @@ export class CombatScene extends Phaser.Scene {
     this.bar(layer, "enemy", 60, 135, 400, 40, e.health, e.maxHealth, RED);
     this.shield(layer, "enemy", 80, 208, 40, e.block);
     e.passives.forEach((p, i) => this.drawPassive(layer, p, 230 + i * 130, 245));
+    e.passives.forEach((p) => {
+      if (p.text) this.label(layer, 60, 290, p.text, 18, "#ffe14d", 0, false);
+    });
 
     // The enemy's hand, oldest on the left.
     const rowX = 600;
@@ -515,6 +517,18 @@ export class CombatScene extends Phaser.Scene {
       g.fillCircle(x - 2, y, 20);
       g.fillStyle(0x0d2a20, 1);
       g.fillCircle(x + 8, y - 5, 17);
+    } else if (p.kind === "hoarder") {
+      // A shield-shaped chest.
+      g.fillStyle(0x8a6a3a, 1);
+      g.fillRoundedRect(x - 20, y - 14, 40, 30, 4);
+      g.fillStyle(0xffe14d, 1);
+      g.fillRect(x - 4, y - 4, 8, 10);
+    } else if (p.kind === "smolder") {
+      // A flame.
+      g.fillStyle(0xff7a2b, 1);
+      g.fillTriangle(x - 16, y + 20, x + 16, y + 20, x, y - 24);
+      g.fillStyle(0xffe14d, 1);
+      g.fillTriangle(x - 8, y + 20, x + 8, y + 20, x, y - 6);
     } else if (p.kind === "warden") {
       this.drawPadlock(g, x, y, 1.1);
     } else {
@@ -526,7 +540,7 @@ export class CombatScene extends Phaser.Scene {
         g.fillTriangle(x - 18 + i * 9, y - 8, x - 10 + i * 9, y - 8, x - 14 + i * 9, y + 2);
       }
     }
-    const name = passiveName(p);
+    const name = p.kind.charAt(0).toUpperCase() + p.kind.slice(1).replace(/([A-Z])/g, " $1");
     this.label(layer, x - 44, y, name, 24, "#ffe14d", 1, true);
   }
 

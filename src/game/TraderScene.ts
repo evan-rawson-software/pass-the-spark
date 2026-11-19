@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { applyRunChoice } from "../engine/run";
+import { applyRunChoice, getTraderPrices } from "../engine/run";
 import type { RunState, TraderAction } from "../engine/run";
 import type { Domino } from "../engine/types";
 import { submitRunChoice, currentRun, isOnlineRun, myPending, seatName, watchRun } from "./runSession";
@@ -84,6 +84,7 @@ export class TraderScene extends Phaser.Scene {
     const shown = this.viewing ?? player;
     const mine = shown === player;
     const stock = run.trader?.stock[shown] ?? [];
+    const prices = getTraderPrices(run, shown);
 
     // The shared HUD and header draw straight onto the scene; move them into the root so a redraw clears them.
     const before = this.children.list.length;
@@ -96,7 +97,7 @@ export class TraderScene extends Phaser.Scene {
     add(label(this, 60, 262, mine ? "Your stock" : `${seatName(shown)}'s stock (view only)`, 30, { bold: true, color: "#9fd1b8" }));
     stock.forEach((d, i) => {
       const x = 180 + i * 280;
-      const price = data.prices[d.rarity ?? "common"];
+      const price = prices.dominoPrices[d.id]; // the engine's price for the shown player (Haggler included)
       const why = mine ? refusal(run, player, { kind: "buy", domino: d.id }) : "not yours";
       const c = add(drawDomino(this, d, "large", why ? "notPlayable" : "normal").setPosition(x, 370));
       this.tooltip.attach(c, d);

@@ -61,6 +61,10 @@ export function validateRun(data: unknown, enemies: Enemy[]): RunData {
   checkWhole("trader", trader.removalFeeStart, "removalFeeStart", 0);
   checkWhole("trader", trader.removalFeeStep, "removalFeeStep", 0);
   checkWhole("trader", trader.minDeckSize, "minDeckSize", 1);
+  checkWhole("trader", trader.charmStockSize, "charmStockSize", 0);
+  checkWhole("trader", trader.charmPrice, "charmPrice", 0);
+  if (!isObject(data.charmOffers)) fail("(file)", `"charmOffers" must be an object`);
+  for (const type of ["elite", "boss"]) checkWhole("(file)", data.charmOffers[type], `charmOffers.${type}`, 0);
   if (!isObject(trader.prices)) fail("trader", `"prices" must be an object`);
   for (const rarity of RARITIES) checkWhole("trader", trader.prices[rarity], `prices.${rarity}`, 0);
   const seen: string[] = [];

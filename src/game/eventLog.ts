@@ -76,6 +76,10 @@ export function describeEvent(ev: GameEvent, ctx: LogContext, mem: LogMemory): s
       return `The Auditor charges the party ${ev.damage} for repeating a spark`;
     case "sparkLocked":
       return `The Warden locks ${ev.spark}: players can't answer it this round`;
+    case "hoarder":
+      return `The Hoarder gains ${ev.block} block as the lap goes up`;
+    case "smolder":
+      return `The Smolder's leftovers go off at strength ${ev.strength}`;
     case "glutton":
       return `The Glutton heals ${ev.heal} as the lap goes up`;
     case "leftover":
@@ -115,6 +119,8 @@ export function eventDelay(ev: GameEvent, mem: LogMemory): number {
     case "amplify":
       return mem.enemyActing ? 450 : 0;
     case "auditor":
+    case "hoarder":
+    case "smolder":
     case "glutton":
       return 450;
     default: return 0;

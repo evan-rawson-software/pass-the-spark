@@ -150,6 +150,7 @@ export function animTime(ev: GameEvent, dominoes: Domino[]): number {
     case "trigger": return flourishOf(ev, dominoes) ? 600 : 250;
     case "damage": case "block": case "heal": return ev.amount > 0 || ev.blocked > 0 ? 350 : 0;
     case "glutton": return 350;
+    case "hoarder": case "smolder": return 350;
     case "amplify": return 250;
     case "reveal": return 350;
     case "lapUp": return 450;
