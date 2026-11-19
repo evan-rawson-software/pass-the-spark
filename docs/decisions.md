@@ -138,7 +138,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
   - Uncommon: intake is one basic spark. Right side is a stronger damage or block, Amplify, Echo or Lookout, or two basic output sparks.
   - Rare: intake is one spark (basic, Storm or Void) or "any". Right side adds Mimic and Spectrum, and outputs may include Storm or Void.
   - No generated domino has a dual intake. Dual intakes come only from upgrades.
-  - No generated domino heals. Party healing comes from rest sites only.
+  - No generated domino heals. Party healing comes from rest sites, with one exception: Mimic copying an enemy heal still heals the party.
   - Spectrum and "ignores block" can be rolled as traits at the uncommon and rare tiers.
   - Names are generated from effect and spark (for example "Tide Strike").
   - Base values per effect and rarity live in data. The starter deck stays as written in the brief.
