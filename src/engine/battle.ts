@@ -62,6 +62,7 @@ export interface ChainState {
   history: Spark[]; // the spark each domino was answered with; reset every round
   echo: number; // pending extra triggers for the next domino played
   last: ResolvedEffect | null; // the last domino played this chain, fuse included
+  played: { seat: string; domino: string }[]; // every domino laid in this chain in order, fuse first, for the screen
 }
 
 export interface BattleState {
@@ -197,6 +198,7 @@ export function step(input: BattleState, choice: Choice): StepResult {
     player.discard.push(choice.domino);
     const d = getDomino(state, choice.domino);
     state.chain = newChain(d.output);
+    state.chain.played.push({ seat: player.id, domino: d.id });
     events.push({ type: "fuse", player: player.id, domino: d.id, sparks: d.output.slice() });
     // The fuse's effect never triggers, but a Mimic after it can copy it.
     if (d.effect.kind !== "mimic" && d.effect.kind !== "reflect") state.chain.last = { effect: d.effect, side: "party" };
@@ -222,7 +224,7 @@ export function step(input: BattleState, choice: Choice): StepResult {
 // ---- internals (all mutate the working copy) ----
 
 function newChain(sparks: Spark[]): ChainState {
-  return { strength: 0, lap: 1, sparks: sparks.slice(), history: [], echo: 0, last: null };
+  return { strength: 0, lap: 1, sparks: sparks.slice(), history: [], echo: 0, last: null, played: [] };
 }
 
 function playerSeats(seatOrder: string[]): string[] {
@@ -417,6 +419,7 @@ function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean,
   chain.history.push(answered);
   chain.sparks = d.output.slice();
   const seat = byPlayer ? state.seat : ENEMY_SEAT;
+  chain.played.push({ seat, domino: d.id });
   events.push({ type: "play", seat, domino: d.id, answeredSpark: answered, strength: chain.strength, lap: chain.lap });
   const scaleLap = byPlayer || state.config.enemyReactionsScaleWithLap;
   playEffect(state, d, seat, byPlayer ? "party" : "enemy", scaleLap, events);

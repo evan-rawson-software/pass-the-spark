@@ -1,9 +1,15 @@
 import Phaser from "phaser";
+import { CombatScene } from "./CombatScene";
 import { DominoTestScene } from "./DominoTestScene";
 import { TitleScene } from "./TitleScene";
 
-// ?scene=dominoes opens the domino drawing test page instead of the title.
-const showDominoes = new URLSearchParams(window.location.search).get("scene") === "dominoes";
+// The combat table is the default. ?scene=dominoes opens the domino drawing test
+// page and ?scene=title the title. The start screen (#27) will replace this choice.
+const which = new URLSearchParams(window.location.search).get("scene");
+const scenes =
+  which === "dominoes" ? [DominoTestScene, TitleScene, CombatScene]
+  : which === "title" ? [TitleScene, DominoTestScene, CombatScene]
+  : [CombatScene, TitleScene, DominoTestScene];
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -15,5 +21,5 @@ new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: showDominoes ? [DominoTestScene, TitleScene] : [TitleScene, DominoTestScene],
+  scene: scenes,
 });
