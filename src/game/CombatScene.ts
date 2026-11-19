@@ -13,6 +13,7 @@ import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
 import { applyRunChoice } from "../engine/run";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
+import { drawBlessedGlow } from "./sparkShrineArt";
 import type { DominoState } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
@@ -548,7 +549,16 @@ export class CombatScene extends Phaser.Scene {
     this.label(layer, 1330, y - 6, "Spark", 22, "#9fd1b8", 0);
     const sg = this.gfx(layer);
     if (view.chain.sparks.length === 0) this.label(layer, 1405, y - 6, "none", 22, "#ffffff", 0);
-    view.chain.sparks.forEach((s, i) => drawSparkGlyph(sg, s, 1430 + i * 56, y - 6, 22));
+    view.chain.sparks.forEach((s, i) => {
+      if (s === view.blessing?.spark) drawBlessedGlow(sg, s, 1430 + i * 56, y - 6, 22);
+      drawSparkGlyph(sg, s, 1430 + i * 56, y - 6, 22);
+    });
+    // The Spark Shrine's blessing, for the whole act's boss fight.
+    if (view.blessing) {
+      drawBlessedGlow(sg, view.blessing.spark, 1342, y + 40, 12);
+      drawSparkGlyph(sg, view.blessing.spark, 1342, y + 40, 12);
+      this.label(layer, 1372, y + 40, `Blessed ${view.blessing.spark}: +${view.blessing.strength}`, 20, "#ffe14d", 0, true);
+    }
   }
 
   // ---- party health (top right) and combo meter ----

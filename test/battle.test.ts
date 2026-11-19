@@ -250,3 +250,20 @@ test("a preview matches what playing the domino then does (Echo pending, Spectru
   expect(triggers.map((e) => e.type === "trigger" && e.value)).toEqual([16, 16]);
   expect(state.enemy.health).toBe(s.enemy.health - preview.triggers * preview.value);
 });
+
+test("blessed spark: answers and enemy reactions made with it add 2 strength, other sparks add 1", () => {
+  const s0 = setup(["parry", "splash"], ["lookout"], ["goblin_stab"]);
+  s0.blessing = { spark: "Ember", strength: 2 };
+  const s1 = opener(s0, "parry"); // the opener adds nothing, even though it outputs the blessed Ember
+  expect(s1.chain.strength).toBe(0);
+  expect(previewPlay(s1, "p2", "lookout")[0].strength).toBe(2); // previews include the blessing
+  const plays: string[] = [];
+  let s = s1;
+  for (const domino of ["lookout", "splash"]) {
+    const r = step(s, { type: "answer", domino });
+    s = r.state;
+    for (const e of r.events) if (e.type === "play") plays.push(`${e.seat}:${e.answeredSpark}:${e.strength}`);
+  }
+  // p2 answers Ember (+2), the enemy reacts to Ember (+2), p1 answers the enemy's Tide (+1).
+  expect(plays).toEqual(["p2:Ember:2", "enemy:Ember:4", "p1:Tide:5"]);
+});

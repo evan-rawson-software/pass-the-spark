@@ -5,7 +5,7 @@
       "name": "The Toll Bridge",
       "kind": "vote",
       "weight": 4,
-      "enabled": false,
+      "enabled": true,
       "text": "A troll sits at the end of a rickety bridge, tapping a heavy club. \"Pay up, or prove you're worth letting by.\"",
       "numbers": { "payCoins": 15 }
     },
@@ -32,7 +32,7 @@
       "name": "The Sleeping Giant",
       "kind": "push",
       "weight": 4,
-      "enabled": false,
+      "enabled": true,
       "text": "A giant snores across the path, a heap of gold spilling from his pockets. Every grab is a gamble.",
       "numbers": { "grabCoins": 30, "wakeStartPercent": 10, "wakeStepPercent": 10, "wakeDamage": 10 }
     },
@@ -41,7 +41,7 @@
       "name": "The Spark Shrine",
       "kind": "vote",
       "weight": 4,
-      "enabled": false,
+      "enabled": true,
       "text": "Three stone bowls glow at a mossy shrine, one each for Ember, Tide and Gale. The party may kneel at one.",
       "numbers": { "blessedAnswerStrength": 2 }
     },

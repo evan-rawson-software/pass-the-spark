@@ -5,6 +5,7 @@
 // The options are the same for every player, so a player's choice is an index into event.options.
 // Option 0 is always Skip. Players who haven't chosen yet are the run's pending event choices.
 
+import type { EventOption } from "../eventStops";
 import type { RunEvent, RunState } from "../run";
 import type { Domino, EventData, Spark } from "../types";
 import { deckEventHandlers } from "./deckEvents";
@@ -32,7 +33,7 @@ export interface PersonalResult {
 
 export interface PersonalHandler {
   // The event's options after Skip. cost is in coins.
-  actions(data: EventData): { action: PersonalAction; cost: number }[];
+  actions(data: EventData): { action: Exclude<PersonalAction, "skip">; cost: number }[];
   // Why this player can't take the action at all right now, or null when they can.
   unavailable(run: RunState, player: string, action: PersonalAction, cost: number): string | null;
   // Applies the action to the run (mutating it) and says what happened. Throws when the pick is illegal.
@@ -45,10 +46,10 @@ const HANDLERS: Record<string, PersonalHandler> = {
   twin_forge: deckEventHandlers.twin_forge,
 };
 
-export function personalOptions(data: EventData): { type: "action"; action: PersonalAction; cost: number }[] {
+export function personalOptions(data: EventData): EventOption[] {
   const handler = HANDLERS[data.id];
   if (!handler) throw new Error(`event ${data.id} is not a personal event`);
-  return [{ type: "action", action: "skip", cost: 0 }, ...handler.actions(data).map((a) => ({ type: "action" as const, ...a }))];
+  return [{ type: "skip" }, ...handler.actions(data).map((a): EventOption => ({ type: "action", ...a }))];
 }
 
 // Why a player can't take option `option` right now, or null. Skip is always possible.
@@ -56,8 +57,9 @@ export function personalUnavailable(run: RunState, player: string, option: numbe
   const event = run.event;
   if (!event) throw new Error("no event");
   const o = event.options[option];
-  if (!o || o.type !== "action") throw new Error(`option ${option} is not offered`);
-  if (o.action === "skip") return null;
+  if (!o) throw new Error(`option ${option} is not offered`);
+  if (o.type === "skip") return null;
+  if (o.type !== "action") throw new Error(`option ${option} is not offered`);
   return HANDLERS[event.id].unavailable(run, player, o.action, o.cost);
 }
 
@@ -67,9 +69,9 @@ export function applyPersonalChoice(run: RunState, player: string, option: numbe
   const event = run.event;
   if (!event) throw new Error("no event");
   const o = event.options[option];
-  if (!Number.isInteger(option) || !o || o.type !== "action") throw new Error(`option ${option} is not offered`);
+  if (!Number.isInteger(option) || !o || (o.type !== "action" && o.type !== "skip")) throw new Error(`option ${option} is not offered`);
   let result: PersonalResult;
-  if (o.action === "skip") {
+  if (o.type === "skip") {
     if (pick !== undefined) throw new Error("Skip takes no pick");
     result = { action: "skip", cost: 0, before: [], after: null };
   } else {
@@ -78,7 +80,7 @@ export function applyPersonalChoice(run: RunState, player: string, option: numbe
     result = HANDLERS[event.id].apply(run, player, o.action, o.cost, pick);
   }
   event.choices[player] = option;
-  event.results[player] = result;
+  (event.results ??= {})[player] = result;
   events.push({ type: "eventChoice", player, option });
   return run.players.every((id) => event.choices[id] !== undefined);
 }
@@ -87,5 +89,5 @@ export function applyPersonalChoice(run: RunState, player: string, option: numbe
 export function personalSummary(run: RunState): RunEvent {
   const event = run.event;
   if (!event) throw new Error("no event");
-  return { type: "eventSummary", event: event.id, results: run.players.map((player) => ({ player, ...event.results[player] })) };
+  return { type: "eventSummary", event: event.id, results: run.players.map((player) => ({ player, ...(event.results ?? {})[player] })) };
 }

@@ -6,11 +6,14 @@ import type { EventPick } from "../engine/events/personal";
 import type { EventOption, EventState } from "../engine/eventStops";
 import type { EventData } from "../engine/types";
 import { ACTION_LABEL, DECK_EVENTS, DECK_ILLUSTRATIONS, startDeckAction } from "./deckEventUi";
+import { drawGiant, drawGiantPanel } from "./giantDrawing";
 import { drawDomino } from "./dominoDrawing";
+import { drawSparkShrine } from "./sparkShrineArt";
 import { scaleTime } from "./playbackSpeed";
 import { drawPartyHud, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
 import { Tooltip } from "./tooltip";
+import { drawTollBridge } from "./tollBridgeArt";
 import { PLAYER_COLORS, button, drawBackground, label } from "./ui";
 
 // The event screen (#87), used by every event. Illustration (drawn in code, one per event) on the
@@ -35,8 +38,16 @@ function eventData(run: RunState, id: string): EventData {
 }
 
 function optionText(option: EventOption): string {
+  if (option.type === "toll") {
+    if (option.action === "pay") return `Pay the toll: ${option.amount} coins each`;
+    return option.action === "fight" ? "Fight the troll (hard fight)" : "Turn back";
+  }
+  if (option.type === "grab") return "Grab";
+  if (option.type === "stop") return "Stop";
   if (option.type === "player") return `${seatName(option.player)} takes the domino`;
   if (option.type === "action") return option.cost > 0 ? `${ACTION_LABEL[option.action]} (${option.cost} coins)` : ACTION_LABEL[option.action];
+  if (option.type === "bless") return `Bless ${option.spark}`;
+  if (option.type === "skip") return "Skip";
   return `Everyone takes ${option.amount} coins`;
 }
 
@@ -95,7 +106,7 @@ const drawUnknown: Illustration = (g, x, y, w, h) => {
   g.fillCircle(x + w / 2, y + h * 0.78, 16);
 };
 
-const ILLUSTRATIONS: Record<string, Illustration> = { lost_courier: drawCourier, ...DECK_ILLUSTRATIONS };
+const ILLUSTRATIONS: Record<string, Illustration> = { lost_courier: drawCourier, toll_bridge: drawTollBridge, spark_shrine: drawSparkShrine, ...DECK_ILLUSTRATIONS };
 
 export class EventScene extends Phaser.Scene {
   private resolving = false;
@@ -128,6 +139,11 @@ export class EventScene extends Phaser.Scene {
           this.showSummary(summary);
           return true;
         }
+        const wake = events.find((e) => e.type === "giantWake");
+        if (wake !== undefined && wake.type === "giantWake" && event) {
+          this.showWake(event, wake.damage);
+          return true;
+        }
         const outcome = events.find((e) => e.type === "eventOutcome");
         if (outcome === undefined || outcome.type !== "eventOutcome" || !event) return false;
         this.showResult(event, outcome, events);
@@ -142,15 +158,57 @@ export class EventScene extends Phaser.Scene {
     const text = this.add.text(TEXT_X, 150, data.text, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: "30px", color: "#cfe9dc", wordWrap: { width: 920 } });
     if (event.kind === "vote") this.drawVote(run, event, 150 + text.height + 30);
     else if (event.kind === "personal") this.drawPersonal(run, event, 150 + text.height + 30);
+    else if (event.giant) this.drawGiantTurn(run, event, data, 150 + text.height + 30);
   }
 
-  private drawIllustration(id: string): void {
+  // The Sleeping Giant: the meter, whose turn it is and the Grab and Stop buttons.
+  private drawGiantTurn(run: RunState, event: EventState, data: EventData, top: number): void {
+    const pending = myPending(run);
+    const me = isOnlineRun() ? (pending?.player ?? null) : null;
+    drawGiantPanel(this, run, event, data, TEXT_X, top, pending !== null && !this.resolving, me, (option) => this.giantPick(run, event, pending!.player, option));
+  }
+
+  // Sends a grab or stop. Single player applies it here, so the wake can be shown before moving on;
+  // online the host applies it and the screen follows when its update arrives.
+  private giantPick(run: RunState, event: EventState, player: string, option: number): void {
+    if (this.resolving) return;
+    if (isOnlineRun()) return submitRunChoice(this, player, { type: "event", option });
+    const result = applyRunChoice(run, player, { type: "event", option });
+    setRun(result.run);
+    const wake = result.events.find((e) => e.type === "giantWake");
+    if (wake !== undefined && wake.type === "giantWake") return this.showWake(event, wake.damage);
+    if (result.run.phase === "event") {
+      this.tweens.killAll();
+      this.children.removeAll(true);
+      this.build();
+    } else openRunScreen(this);
+  }
+
+  // The Giant woke: the picture changes, the screen shakes and the damage is shown, then on.
+  private showWake(event: EventState, damage: number): void {
+    this.resolving = true;
+    this.tweens.killAll();
+    this.children.removeAll(true);
+    const run = currentRun();
+    drawBackground(this);
+    drawPartyHud(this, run);
+    this.drawIllustration(event.id, true);
+    label(this, TEXT_X, 90, eventData(run, event.id).name, 56, { bold: true });
+    label(this, TEXT_X, 220, "The Giant wakes!", 64, { bold: true, color: "#ff9d7a" });
+    label(this, TEXT_X, 310, `The party takes ${damage} damage.`, 44, { bold: true, color: "#ffd0cc" });
+    this.cameras.main.shake(scaleTime(500), 0.01);
+    this.cameras.main.flash(scaleTime(300), 217, 80, 59);
+    this.time.delayedCall(scaleTime(2200), () => openRunScreen(this));
+  }
+
+  private drawIllustration(id: string, awake = false): void {
     const g = this.add.graphics();
     const x = 60;
     const y = 220;
     const w = 700;
     const h = 740;
-    (ILLUSTRATIONS[id] ?? drawUnknown)(g, x, y, w, h);
+    if (id === "sleeping_giant") drawGiant(g, x, y, w, h, awake);
+    else (ILLUSTRATIONS[id] ?? drawUnknown)(g, x, y, w, h);
     g.lineStyle(6, 0xf4ecd8, 1);
     g.strokeRect(x, y, w, h);
   }
@@ -212,8 +270,8 @@ export class EventScene extends Phaser.Scene {
   // The player picked an option: Skip is sent at once; the others go on to their event's own screens.
   private chooseOption(run: RunState, player: string, event: EventState, option: number): void {
     const o = event.options[option];
+    if (o.type === "skip") return this.sendPersonal(run, player, option);
     if (o.type !== "action") return;
-    if (o.action === "skip") return this.sendPersonal(run, player, option);
     if (DECK_EVENTS.includes(event.id)) startDeckAction(this, run, player, o.action, (pick) => this.sendPersonal(run, player, option, pick));
   }
 
