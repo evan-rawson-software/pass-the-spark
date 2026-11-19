@@ -9,18 +9,33 @@ This is the list of images the game can use, for generating art locally. The gam
 - **Formats:**
   - PNG with a transparent background for icons, portraits, tiles and map stops;
   - JPG (quality about 85) for backgrounds and event illustrations, which fill their whole frame.
-- **Size budget:** icons under 100 KB, portraits and illustrations under 400 KB, backgrounds under 1 MB. Shrink or recompress anything bigger. The whole `public/art/` folder should stay under about 60 MB.
+- **Size budget:** icons under 100 KB, enemy portraits under 600 KB, event illustrations under 400 KB, backgrounds under 1 MB. Shrink or recompress anything bigger. The whole `public/art/` folder should stay under about 60 MB.
 - **No text in images.** The game draws all names and numbers itself.
 - **Generate big, ship small:** generate at the model's native size, then downscale to the sizes below. Leave about 8% padding inside the frame for icons, so outlines and glows aren't clipped.
 - **Transparency:** most models can't make transparent images. Generate on a plain, flat background and remove it (for example with `rembg`), then check the edges.
 
 ## Style
 
-The look is a placeholder until the designer sets one. Start from this and adjust it in this file:
+Approved by the designer from the style test (2026-11-19). Every batch uses these exact settings and words so sets match.
 
-- Hand-painted tabletop fantasy, warm lantern light, rich colour, clean readable silhouettes.
-- Icons: a single centred object, bold dark outline, simple shading. They must read at 48 px.
-- One consistent palette and lighting across a whole set. Generate a set with the same model, sampler, style words and negative prompt.
+- **Icons** (sparks, effects, ui markers, charms, map stops): flat, outlined, simple. A single centred object, thick black outline, flat colour fills, minimal shading. They must read at 48 px.
+- **Sparks** are flat runes: thick strokes in the spark's colour with a black outline, holes left open. No white anywhere in a rune, because enclosed white is keyed out.
+- **Enemies** are detailed, hand-painted characters with crisp ink linework and warm rim light, cut out with no ground shadow.
+- Generate a whole set with the same model, settings, style words and negative prompt.
+
+**Model and settings:** ComfyUI with `flux1-schnell-fp8.safetensors`, 4 steps, CFG 1.0, sampler `euler`, scheduler `simple`, rendered at 1024×1024. Each prompt is `<subject>. <style words>.`, where the subject names the object, its colours and, for sparks, the hex colour and shape.
+
+**Style words:**
+
+- Icons: `flat vector game icon, a single centred symbol, thick bold black outline, flat solid colour fills, minimal cel shading, no gradients, no shadow, isolated on a plain flat pure white background, no text`
+- Spark runes: `flat rune glyph icon, an ancient runic symbol drawn with thick bold strokes, thick black outline around every stroke, one flat solid colour, no fill inside the shapes, no gradients, no shadow, isolated on a plain flat pure white background, no text`
+- Enemies: `highly detailed fantasy character illustration, hand-painted tabletop fantasy art, intricate textures, crisp dark ink linework, warm lantern light with rim light, rich colour, clean readable silhouette, no ground shadow, isolated on a plain flat pure white background, no text`
+
+**Negative prompt:** `text, letters, words, numbers, watermark, signature, border, frame, multiple objects, photo, photorealistic, 3d render, blurry, cluttered background, gradient, drop shadow`. Flux schnell runs at CFG 1, so it ignores the negative prompt; it is logged for completeness, and the "no text, no shadow" wording in the style words is what counts.
+
+**Background removal:** icons remove the flat white background by colour, from the border inward (runes also clear enclosed white). If a pale ground shadow is left, widen the colour tolerance rather than using `rembg`, which can punch holes in flat icons. Enemies use `rembg` with the `isnet-general-use` model. Then crop to the subject, pad 8% and downscale.
+
+**Approved style test examples:** `sparks/Ember.png`, `sparks/Tide.png`, `effects/damage.png`, `effects/block.png`, `enemies/ogre.png`, `charms/ember_lens.png`.
 - **Spark colours are fixed** (from `src/game/sparks.ts`). Anything tied to a spark uses its colour and shape:
 
   | Spark | Colour | Shape |
@@ -46,7 +61,7 @@ The look is a placeholder until the designer sets one. Start from this and adjus
 ### Domino tiles: `tiles/<id>.png`, 480×240, transparent
 `starter`, `common`, `uncommon`, `rare`, `enemy`, `hidden` (face-down back). An empty two-halved domino face with a divider line. The game draws the spark, effect icon and numbers on top, so leave the halves plain. Rarity can show in the frame (plain, silver, gold); enemy tiles look darker or menacing.
 
-### Enemies: `enemies/<id>.png`, 512×512, transparent
+### Enemies: `enemies/<id>.png`, 768×768, transparent
 Portrait, head and shoulders or full body, facing slightly toward the viewer.
 
 | Id | Tier | Notes |
