@@ -536,6 +536,10 @@ function draw(
       events.push({ type: "enemyDiscard", domino: old });
     }
     if (p.deck.length === 0) {
+      if (p.discard.length > 0) {
+        flush();
+        events.push({ type: "reshuffle", seat });
+      }
       const s = shuffle(state.rng, p.discard);
       state.rng = s.state;
       p.deck = s.value;

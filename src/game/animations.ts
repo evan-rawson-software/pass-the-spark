@@ -41,6 +41,8 @@ export interface Refs {
   hand: Map<string, Pos>; // the active hand, by domino id
   chain: { c: Container; pos: Pos }[];
   enemyHand: { c: Container; pos: Pos }[];
+  handSlots: Map<string, { c: Container; pos: Pos }[]>; // every player's hand, by seat and position (draw animation, #153)
+  decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck stack, "enemy" included
   bars: Map<string, BarRef>; // "enemy" | "party"
   shields: Map<string, { text: Text; x: number; y: number }>;
   meter?: { text: Text; rect: Box; scale: number };
@@ -48,7 +50,7 @@ export interface Refs {
 }
 
 export function newRefs(): Refs {
-  return { hand: new Map(), chain: [], enemyHand: [], bars: new Map(), shields: new Map(), charms: new Map() };
+  return { hand: new Map(), chain: [], enemyHand: [], handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map() };
 }
 
 export function paintBar(b: BarRef, value: number): void {
