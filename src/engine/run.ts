@@ -8,6 +8,7 @@ import type { BattleState, Choice, PendingChoice } from "./battle";
 import type { Content } from "./content";
 import type { GameEvent } from "./events";
 import { openEvent, pickEvent } from "./eventStops";
+import { floorHiddenAfterTurnBack } from "./events/tollBridge";
 import type { EventOption, EventState } from "./eventStops";
 import { generateActMap } from "./map";
 import type { ActMap } from "./map";
@@ -53,6 +54,8 @@ export interface RunState {
   rest: string[] | null; // present while phase is "rest": the players who have chosen
   trader: TraderState | null; // present while phase is "trader"
   event: EventState | null; // present while phase is "event"
+  hiddenFloor: number | null; // the floor whose stops show as "?" until the party enters one (Toll Bridge: turn back)
+  allRareRewards: boolean; // the battle being fought (the Toll Bridge's hard fight) offers only rares
   eventsSeen: string[]; // event ids met this run, across acts; starts again once every enabled event has been seen
   result: "won" | "lost" | null;
 }
@@ -192,6 +195,8 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     rest: null,
     trader: null,
     event: null,
+    hiddenFloor: null,
+    allRareRewards: false,
     eventsSeen: [],
     result: null,
   };
@@ -320,6 +325,7 @@ function chooseNode(run: RunState, index: number, counts: Record<number, number>
   const floor = (run.position?.floor ?? 0) + 1;
   const type: RunNodeType = floor > run.map.floors.length ? "boss" : run.map.floors[floor - 1][index].type;
   run.position = { floor, index, type };
+  run.hiddenFloor = null; // entering a stop of the hidden floor reveals it
   events.push({ type: "routeChosen", floor, index, nodeType: type, votes: { ...run.votes }, counts, drawn });
   run.votes = {};
   enterNode(run, events);
@@ -349,7 +355,7 @@ function enterEvent(run: RunState, events: RunEvent[]): void {
   const picked = pickEvent(run.rng, run.content.events, run.eventsSeen);
   run.eventsSeen = picked.seen;
   const data = run.content.events.find((e) => e.id === picked.id)!;
-  const opened = openEvent(picked.state, data, run.players, run.content.pools, run.nextIndex);
+  const opened = openEvent(picked.state, data, run.players, run.content.pools, run.nextIndex, run.coins);
   run.rng = opened.state;
   run.nextIndex = opened.nextIndex;
   run.event = opened.event;
@@ -364,6 +370,25 @@ function settleEvent(run: RunState, events: RunEvent[]): void {
   run.rng = result.state;
   const option = event.options[result.winner];
   events.push({ type: "eventOutcome", event: event.id, winner: result.winner, option, counts: result.counts, drawn: result.drawn });
+  if (option.type === "toll") {
+    run.event = null;
+    if (option.action === "fight") {
+      run.allRareRewards = true;
+      startBattle(run, "elite", events);
+      return;
+    }
+    if (option.action === "pay") {
+      for (const id of run.players) {
+        if (run.coins[id] < option.amount) throw new Error(`${id} can't pay the toll`);
+        run.coins[id] -= option.amount;
+        events.push({ type: "coins", player: id, amount: -option.amount });
+      }
+    } else if (run.position) {
+      run.hiddenFloor = floorHiddenAfterTurnBack(run.position.floor, run.map.floors.length);
+    }
+    goToVote(run, events);
+    return;
+  }
   if (option.type === "player") {
     const domino = event.domino as Domino;
     run.decks[option.player].push(domino.id);
@@ -464,7 +489,7 @@ function finishBattle(run: RunState, events: RunEvent[]): void {
     endRun(run, "won", events);
     return;
   }
-  const roll = rollOffers(run.rng, run.players, type, run.content.pools, run.nextIndex);
+  const roll = rollOffers(run.rng, run.players, type, run.content.pools, run.nextIndex, run.allRareRewards);
   run.rng = roll.state;
   run.nextIndex = roll.nextIndex;
   run.reward = roll.reward;
@@ -481,6 +506,7 @@ function finishRewards(run: RunState, events: RunEvent[]): void {
     run.dominoes.push(domino);
   }
   run.reward = null;
+  run.allRareRewards = false;
   if (run.battleType === "boss") {
     // A boss that isn't the last of the run opens the next act.
     run.actIndex++;

@@ -100,6 +100,7 @@ test("a split vote resolves the same way for the same seed", () => {
 function atEvent(seed: number): RunState {
   const content = JSON.parse(JSON.stringify(loadContent())) as Content; // a copy: loadContent shares its data objects
   content.run.acts[0].map.fixedFloors["1"] = "event";
+  for (const e of content.events) e.enabled = e.id === "lost_courier"; // these tests are about the courier
   let run = createRun({ players, seed, content });
   for (const id of players) run = applyRunChoice(run, id, { type: "vote", node: 0 }).run;
   return run;

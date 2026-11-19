@@ -1,6 +1,7 @@
 // Event stops (the "?" nodes): which event comes up, and the working state of the one in progress.
 // Plain functions over the seeded RNG. The run applies the choices and settles the event.
 
+import { openTollBridge } from "./events/tollBridge";
 import { generateDomino } from "./generate";
 import { nextFloat } from "./rng";
 import type { Domino, EventData, EventKind, Pools } from "./types";
@@ -8,7 +9,9 @@ import type { Domino, EventData, EventKind, Pools } from "./types";
 // One thing a party vote can pick. A vote is stored as an index into the event's options.
 export type EventOption =
   | { type: "player"; player: string } // that player takes the event's domino
-  | { type: "coins"; amount: number }; // every player takes this many coins
+  | { type: "coins"; amount: number } // every player takes this many coins
+  | { type: "toll"; action: "pay"; amount: number } // the Toll Bridge: every player pays this
+  | { type: "toll"; action: "fight" | "turnBack" };
 
 // The event the party is standing at.
 export interface EventState {
@@ -57,8 +60,9 @@ export interface OpenedEvent {
   nextIndex: number; // next unused generated-domino index
 }
 
-// Sets up the picked event. Only the Lost Courier is playable so far.
-export function openEvent(state: number, data: EventData, players: string[], pools: Pools, startIndex: number): OpenedEvent {
+// Sets up the picked event. Playable so far: the Lost Courier and the Toll Bridge.
+export function openEvent(state: number, data: EventData, players: string[], pools: Pools, startIndex: number, coins: Record<string, number>): OpenedEvent {
+  if (data.id === "toll_bridge") return { event: openTollBridge(data, coins, players), state, nextIndex: startIndex };
   if (data.id !== "lost_courier") throw new Error(`event ${data.id} is not playable yet`);
   const domino = generateDomino(state, "rare", pools, startIndex);
   const options: EventOption[] = [...players.map((player): EventOption => ({ type: "player", player })), { type: "coins", amount: data.numbers.coinsEach }];

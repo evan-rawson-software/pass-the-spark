@@ -5,7 +5,7 @@
       "name": "The Toll Bridge",
       "kind": "vote",
       "weight": 4,
-      "enabled": false,
+      "enabled": true,
       "text": "A troll sits at the end of a rickety bridge, tapping a heavy club. \"Pay up, or prove you're worth letting by.\"",
       "numbers": { "payCoins": 15 }
     },
