@@ -3,7 +3,7 @@ import type { RunEvent } from "../engine/run";
 import { getPlaybackSpeed } from "./playbackSpeed";
 
 // Sound effects (#137), played from this browser's own events; nothing goes on the network. The cue
-// table (files, volumes, gaps) is data/sound.json. The audio files are loaded by SoundScene; a cue
+// table (files, volumes, gaps) is data/sound.json. The audio files are loaded by GameMenuScene; a cue
 // whose file is missing is silently skipped. Playback speed never slows a sound: it only makes the
 // gap between repeats of a cue longer, so fast playback plays fewer sounds.
 
@@ -13,7 +13,7 @@ const D = soundJson as unknown as { tickPitch: { stepCents: number; maxSteps: nu
 export const SOUND_FILES = Array.from(new Set(Object.values(D.cues).map((c) => c.file)));
 export const soundKey = (file: string): string => `audio/${file}`;
 
-// The slice of Phaser's sound manager used here (SoundScene supplies it).
+// The slice of Phaser's sound manager used here (GameMenuScene supplies it).
 export interface SoundOut {
   play(key: string, config: { volume: number; detune: number }): unknown;
   has(key: string): boolean;

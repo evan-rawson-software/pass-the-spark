@@ -17,8 +17,16 @@ export function getPlaybackSpeed(): number {
   return speed;
 }
 
+// Screens that show the setting (the combat quick control) listen here, so a change made in the menu shows at once.
+const listeners = new Set<() => void>();
+export function onPlaybackSpeedChange(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
 export function setPlaybackSpeed(value: number): void {
   speed = value;
+  listeners.forEach((fn) => fn());
   try {
     window.localStorage.setItem(KEY, String(value));
   } catch {
