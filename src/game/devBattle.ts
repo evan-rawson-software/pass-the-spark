@@ -63,8 +63,8 @@ export function startBattle(settings: GameSettings, seed: number, query = new UR
     if (!pending) break;
     state = step(
       state,
-      pending.type === "fuse"
-        ? { type: "fuse", domino: pending.dominoes[0] }
+      pending.type === "opener"
+        ? { type: "opener", domino: pending.dominoes[0] }
         : { type: "answer", domino: pending.options[0].domino, spark: pending.options[0].sparks[0] },
     ).state;
   }

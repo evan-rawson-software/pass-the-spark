@@ -62,8 +62,8 @@ export interface ChainState {
   sparks: Spark[]; // the current spark: one, or a set of two
   history: Spark[]; // the spark each domino was answered with; reset every round
   echo: number; // pending extra triggers for the next domino played
-  last: ResolvedEffect | null; // the last domino played this chain, fuse included
-  played: { seat: string; domino: string }[]; // every domino laid in this chain in order, fuse first, for the screen
+  last: ResolvedEffect | null; // the last domino played this chain, opener included
+  played: { seat: string; domino: string }[]; // every domino laid in this chain in order, opener first, for the screen
 }
 
 export interface BattleState {
@@ -72,9 +72,9 @@ export interface BattleState {
   rng: number;
   seatOrder: string[];
   round: number;
-  lead: string; // this round's lead (the player who fuses)
+  lead: string; // this round's lead (the player who plays the opener)
   seat: string; // whose turn it is
-  phase: "fuse" | "answer" | "over";
+  phase: "opener" | "answer" | "over";
   chain: ChainState;
   party: PartyState;
   players: PlayerState[]; // in seat order
@@ -84,7 +84,7 @@ export interface BattleState {
 }
 
 export type PendingChoice =
-  | { type: "fuse"; player: string; dominoes: string[] }
+  | { type: "opener"; player: string; dominoes: string[] }
   | {
       type: "answer";
       player: string;
@@ -92,7 +92,7 @@ export type PendingChoice =
     };
 
 export type Choice =
-  | { type: "fuse"; domino: string }
+  | { type: "opener"; domino: string }
   | { type: "answer"; domino: string; spark?: Spark }; // spark needed only when ambiguous
 
 export interface BattleSetup {
@@ -158,7 +158,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     round: 0,
     lead,
     seat: lead,
-    phase: "fuse",
+    phase: "opener",
     chain: newChain([]),
     party: { health: partyHealth, maxHealth: config.partyMaxHealth, block: 0 },
     players,
@@ -206,8 +206,8 @@ export function makeStarterInstances(
 export function getPendingChoice(state: BattleState): PendingChoice | null {
   if (state.phase === "over") return null;
   const player = getPlayer(state, state.seat);
-  if (state.phase === "fuse") {
-    return { type: "fuse", player: player.id, dominoes: unique(player.hand) };
+  if (state.phase === "opener") {
+    return { type: "opener", player: player.id, dominoes: unique(player.hand) };
   }
   return { type: "answer", player: player.id, options: legalAnswers(state, player) };
 }
@@ -224,15 +224,15 @@ export function step(input: BattleState, choice: Choice): StepResult {
   if (!pending || pending.type !== choice.type) throw new Error("unexpected choice");
   const player = getPlayer(state, pending.player);
 
-  if (pending.type === "fuse" && choice.type === "fuse") {
+  if (pending.type === "opener" && choice.type === "opener") {
     if (!player.hand.includes(choice.domino)) throw new Error("domino not in hand");
     removeOne(player.hand, choice.domino);
     player.discard.push(choice.domino);
     const d = getDomino(state, choice.domino);
     state.chain = newChain(d.output);
     state.chain.played.push({ seat: player.id, domino: d.id });
-    events.push({ type: "fuse", player: player.id, domino: d.id, sparks: d.output.slice() });
-    // The fuse's effect never triggers, but a Mimic after it can copy it.
+    events.push({ type: "opener", player: player.id, domino: d.id, sparks: d.output.slice() });
+    // The opener's effect never triggers, but a Mimic after it can copy it.
     if (d.effect.kind !== "mimic" && d.effect.kind !== "reflect") state.chain.last = { effect: d.effect, side: "party" };
     state.lead = player.id;
     advance(state, events);
@@ -253,13 +253,13 @@ export function step(input: BattleState, choice: Choice): StepResult {
   return { state, events };
 }
 
-// What one way of playing a domino would do. For the fuse, triggers is 0 and effect is null (its
+// What one way of playing a domino would do. For the opener, triggers is 0 and effect is null (its
 // effect never triggers). effect is what actually happens (a Mimic or Reflect shows what it
 // copies), null when there is nothing to copy. strength is the chain strength it is answered at,
 // before the Spectrum bonus. value is per trigger (damage, block, heal, amplify; otherwise 0).
 export interface PlayPreview {
-  fuse: boolean;
-  spark: Spark | null; // the spark it would answer; null for the fuse
+  opener: boolean;
+  spark: Spark | null; // the spark it would answer; null for the opener
   strength: number;
   lap: number;
   effect: ResolvedEffect | null;
@@ -271,14 +271,14 @@ export interface PlayPreview {
 }
 
 // What playing this domino right now would do: one preview per spark it could answer (a single
-// one for the fuse), or none if it is not a playable domino of the player whose turn it is.
+// one for the opener), or none if it is not a playable domino of the player whose turn it is.
 // It runs the real resolution on a copy, so the two cannot drift, and never changes the state.
 export function previewPlay(input: BattleState, playerId: string, dominoId: string): PlayPreview[] {
   const pending = getPendingChoice(input);
   if (!pending || pending.player !== playerId) return [];
-  if (pending.type === "fuse") {
+  if (pending.type === "opener") {
     if (!pending.dominoes.includes(dominoId)) return [];
-    return [{ fuse: true, spark: null, strength: 0, lap: input.chain.lap, effect: null, triggers: 0, value: 0, spectrumBonus: 0, lookoutReveals: 0, auditorDamage: 0 }];
+    return [{ opener: true, spark: null, strength: 0, lap: input.chain.lap, effect: null, triggers: 0, value: 0, spectrumBonus: 0, lookoutReveals: 0, auditorDamage: 0 }];
   }
   const option = pending.options.find((o) => o.domino === dominoId);
   if (!option) return [];
@@ -300,7 +300,7 @@ export function previewPlay(input: BattleState, playerId: string, dominoId: stri
       else if (e.type === "auditor") auditorDamage = e.damage;
     }
     return {
-      fuse: false,
+      opener: false,
       spark,
       strength,
       lap: state.chain.lap,
@@ -359,7 +359,7 @@ function legalAnswers(state: BattleState, player: PlayerState) {
 }
 
 // Everyone draws, then the first player (from the lead, in seat order) with a
-// domino fuses. If nobody has one, the round ends at once.
+// domino as the opener. If nobody has one, the round ends at once.
 function startRound(state: BattleState, events: GameEvent[]): void {
   state.round += 1;
   state.chain = newChain([]);
@@ -383,7 +383,7 @@ function startRound(state: BattleState, events: GameEvent[]): void {
       state.lead = p.id;
       roundStart.lead = p.id;
       state.seat = p.id;
-      state.phase = "fuse";
+      state.phase = "opener";
       return;
     }
   }
@@ -652,7 +652,7 @@ function endRound(state: BattleState, events: GameEvent[]): void {
       events.push({ type: "reveal", positions: [i] });
     }
     events.push({ type: "leftover", domino: id, position: i });
-    // A leftover Reflect repeats the chain's last domino (the fuse if nothing followed it).
+    // A leftover Reflect repeats the chain's last domino (the opener if nothing followed it).
     const effect = d.effect.kind === "reflect" ? state.chain.last?.effect : d.effect;
     if (effect === undefined) continue;
     let value = effect.base ?? 0;

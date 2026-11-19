@@ -24,7 +24,7 @@ test("scripted round: events come out in order, and a leftover is revealed as it
   s.enemy.revealed = [false];
 
   const script: Choice[] = [
-    { type: "fuse", domino: "kindle" },
+    { type: "opener", domino: "kindle" },
     { type: "answer", domino: "jab" },
     { type: "answer", domino: "splash" },
   ];
@@ -35,7 +35,7 @@ test("scripted round: events come out in order, and a leftover is revealed as it
   });
   const pass = (from: string, to: string) => ({ type: "pass", from, to });
   expect(events.slice(0, 19)).toMatchObject([
-    { type: "fuse", player: "p1", domino: "kindle", sparks: ["Ember"] },
+    { type: "opener", player: "p1", domino: "kindle", sparks: ["Ember"] },
     pass("p1", "p2"),
     { type: "play", seat: "p2", domino: "jab", answeredSpark: "Ember", strength: 1, lap: 1 },
     { type: "trigger", seat: "p2", domino: "jab", index: 0, value: 3 },

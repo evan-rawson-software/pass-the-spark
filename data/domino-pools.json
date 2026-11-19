@@ -203,6 +203,18 @@
             ],
             [
               "Gale"
+            ],
+            [
+              "Ember",
+              "Tide"
+            ],
+            [
+              "Tide",
+              "Gale"
+            ],
+            [
+              "Gale",
+              "Ember"
             ]
           ]
         },
@@ -221,6 +233,18 @@
             ],
             [
               "Gale"
+            ],
+            [
+              "Ember",
+              "Tide"
+            ],
+            [
+              "Tide",
+              "Gale"
+            ],
+            [
+              "Gale",
+              "Ember"
             ]
           ]
         },
@@ -239,6 +263,18 @@
             ],
             [
               "Gale"
+            ],
+            [
+              "Ember",
+              "Tide"
+            ],
+            [
+              "Tide",
+              "Gale"
+            ],
+            [
+              "Gale",
+              "Ember"
             ]
           ]
         }
