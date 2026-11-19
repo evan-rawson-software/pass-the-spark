@@ -332,7 +332,7 @@ export class Animator {
         break;
       }
       case "chainEnd":
-        floatText(scene, 960, 580, "Chain broken", "#ffd9a0", 56, 1100);
+        floatText(scene, 960, 470, "Chain broken", "#ffd9a0", 56, 1100);
         break;
       case "blockReset":
         this.tweenHealth("party", before, after);
