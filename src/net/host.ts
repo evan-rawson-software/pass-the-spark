@@ -10,6 +10,7 @@ import type { GameEvent } from "../engine/events";
 import { applyRunChoice, createRunWithEvents, getPendingRunChoices, getRunWindow, splitRunEvents } from "../engine/run";
 import type { RunChoice, RunEvent, RunState, RunStepResult } from "../engine/run";
 import { getRunView, getView } from "../engine/view";
+import { allUnlocks, runExperience } from "../engine/progression";
 import { REFUSED_BUILD, REFUSED_KICKED } from "./protocol";
 import type { ClientMessage, HostMessage, PingTarget } from "./protocol";
 import { hostPeerId } from "./room";
@@ -30,6 +31,7 @@ export interface HostOptions {
   buildId: string;
   hostName: string;
   content: Content; // everything the run reads from data
+  unlocks: () => string[]; // the host's own player's unlocks, read when the run starts
   // Called with what the host's own player (seat p1) would receive over the network.
   onLocalMessage: (message: HostMessage) => void;
   // Resume a room that was saved earlier: same seats and tokens, same run. Players reconnect on their own.
@@ -45,6 +47,7 @@ interface Member {
   local: boolean; // the host's own seat: no connection, messages go to onLocalMessage
   connection: Connection | null; // null for the host's own seat, and for a saved seat nobody has reclaimed yet
   connected: boolean;
+  unlocks: string[]; // what a joining player said they have unlocked, cleaned; used when the run starts
   lastPing: number; // when this player last pinged (for the rate limit); pings are never saved
 }
 
@@ -87,9 +90,10 @@ export async function createHost(options: HostOptions): Promise<Host> {
         local: x.token === null, // only the host's own seat has no token
         connection: null,
         connected: x.token === null,
+        unlocks: [],
         lastPing: 0,
       }))
-    : [{ seat: "p1", name: options.hostName, token: null, local: true, connection: null, connected: true, lastPing: 0 }];
+    : [{ seat: "p1", name: options.hostName, token: null, local: true, connection: null, connected: true, unlocks: [], lastPing: 0 }];
   let run: RunState | null = saved?.run ?? null;
   const controlled = new Set<string>(); // away seats the host is playing for
   let pauseSeats: string[] = []; // the away seats the game is waiting on
@@ -224,6 +228,11 @@ export async function createHost(options: HostOptions): Promise<Host> {
     });
   }
 
+  // Only known unlock ids, each once: never trust a client's list as it is.
+  function cleanUnlocks(raw: unknown): string[] {
+    return Array.isArray(raw) ? allUnlocks(options.content.progression).filter((id) => raw.includes(id)) : [];
+  }
+
   // Every choice, local or remote, ends up here. The seat is the one the choice is for; the engine
   // checks that the seat owes it. Errors go to `from` (the host's own player when it plays for a seat).
   function apply(seat: string, choice: RunChoice, from: Member): void {
@@ -241,6 +250,11 @@ export async function createHost(options: HostOptions): Promise<Host> {
     run = result.run;
     save();
     sendToAll(result.events, wasBattle, battle);
+    if (before.result === null && run.result !== null) {
+      // The run just ended: everyone in the room is given its experience; an away player gets nothing.
+      const message: HostMessage = { type: "experience", runId: options.roomCode + "-" + Date.now(), gained: runExperience(run) };
+      for (const m of members) if (m.connected) deliver(m, message);
+    }
   }
 
   // A choice in a battle. `m` is the seat it is for.
@@ -314,12 +328,13 @@ export async function createHost(options: HostOptions): Promise<Host> {
         me.connection = connection;
         me.connected = true;
         me.name = name;
+        if (run === null || run.phase === "over") me.unlocks = cleanUnlocks(msg.unlocks); // a run in progress keeps the unlocks it started with
       } else if (run !== null) {
         return reply({ type: "refused", reason: "The game has already started." });
       } else if (members.length >= MAX_SEATS) {
         return reply({ type: "refused", reason: "The room is full." });
       } else {
-        me = { seat: "p" + (members.length + 1), name, token, local: false, connection, connected: true, lastPing: 0 };
+        me = { seat: "p" + (members.length + 1), name, token, local: false, connection, connected: true, unlocks: cleanUnlocks(msg.unlocks), lastPing: 0 };
         members.push(me);
       }
       reply({ type: "welcome", seat: me.seat, token });
@@ -336,6 +351,9 @@ export async function createHost(options: HostOptions): Promise<Host> {
     } else if (msg.type === "runChoice") {
       if (!known) return reply({ type: "error", message: "say hello first" });
       handleRunChoice(known, msg.choice as RunChoice, msg.window);
+    } else if (msg.type === "unlocks") {
+      if (!known) return reply({ type: "error", message: "say hello first" });
+      if (run === null || run.phase === "over") known.unlocks = cleanUnlocks(msg.unlocks); // the run is over: they count for the next one
     } else if (msg.type === "ping") {
       if (!known) return reply({ type: "error", message: "say hello first" });
       handlePing(known, msg.target);
@@ -366,7 +384,12 @@ export async function createHost(options: HostOptions): Promise<Host> {
       if (members.length < MIN_SEATS && !allowFewer) throw new Error("need " + MIN_SEATS + " players");
       const away = members.find((m) => !m.connected);
       if (away) throw new Error("waiting for " + away.name + " to reconnect");
-      const result = createRunWithEvents({ players: members.map((m) => m.seat), seed, content: options.content });
+      const result = createRunWithEvents({
+        players: members.map((m) => m.seat),
+        seed,
+        content: options.content,
+        unlocks: Object.fromEntries(members.map((m) => [m.seat, m.local ? cleanUnlocks(options.unlocks()) : m.unlocks])),
+      });
       run = result.run;
       save();
       sendStatus(); // who is here, so the screens know the names before the first view

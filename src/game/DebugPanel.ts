@@ -2,6 +2,7 @@ import { ENEMY_SEAT, getPendingChoice } from "../engine/battle";
 import { handLimitOf } from "../engine/battleCharms";
 import type { BattleState } from "../engine/battle";
 import { content, dominoes } from "./devBattle";
+import { unlockAll } from "./profile";
 
 // Developer debug panel (#28). A plain HTML overlay, hidden until the backtick key opens it.
 // The scene hooks in through DebugHost; nothing here is a game rule except the explicit
@@ -152,6 +153,11 @@ class DebugPanel {
 
     const head = add(root, "div", "DEBUG PANEL (debug only, ` to close)");
     head.style.cssText = "font-weight:bold;color:#ff8a84";
+    const prog = section("Progress");
+    button(prog, "Unlock all", () => {
+      unlockAll();
+      add(prog, "div", "Everything unlocked in this browser.");
+    });
     if (!host) {
       add(root, "div", "No battle running.").style.marginTop = "6px";
       const l = section("Online lobby");
