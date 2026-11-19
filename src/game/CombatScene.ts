@@ -626,27 +626,19 @@ export class CombatScene extends Phaser.Scene {
       }
     });
 
-    // The spark(s) the next domino must answer.
-    this.label(layer, 1330, y - 6, "Spark", 22, "#9fd1b8", 0);
+    // The Warden's locked spark and the Spark Shrine's blessing (the sparks themselves show in the chain's empty slot).
     const sg = this.gfx(layer);
-    if (view.chain.sparks.length === 0) this.label(layer, 1405, y - 6, "none", 22, "#ffffff", 0);
-    view.chain.sparks.forEach((s, i) => {
-      if (s === view.blessing?.spark) drawBlessedGlow(sg, s, 1430 + i * 56, y - 6, 22);
-      drawSparkGlyph(sg, s, 1430 + i * 56, y - 6, 22);
-      if (s === view.locked) this.drawPadlock(sg, 1430 + i * 56 + 10, y + 6, 0.7);
-    });
-    // The Warden's locked spark: players can't answer it this round.
+    let ly = y - 6;
     if (view.locked) {
-      const ly = view.blessing ? y + 76 : y + 40;
       drawSparkGlyph(sg, view.locked, 1342, ly, 12);
       this.drawPadlock(sg, 1346, ly + 2, 0.6);
       this.label(layer, 1372, ly, `${view.locked} locked`, 20, "#ff8a8a", 0, true);
+      ly += 48;
     }
-    // The Spark Shrine's blessing, for the whole act's boss fight.
     if (view.blessing) {
-      drawBlessedGlow(sg, view.blessing.spark, 1342, y + 40, 12);
-      drawSparkGlyph(sg, view.blessing.spark, 1342, y + 40, 12);
-      this.label(layer, 1372, y + 40, `Blessed ${view.blessing.spark}: +${view.blessing.strength}`, 20, "#ffe14d", 0, true);
+      drawBlessedGlow(sg, view.blessing.spark, 1342, ly, 12);
+      drawSparkGlyph(sg, view.blessing.spark, 1342, ly, 12);
+      this.label(layer, 1372, ly, `Blessed ${view.blessing.spark}: +${view.blessing.strength}`, 20, "#ffe14d", 0, true);
     }
   }
 
@@ -764,7 +756,11 @@ export class CombatScene extends Phaser.Scene {
       if (sparks.length === 0) this.label(layer, x, y, "OPENER", Math.round(40 * k + 6), "#ffe14d", 0.5, true);
       sparks.forEach((s, i) => {
         const gy = sparks.length === 1 ? y : y + (i === 0 ? -1 : 1) * 27 * k;
-        drawSparkGlyph(g, s, x - 80 * k, gy, (sparks.length === 1 ? 24 : 16) * k);
+        const gx = x - 80 * k;
+        const gr = (sparks.length === 1 ? 24 : 16) * k;
+        if (s === view.blessing?.spark) drawBlessedGlow(g, s, gx, gy, gr);
+        drawSparkGlyph(g, s, gx, gy, gr);
+        if (s === view.locked) this.drawPadlock(g, gx + gr * 0.5, gy + gr * 0.3, Math.max(0.5, gr / 34));
       });
     }
   }
