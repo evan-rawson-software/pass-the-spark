@@ -2,6 +2,7 @@
 // applyChoice never changes its input: it works on a JSON copy.
 
 import { shuffle } from "./rng";
+import type { GameEvent } from "./events";
 import type { Config, DeckList, Domino, Effect, Enemy, Passive, Spark } from "./types";
 
 // The enemy's seat id in seatOrder.
@@ -102,7 +103,18 @@ export interface BattleSetup {
   seed: number;
 }
 
+export interface StepResult {
+  state: BattleState;
+  events: GameEvent[];
+}
+
+// The battle as it stands after its automatic opening (round 1 draws).
 export function createBattle(setup: BattleSetup): BattleState {
+  return createBattleWithEvents(setup).state;
+}
+
+// Same as createBattle, plus the events of the opening.
+export function createBattleWithEvents(setup: BattleSetup): StepResult {
   const { config, content, seatOrder } = setup;
   const enemyDef = content.enemies.find((e) => e.id === setup.enemyId);
   if (!enemyDef) throw new Error("unknown enemy " + setup.enemyId);
@@ -153,8 +165,9 @@ export function createBattle(setup: BattleSetup): BattleState {
     result: null,
     nextLead: null,
   };
-  startRound(state);
-  return state;
+  const events: GameEvent[] = [];
+  startRound(state, events);
+  return { state, events };
 }
 
 export function getPendingChoice(state: BattleState): PendingChoice | null {
@@ -167,6 +180,12 @@ export function getPendingChoice(state: BattleState): PendingChoice | null {
 }
 
 export function applyChoice(input: BattleState, choice: Choice): BattleState {
+  return step(input, choice).state;
+}
+
+// Apply a choice. Returns the new state and the events in the order they happened.
+export function step(input: BattleState, choice: Choice): StepResult {
+  const events: GameEvent[] = [];
   const state: BattleState = JSON.parse(JSON.stringify(input));
   const pending = getPendingChoice(state);
   if (!pending || pending.type !== choice.type) throw new Error("unexpected choice");
@@ -178,10 +197,11 @@ export function applyChoice(input: BattleState, choice: Choice): BattleState {
     player.discard.push(choice.domino);
     const d = getDomino(state, choice.domino);
     state.chain = newChain(d.output);
+    events.push({ type: "fuse", player: player.id, domino: d.id, sparks: d.output.slice() });
     // The fuse's effect never triggers, but a Mimic after it can copy it.
     if (d.effect.kind !== "mimic" && d.effect.kind !== "reflect") state.chain.last = { effect: d.effect, side: "party" };
     state.lead = player.id;
-    advance(state);
+    advance(state, events);
   } else if (pending.type === "answer" && choice.type === "answer") {
     const option = pending.options.find((o) => o.domino === choice.domino);
     if (!option) throw new Error("illegal domino");
@@ -193,10 +213,10 @@ export function applyChoice(input: BattleState, choice: Choice): BattleState {
     if (!option.sparks.includes(spark)) throw new Error("domino does not answer that spark");
     removeOne(player.hand, choice.domino);
     player.discard.push(choice.domino);
-    play(state, getDomino(state, choice.domino), spark, true);
-    if (state.phase !== "over") advance(state);
+    play(state, getDomino(state, choice.domino), spark, true, events);
+    if (state.phase !== "over") advance(state, events);
   }
-  return state;
+  return { state, events };
 }
 
 // ---- internals (all mutate the working copy) ----
@@ -245,16 +265,19 @@ function legalAnswers(state: BattleState, player: PlayerState) {
 
 // Everyone draws, then the first player (from the lead, in seat order) with a
 // domino fuses. If nobody has one, the round ends at once.
-function startRound(state: BattleState): void {
+function startRound(state: BattleState, events: GameEvent[]): void {
   state.round += 1;
   state.chain = newChain([]);
+  // The lead is known only after the draws (an empty-handed lead is skipped), so it is filled in below.
+  const roundStart: GameEvent = { type: "roundStart", round: state.round, lead: state.lead };
+  events.push(roundStart);
   for (const seat of state.seatOrder) {
     if (seat === ENEMY_SEAT) {
       const e = state.enemy;
-      draw(state, e, e.drawPerRound, e.handLimit, e);
+      draw(state, e, e.drawPerRound, e.handLimit, events, seat, e);
     } else {
       const { playerDrawPerRound, playerHandLimit } = state.config;
-      draw(state, getPlayer(state, seat), playerDrawPerRound, playerHandLimit);
+      draw(state, getPlayer(state, seat), playerDrawPerRound, playerHandLimit, events, seat);
     }
   }
   const seats = playerSeats(state.seatOrder);
@@ -263,12 +286,13 @@ function startRound(state: BattleState): void {
     const p = getPlayer(state, seats[(start + i) % seats.length]);
     if (p.hand.length > 0) {
       state.lead = p.id;
+      roundStart.lead = p.id;
       state.seat = p.id;
       state.phase = "fuse";
       return;
     }
   }
-  endRound(state);
+  endRound(state, events);
 }
 
 // Draw up to `count` dominoes. At the hand limit a player stops; the enemy
@@ -279,14 +303,25 @@ function draw(
   p: { deck: string[]; hand: string[]; discard: string[] },
   count: number,
   limit: number,
+  events: GameEvent[],
+  seat: string,
   enemy?: EnemyState,
 ): void {
+  // The draw event is written when a run of draws ends, so it sits in order around enemy discards.
+  let drawn: string[] = [];
+  const flush = () => {
+    if (drawn.length === 0) return;
+    events.push(enemy ? { type: "draw", seat, count: drawn.length } : { type: "draw", seat, count: drawn.length, dominoes: drawn });
+    drawn = [];
+  };
   for (let i = 0; i < count; i++) {
     if (p.hand.length >= limit) {
       if (!enemy) break;
       const old = removeEnemyDomino(enemy, 0);
       p.discard.push(old);
       enemy.faceUp.push(old);
+      flush();
+      events.push({ type: "enemyDiscard", domino: old });
     }
     if (p.deck.length === 0) {
       const s = shuffle(state.rng, p.discard);
@@ -296,9 +331,12 @@ function draw(
       if (enemy) enemy.faceUp = [];
     }
     if (p.deck.length === 0) break;
-    if (enemy) addEnemyDomino(enemy, p.deck.shift() as string);
-    else p.hand.push(p.deck.shift() as string);
+    const id = p.deck.shift() as string;
+    drawn.push(id);
+    if (enemy) addEnemyDomino(enemy, id);
+    else p.hand.push(id);
   }
+  flush();
 }
 
 // Every change to the enemy's hand goes through these two, so `revealed` stays in step.
@@ -313,32 +351,39 @@ function removeEnemyDomino(enemy: EnemyState, index: number): string {
 }
 
 // Reveal the leftmost `count` hidden enemy dominoes.
-function lookout(state: BattleState, count: number): void {
+function lookout(state: BattleState, count: number, events: GameEvent[]): void {
   const enemy = state.enemy;
+  const positions: number[] = [];
   for (let i = 0; i < enemy.hand.length && count > 0; i++) {
     if (!enemy.revealed[i]) {
       enemy.revealed[i] = true;
+      positions.push(i);
       count -= 1;
     }
   }
+  if (positions.length > 0) events.push({ type: "reveal", positions });
 }
 
 // Pass the spark on until a player must choose, or the chain ends.
-function advance(state: BattleState): void {
+function advance(state: BattleState, events: GameEvent[]): void {
   for (;;) {
     const i = state.seatOrder.indexOf(state.seat);
+    const from = state.seat;
     state.seat = state.seatOrder[(i + 1) % state.seatOrder.length];
+    events.push({ type: "pass", from, to: state.seat, sparks: state.chain.sparks.slice() });
     if (state.seat === state.lead) {
       state.chain.lap += 1;
-      glutton(state);
+      events.push({ type: "lapUp", lap: state.chain.lap });
+      glutton(state, events);
     }
     if (state.seat === ENEMY_SEAT) {
-      react(state);
+      react(state, events);
       if (state.phase === "over") return;
       continue;
     }
     if (legalAnswers(state, getPlayer(state, state.seat)).length === 0) {
-      endRound(state);
+      events.push({ type: "chainEnd", reason: "cannotAnswer" });
+      endRound(state, events);
       return;
     }
     state.phase = "answer";
@@ -347,7 +392,7 @@ function advance(state: BattleState): void {
 }
 
 // The enemy plays its leftmost matching domino, or the spark passes unchanged.
-function react(state: BattleState): void {
+function react(state: BattleState, events: GameEvent[]): void {
   const enemy = state.enemy;
   for (let i = 0; i < enemy.hand.length; i++) {
     const d = getDomino(state, enemy.hand[i]);
@@ -356,46 +401,53 @@ function react(state: BattleState): void {
       removeEnemyDomino(enemy, i);
       enemy.discard.push(d.id);
       enemy.faceUp.push(d.id);
-      play(state, d, sparks[0], false);
+      play(state, d, sparks[0], false, events);
       return;
     }
   }
+  events.push({ type: "enemyNoReaction", sparks: state.chain.sparks.slice() });
 }
 
 // An answer: strength +1, spark history and current spark update, effect triggers.
-function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean): void {
+function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean, events: GameEvent[]): void {
   const chain = state.chain;
   // The Auditor: a player answers the same spark as the previous history entry.
   const repeated = byPlayer && chain.history[chain.history.length - 1] === answered;
   chain.strength += 1;
   chain.history.push(answered);
   chain.sparks = d.output.slice();
+  const seat = byPlayer ? state.seat : ENEMY_SEAT;
+  events.push({ type: "play", seat, domino: d.id, answeredSpark: answered, strength: chain.strength, lap: chain.lap });
   const scaleLap = byPlayer || state.config.enemyReactionsScaleWithLap;
-  playEffect(state, d.effect, byPlayer ? "party" : "enemy", scaleLap);
-  if (repeated && state.phase !== "over") auditor(state);
+  playEffect(state, d, seat, byPlayer ? "party" : "enemy", scaleLap, events);
+  if (repeated && state.phase !== "over") auditor(state, events);
 }
 
 // Auditor passive: the party takes damage (block absorbs it). Strength is never reduced.
-function auditor(state: BattleState): void {
+function auditor(state: BattleState, events: GameEvent[]): void {
   const passive = state.enemy.passives.find((p) => p.kind === "auditor");
   if (!passive || passive.kind !== "auditor") return;
   const rule = passive.damage ?? state.config.auditorDamage;
   const amount = rule.rule === "strength" ? state.chain.strength : rule.amount;
-  resolve(state, { kind: "damage" }, amount, "enemy");
+  events.push({ type: "auditor", damage: amount });
+  resolve(state, { kind: "damage" }, amount, "enemy", events);
 }
 
 // Glutton passive: heals a flat amount when lap goes up, capped at max health.
-function glutton(state: BattleState): void {
+function glutton(state: BattleState, events: GameEvent[]): void {
   const passive = state.enemy.passives.find((p) => p.kind === "glutton");
   if (!passive || passive.kind !== "glutton") return;
   const enemy = state.enemy;
+  const before = enemy.health;
   enemy.health = Math.min(enemy.maxHealth, enemy.health + (passive.heal ?? state.config.gluttonHeal));
+  events.push({ type: "glutton", heal: enemy.health - before });
 }
 
 // Resolve a played domino's effect (a Mimic becomes the effect it copies), record it
 // as the chain's last effect, and trigger it once plus any pending Echo triggers.
-function playEffect(state: BattleState, effect: Effect, side: Side, scaleLap: boolean): void {
+function playEffect(state: BattleState, d: Domino, seat: string, side: Side, scaleLap: boolean, events: GameEvent[]): void {
   const chain = state.chain;
+  const effect = d.effect;
   let resolved: ResolvedEffect | null = { effect, side };
   if (effect.kind === "mimic") {
     resolved = chain.last === null ? null : { effect: chain.last.effect, side: "party" };
@@ -408,20 +460,35 @@ function playEffect(state: BattleState, effect: Effect, side: Side, scaleLap: bo
   const triggers = Math.min(1 + chain.echo, state.config.triggerCap);
   chain.echo = 0;
   for (let i = 0; i < triggers; i++) {
-    trigger(state, resolved.effect, resolved.side, scaleLap);
+    trigger(state, resolved.effect, resolved.side, scaleLap, events, seat, d.id, i);
     if (state.phase === "over") return;
   }
 }
 
 // One trigger of an effect at the chain's current strength and lap.
-function trigger(state: BattleState, effect: Effect, side: Side, scaleLap: boolean): void {
+function trigger(
+  state: BattleState,
+  effect: Effect,
+  side: Side,
+  scaleLap: boolean,
+  events: GameEvent[],
+  seat: string,
+  dominoId: string,
+  index: number,
+): void {
   const chain = state.chain;
   if (effect.kind === "amplify") {
-    chain.strength += effect.base ?? 0;
+    const amount = effect.base ?? 0;
+    events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: amount });
+    chain.strength += amount;
+    events.push({ type: "amplify", amount, strength: chain.strength });
   } else if (effect.kind === "echo") {
+    events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: 0 });
     chain.echo += 1;
+    events.push({ type: "echoPending", count: chain.echo });
   } else if (effect.kind === "lookout") {
-    if (side === "party") lookout(state, Math.ceil(chain.strength / 2));
+    events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: 0 });
+    if (side === "party") lookout(state, Math.ceil(chain.strength / 2), events);
   } else {
     let strength = chain.strength;
     if (effect.spectrum) {
@@ -429,11 +496,12 @@ function trigger(state: BattleState, effect: Effect, side: Side, scaleLap: boole
     }
     let value = (effect.base ?? 0) * strength;
     if (scaleLap) value *= chain.lap;
-    resolve(state, effect, value, side);
+    events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value });
+    resolve(state, effect, value, side, events);
   }
 }
 
-function resolve(state: BattleState, effect: Effect, value: number, side: Side): void {
+function resolve(state: BattleState, effect: Effect, value: number, side: Side, events: GameEvent[]): void {
   const { party, enemy } = state;
   const own = side === "party" ? party : enemy;
   const target = side === "party" ? enemy : party;
@@ -445,13 +513,17 @@ function resolve(state: BattleState, effect: Effect, value: number, side: Side):
       dmg -= soaked;
     }
     target.health -= dmg;
+    events.push({ type: "damage", side: side === "party" ? "enemy" : "party", amount: dmg, blocked: value - dmg });
   } else if (effect.kind === "block") {
     own.block += value;
+    events.push({ type: "block", side, amount: value, blocked: 0 });
   } else if (effect.kind === "heal") {
+    const before = own.health;
     own.health = Math.min(own.maxHealth, own.health + value);
+    events.push({ type: "heal", side, amount: own.health - before, blocked: 0 });
   }
-  if (enemy.health <= 0) endBattle(state, "won");
-  else if (party.health <= 0) endBattle(state, "lost");
+  if (enemy.health <= 0) endBattle(state, "won", events);
+  else if (party.health <= 0) endBattle(state, "lost", events);
 }
 
 function nextPlayerAfterLead(state: BattleState): string {
@@ -459,26 +531,36 @@ function nextPlayerAfterLead(state: BattleState): string {
   return seats[(seats.indexOf(state.lead) + 1) % seats.length];
 }
 
-function endBattle(state: BattleState, result: "won" | "lost"): void {
+function endBattle(state: BattleState, result: "won" | "lost", events: GameEvent[]): void {
+  events.push({ type: "battleEnd", result });
   state.phase = "over";
   state.result = result;
   state.nextLead = nextPlayerAfterLead(state);
 }
 
-function endRound(state: BattleState): void {
+function endRound(state: BattleState, events: GameEvent[]): void {
   // Leftovers go off at strength 1, left to right, and stay in hand.
-  for (const id of state.enemy.hand.slice()) {
+  const hand = state.enemy.hand.slice();
+  for (let i = 0; i < hand.length; i++) {
+    const id = hand[i];
     const d = getDomino(state, id);
+    if (!state.enemy.revealed[i]) {
+      state.enemy.revealed[i] = true;
+      events.push({ type: "reveal", positions: [i] });
+    }
+    events.push({ type: "leftover", domino: id, position: i });
     // A leftover Reflect repeats the chain's last domino (the fuse if nothing followed it).
     const effect = d.effect.kind === "reflect" ? state.chain.last?.effect : d.effect;
     if (effect === undefined) continue;
     let value = effect.base ?? 0;
     if (state.config.enemyReactionsScaleWithLap) value *= state.chain.lap;
-    resolve(state, effect, value, "enemy");
+    events.push({ type: "trigger", seat: ENEMY_SEAT, domino: id, index: 0, effect, side: "enemy", value });
+    resolve(state, effect, value, "enemy", events);
     if (state.phase === "over") return;
   }
   state.party.block = 0;
   state.enemy.block = 0;
+  events.push({ type: "blockReset" });
   state.lead = nextPlayerAfterLead(state);
-  startRound(state);
+  startRound(state, events);
 }
