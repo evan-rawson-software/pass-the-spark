@@ -12,7 +12,8 @@ import starterDeckJson from "../data/starter-deck.json";
 const config = configJson satisfies Record<keyof Config, unknown> as Config;
 // Plus one test-only domino so two Echoes can follow each other (Echo Stone takes Gale).
 const echoTide: Domino = { id: "echo_tide", name: "Echo Tide", intake: ["Tide"], output: ["Gale"], effect: { kind: "echo" } };
-const dominoes = [...(dominoesJson as Domino[]), echoTide];
+const spectrumJab: Domino = { id: "spectrum_jab", name: "Spectrum Jab", intake: ["Tide"], output: ["Storm"], effect: { kind: "damage", base: 3, spectrum: true } };
+const dominoes = [...(dominoesJson as Domino[]), echoTide, spectrumJab];
 const enemies = enemiesJson as Enemy[];
 const starterDeck: DeckList = starterDeckJson;
 
@@ -149,12 +150,12 @@ test("Mimic after an enemy damage domino damages the enemy", () => {
 });
 
 test("Spectrum adds the number of different sparks in the history to its strength", () => {
-  let s = fuse(setup(["kindle"], ["prism", "jab"]), "kindle");
+  let s = fuse(setup(["kindle"], ["spectrum_jab", "jab"]), "kindle");
   s.players[0].hand = ["wildcard"];
   s.chain.sparks = ["Tide"];
   s.chain.strength = 4;
   s.chain.history = ["Ember", "Tide", "Gale", "Ember"];
-  s = answer(s, "prism"); // 3 different sparks: 2 x (5 + 3) x lap 1
-  expect(s.enemy.health).toBe(100 - 16);
-  expect(s.chain.strength).toBe(5);
+  s = answer(s, "spectrum_jab"); // 3 different sparks: 3 x (5 + 3) x lap 1
+  expect(s.enemy.health).toBe(100 - 24);
+  expect(s.chain.strength).toBe(5); // the next domino plays at 6
 });
