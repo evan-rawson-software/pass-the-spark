@@ -17,6 +17,7 @@ import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import { SPARK_STYLE } from "./sparks";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import type { DominoState } from "./dominoDrawing";
+import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { Tooltip } from "./tooltip";
 import { drawCharmList } from "./charmUi";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
@@ -496,10 +497,23 @@ export class CombatScene extends Phaser.Scene {
     }
     // The portrait, if there is one, fills the free space on the right of the panel.
     artImage(this, `enemies/${e.id}`, 1410, 165, 250, 250, layer);
-    const title = this.label(layer, 60, 62, def?.name ?? e.id, 48, onTurn ? "#ffe14d" : "#ffffff", 0, true);
-    if (title.width > 450) title.setFontSize(Math.floor((48 * 450) / title.width)); // a long name stays clear of the "Hand" label
-    if (def) this.label(layer, 60, 108, def.tier.toUpperCase(), 20, "#9fd1b8", 0, true);
-    this.bar(layer, "enemy", 60, 135, 400, 40, e.health, e.maxHealth, RED);
+    // The tier is an icon (the map's stop icons) beside the name; long names shrink to leave it room.
+    const ICON = 48;
+    const title = this.label(layer, 60 + ICON + 12, 62, def?.name ?? e.id, 48, onTurn ? "#ffe14d" : "#ffffff", 0, true);
+    if (title.width > 450 - ICON - 12) title.setFontSize(Math.floor((48 * (450 - ICON - 12)) / title.width)); // stays clear of the "Hand" label
+    if (def) {
+      const stop = def.tier === "basic" ? "fight" : def.tier;
+      const g = this.gfx(layer);
+      g.fillStyle(NODE_STYLE[stop].color, 1);
+      g.fillCircle(60 + ICON / 2, 62, ICON / 2);
+      g.lineStyle(2, 0xf4ecd8, 1);
+      g.strokeCircle(60 + ICON / 2, 62, ICON / 2);
+      drawNodeIcon(g, stop, 60 + ICON / 2, 62, ICON / 2);
+      const hit = this.add.circle(60 + ICON / 2, 62, ICON / 2, 0, 0);
+      layer.add(hit);
+      this.tooltip.attachLines(hit, [{ text: def.tier === "basic" ? "Normal enemy" : NODE_STYLE[stop].name, style: "title" }]);
+    }
+    this.bar(layer, "enemy", 60, 112, 400, 40, e.health, e.maxHealth, RED);
     this.shield(layer, "enemy", 80, 208, 40, e.block);
     e.passives.forEach((p, i) => this.drawPassive(layer, p, 230 + i * 130, 245));
     e.passives.forEach((p) => {
