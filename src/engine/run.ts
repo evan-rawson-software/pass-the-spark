@@ -9,6 +9,7 @@ import type { Content } from "./content";
 import type { GameEvent } from "./events";
 import { openEvent, pickEvent } from "./eventStops";
 import { floorHiddenAfterTurnBack } from "./events/tollBridge";
+import { stepGiant } from "./events/giant";
 import type { EventOption, EventState } from "./eventStops";
 import { generateActMap } from "./map";
 import type { ActMap } from "./map";
@@ -56,6 +57,7 @@ export interface RunState {
   event: EventState | null; // present while phase is "event"
   hiddenFloor: number | null; // the floor whose stops show as "?" until the party enters one (Toll Bridge: turn back)
   allRareRewards: boolean; // the battle being fought (the Toll Bridge's hard fight) offers only rares
+  blessing: Spark | null; // the Spark Shrine's blessed spark; lasts until the act's boss fight is over
   eventsSeen: string[]; // event ids met this run, across acts; starts again once every enabled event has been seen
   result: "won" | "lost" | null;
 }
@@ -104,6 +106,8 @@ export type RunEvent =
   // winner is the option that won. counts is the number of votes per option; drawn is true when the
   // vote was split and the RNG drew the winner. Coins are paid with "coins" events; a domino goes to
   // the player named by the option.
+  // The Sleeping Giant woke: the party took this much damage and the event is over.
+  | { type: "giantWake"; damage: number }
   | { type: "eventOutcome"; event: string; winner: number; option: EventOption; counts: Record<number, number>; drawn: boolean }
   | { type: "bought"; player: string; domino: string; price: number }
   | { type: "removed"; player: string; domino: string; fee: number }
@@ -134,6 +138,7 @@ const RUN_ONLY: Record<RunOnlyEvent["type"], true> = {
   eventStart: true,
   eventChoice: true,
   eventOutcome: true,
+  giantWake: true,
   bought: true,
   removed: true,
   traderDone: true,
@@ -197,6 +202,7 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     event: null,
     hiddenFloor: null,
     allRareRewards: false,
+    blessing: null,
     eventsSeen: [],
     result: null,
   };
@@ -234,6 +240,7 @@ export function getPendingRunChoices(run: RunState): RunPendingChoice[] {
   }
   if (run.phase === "event" && run.event) {
     const event = run.event;
+    if (event.giant) return [{ type: "event", player: event.giant.turn, event: event.id, options: event.options }]; // only the player whose turn it is
     return run.players.filter((id) => event.choices[id] === undefined).map((id) => ({ type: "event", player: id, event: event.id, options: event.options }));
   }
   if (run.phase === "battle" && run.battle) {
@@ -282,9 +289,10 @@ export function applyRunChoice(input: RunState, playerId: string, choice: RunCho
     if (isRewardComplete(run.reward)) finishRewards(run, events);
   } else if (choice.type === "event" && owed.type === "event" && run.event) {
     if (!Number.isInteger(choice.option) || choice.option < 0 || choice.option >= owed.options.length) throw new Error(`option ${choice.option} is not offered`);
-    run.event.choices[playerId] = choice.option;
     events.push({ type: "eventChoice", player: playerId, option: choice.option });
-    if (run.players.every((id) => run.event?.choices[id] !== undefined)) settleEvent(run, events);
+    if (run.event.giant) applyGiant(run, playerId, choice.option, events);
+    else run.event.choices[playerId] = choice.option;
+    if (run.event && !run.event.giant && run.players.every((id) => run.event?.choices[id] !== undefined)) settleEvent(run, events);
   } else if (choice.type === "trader" && run.trader) {
     applyTraderAction(run, playerId, choice.action, events);
     if (run.players.every((id) => run.trader?.done[id])) {
@@ -355,12 +363,35 @@ function enterEvent(run: RunState, events: RunEvent[]): void {
   const picked = pickEvent(run.rng, run.content.events, run.eventsSeen);
   run.eventsSeen = picked.seen;
   const data = run.content.events.find((e) => e.id === picked.id)!;
-  const opened = openEvent(picked.state, data, run.players, run.content.pools, run.nextIndex, run.coins);
+  const opened = openEvent(picked.state, data, run.players, run.content.pools, run.nextIndex, run.lead, run.coins);
   run.rng = opened.state;
   run.nextIndex = opened.nextIndex;
   run.event = opened.event;
   run.phase = "event";
   events.push({ type: "eventStart", event: data.id, kind: data.kind, domino: opened.event.domino });
+}
+
+// One grab or stop at the Sleeping Giant. Grabs pay coins; a waking grab damages the party and ends the
+// event (and the run if health reaches 0); the event also ends when everyone has stopped.
+function applyGiant(run: RunState, playerId: string, option: number, events: RunEvent[]): void {
+  const event = run.event as EventState;
+  const data = run.content.events.find((e) => e.id === event.id)!;
+  const step = stepGiant(event.giant!, data, run.players, playerId, option, run.rng);
+  run.rng = step.state;
+  event.giant = step.giant;
+  if (step.coins > 0) {
+    run.coins[playerId] += step.coins;
+    events.push({ type: "coins", player: playerId, amount: step.coins });
+  }
+  if (!step.ended) return;
+  run.event = null;
+  if (step.woke) {
+    const damage = data.numbers.wakeDamage;
+    run.health = Math.max(0, run.health - damage);
+    events.push({ type: "giantWake", damage });
+    if (run.health <= 0) return endRun(run, "lost", events);
+  }
+  goToVote(run, events);
 }
 
 // Everyone has chosen. Settles the vote, applies the winning option and moves on to the next route vote.
@@ -389,11 +420,15 @@ function settleEvent(run: RunState, events: RunEvent[]): void {
     goToVote(run, events);
     return;
   }
-  if (option.type === "player") {
+  if (option.type === "bless") {
+    run.blessing = option.spark; // replaces any earlier blessing
+  } else if (option.type === "skip") {
+    // nothing happens
+  } else if (option.type === "player") {
     const domino = event.domino as Domino;
     run.decks[option.player].push(domino.id);
     run.dominoes.push(domino);
-  } else {
+  } else if (option.type === "coins") {
     for (const id of run.players) {
       run.coins[id] += option.amount;
       events.push({ type: "coins", player: id, amount: option.amount });
@@ -433,6 +468,12 @@ function applyTraderAction(run: RunState, playerId: string, action: TraderAction
   }
 }
 
+function blessedStrength(run: RunState): number {
+  const shrine = run.content.events.find((e) => e.id === "spark_shrine");
+  if (!shrine) throw new Error("no spark_shrine in data/events.json");
+  return shrine.numbers.blessedAnswerStrength;
+}
+
 function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void {
   const { config, dominoes, enemies } = run.content;
   let enemyId = run.map.bossId;
@@ -461,6 +502,7 @@ function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void 
     seed: seed.value,
     extraDominoes: run.dominoes,
     partyHealth: run.health,
+    blessing: run.blessing ? { spark: run.blessing, strength: blessedStrength(run) } : null,
   });
   run.battle = result.state;
   run.battleType = type;
@@ -474,6 +516,7 @@ function finishBattle(run: RunState, events: RunEvent[]): void {
   const type = run.battleType as BattleType;
   run.battle = null;
   run.battlesFought++;
+  if (type === "boss") run.blessing = null; // the blessing ends with the act's boss fight
   run.health = Math.max(0, battle.party.health);
   if (battle.result === "lost" || run.health <= 0) {
     endRun(run, "lost", events);
