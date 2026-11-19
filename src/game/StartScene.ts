@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { lastSettings, rememberSettings } from "./devBattle";
 import { openRunScreen, startSingleRun } from "./runSession";
 
-// Single-player setup (#50): seats, names and an optional seed, then a run starts.
+// Single-player setup (#50): seats and a seed, then a run starts.
 
 const FONT = "Arial, Helvetica, sans-serif";
 const INPUT_STYLE =
@@ -10,7 +10,6 @@ const INPUT_STYLE =
 
 export class StartScene extends Phaser.Scene {
   private count = 3;
-  private nameInputs: Phaser.GameObjects.DOMElement[] = [];
   private seedInput!: Phaser.GameObjects.DOMElement;
   private countButtons: Phaser.GameObjects.Text[] = [];
 
@@ -19,7 +18,6 @@ export class StartScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.nameInputs = [];
     this.countButtons = [];
     const g = this.add.graphics();
     g.fillStyle(0x1e5a42, 1);
@@ -32,24 +30,14 @@ export class StartScene extends Phaser.Scene {
     [3, 4].forEach((n, i) => {
       this.countButtons.push(this.button(560 + i * 120, 220, String(n), () => this.setCount(n)));
     });
-    for (let i = 0; i < 4; i++) {
-      const el = this.add.dom(450, 300 + i * 70, "input", INPUT_STYLE);
-      const input = el.node as HTMLInputElement;
-      input.type = "text";
-      input.maxLength = 16;
-      input.value = lastSettings?.names[i] ?? `Player ${i + 1}`;
-      this.nameInputs.push(el);
-    }
-
     // Seed
-    this.text(300, 640, "Seed", 36, true);
-    this.seedInput = this.add.dom(660, 645, "input", INPUT_STYLE);
+    this.text(300, 320, "Seed", 36, true);
+    this.seedInput = this.add.dom(660, 325, "input", INPUT_STYLE);
     const seed = this.seedInput.node as HTMLInputElement;
     seed.type = "text";
-    seed.placeholder = "random";
-    this.text(830, 645, "leave empty for a random seed", 24).setOrigin(0, 0.5).setColor("#9fd1b8");
+    seed.value = String(Math.floor(Math.random() * 1_000_000_000)); // screen code, not engine randomness
 
-    this.button(960, 840, "Start run", () => this.start(), 56);
+    this.button(960, 520, "Start run", () => this.start(), 56);
     this.button(60, 1000, "Back", () => this.scene.start("menu"));
 
     this.setCount(lastSettings?.names.length === 4 ? 4 : 3);
@@ -75,18 +63,10 @@ export class StartScene extends Phaser.Scene {
   private setCount(n: number): void {
     this.count = n;
     this.countButtons.forEach((b, i) => b.setBackgroundColor(i + 3 === n ? "#b8860b" : "#0d2a20"));
-    this.nameInputs.forEach((el, i) => el.setVisible(i < n));
   }
 
   private start(): void {
-    // Names: empty falls back to the default; duplicates (and "enemy") get a number.
-    const names: string[] = [];
-    for (let i = 0; i < this.count; i++) {
-      const base = (this.nameInputs[i].node as HTMLInputElement).value.trim() || `Player ${i + 1}`;
-      let name = base;
-      for (let k = 2; names.includes(name) || name.toLowerCase() === "enemy"; k++) name = `${base} ${k}`;
-      names.push(name);
-    }
+    const names = Array.from({ length: this.count }, (_, i) => `Player ${i + 1}`);
     const typed = Number((this.seedInput.node as HTMLInputElement).value.trim());
     const hasSeed = (this.seedInput.node as HTMLInputElement).value.trim() !== "" && Number.isInteger(typed);
     const settings = { names, enemyId: lastSettings?.enemyId ?? "ogre" };

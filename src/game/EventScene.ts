@@ -221,7 +221,6 @@ export class EventScene extends Phaser.Scene {
     const online = isOnlineRun();
     const tooltip = new Tooltip(this);
     let y = top;
-    if (!online && pending !== null) label(this, TEXT_X, y + 10, "The party's choice", 40, { bold: true, color: GOLD });
     y += 60;
     if (event.domino) {
       const c = drawDomino(this, event.domino, "large", "normal").setPosition(TEXT_X + 120, y + 60);
@@ -376,13 +375,9 @@ export class EventScene extends Phaser.Scene {
       const more = applyRunChoice(result.run, seat, { type: "event", option });
       result = { run: more.run, events: [...result.events, ...more.events] };
     }
-    const outcome = result.events.find((e) => e.type === "eventOutcome");
-    if (outcome === undefined || outcome.type !== "eventOutcome" || !run.event) {
-      setRun(result.run);
-      openRunScreen(this);
-      return;
-    }
-    this.showResult(run.event, outcome, result.events, result.run);
+    // Single player: no vote display, the outcome opens straight away.
+    setRun(result.run);
+    openRunScreen(this);
   }
 
   // The vote is settled: show the final votes, the winner and, if it was drawn, the odds; then go on.

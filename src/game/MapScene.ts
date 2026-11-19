@@ -128,10 +128,7 @@ export class MapScene extends Phaser.Scene {
     const next = (run.position?.floor ?? 0) + 1;
     const toBoss = next > run.map.floors.length;
     const online = isOnlineRun();
-    drawRunHeader(this, toBoss ? "Route: the boss" : `Route: floor ${next}`, null, "Vote for the next stop.");
-    label(this, 700, 70, `Act ${run.actIndex + 1} of ${run.content.run.acts.length}`, 36, { bold: true, color: "#9fd1b8" });
-    // Single player: the screen asks once, and the pick is sent as every seat's vote.
-    if (!online && pending !== null) label(this, 60, 150, "The party's choice", 44, { bold: true, color: "#ffe14d" });
+    drawRunHeader(this, `Act ${run.actIndex + 1} of ${run.content.run.acts.length}`, null, online ? "Vote for the next stop." : "Choose the next stop.");
     if (online && pending === null) drawWaitingFor(this, run, 60, 200);
 
     const options = pending?.type === "vote" ? pending.options : [];
@@ -316,13 +313,9 @@ export class MapScene extends Phaser.Scene {
       const more = applyRunChoice(result.run, seat, { type: "vote", node });
       result = { run: more.run, events: [...result.events, ...more.events] };
     }
-    const chosen = result.events.find((e) => e.type === "routeChosen");
-    if (chosen === undefined || chosen.type !== "routeChosen") {
-      setRun(result.run);
-      openRunScreen(this);
-      return;
-    }
-    this.showWinner(chosen, result.run);
+    // Single player: no vote display, the chosen stop opens straight away.
+    setRun(result.run);
+    openRunScreen(this);
   }
 
   // The vote is settled: show the winner (and the tie message) for a moment, then go on to the next screen.
