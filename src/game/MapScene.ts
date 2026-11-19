@@ -15,7 +15,7 @@ import { button, drawBackground, FONT, label } from "./ui";
 
 const CENTER_X = 1020;
 const NODE_GAP = 250;
-const BOSS_Y = 110;
+const BOSS_Y = 128;
 const FLOOR_Y0 = 980; // floor 1
 const FLOOR_STEP = 85;
 const NODE_R = 30;
@@ -211,8 +211,9 @@ export class MapScene extends Phaser.Scene {
     drawNodeIcon(g, "boss", CENTER_X, BOSS_Y, r);
     if (run.position?.floor === run.map.floors.length + 1) this.drawPartyMarker(CENTER_X, BOSS_Y);
     const passives = (boss?.passives ?? []).map((p) => p.kind.charAt(0).toUpperCase() + p.kind.slice(1)).join(", ");
-    label(this, CENTER_X + r + 24, BOSS_Y - 14, boss?.name ?? run.map.bossId, 34, { bold: true });
-    label(this, CENTER_X + r + 24, BOSS_Y + 20, passives ? `Passive: ${passives}` : "No passive", 24, { color: "#ffe14d" });
+    // Above the boss, where no connection runs.
+    label(this, CENTER_X, 24, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 0.5 });
+    label(this, CENTER_X, 52, passives ? `Passive: ${passives}` : "No passive", 22, { color: "#ffe14d", origin: 0.5 });
   }
 
   // Coins per player (with their marker colour), what each marker means, and a legend of stop types.
