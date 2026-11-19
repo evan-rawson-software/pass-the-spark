@@ -1,17 +1,18 @@
 import Phaser from "phaser";
-import { ENEMY_SEAT, getPendingChoice } from "../engine/battle";
+import { ENEMY_SEAT, getPendingChoice, previewPlay } from "../engine/battle";
 import type { BattleState } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView } from "../engine/view";
 import type { Domino, Passive } from "../engine/types";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import type { DominoState } from "./dominoDrawing";
+import { Tooltip } from "./tooltip";
 import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
 
 // The combat table. Draws everything from getView (and getPendingChoice for
 // whose turn it is and which dominoes are playable). No rules live here.
-// No interaction (#24), animation (#25) or tooltips (#26) yet.
+// No interaction (#24) or animation (#25) yet. Tooltips come from tooltip.ts.
 
 type Layer = Phaser.GameObjects.Container;
 
@@ -37,6 +38,8 @@ export class CombatScene extends Phaser.Scene {
   private layer?: Layer;
   private settings!: GameSettings;
   private seed = 0;
+  private tooltip!: Tooltip;
+  private tipPlayer = ""; // whose playable dominoes get an "if played now" preview
 
   constructor() {
     super("combat");
@@ -51,6 +54,7 @@ export class CombatScene extends Phaser.Scene {
     this.seed = data.seed ?? dev.seed;
     this.layer = undefined;
     this.drawTable();
+    this.tooltip = new Tooltip(this);
     this.setState(startBattle(this.settings, this.seed, data.settings ? undefined : query));
   }
 
@@ -69,6 +73,7 @@ export class CombatScene extends Phaser.Scene {
   // ---- the one redraw ----
 
   private redraw(): void {
+    this.tooltip.hide();
     this.layer?.destroy(true);
     const layer = this.add.container(0, 0);
     this.layer = layer;
@@ -79,6 +84,7 @@ export class CombatScene extends Phaser.Scene {
       pending === null ? [] : pending.type === "fuse" ? pending.dominoes : pending.options.map((o) => o.domino),
     );
     const active = state.seat === ENEMY_SEAT ? state.lead : state.seat;
+    this.tipPlayer = pending === null ? "" : pending.player;
 
     this.drawEnemy(layer, view);
     this.drawHud(layer, view);
@@ -139,6 +145,12 @@ export class CombatScene extends Phaser.Scene {
     c.setScale(k);
     c.setPosition(x, y);
     layer.add(c);
+    // Every face-up domino has a tooltip; hidden enemy dominoes have none. Only a playable
+    // domino in the active hand gets the engine's "if played now" numbers.
+    if (state !== "hidden") {
+      const preview = state === "playable" ? () => previewPlay(this.state, this.tipPlayer, d.id) : undefined;
+      this.tooltip.attach(c, d, preview);
+    }
   }
 
   private bar(layer: Layer, x: number, y: number, w: number, h: number, value: number, max: number, color: number, text: string): void {

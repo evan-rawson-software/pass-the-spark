@@ -1,24 +1,20 @@
 import { expect, test } from "vitest";
-import { applyChoice, createBattle, getPendingChoice } from "../src/engine/battle";
+import { applyChoice, createBattle, getPendingChoice, previewPlay, step } from "../src/engine/battle";
 import type { BattleState } from "../src/engine/battle";
 import { getView } from "../src/engine/view";
-import type { Config, DeckList, Domino, Enemy } from "../src/engine/types";
-import configJson from "../data/config.json";
-import dominoesJson from "../data/dominoes.json";
-import enemiesJson from "../data/enemies.json";
-import starterDeckJson from "../data/starter-deck.json";
+import type { Domino } from "../src/engine/types";
+import { loadContent } from "../src/engine/content";
 
-// JSON string literals widen to string, so a plain annotation fails on Spark.
-// For the single-object config, satisfies still catches a missing key.
-const config = configJson satisfies Record<keyof Config, unknown> as Config;
+const content = loadContent();
+const config = content.config;
 // Plus one test-only domino so two Echoes can follow each other (Echo Stone takes Gale).
 const echoTide: Domino = { id: "echo_tide", name: "Echo Tide", intake: ["Tide"], output: ["Gale"], effect: { kind: "echo" } };
 const spectrumJab: Domino = { id: "spectrum_jab", name: "Spectrum Jab", intake: ["Tide"], output: ["Storm"], effect: { kind: "damage", base: 3, spectrum: true } };
 // Test-only: answers Ember with Ember, so a player can repeat a spark.
 const holdEmber: Domino = { id: "hold_ember", name: "Hold Ember", intake: ["Ember"], output: ["Ember"], effect: { kind: "damage", base: 1 } };
-const dominoes = [...(dominoesJson as Domino[]), echoTide, spectrumJab, holdEmber];
-const enemies = enemiesJson as Enemy[];
-const starterDeck: DeckList = starterDeckJson;
+const dominoes = [...content.dominoes, echoTide, spectrumJab, holdEmber];
+const enemies = content.enemies;
+const starterDeck = content.starterDeck;
 
 // A fresh battle (seats p1, p2, enemy) with hands set to known dominoes.
 function setup(p1: string[], p2: string[], enemyHand: string[] = []): BattleState {
@@ -230,4 +226,18 @@ test("the Glutton heals once per lap increment, capped at max health", () => {
   s = answer(s, "kindle"); // 2 x 3 x 2 = 12, then lap 3: +5 even though p1 can't answer
   expect(s.enemy.health).toBe(77);
   expect(s.round).toBe(2);
+});
+
+test("a preview matches what playing the domino then does (Echo pending, Spectrum, lap 2)", () => {
+  let s = setup(["brace", "prism"], ["echo_stone"]);
+  s = answer(fuse(s, "brace"), "echo_stone"); // Echo pending; the spark is back at p1 on lap 2
+  const before = JSON.stringify(s);
+  const [preview] = previewPlay(s, "p1", "prism");
+  expect(JSON.stringify(s)).toBe(before); // a preview changes nothing
+  const { state, events } = step(s, { type: "answer", domino: "prism" });
+  const triggers = events.filter((e) => e.type === "trigger");
+  // base 2 x (strength 2 + 2 different sparks) x lap 2 = 16, twice
+  expect(preview).toMatchObject({ triggers: 2, value: 16, spectrumBonus: 2, strength: 2, lap: 2 });
+  expect(triggers.map((e) => e.type === "trigger" && e.value)).toEqual([16, 16]);
+  expect(state.enemy.health).toBe(s.enemy.health - preview.triggers * preview.value);
 });

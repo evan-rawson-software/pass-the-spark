@@ -221,6 +221,67 @@ export function step(input: BattleState, choice: Choice): StepResult {
   return { state, events };
 }
 
+// What one way of playing a domino would do. For the fuse, triggers is 0 and effect is null (its
+// effect never triggers). effect is what actually happens (a Mimic or Reflect shows what it
+// copies), null when there is nothing to copy. strength is the chain strength it is answered at,
+// before the Spectrum bonus. value is per trigger (damage, block, heal, amplify; otherwise 0).
+export interface PlayPreview {
+  fuse: boolean;
+  spark: Spark | null; // the spark it would answer; null for the fuse
+  strength: number;
+  lap: number;
+  effect: ResolvedEffect | null;
+  triggers: number; // 1 plus pending Echo, at most the trigger cap
+  value: number;
+  spectrumBonus: number; // 0 unless the effect has spectrum
+  lookoutReveals: number; // hidden enemy dominoes it would reveal in total
+  auditorDamage: number; // damage the Auditor would add to the party, 0 if it would not fire
+}
+
+// What playing this domino right now would do: one preview per spark it could answer (a single
+// one for the fuse), or none if it is not a playable domino of the player whose turn it is.
+// It runs the real resolution on a copy, so the two cannot drift, and never changes the state.
+export function previewPlay(input: BattleState, playerId: string, dominoId: string): PlayPreview[] {
+  const pending = getPendingChoice(input);
+  if (!pending || pending.player !== playerId) return [];
+  if (pending.type === "fuse") {
+    if (!pending.dominoes.includes(dominoId)) return [];
+    return [{ fuse: true, spark: null, strength: 0, lap: input.chain.lap, effect: null, triggers: 0, value: 0, spectrumBonus: 0, lookoutReveals: 0, auditorDamage: 0 }];
+  }
+  const option = pending.options.find((o) => o.domino === dominoId);
+  if (!option) return [];
+  return option.sparks.map((spark): PlayPreview => {
+    const state: BattleState = JSON.parse(JSON.stringify(input));
+    const events: GameEvent[] = [];
+    play(state, getDomino(state, dominoId), spark, true, events);
+    let strength = 0;
+    let first: { effect: Effect; side: Side; value: number } | null = null;
+    let triggers = 0;
+    let reveals = 0;
+    let auditorDamage = 0;
+    for (const e of events) {
+      if (e.type === "play") strength = e.strength;
+      else if (e.type === "trigger") {
+        first = first ?? e;
+        triggers += 1;
+      } else if (e.type === "reveal") reveals += e.positions.length;
+      else if (e.type === "auditor") auditorDamage = e.damage;
+    }
+    return {
+      fuse: false,
+      spark,
+      strength,
+      lap: state.chain.lap,
+      effect: first === null ? null : { effect: first.effect, side: first.side },
+      triggers,
+      value: first === null ? 0 : first.value,
+      spectrumBonus: first !== null && first.effect.spectrum ? spectrumBonus(state.chain.history) : 0,
+      lookoutReveals: reveals,
+      auditorDamage,
+    };
+  });
+}
+
 // ---- internals (all mutate the working copy) ----
 
 function newChain(sparks: Spark[]): ChainState {
@@ -494,14 +555,17 @@ function trigger(
     if (side === "party") lookout(state, Math.ceil(chain.strength / 2), events);
   } else {
     let strength = chain.strength;
-    if (effect.spectrum) {
-      strength += chain.history.filter((x, i) => chain.history.indexOf(x) === i).length;
-    }
+    if (effect.spectrum) strength += spectrumBonus(chain.history);
     let value = (effect.base ?? 0) * strength;
     if (scaleLap) value *= chain.lap;
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value });
     resolve(state, effect, value, side, events);
   }
+}
+
+// Spectrum: the number of different sparks in the history.
+function spectrumBonus(history: Spark[]): number {
+  return history.filter((x, i) => history.indexOf(x) === i).length;
 }
 
 function resolve(state: BattleState, effect: Effect, value: number, side: Side, events: GameEvent[]): void {
