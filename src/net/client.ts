@@ -5,7 +5,7 @@ import type { Choice } from "../engine/battle";
 import type { RunChoice } from "../engine/run";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
-import type { ClientMessage, HostMessage } from "./protocol";
+import type { ClientMessage, HostMessage, PingTarget } from "./protocol";
 import { hostPeerId } from "./room";
 import type { Connection, Transport } from "./transport";
 
@@ -33,6 +33,7 @@ export interface Client {
   lastEvents: GameEvent[];
   sendChoice(choice: Choice): void;
   sendRunChoice(choice: RunChoice, window: string): void;
+  sendPing(target: PingTarget): void;
   close(): void;
 }
 
@@ -54,6 +55,11 @@ export async function joinRoom(options: ClientOptions): Promise<Client> {
     sendRunChoice(choice, window) {
       if (connection.status !== "open") return;
       const message: ClientMessage = { type: "runChoice", choice, window };
+      connection.send(message);
+    },
+    sendPing(target) {
+      if (connection.status !== "open") return;
+      const message: ClientMessage = { type: "ping", target };
       connection.send(message);
     },
     close() {

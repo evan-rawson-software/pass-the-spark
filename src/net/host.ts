@@ -11,7 +11,7 @@ import { applyRunChoice, createRunWithEvents, getPendingRunChoices, getRunWindow
 import type { RunChoice, RunEvent, RunState, RunStepResult } from "../engine/run";
 import { getRunView, getView } from "../engine/view";
 import { REFUSED_BUILD, REFUSED_KICKED } from "./protocol";
-import type { ClientMessage, HostMessage } from "./protocol";
+import type { ClientMessage, HostMessage, PingTarget } from "./protocol";
 import { hostPeerId } from "./room";
 import type { SavedRoom } from "./room";
 import type { Connection, Transport } from "./transport";
@@ -21,6 +21,8 @@ export const MIN_SEATS = 3;
 export const MAX_NAME_LENGTH = 24;
 // How long the game waits for an away player before the host may play for them.
 export const PLAY_FOR_DELAY_MS = 60_000;
+// The least time between two pings from one player.
+export const PING_INTERVAL_MS = 1000;
 
 export interface HostOptions {
   transport: Transport;
@@ -43,6 +45,7 @@ interface Member {
   local: boolean; // the host's own seat: no connection, messages go to onLocalMessage
   connection: Connection | null; // null for the host's own seat, and for a saved seat nobody has reclaimed yet
   connected: boolean;
+  lastPing: number; // when this player last pinged (for the rate limit); pings are never saved
 }
 
 export interface Host {
@@ -61,6 +64,8 @@ export interface Host {
   submitLocalRun(choice: RunChoice, at: string, seat?: string): void;
   // After the wait for an away player has run out: take over that seat until the player returns.
   playFor(seat: string): void;
+  // The host's own player pings a domino (checked and relayed like anyone else's).
+  submitLocalPing(target: PingTarget): void;
   // After a resume: send the host's own player the lobby or the run as it stands.
   announce(): void;
   close(): void;
@@ -82,8 +87,9 @@ export async function createHost(options: HostOptions): Promise<Host> {
         local: x.token === null, // only the host's own seat has no token
         connection: null,
         connected: x.token === null,
+        lastPing: 0,
       }))
-    : [{ seat: "p1", name: options.hostName, token: null, local: true, connection: null, connected: true }];
+    : [{ seat: "p1", name: options.hostName, token: null, local: true, connection: null, connected: true, lastPing: 0 }];
   let run: RunState | null = saved?.run ?? null;
   const controlled = new Set<string>(); // away seats the host is playing for
   let pauseSeats: string[] = []; // the away seats the game is waiting on
@@ -255,6 +261,34 @@ export async function createHost(options: HostOptions): Promise<Host> {
     apply(m.seat, choice, from);
   }
 
+  // True when the target names a domino every player can see right now: a seat's hand slot, a place
+  // in the chain, or a revealed enemy slot. Anything else (a hidden enemy domino, a bad shape) is dropped.
+  function visibleTarget(target: unknown): target is PingTarget {
+    const battle = run?.battle;
+    if (!battle || battle.phase === "over" || !target || typeof target !== "object") return false;
+    const t = target as { zone?: unknown; seat?: unknown; index?: unknown };
+    const i = t.index;
+    if (typeof i !== "number" || !Number.isInteger(i) || i < 0) return false;
+    if (t.zone === "hand") {
+      const p = battle.players.find((x) => x.id === t.seat);
+      return p !== undefined && i < p.hand.length;
+    }
+    if (t.zone === "chain") return i < battle.chain.played.length;
+    if (t.zone === "enemy") return i < battle.enemy.hand.length && battle.enemy.revealed[i] === true;
+    return false;
+  }
+
+  // A ping from `m`'s own connection: the name and seat are the member's, never the message's.
+  // At most one per second per player; rebuilt from known fields so nothing else rides along.
+  function handlePing(m: Member, target: unknown): void {
+    if (Date.now() - m.lastPing < PING_INTERVAL_MS || !visibleTarget(target)) return;
+    m.lastPing = Date.now();
+    const clean: PingTarget =
+      target.zone === "hand" ? { zone: "hand", seat: target.seat, index: target.index } : { zone: target.zone, index: target.index };
+    const message: HostMessage = { type: "ping", seat: m.seat, name: m.name, target: clean };
+    for (const x of members) deliver(x, message);
+  }
+
   function handleMessage(connection: Connection, raw: unknown): void {
     const msg = raw as Partial<ClientMessage> | null;
     const reply = (message: HostMessage) => connection.send(message);
@@ -285,7 +319,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
       } else if (members.length >= MAX_SEATS) {
         return reply({ type: "refused", reason: "The room is full." });
       } else {
-        me = { seat: "p" + (members.length + 1), name, token, local: false, connection, connected: true };
+        me = { seat: "p" + (members.length + 1), name, token, local: false, connection, connected: true, lastPing: 0 };
         members.push(me);
       }
       reply({ type: "welcome", seat: me.seat, token });
@@ -302,6 +336,9 @@ export async function createHost(options: HostOptions): Promise<Host> {
     } else if (msg.type === "runChoice") {
       if (!known) return reply({ type: "error", message: "say hello first" });
       handleRunChoice(known, msg.choice as RunChoice, msg.window);
+    } else if (msg.type === "ping") {
+      if (!known) return reply({ type: "error", message: "say hello first" });
+      handlePing(known, msg.target);
     } else {
       reply({ type: "error", message: "unknown message type" });
     }
@@ -371,6 +408,9 @@ export async function createHost(options: HostOptions): Promise<Host> {
       if (!playForReady || !pauseSeats.includes(seat)) return;
       controlled.add(seat);
       sendStatus();
+    },
+    submitLocalPing(target) {
+      handlePing(members.find((x) => x.local)!, target);
     },
     announce() {
       const local = members.find((x) => x.local)!;

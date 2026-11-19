@@ -5,6 +5,13 @@ import type { GameEvent } from "../engine/events";
 import type { RunChoice, RunEvent } from "../engine/run";
 import type { BattleView, RunView } from "../engine/view";
 
+// A domino a ping points at, named by position so it can only ever name a visible one: a seat's
+// hand slot, a place in this battle's chain, or a revealed slot in the enemy's hand.
+export type PingTarget =
+  | { zone: "hand"; seat: string; index: number }
+  | { zone: "chain"; index: number }
+  | { zone: "enemy"; index: number };
+
 // client -> host
 export type ClientMessage =
   | { type: "hello"; buildId: string; name: string; token: string }
@@ -12,7 +19,9 @@ export type ClientMessage =
   | { type: "choice"; choice: Choice }
   // Any other choice in the run (a vote, a reward pick, rest, upgrade, Trader). window is the
   // decision the player was looking at (RunView.window); the host ignores a choice for an earlier one.
-  | { type: "runChoice"; choice: RunChoice; window: string };
+  | { type: "runChoice"; choice: RunChoice; window: string }
+  // Point at a domino for the whole party. Not game state: the host checks it and relays it.
+  | { type: "ping"; target: PingTarget };
 
 // host -> client
 export type HostMessage =
@@ -30,6 +39,8 @@ export type HostMessage =
   | { type: "paused"; waitingFor: string | null; playFor?: string }
   // Host only: the seat the host is playing for right now (null: only its own).
   | { type: "playing-for"; seat: string | null }
+  // A ping the host has checked, from the seat's own connection. Sent to everyone, the pinger included.
+  | { type: "ping"; seat: string; name: string; target: PingTarget }
   | { type: "error"; message: string };
 
 // Refusal texts the screens show as they are. The build one gets a refresh button.
