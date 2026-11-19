@@ -1,7 +1,8 @@
 import { expect, test } from "vitest";
 import { getPendingChoice } from "../src/engine/battle";
-import type { BattleState, Choice } from "../src/engine/battle";
+import type { Choice } from "../src/engine/battle";
 import { loadContent } from "../src/engine/content";
+import { getView } from "../src/engine/view";
 import type { BattleView } from "../src/engine/view";
 import { BUILD_ID } from "../src/net/buildId";
 import { joinRoom } from "../src/net/client";
@@ -49,12 +50,12 @@ test("host and two clients play a round; views match, out-of-turn choice is reje
   host.start(7);
   await flush();
 
-  // The host's own view stands in for the host's state: play until round 2 begins.
+  // Play until round 2 begins. What to play comes from the view alone.
   let hostView = (hostMessages.filter((m) => m.type === "update").at(-1) as { view: BattleView }).view;
   let outOfTurnChecked = false;
   while (hostView.round === 1 && hostView.phase !== "over") {
     const seat = hostView.seat;
-    const pending = getPendingChoice(hostView as unknown as BattleState);
+    const pending = getPendingChoice(hostView);
     if (!pending) break;
     const choice: Choice =
       pending.type === "opener"
@@ -79,9 +80,11 @@ test("host and two clients play a round; views match, out-of-turn choice is reje
   }
   expect(hostView.round).toBeGreaterThan(1);
 
-  // Each client's view is what the engine's getView gives that player, and equals the host's.
+  // Each player's view is exactly what the engine's getView gives that player from the host's state.
+  const state = host.getStateForTest()!;
+  expect(hostView).toEqual(getView(state, "p1"));
   for (const c of clients) {
-    expect(c.view).toEqual(hostView);
+    expect(c.view).toEqual(getView(state, c.seat!));
     expect(JSON.stringify(c.view)).not.toContain('"rng"');
   }
   host.close();

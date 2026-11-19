@@ -12,6 +12,9 @@ import type { ClientMessage, HostMessage } from "./protocol";
 import { hostPeerId } from "./room";
 import type { Connection, Transport } from "./transport";
 
+export const MAX_SEATS = 4;
+export const MAX_NAME_LENGTH = 24;
+
 export interface HostOptions {
   transport: Transport;
   roomCode: string;
@@ -28,7 +31,7 @@ export interface HostOptions {
 interface Member {
   seat: string;
   name: string;
-  token: string;
+  token: string | null; // null for the host's own seat: no remote token can ever match it
   connection: Connection | null; // null for the host's own seat, which is local
   connected: boolean;
 }
@@ -39,12 +42,14 @@ export interface Host {
   // The host's own player submits a choice, checked like everyone else's.
   submitLocal(choice: Choice): void;
   close(): void;
+  // For tests only: the host's BattleState.
+  getStateForTest(): BattleState | null;
 }
 
 export async function createHost(options: HostOptions): Promise<Host> {
   const { transport, buildId } = options;
   const members: Member[] = [
-    { seat: "p1", name: options.hostName, token: "host", connection: null, connected: true },
+    { seat: "p1", name: options.hostName, token: null, connection: null, connected: true },
   ];
   let state: BattleState | null = null;
 
@@ -115,19 +120,23 @@ export async function createHost(options: HostOptions): Promise<Host> {
       if (typeof msg.name !== "string" || typeof msg.token !== "string" || msg.token === "") {
         return reply({ type: "error", message: "bad hello" });
       }
-      let me = members.find((x) => x.token === msg.token);
+      const name = msg.name.trim().slice(0, MAX_NAME_LENGTH) || "Player";
+      const token = msg.token;
+      let me = members.find((x) => x.token !== null && x.token === token);
       if (me) {
         // A returning player gets their seat back.
         me.connection = connection;
         me.connected = true;
-        me.name = msg.name;
+        me.name = name;
       } else if (state !== null) {
         return reply({ type: "refused", reason: "The game has already started." });
+      } else if (members.length >= MAX_SEATS) {
+        return reply({ type: "refused", reason: "The room is full." });
       } else {
-        me = { seat: "p" + (members.length + 1), name: msg.name, token: msg.token, connection, connected: true };
+        me = { seat: "p" + (members.length + 1), name, token, connection, connected: true };
         members.push(me);
       }
-      reply({ type: "welcome", seat: me.seat, token: me.token });
+      reply({ type: "welcome", seat: me.seat, token });
       if (state === null) sendLobby();
       else sendToAll([]);
     } else if (msg.type === "choice") {
@@ -148,7 +157,13 @@ export async function createHost(options: HostOptions): Promise<Host> {
       if (state === null) {
         // Not started: free the seat. Seats are join order, so renumber.
         members.splice(members.indexOf(m), 1);
-        members.forEach((x, i) => (x.seat = "p" + (i + 1)));
+        members.forEach((x, i) => {
+          const seat = "p" + (i + 1);
+          if (x.seat === seat) return;
+          x.seat = seat;
+          // Tell that player their new seat.
+          if (x.connection && x.token !== null) deliver(x, { type: "welcome", seat, token: x.token });
+        });
         sendLobby();
       } else sendPauseIfNeeded();
     });
@@ -174,6 +189,9 @@ export async function createHost(options: HostOptions): Promise<Host> {
     },
     close() {
       transport.close();
+    },
+    getStateForTest() {
+      return state;
     },
   };
 }
