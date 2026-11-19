@@ -53,7 +53,7 @@ export function charmIcon(scene: Phaser.Scene, charm: Charm, size: number): Phas
 // An icon with its hover tooltip (name and description).
 export function charmWithTip(scene: Phaser.Scene, tooltip: Tooltip, charm: Charm, size: number, x: number, y: number): Phaser.GameObjects.Container {
   const c = charmIcon(scene, charm, size).setPosition(x, y);
-  tooltip.attachLines(c, () => [
+  tooltip.attachLines(c, [
     { text: charm.name, style: "title" },
     { text: charm.pool === "rare" ? "Rare charm" : "Charm", style: "dim" },
     { text: charm.description },

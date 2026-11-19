@@ -91,10 +91,10 @@ export class Tooltip {
     target.on("destroy", () => this.hide());
   }
 
-  // Hover text that is not a domino (charms): the lines are made when the pointer arrives.
-  attachLines(target: Phaser.GameObjects.Container, lines: () => TipLine[]): void {
+  // A tooltip of plain lines on any object (the map's boss).
+  attachLines(target: Phaser.GameObjects.GameObject, lines: TipLine[]): void {
     target.setInteractive();
-    target.on("pointerover", (pointer: Phaser.Input.Pointer) => this.show(lines(), pointer));
+    target.on("pointerover", (pointer: Phaser.Input.Pointer) => this.show(lines, pointer));
     target.on("pointermove", (pointer: Phaser.Input.Pointer) => this.move(pointer));
     target.on("pointerout", () => this.hide());
     target.on("destroy", () => this.hide());
