@@ -10,6 +10,7 @@ import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, su
 import { bossTip } from "./bossInfo";
 import { drawPassiveIcon } from "./passiveIcon";
 import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
+import { coinLine } from "./coinIcon";
 import { Tooltip } from "./tooltip";
 import { deckViewerState } from "./deckViewer";
 import { drawBackground, FONT, label, PLAYER_COLORS } from "./ui";
@@ -328,7 +329,7 @@ export class MapScene extends Phaser.Scene {
       g.lineStyle(2, 0x0d2a20, 1);
       g.strokeCircle(80, y, 14);
       label(this, 110, y, seatName(id), 28);
-      label(this, 400, y, `${run.coins[id] ?? 0} coins`, 26, { color: "#ffe14d", origin: 1 });
+      coinLine(this, 400, y, [run.coins[id] ?? 0], 26, { color: "#ffe14d", origin: 1 });
       if (isOnlineRun() && run.phase === "vote") label(this, 110, y + 24, run.votes[id] === undefined ? "voting" : "voted", 18, { color: run.votes[id] === undefined ? "#cfe9dc" : "#8fe3a8" });
     });
     label(this, 60, 610, "Stops", 28, { bold: true, color: "#9fd1b8" });

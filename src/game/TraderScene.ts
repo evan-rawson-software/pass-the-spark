@@ -6,7 +6,8 @@ import { submitRunChoice, currentRun, isOnlineRun, myPending, seatName, watchRun
 import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { drawDomino } from "./dominoDrawing";
 import { charmWithTip, charmsByIds } from "./charmUi";
-import { artBackground, artImage } from "./art";
+import { artBackground } from "./art";
+import { coinButton, coinLine, coinParts } from "./coinIcon";
 import { Tooltip } from "./tooltip";
 import { button, label } from "./ui";
 
@@ -94,8 +95,7 @@ export class TraderScene extends Phaser.Scene {
     drawPartyHud(this, run);
     drawRunHeader(this, "Trader", isOnlineRun() ? null : player, "Buy dominoes or remove one, then press Done.");
     for (const o of this.children.list.slice(before)) this.root.add(o);
-    artImage(this, "ui/coin", 490, 96, 40, 40, this.root);
-    add(label(this, 520, 70, `Coins: ${run.coins[player]}`, 44, { bold: true, color: "#ffe14d" }));
+    add(coinLine(this, 490, 96, [run.coins[player]], 44, { bold: true, color: "#ffe14d" }));
 
     // Stock
     add(label(this, 60, 262, mine ? "Your stock" : `${seatName(shown)}'s stock (view only)`, 30, { bold: true, color: "#9fd1b8" }));
@@ -105,7 +105,7 @@ export class TraderScene extends Phaser.Scene {
       const why = mine ? refusal(run, player, { kind: "buy", domino: d.id }) : "not yours";
       const c = add(drawDomino(this, d, "large", why ? "notPlayable" : "normal").setPosition(x, 370));
       this.tooltip.attach(c, d);
-      add(label(this, x, 450, `${price} coins · ${d.rarity ?? "?"}`, 26, { origin: 0.5, color: why ? "#9fd1b8" : "#ffffff" }));
+      add(coinLine(this, x, 450, [price, ` · ${d.rarity ?? "?"}`], 26, { origin: 0.5, color: why ? "#9fd1b8" : "#ffffff" }));
       if (mine) add(button(this, x, 500, "Buy", () => submitRunChoice(this, player, { type: "trader", action: { kind: "buy", domino: d.id } }), { size: 30, origin: 0.5, disabled: why !== null }));
     });
     if (stock.length === 0) add(label(this, 60, 370, "Sold out.", 32, { color: "#cfe9dc" }));
@@ -119,7 +119,7 @@ export class TraderScene extends Phaser.Scene {
       const icon = add(charmWithTip(this, this.tooltip, ch, 56, x, 620));
       if (why) icon.setAlpha(0.5);
       add(label(this, x + 44, 604, ch.name, 26, { bold: true }));
-      add(label(this, x + 44, 636, `${prices.charmPrice} coins`, 22, { color: why ? "#9fd1b8" : "#ffffff" }));
+      add(coinLine(this, x + 44, 636, [prices.charmPrice], 22, { color: why ? "#9fd1b8" : "#ffffff" }));
       if (mine) add(button(this, x + 300, 620, "Buy", () => submitRunChoice(this, player, { type: "trader", action: { kind: "buyCharm", charm: ch.id } }), { size: 30, origin: 0.5, disabled: why !== null }));
     });
     if (charmStock.length === 0) add(label(this, 240, 620, "No charms left.", 28, { color: "#cfe9dc" }));
@@ -127,9 +127,9 @@ export class TraderScene extends Phaser.Scene {
     if (mine) {
       const deck = run.decks[player];
       const removeWhy = refusal(run, player, { kind: "remove", domino: deck[0] });
-      add(label(this, 60, 700, `Remove a domino: fee ${fee} coins, rising by ${data.removalFeeStep} after each removal`, 28, { color: "#cfe9dc" }));
+      add(coinLine(this, 60, 700, ["Remove a domino: fee ", fee, ", rising by ", data.removalFeeStep, " after each removal"], 28, { color: "#cfe9dc" }));
       add(button(this, 1500, 700, this.removing ? "Close deck" : "Open deck", () => { this.removing = !this.removing; this.selected = null; this.scroll = 0; this.render(); }, { size: 28 }));
-      if (removeWhy) add(label(this, 60, 745, `Can't remove now: ${removeWhy}`, 24, { color: "#ff9d7a" }));
+      if (removeWhy) add(coinLine(this, 60, 745, ["Can't remove now: ", ...coinParts(removeWhy)], 24, { color: "#ff9d7a" }));
       if (this.removing) this.drawDeck(run, player, deck, removeWhy, fee, add);
     } else {
       add(button(this, 60, 700, "Back to your stock", () => { this.viewing = null; this.render(); }, { size: 30 }));
@@ -141,7 +141,7 @@ export class TraderScene extends Phaser.Scene {
       const y = 225 + i * 90;
       const done = run.trader?.done[id] ?? false;
       add(label(this, 1565, y, seatName(id), 28, { bold: true }));
-      add(label(this, 1565, y + 34, `${run.coins[id]} coins · ${done ? "done" : "shopping"}`, 24, { color: done ? "#9fd1b8" : "#ffffff" }));
+      add(coinLine(this, 1565, y + 34, [run.coins[id], ` · ${done ? "done" : "shopping"}`], 24, { color: done ? "#9fd1b8" : "#ffffff" }));
       add(button(this, 1790, y + 8, "Stock", () => { this.viewing = id; this.removing = false; this.selected = null; this.scroll = 0; this.render(); }, { size: 22, selected: this.viewing === id }));
     });
 
@@ -188,7 +188,7 @@ export class TraderScene extends Phaser.Scene {
       add(button(this, 1780, 900, "Down", () => this.scrollDeck(1), { size: 26, origin: 0.5, disabled: last >= rows.length }));
     }
     const pick = this.selected;
-    add(button(this, 60, 1050, pick ? `Remove ${byId.get(pick)?.name} for ${fee} coins` : "Pick a domino to remove", () => {
+    add(coinButton(this, 60, 1050, pick ? [`Remove ${byId.get(pick)?.name} for `, fee] : ["Pick a domino to remove"], () => {
       if (pick) submitRunChoice(this, player, { type: "trader", action: { kind: "remove", domino: pick } });
     }, { size: 30, disabled: !pick || removeWhy !== null }));
   }
