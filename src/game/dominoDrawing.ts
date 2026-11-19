@@ -148,16 +148,15 @@ function drawHalf(g: Phaser.GameObjects.Graphics, sparks: Spark[] | "any", cx: n
 
 // Effect icons, centred on (0, cy), roughly 52 units across.
 function drawEffectIcon(g: Phaser.GameObjects.Graphics, kind: string, cy: number): void {
-  if (artOn(g, `effects/${kind}`, 0, cy, 60)) return;
+  // Damage, block and Lookout are always drawn in code, never from generated art.
+  if (kind !== "damage" && kind !== "block" && kind !== "lookout" && artOn(g, `effects/${kind}`, 0, cy, 60)) return;
   const p = (x: number, y: number): Pt => ({ x, y: cy + y });
   if (kind === "damage") {
-    const pts: Pt[] = [];
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      const k = i % 2 === 0 ? 28 : 14;
-      pts.push(p(Math.cos(a) * k, Math.sin(a) * k));
-    }
-    polygon(g, pts, 0xd62828);
+    // A red sword, point up, in the same style as the shield.
+    polygon(g, [p(-4, -28), p(4, -28), p(6, 6), p(-6, 6)], 0xd62828);
+    polygon(g, [p(-18, 6), p(18, 6), p(18, 12), p(-18, 12)], 0x8f1a1a);
+    polygon(g, [p(-4, 12), p(4, 12), p(4, 24), p(-4, 24)], 0x8f1a1a);
+    line(g, [p(0, -22), p(0, 2)], 3, 0xf6c9c9);
   } else if (kind === "block") {
     polygon(g, [p(-22, -24), p(22, -24), p(22, 2), p(0, 28), p(-22, 2)], 0x4a6fa5);
     line(g, [p(0, -18), p(0, 18)], 4, 0xdbe6f5);
