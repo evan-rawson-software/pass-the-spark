@@ -4,6 +4,7 @@
 import { shuffle } from "./rng";
 import { validateDominoes } from "./validate";
 import type { GameEvent } from "./events";
+import type { BattleView } from "./view";
 import type { Config, DeckList, Domino, Effect, Enemy, Passive, Spark } from "./types";
 
 // The enemy's seat id in seatOrder.
@@ -276,8 +277,11 @@ export interface PlayPreview {
 
 // What playing this domino right now would do: one preview per spark it could answer (a single
 // one for the opener), or none if it is not a playable domino of the player whose turn it is.
-// It runs the real resolution on a copy, so the two cannot drift, and never changes the state.
-export function previewPlay(input: BattleState, playerId: string, dominoId: string): PlayPreview[] {
+// It runs the real resolution on a copy, so the two cannot drift, and never changes the input.
+// It takes the full state or a player's view: resolving a play only needs what the view carries
+// (the chain, the party, the enemy's health, block and passives, and which enemy hand slots are
+// still hidden, for Lookout), never the hidden dominoes themselves.
+export function previewPlay(input: BattleState | BattleView, playerId: string, dominoId: string): PlayPreview[] {
   const pending = getPendingChoice(input);
   if (!pending || pending.player !== playerId) return [];
   if (pending.type === "opener") {
@@ -287,7 +291,7 @@ export function previewPlay(input: BattleState, playerId: string, dominoId: stri
   const option = pending.options.find((o) => o.domino === dominoId);
   if (!option) return [];
   return option.sparks.map((spark): PlayPreview => {
-    const state: BattleState = JSON.parse(JSON.stringify(input));
+    const state = workingCopy(input);
     const events: GameEvent[] = [];
     play(state, getDomino(state, dominoId), spark, true, events);
     let strength = 0;
@@ -316,6 +320,25 @@ export function previewPlay(input: BattleState, playerId: string, dominoId: stri
       auditorDamage,
     };
   });
+}
+
+// A BattleState to run a preview on. From a view, the enemy's hand keeps its length and its
+// revealed flags; a hidden slot gets "" (the resolution of a player's play never reads it) and
+// the deck and random seed are placeholders.
+function workingCopy(input: BattleState | BattleView): BattleState {
+  const copy = JSON.parse(JSON.stringify(input));
+  if (!("deckList" in copy.enemy)) return copy as BattleState;
+  const { deckList, hand, ...enemy } = copy.enemy as BattleView["enemy"];
+  return {
+    ...copy,
+    rng: 0,
+    enemy: {
+      ...enemy,
+      deck: [],
+      hand: hand.map((slot) => (slot.revealed ? slot.domino : "")),
+      revealed: hand.map((slot) => slot.revealed),
+    },
+  } as BattleState;
 }
 
 // ---- internals (all mutate the working copy) ----

@@ -316,13 +316,10 @@ export class CombatScene extends Phaser.Scene {
     c.setPosition(x, y);
     layer.add(c);
     // Every face-up domino has a tooltip; hidden enemy dominoes have none. Only a playable
-    // domino in the active hand gets the engine's "if played now" numbers, and only in single
-    // player: previewPlay needs the whole BattleState (it runs the real resolution, which can
-    // involve the enemy's hidden hand), which online players never have. Online the tooltip is
-    // the static one.
+    // domino in the active hand gets the engine's "if played now" numbers, worked out from the
+    // view (online players have nothing else).
     if (state !== "hidden") {
-      const full = this.state;
-      const preview = state === "playable" && full ? () => previewPlay(full, this.tipPlayer, d.id) : undefined;
+      const preview = state === "playable" ? () => previewPlay(this.view, this.tipPlayer, d.id) : undefined;
       this.tooltip.attach(c, d, preview);
     }
     if (onClick) {
