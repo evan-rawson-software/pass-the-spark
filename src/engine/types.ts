@@ -135,5 +135,15 @@ export interface RunData {
   upgrade: UpgradeData;
   startingCoins: number; // each player's coins at the start of the run
   battleCoins: Record<BattleType, number>; // every player earns this for winning a battle of that type
+  trader: TraderData;
   acts: ActData[];
+}
+
+export interface TraderData {
+  stockSize: number; // dominoes in each player's stock
+  rarityOdds: Record<Rarity, number>; // weights for each stock domino's rarity
+  prices: Record<Rarity, number>; // coins per domino, by rarity
+  removalFeeStart: number; // a player's first removal costs this
+  removalFeeStep: number; // each removal raises that player's fee by this, for the rest of the run
+  minDeckSize: number; // a player can't remove a domino from a deck this small
 }

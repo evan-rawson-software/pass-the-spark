@@ -13,7 +13,9 @@ import { isRewardComplete, pickedDominoes, rollOffers, submitRewardChoice } from
 import type { RewardState } from "./rewards";
 import { nextInt, nextUint32 } from "./rng";
 import { previewUpgrade } from "./upgrades";
-import type { BattleType, Domino, NodeType, Spark, UpgradeSide } from "./types";
+import { rollStock } from "./trader";
+import type { TraderState } from "./trader";
+import type { BattleType, Domino, NodeType, Rarity, Spark, UpgradeSide } from "./types";
 
 export type RunNodeType = NodeType | "boss";
 
@@ -31,13 +33,14 @@ export interface RunState {
   actIndex: number;
   map: ActMap;
   position: RunPosition | null; // null before the first vote of an act
-  phase: "vote" | "battle" | "reward" | "rest" | "over";
+  phase: "vote" | "battle" | "reward" | "rest" | "trader" | "over";
   votes: Record<string, number>; // player id -> voted node index on the next floor; visible to everyone
   health: number; // the party's health between battles
   maxHealth: number;
   decks: Record<string, string[]>; // player id -> domino instance ids
   dominoes: Domino[]; // definitions of every instance in the decks
   coins: Record<string, number>;
+  removalFee: Record<string, number>; // player id -> what their next removal at a Trader costs
   nextIndex: number; // next unused domino instance number (starter copies and generated ones share it)
   battlesFought: number; // seats rotate by this many places
   lead: string; // who leads the next battle (carried over from the last battle's nextLead)
@@ -45,6 +48,7 @@ export interface RunState {
   battleType: BattleType | null; // the type of the current battle, and of the one just won while rewards are open
   reward: RewardState | null; // present while phase is "reward"
   rest: string[] | null; // present while phase is "rest": the players who have chosen
+  trader: TraderState | null; // present while phase is "trader"
   result: "won" | "lost" | null;
 }
 
@@ -59,13 +63,18 @@ export type RunChoice =
   | { type: "battle"; choice: Choice }
   | { type: "reward"; pick: string } // a domino id from the player's offer, or SKIP
   | { type: "rest" }
-  | { type: "upgrade"; domino: string; side: UpgradeSide; spark?: Spark }; // spark: the second intake, left side only
+  | { type: "upgrade"; domino: string; side: UpgradeSide; spark?: Spark } // spark: the second intake, left side only
+  | { type: "trader"; action: TraderAction };
+
+// Any number of buys and removes, in any order, then done. domino is an id: from your stock to buy, from your deck to remove.
+export type TraderAction = { kind: "buy"; domino: string } | { kind: "remove"; domino: string } | { kind: "done" };
 
 export type RunPendingChoice =
   | { type: "vote"; player: string; options: number[] }
   | { type: "battle"; player: string; pending: PendingChoice }
   | { type: "reward"; player: string; offer: Domino[] }
-  | { type: "rest"; player: string }; // answered with a "rest" or an "upgrade" choice
+  | { type: "rest"; player: string } // answered with a "rest" or an "upgrade" choice
+  | { type: "trader"; player: string; stock: Domino[]; removalFee: number };
 
 export type RunEvent =
   | GameEvent
@@ -79,6 +88,10 @@ export type RunEvent =
   | { type: "upgrade"; player: string; from: string; to: Domino }
   | { type: "rewardOffers" }
   | { type: "rewardChosen"; player: string; pick: string }
+  | { type: "traderStock" }
+  | { type: "bought"; player: string; domino: string; price: number }
+  | { type: "removed"; player: string; domino: string; fee: number }
+  | { type: "traderDone"; player: string }
   | { type: "actStart"; act: string }
   | { type: "runEnd"; result: "won" | "lost" };
 
@@ -115,6 +128,7 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     decks: {},
     dominoes: [],
     coins: {},
+    removalFee: {},
     nextIndex: 1,
     battlesFought: 0,
     lead: players[0],
@@ -122,6 +136,7 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     battleType: null,
     reward: null,
     rest: null,
+    trader: null,
     result: null,
   };
   for (const id of players) {
@@ -130,6 +145,7 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     run.decks[id] = starter.deck;
     run.dominoes.push(...starter.dominoes);
     run.coins[id] = content.run.startingCoins;
+    run.removalFee[id] = content.run.trader.removalFeeStart;
   }
   events.push({ type: "actStart", act: act.id });
   goToVote(run, events);
@@ -150,6 +166,10 @@ export function getPendingRunChoices(run: RunState): RunPendingChoice[] {
   if (run.phase === "rest" && run.rest) {
     const done = run.rest;
     return run.players.filter((id) => !done.includes(id)).map((id) => ({ type: "rest", player: id }));
+  }
+  if (run.phase === "trader" && run.trader) {
+    const trader = run.trader;
+    return run.players.filter((id) => !trader.done[id]).map((id) => ({ type: "trader", player: id, stock: trader.stock[id], removalFee: run.removalFee[id] }));
   }
   if (run.phase === "battle" && run.battle) {
     const pending = getPendingChoice(run.battle);
@@ -195,6 +215,12 @@ export function applyRunChoice(input: RunState, playerId: string, choice: RunCho
     run.reward = submitRewardChoice(run.reward, playerId, choice.pick);
     events.push({ type: "rewardChosen", player: playerId, pick: choice.pick });
     if (isRewardComplete(run.reward)) finishRewards(run, events);
+  } else if (choice.type === "trader" && run.trader) {
+    applyTraderAction(run, playerId, choice.action, events);
+    if (run.players.every((id) => run.trader?.done[id])) {
+      run.trader = null;
+      goToVote(run, events);
+    }
   }
   return { run, events };
 }
@@ -249,10 +275,47 @@ function enterNode(run: RunState, events: RunEvent[]): void {
   } else if (type === "rest") {
     run.phase = "rest";
     run.rest = [];
+  } else if (type === "trader") {
+    const roll = rollStock(run.rng, run.players, run.content.run.trader, run.content.pools, run.nextIndex);
+    run.rng = roll.state;
+    run.nextIndex = roll.nextIndex;
+    run.trader = roll.trader;
+    run.phase = "trader";
+    events.push({ type: "traderStock" });
   } else {
-    // Traders (#48) and events plug in here. Until they exist there is
+    // Events plug in here. Until they exist there is
     // nothing for anyone to choose, so the party goes straight on to the next vote.
     goToVote(run, events);
+  }
+}
+
+// Validates and applies one buy, remove or done. Throws on anything illegal (the caller works on a copy).
+function applyTraderAction(run: RunState, playerId: string, action: TraderAction, events: RunEvent[]): void {
+  const trader = run.trader as TraderState;
+  const data = run.content.run.trader;
+  if (action.kind === "done") {
+    trader.done[playerId] = true;
+    events.push({ type: "traderDone", player: playerId });
+  } else if (action.kind === "buy") {
+    const item = trader.stock[playerId].find((d) => d.id === action.domino);
+    if (!item) throw new Error(`domino ${action.domino} is not in ${playerId}'s stock`);
+    const price = data.prices[item.rarity as Rarity];
+    if (run.coins[playerId] < price) throw new Error(`${playerId} has ${run.coins[playerId]} coins, ${item.id} costs ${price}`);
+    run.coins[playerId] -= price;
+    trader.stock[playerId] = trader.stock[playerId].filter((d) => d.id !== item.id);
+    run.decks[playerId].push(item.id);
+    run.dominoes.push(item);
+    events.push({ type: "bought", player: playerId, domino: item.id, price });
+  } else {
+    const deck = run.decks[playerId];
+    if (!deck.includes(action.domino)) throw new Error(`domino ${action.domino} is not in ${playerId}'s deck`);
+    if (deck.length <= data.minDeckSize) throw new Error(`a deck can't go below ${data.minDeckSize} dominoes`);
+    const fee = run.removalFee[playerId];
+    if (run.coins[playerId] < fee) throw new Error(`${playerId} has ${run.coins[playerId]} coins, removal costs ${fee}`);
+    run.coins[playerId] -= fee;
+    run.removalFee[playerId] += data.removalFeeStep;
+    deck.splice(deck.indexOf(action.domino), 1);
+    events.push({ type: "removed", player: playerId, domino: action.domino, fee });
   }
 }
 
