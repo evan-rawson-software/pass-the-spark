@@ -19,6 +19,7 @@ import { drawBlessedGlow } from "./sparkShrineArt";
 import type { DominoState } from "./dominoDrawing";
 import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { Tooltip } from "./tooltip";
+import { drawPadlock, drawPassiveIcon } from "./passiveIcon";
 import { drawCharmList } from "./charmUi";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
@@ -601,59 +602,13 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private drawPassive(layer: Layer, p: Passive, x: number, y: number): void {
-    const g = this.gfx(layer);
-    g.fillStyle(0x0d2a20, 0.9);
-    g.fillCircle(x, y, 34);
-    g.lineStyle(4, GOLD, 1);
-    g.strokeCircle(x, y, 34);
-    if (p.kind === "auditor") {
-      // A ledger page with ruled lines.
-      g.fillStyle(0xf4ecd8, 1);
-      g.fillRoundedRect(x - 16, y - 22, 32, 44, 4);
-      g.lineStyle(3, 0x2a2a2a, 1);
-      for (let i = 0; i < 4; i++) g.lineBetween(x - 10, y - 12 + i * 9, x + 10, y - 12 + i * 9);
-    } else if (p.kind === "longNight") {
-      // A crescent moon.
-      g.fillStyle(0xf4ecd8, 1);
-      g.fillCircle(x - 2, y, 20);
-      g.fillStyle(0x0d2a20, 1);
-      g.fillCircle(x + 8, y - 5, 17);
-    } else if (p.kind === "hoarder") {
-      // A shield-shaped chest.
-      g.fillStyle(0x8a6a3a, 1);
-      g.fillRoundedRect(x - 20, y - 14, 40, 30, 4);
-      g.fillStyle(0xffe14d, 1);
-      g.fillRect(x - 4, y - 4, 8, 10);
-    } else if (p.kind === "smolder") {
-      // A flame.
-      g.fillStyle(0xff7a2b, 1);
-      g.fillTriangle(x - 16, y + 20, x + 16, y + 20, x, y - 24);
-      g.fillStyle(0xffe14d, 1);
-      g.fillTriangle(x - 8, y + 20, x + 8, y + 20, x, y - 6);
-    } else if (p.kind === "warden") {
-      this.drawPadlock(g, x, y, 1.1);
-    } else {
-      // A mouth with teeth.
-      g.fillStyle(0x7a1f2b, 1);
-      g.fillEllipse(x, y + 2, 46, 30);
-      g.fillStyle(0xffffff, 1);
-      for (let i = 0; i < 4; i++) {
-        g.fillTriangle(x - 18 + i * 9, y - 8, x - 10 + i * 9, y - 8, x - 14 + i * 9, y + 2);
-      }
-    }
+    drawPassiveIcon(this, this.gfx(layer), p, x, y);
     this.label(layer, x - 44, y, p.name, 24, "#ffe14d", 1, true);
   }
 
   // A padlock centred on x, y (about 30 wide at scale 1).
   private drawPadlock(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
-    if (artImage(this, "ui/locked", x, y + 2 * scale, 34 * scale, 34 * scale, g.parentContainer)) return;
-    g.lineStyle(5 * scale, 0xd8d8d8, 1);
-    g.strokeEllipse(x, y - 9 * scale, 16 * scale, 20 * scale);
-    g.fillStyle(0xe0b341, 1);
-    g.fillRoundedRect(x - 14 * scale, y - 4 * scale, 28 * scale, 22 * scale, 4 * scale);
-    g.fillStyle(0x2a2a2a, 1);
-    g.fillCircle(x, y + 5 * scale, 3 * scale);
-    g.fillRect(x - 1.5 * scale, y + 6 * scale, 3 * scale, 7 * scale);
+    drawPadlock(this, g, x, y, scale);
   }
 
   // ---- HUD (band under the enemy) ----
