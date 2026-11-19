@@ -93,3 +93,17 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Audio:** later.
 - **Debug panel:** yes.
 - **Tooltips:** yes. Hovering a domino shows name, intake, effect with its current value, and output.
+
+## 2026-11-19: Milestone 3 (online co-op)
+
+- **Connection:** peer-to-peer in the browser (WebRTC via PeerJS and its free public broker). The host's browser is the server. A hosted relay is added only if friends can't connect. Replaced by Steam in the Godot port.
+- **Authority:** the host runs the engine. Clients send only choices; the host sends each player their own view (`getView`) and events (`getEventsView`).
+- **Joining:** the host creates a room with a short code and a shareable link. Friends open it, type a name and join. No accounts.
+- **Seats:** join order, and the host can reorder them in the lobby. The host picks the enemy and can start with 3 or 4 players (fewer only through the debug panel).
+- **Hot-seat:** kept as a "local game" option.
+- **Dropped player:** they rejoin by reopening the link, and their browser remembers their seat. The game pauses on their turn with "Waiting for [name]". After a delay, the host can take that seat's turns until they return.
+- **Host drops:** the host's browser saves the battle after every step. If the host reloads, the same room resumes and clients reconnect. No host migration.
+- **No turn timer. No chat or pings yet.**
+- **Version check:** a client on a different build is refused with a "refresh the page" message.
+- **Debug panel online:** host only.
+- **Tests:** only where they matter. For M3, one in-memory host-and-clients test.
