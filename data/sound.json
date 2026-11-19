@@ -1,5 +1,5 @@
 {
-  "comment": "One entry per sound cue. file is under public/audio/ (placeholder names until the Kenney clips are in). volume 0-1. minGapMs: shortest gap between two plays of the cue at 1x, multiplied by the playback speed so fast playback plays fewer sounds. rises: the pitch climbs with the link count by tickPitch.stepCents per link (never slowed audio, only pitch).",
+  "comment": "One entry per sound cue. file is under public/audio/. volume 0-1. minGapMs: shortest gap between two plays of the cue at 1x, multiplied by the playback speed so fast playback plays fewer sounds. rises: the pitch climbs with the link count by tickPitch.stepCents per link (never slowed audio, only pitch).",
   "tickPitch": { "stepCents": 80, "maxSteps": 12 },
   "cues": {
     "click": { "file": "interface/click_001.ogg", "volume": 0.5, "minGapMs": 60 },

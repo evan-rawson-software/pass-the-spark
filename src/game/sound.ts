@@ -1,4 +1,5 @@
 import soundJson from "../../data/sound.json";
+import type { RunEvent } from "../engine/run";
 import { getPlaybackSpeed } from "./playbackSpeed";
 
 // Sound effects (#137), played from this browser's own events; nothing goes on the network. The cue
@@ -63,4 +64,15 @@ export function playSound(cue: string, links = 1): void {
   lastPlayed.set(cue, now);
   const steps = c.rises ? Math.min(Math.max(links - 1, 0), D.tickPitch.maxSteps) : 0;
   out.play(key, { volume, detune: steps * D.tickPitch.stepCents });
+}
+
+// Sounds for what the engine says happened in a run step (rest, a purchase or removal, coins won).
+// Played only from accepted outcomes, so a refused choice is silent. Single player calls this with
+// the events applyRunChoice returns; online, relay.deliver calls it with each run update's events.
+export function playRunEventSounds(events: RunEvent[]): void {
+  for (const e of events) {
+    if (e.type === "rest") playSound("rest");
+    else if (e.type === "bought" || e.type === "charmBought" || e.type === "removed") playSound("buy");
+    else if (e.type === "coins" && e.amount > 0) playSound("coins");
+  }
 }
