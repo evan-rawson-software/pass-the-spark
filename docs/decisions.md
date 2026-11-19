@@ -235,3 +235,7 @@ Follow-ups:
   - Pick two dominoes: the first gives its intake and effect (with their upgrades and traits), the second its output. Both are removed and the welded domino is added.
   - Welding may break the rarity spark pools; that's allowed. The weld's rarity is the higher of the two, and its name is generated.
   - Needs a deck of at least 6, so the deck stays at the minimum of 5.
+
+## 2026-11-19: Milestone order
+
+After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playtest fixes; 8 progression and polish (experience bar, unlocks, chain spectacle, audio, art); 9 Godot port with Steam. Balance comes before polish so playtests can answer "is building a chain together fun?" early.
