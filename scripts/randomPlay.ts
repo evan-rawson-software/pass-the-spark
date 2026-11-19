@@ -4,7 +4,9 @@
 import { createBattle, step, getPendingChoice, ENEMY_SEAT } from "../src/engine/battle";
 import type { BattleState, Choice } from "../src/engine/battle";
 import { nextInt } from "../src/engine/rng";
+import { getView } from "../src/engine/view";
 import { loadContent } from "../src/engine/content";
+import { botChoice } from "./bot";
 
 export const { config, dominoes, enemies, starterDeck } = loadContent();
 
@@ -31,8 +33,10 @@ export function newBattle(enemyId: string, seed: number): BattleState {
   });
 }
 
-// Plays one battle with random legal choices. Stops after maxSteps choices.
-export function playRandomBattle(enemyId: string, seed: number, maxSteps: number): BattleStats {
+export type Player = "random" | "bot";
+
+// Plays one battle with random legal choices, or with the bot. Stops after maxSteps choices.
+export function playRandomBattle(enemyId: string, seed: number, maxSteps: number, player: Player = "random"): BattleStats {
   let state = newBattle(enemyId, seed);
   let pick = seed; // the picker's own RNG state
   const chains: number[] = [];
@@ -44,7 +48,11 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
     const pending = getPendingChoice(state);
     if (pending === null) break;
     let choice: Choice;
-    if (pending.type === "opener") {
+    if (player === "bot") {
+      const b = botChoice(getView(state, pending.player), pending.player, pick);
+      pick = b.rng;
+      choice = b.choice;
+    } else if (pending.type === "opener") {
       const r = nextInt(pick, pending.dominoes.length);
       pick = r.state;
       choice = { type: "opener", domino: pending.dominoes[r.value] };
