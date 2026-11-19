@@ -1,4 +1,16 @@
 {
+  "startingCoins": 50,
+  "battleCoins": { "fight": 10, "elite": 25, "boss": 50 },
+  "restHeal": 8,
+  "upgrade": { "numberedPercent": 50, "amplify": 1, "echoTriggers": 1, "lookoutReveals": 1, "mimicStrength": 1 },
+  "trader": {
+    "stockSize": 5,
+    "rarityOdds": { "common": 60, "uncommon": 33, "rare": 7 },
+    "prices": { "common": 20, "uncommon": 40, "rare": 75 },
+    "removalFeeStart": 15,
+    "removalFeeStep": 10,
+    "minDeckSize": 5
+  },
   "acts": [
     {
       "id": "act1",

@@ -14,7 +14,11 @@ function pick<T>(state: number, items: readonly T[]): Rolled<T> {
 
 // Draws a rarity using the weights for this battle type.
 export function rollRarity(state: number, battleType: BattleType, pools: Pools): Rolled<Rarity> {
-  const odds = pools.rarityOdds[battleType];
+  return rollRarityFromOdds(state, pools.rarityOdds[battleType]);
+}
+
+// Draws a rarity from the given weights.
+export function rollRarityFromOdds(state: number, odds: Record<Rarity, number>): Rolled<Rarity> {
   let total = 0;
   for (const rarity of RARITIES) total += odds[rarity];
   const r = nextFloat(state);

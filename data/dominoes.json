@@ -528,5 +528,341 @@
       "kind": "damage",
       "base": 6
     }
+  },
+  {
+    "id": "goblin_stab",
+    "name": "Stab",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "goblin_slice",
+    "name": "Slice",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "goblin_dodge",
+    "name": "Dodge",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 3
+    }
+  },
+  {
+    "id": "goblin_jab",
+    "name": "Jab",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "goblin_nick",
+    "name": "Nick",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "goblin_scurry",
+    "name": "Scurry",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 2
+    }
+  },
+  {
+    "id": "slime_ooze",
+    "name": "Ooze",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 4
+    }
+  },
+  {
+    "id": "slime_glob",
+    "name": "Glob",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 2
+    }
+  },
+  {
+    "id": "slime_splat",
+    "name": "Splat",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 2
+    }
+  },
+  {
+    "id": "slime_sponge",
+    "name": "Sponge",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 3
+    }
+  },
+  {
+    "id": "slime_slurp",
+    "name": "Slurp",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 2
+    }
+  },
+  {
+    "id": "slime_slap",
+    "name": "Slap",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "wisp_zap",
+    "name": "Zap",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "wisp_flit",
+    "name": "Flit",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 2
+    }
+  },
+  {
+    "id": "wisp_spark",
+    "name": "Spark",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "wisp_flicker",
+    "name": "Flicker",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 2
+    }
+  },
+  {
+    "id": "wisp_glow",
+    "name": "Glow",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 2
+    }
+  },
+  {
+    "id": "wisp_dart",
+    "name": "Dart",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "warden_strike",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "warden_bash",
+    "name": "Bash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "warden_shield",
+    "name": "Shield",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 6
+    }
+  },
+  {
+    "id": "warden_rally",
+    "name": "Rally",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 4
+    }
+  },
+  {
+    "id": "warden_sweep",
+    "name": "Sweep",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "warden_counter",
+    "name": "Counter",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 4
+    }
   }
 ]
