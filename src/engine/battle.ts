@@ -2,7 +2,7 @@
 // applyChoice never changes its input: it works on a JSON copy.
 
 import { shuffle } from "./rng";
-import type { Config, DeckList, Domino, Effect, Enemy, Spark } from "./types";
+import type { Config, DeckList, Domino, Effect, Enemy, Passive, Spark } from "./types";
 
 // The enemy's seat id in seatOrder.
 export const ENEMY_SEAT = "enemy";
@@ -35,6 +35,7 @@ export interface EnemyState {
   discard: string[];
   drawPerRound: number;
   handLimit: number;
+  passives: Passive[];
   faceUp: string[]; // played or discarded since the last reshuffle, for the UI
 }
 
@@ -146,6 +147,7 @@ export function createBattle(setup: BattleSetup): BattleState {
       discard: [],
       drawPerRound: enemyDef.drawPerRound,
       handLimit: enemyDef.handLimit,
+      passives: enemyDef.passives,
       faceUp: [],
     },
     result: null,
@@ -177,7 +179,7 @@ export function applyChoice(input: BattleState, choice: Choice): BattleState {
     const d = getDomino(state, choice.domino);
     state.chain = newChain(d.output);
     // The fuse's effect never triggers, but a Mimic after it can copy it.
-    if (d.effect.kind !== "mimic") state.chain.last = { effect: d.effect, side: "party" };
+    if (d.effect.kind !== "mimic" && d.effect.kind !== "reflect") state.chain.last = { effect: d.effect, side: "party" };
     state.lead = player.id;
     advance(state);
   } else if (pending.type === "answer" && choice.type === "answer") {
@@ -326,7 +328,10 @@ function advance(state: BattleState): void {
   for (;;) {
     const i = state.seatOrder.indexOf(state.seat);
     state.seat = state.seatOrder[(i + 1) % state.seatOrder.length];
-    if (state.seat === state.lead) state.chain.lap += 1;
+    if (state.seat === state.lead) {
+      state.chain.lap += 1;
+      glutton(state);
+    }
     if (state.seat === ENEMY_SEAT) {
       react(state);
       if (state.phase === "over") return;
@@ -360,11 +365,31 @@ function react(state: BattleState): void {
 // An answer: strength +1, spark history and current spark update, effect triggers.
 function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean): void {
   const chain = state.chain;
+  // The Auditor: a player answers the same spark as the previous history entry.
+  const repeated = byPlayer && chain.history[chain.history.length - 1] === answered;
   chain.strength += 1;
   chain.history.push(answered);
   chain.sparks = d.output.slice();
   const scaleLap = byPlayer || state.config.enemyReactionsScaleWithLap;
   playEffect(state, d.effect, byPlayer ? "party" : "enemy", scaleLap);
+  if (repeated && state.phase !== "over") auditor(state);
+}
+
+// Auditor passive: the party takes damage (block absorbs it). Strength is never reduced.
+function auditor(state: BattleState): void {
+  const passive = state.enemy.passives.find((p) => p.kind === "auditor");
+  if (!passive || passive.kind !== "auditor") return;
+  const rule = passive.damage ?? state.config.auditorDamage;
+  const amount = rule.rule === "strength" ? state.chain.strength : rule.amount;
+  resolve(state, { kind: "damage" }, amount, "enemy");
+}
+
+// Glutton passive: heals a flat amount when lap goes up, capped at max health.
+function glutton(state: BattleState): void {
+  const passive = state.enemy.passives.find((p) => p.kind === "glutton");
+  if (!passive || passive.kind !== "glutton") return;
+  const enemy = state.enemy;
+  enemy.health = Math.min(enemy.maxHealth, enemy.health + (passive.heal ?? state.config.gluttonHeal));
 }
 
 // Resolve a played domino's effect (a Mimic becomes the effect it copies), record it
@@ -374,6 +399,9 @@ function playEffect(state: BattleState, effect: Effect, side: Side, scaleLap: bo
   let resolved: ResolvedEffect | null = { effect, side };
   if (effect.kind === "mimic") {
     resolved = chain.last === null ? null : { effect: chain.last.effect, side: "party" };
+  } else if (effect.kind === "reflect") {
+    // Mimic in reverse: the copied effect is turned against the party (an enemy effect is unchanged).
+    resolved = chain.last === null ? null : { effect: chain.last.effect, side: "enemy" };
   }
   if (resolved === null) return;
   chain.last = resolved;
@@ -441,9 +469,12 @@ function endRound(state: BattleState): void {
   // Leftovers go off at strength 1, left to right, and stay in hand.
   for (const id of state.enemy.hand.slice()) {
     const d = getDomino(state, id);
-    let value = d.effect.base ?? 0;
+    // A leftover Reflect repeats the chain's last domino (the fuse if nothing followed it).
+    const effect = d.effect.kind === "reflect" ? state.chain.last?.effect : d.effect;
+    if (effect === undefined) continue;
+    let value = effect.base ?? 0;
     if (state.config.enemyReactionsScaleWithLap) value *= state.chain.lap;
-    resolve(state, d.effect, value, "enemy");
+    resolve(state, effect, value, "enemy");
     if (state.phase === "over") return;
   }
   state.party.block = 0;
