@@ -45,5 +45,32 @@ Check each event screen once in single player and once online, including a 4-pla
 - [ ] Sleeping Giant: the meter shows the chance before each decision; only the current player can act online.
 - [ ] Watch for: online, an enemy holding two copies of the same domino briefly shows the wrong card leaving its hand.
 
+## Charms
+Check once in single player and once online with 4 players.
+- [ ] Win an elite: a charm is offered beside the dominoes. Taking it adds its icon by your name; Skip works; the run doesn't stall.
+- [ ] Win a boss: 3 rare (diamond) charms, pick 1 or skip.
+- [ ] Online: everyone picks at once; a teammate's row shows "choosing a charm", then "took" or "skipped".
+- [ ] Hover each icon: one tooltip with the right description. Icons show on the map, rest, Trader, event, reward, deck viewer and combat screens.
+- [ ] Combat with 4 players: the charm list in the right column overlaps nothing, and enemy hand tooltips still work.
+- [ ] Many charms on one player: the icons don't squeeze into each other.
+- [ ] A charm firing in combat flashes its icon. Lens and Bulwark values match the tooltip, including after Echo.
+- [ ] Deep Pockets raises the hand limit; Early Riser draws one more at round start.
+- [ ] Keystone with a Spark Shrine blessing: answers on the blessed spark add 3 strength.
+- [ ] Spark Starter: the opener's effect fires at strength 1 and the opener still goes to the discard pile.
+- [ ] First Echo: only the first effect each round doubles. Lightning Rod doubles anything set off by Storm or Void, and stacks with First Echo.
+- [ ] Lap Runner: 3 block when your answer completes a lap, not for the opener or after an enemy reaction.
+- [ ] Trader: 3 charms per player at 40 (32 with Haggler); Buy greys out without the coins.
+
+## Acts and bosses
+- [ ] Win the act 1 boss: rewards, then the transition screen with the heal and the act 2 boss; Continue opens "Act 2 of 3".
+- [ ] Online: each player presses Continue on the transition screen and the others show "Waiting for ...". Reload a client and the host there: it comes back the same.
+- [ ] Lose in act 2: the run end screen says "Reached act 2 of 3, floor N".
+- [ ] The map boss tooltip shows during a route vote and isn't covered.
+- [ ] Hoarder: its block rises by the strength when a lap completes.
+- [ ] Smolder: after a long chain, its leftovers hit at the chain's final strength.
+- [ ] Long Night: on lap 2 its reactions show double values.
+- [ ] Warden of Locks: the padlock and "X locked" show at round start; locked-intake and "any" dominoes are greyed out when that spark arrives; with a two-spark output only the other spark can be answered.
+- [ ] Warden of Locks with a Spark Shrine blessing: the lock row and the blessing line don't overlap.
+
 ## The fun question
 - [ ] After the evening: was building a chain together fun? What was the best moment, and the most boring one?
