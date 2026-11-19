@@ -9,7 +9,7 @@ export type GameEvent =
   | { type: "roundStart"; round: number; lead: string }
   | { type: "draw"; seat: string; count: number; dominoes?: string[] } // dominoes: players only
   | { type: "enemyDiscard"; domino: string }
-  | { type: "fuse"; player: string; domino: string; sparks: Spark[] }
+  | { type: "opener"; player: string; domino: string; sparks: Spark[] }
   | { type: "pass"; from: string; to: string; sparks: Spark[] }
   | { type: "lapUp"; lap: number }
   | { type: "play"; seat: string; domino: string; answeredSpark: Spark; strength: number; lap: number }

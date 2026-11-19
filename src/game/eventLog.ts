@@ -39,9 +39,9 @@ export function describeEvent(ev: GameEvent, ctx: LogContext, mem: LogMemory): s
       return `${who(ev.seat)} draws ${ev.count}`;
     case "enemyDiscard":
       return `${ctx.enemyName} discards ${ctx.domino(ev.domino)} to make room`;
-    case "fuse":
+    case "opener":
       mem.enemyActing = false;
-      return `${who(ev.player)} fuses ${ctx.domino(ev.domino)}: ${sparkText(ev.sparks)}`;
+      return `${who(ev.player)} plays the opener ${ctx.domino(ev.domino)}: ${sparkText(ev.sparks)}`;
     case "pass":
       mem.passedTo = ev.to;
       mem.sparks = ev.sparks;

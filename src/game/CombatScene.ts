@@ -70,7 +70,7 @@ export class CombatScene extends Phaser.Scene {
     this.hlSeat = null;
     this.handSeat = null;
     this.logText = this.add
-      .text(LEFT_X + SIDE_W / 2, 925, "Click a domino in your hand to fuse.", {
+      .text(LEFT_X + SIDE_W / 2, 925, "Play an opener: click a domino in your hand.", {
         fontFamily: FONT, fontSize: "26px", color: "#ffffff", align: "center", wordWrap: { width: SIDE_W - 20 },
       })
       .setOrigin(0.5);
@@ -388,7 +388,7 @@ export class CombatScene extends Phaser.Scene {
       }
       this.domino(layer, p.domino, k, enemy ? "playedFaceUp" : "normal", x, y);
       if (k >= 0.5) {
-        const tag = (enemy ? "Enemy" : p.seat) + (i + hidden === 0 ? " (fuse)" : "");
+        const tag = (enemy ? "Enemy" : p.seat) + (i + hidden === 0 ? " (opener)" : "");
         this.label(layer, x, y + (DH * k) / 2 + 13, tag, 16, enemy ? "#ff9a94" : "#cfe9dc", 0.5, true);
       }
       // Row breaks: a small arrow at the row's end and one at the next row's start.
@@ -415,7 +415,7 @@ export class CombatScene extends Phaser.Scene {
       g.strokeRoundedRect(x - w / 2, y - sh / 2, w, sh, 14 * k);
       // The spark(s) it must answer sit in the intake half.
       const sparks = view.chain.sparks;
-      if (sparks.length === 0) this.label(layer, x, y, "FUSE", Math.round(40 * k + 6), "#ffe14d", 0.5, true);
+      if (sparks.length === 0) this.label(layer, x, y, "OPENER", Math.round(40 * k + 6), "#ffe14d", 0.5, true);
       sparks.forEach((s, i) => {
         const gy = sparks.length === 1 ? y : y + (i === 0 ? -1 : 1) * 27 * k;
         drawSparkGlyph(g, s, x - 80 * k, gy, (sparks.length === 1 ? 24 : 16) * k);
@@ -427,7 +427,7 @@ export class CombatScene extends Phaser.Scene {
 
   private drawActiveHand(layer: Layer, view: BattleView, active: string, pending: PendingChoice | null): void {
     const playable = new Set<string>(
-      pending === null ? [] : pending.type === "fuse" ? pending.dominoes : pending.options.map((o) => o.domino),
+      pending === null ? [] : pending.type === "opener" ? pending.dominoes : pending.options.map((o) => o.domino),
     );
     const pendingType = pending?.type ?? null;
     const p = view.players.find((x) => x.id === active);
@@ -441,7 +441,7 @@ export class CombatScene extends Phaser.Scene {
       }
     }
     this.plate(layer, HAND.x + 110, HAND.y + 4, p.id, onTurn, 28);
-    const hint = pendingType === "fuse" ? "Choose a domino to fuse" : pendingType === "answer" ? "Answer the spark" : "";
+    const hint = pendingType === "opener" ? "Play an opener" : pendingType === "answer" ? "Answer the spark" : "";
     const prompt = pending?.type === "answer" && this.sparkPrompt ? pending.options.find((o) => o.domino === this.sparkPrompt) : undefined;
     if (prompt) {
       this.drawSparkPrompt(layer, prompt.domino, prompt.sparks);
@@ -474,8 +474,8 @@ export class CombatScene extends Phaser.Scene {
     if (this.locked) return;
     const pending = getPendingChoice(this.state);
     if (pending === null) return;
-    if (pending.type === "fuse") {
-      if (pending.dominoes.includes(id)) this.submit({ type: "fuse", domino: id });
+    if (pending.type === "opener") {
+      if (pending.dominoes.includes(id)) this.submit({ type: "opener", domino: id });
       return;
     }
     const option = pending.options.find((o) => o.domino === id);
@@ -568,7 +568,7 @@ export class CombatScene extends Phaser.Scene {
       switch (ev.type) {
         case "roundStart": hl = ev.lead; hand = ev.lead; break;
         case "draw": hl = ev.seat; break;
-        case "fuse": hl = ev.player; hand = ev.player; break;
+        case "opener": hl = ev.player; hand = ev.player; break;
         case "pass": hl = ev.to; if (isPlayer(ev.to)) hand = ev.to; break;
         case "play": hl = ev.seat; if (isPlayer(ev.seat)) hand = ev.seat; break;
         case "enemyDiscard": case "enemyNoReaction": case "leftover": hl = ENEMY_SEAT; break;

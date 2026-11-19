@@ -3,7 +3,7 @@ import { applyChoice } from "../src/engine/battle";
 import type { Choice } from "../src/engine/battle";
 import { enemies, newBattle, playRandomBattle } from "../scripts/randomPlay";
 
-const f = (domino: string): Choice => ({ type: "fuse", domino });
+const f = (domino: string): Choice => ({ type: "opener", domino });
 const a = (domino: string, spark: "Ember" | "Tide" | "Gale"): Choice => ({ type: "answer", domino, spark });
 
 // Brute, seed 7, two players on the starter deck.
