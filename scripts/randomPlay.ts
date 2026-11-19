@@ -1,7 +1,7 @@
 // Random play over the engine's public functions only. Random picks come from the
 // engine's seeded RNG, so the same seed gives the same battle.
 
-import { createBattle, step, getPendingChoice } from "../src/engine/battle";
+import { createBattle, step, getPendingChoice, ENEMY_SEAT } from "../src/engine/battle";
 import type { BattleState, Choice } from "../src/engine/battle";
 import { nextInt } from "../src/engine/rng";
 import { loadContent } from "../src/engine/content";
@@ -12,6 +12,7 @@ export interface BattleStats {
   result: "won" | "lost" | null; // null: stopped at the step cap
   rounds: number;
   chains: number[]; // answers (player and enemy) in each round's chain, not the opener
+  playerAnswers: number[]; // player answers only in each round, not the opener or enemy reactions
   steps: number;
   final: BattleState;
 }
@@ -35,7 +36,9 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
   let state = newBattle(enemyId, seed);
   let pick = seed; // the picker's own RNG state
   const chains: number[] = [];
+  const playerAnswers: number[] = [];
   let inRound = 0;
+  let playerInRound = 0;
   let steps = 0;
   while (state.phase !== "over" && steps < maxSteps) {
     const pending = getPendingChoice(state);
@@ -57,12 +60,21 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
     const result = step(state, choice);
     state = result.state;
     steps += 1;
-    for (const e of result.events) if (e.type === "play") inRound += 1;
+    for (const e of result.events) {
+      if (e.type !== "play") continue;
+      inRound += 1;
+      if (e.seat !== ENEMY_SEAT) playerInRound += 1;
+    }
     if (state.round !== round) {
       chains.push(inRound);
+      playerAnswers.push(playerInRound);
       inRound = 0;
+      playerInRound = 0;
     }
   }
-  if (inRound > 0) chains.push(inRound);
-  return { result: state.result, rounds: state.round, chains, steps, final: state };
+  if (inRound > 0) {
+    chains.push(inRound);
+    playerAnswers.push(playerInRound);
+  }
+  return { result: state.result, rounds: state.round, chains, playerAnswers, steps, final: state };
 }
