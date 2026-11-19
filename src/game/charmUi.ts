@@ -30,6 +30,7 @@ export function charmIcon(scene: Phaser.Scene, charm: Charm, size: number): Phas
     c.setSize(size, size);
     return c;
   }
+  const framed = artImage(scene, charm.pool === "rare" ? "ui/charm_rare" : "ui/charm_normal", 0, 0, size, size);
   const color = COLORS[Math.max(0, allCharms().findIndex((c) => c.id === charm.id)) % COLORS.length];
   const r = size / 2;
   const g = scene.add.graphics();
@@ -52,7 +53,7 @@ export function charmIcon(scene: Phaser.Scene, charm: Charm, size: number): Phas
   const letter = scene.add
     .text(0, 0, charm.name.charAt(0), { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${Math.round(size * 0.5)}px`, color: "#2a2a2a", fontStyle: "bold" })
     .setOrigin(0.5);
-  const c = scene.add.container(0, 0, [g, letter]);
+  const c = scene.add.container(0, 0, [framed ?? g, letter]);
   c.setSize(size, size);
   return c;
 }

@@ -18,7 +18,7 @@ export class MenuScene extends Phaser.Scene {
     } catch {
       // not allowed here
     }
-    drawBackground(this);
+    drawBackground(this, "title");
     label(this, 960, 160, "Pass the Spark", 96, { bold: true, origin: 0.5 });
 
     label(this, 960, 330, "Your name (for online games)", 30, { origin: 0.5 });

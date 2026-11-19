@@ -1,3 +1,4 @@
+import { artImage } from "./art";
 import Phaser from "phaser";
 import type { Spark } from "../engine/types";
 import { drawSparkGlyph } from "./dominoDrawing";
@@ -38,6 +39,7 @@ export function drawSparkShrine(g: Phaser.GameObjects.Graphics, x: number, y: nu
 
 // A soft halo behind a spark glyph at (x, y) with radius r, to mark the blessed spark.
 export function drawBlessedGlow(g: Phaser.GameObjects.Graphics, spark: Spark, x: number, y: number, r: number): void {
+  if (artImage(g.scene, "ui/blessed", x, y, (r + 16) * 2, (r + 16) * 2, g.parentContainer)) return;
   g.fillStyle(SPARK_STYLE[spark].color, 0.25);
   g.fillCircle(x, y, r + 16);
   g.lineStyle(4, 0xffe14d, 0.9);

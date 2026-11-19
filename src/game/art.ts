@@ -38,13 +38,25 @@ export class ArtBootScene extends Phaser.Scene {
   }
 }
 
-// An image for `key`, centred on (x, y) and scaled to fit inside w x h, added to `parent` if given.
-// Null when there is no art for the key.
-export function artImage(scene: Phaser.Scene, key: string, x: number, y: number, w: number, h: number, parent?: Phaser.GameObjects.Container | null): Phaser.GameObjects.Image | null {
+// An image for `key`, centred on (x, y) and scaled to fit inside w x h (mode "fit"), or to cover
+// the box, cropped to it (mode "cover"), added to `parent` if given. Null when there is no art.
+export function artImage(scene: Phaser.Scene, key: string, x: number, y: number, w: number, h: number, parent?: Phaser.GameObjects.Container | null, mode: "fit" | "cover" = "fit"): Phaser.GameObjects.Image | null {
   const tk = textureKey(key);
   if (!scene.textures.exists(tk)) return null;
   const img = scene.add.image(x, y, tk);
-  img.setScale(Math.min(w / img.width, h / img.height));
+  const f = mode === "fit" ? Math.min(w / img.width, h / img.height) : Math.max(w / img.width, h / img.height);
+  img.setScale(f);
+  if (mode === "cover") {
+    const cw = Math.min(img.width, w / f);
+    const ch = Math.min(img.height, h / f);
+    img.setCrop((img.width - cw) / 2, (img.height - ch) / 2, cw, ch);
+  }
   parent?.add(img);
   return img;
+}
+
+// A full-screen background (backgrounds/<name>), behind everything drawn after it. False when
+// there is none, and the caller keeps its code-drawn background.
+export function artBackground(scene: Phaser.Scene, name: string, parent?: Phaser.GameObjects.Container | null): boolean {
+  return artImage(scene, `backgrounds/${name}`, 960, 540, 1920, 1080, parent, "cover") !== null;
 }

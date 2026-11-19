@@ -12,7 +12,7 @@ import { relay } from "./relay";
 import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
 import { applyRunChoice } from "../engine/run";
-import { artImage } from "./art";
+import { artBackground, artImage } from "./art";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import { SPARK_STYLE } from "./sparks";
 import { drawBlessedGlow } from "./sparkShrineArt";
@@ -374,17 +374,20 @@ export class CombatScene extends Phaser.Scene {
 
   private drawTable(): void {
     const g = this.add.graphics();
-    g.fillStyle(0x2e2016, 1);
-    g.fillRect(0, 0, 1920, 1080);
-    g.fillStyle(0x4a3322, 1);
-    g.fillRoundedRect(8, 8, 1904, 1064, 150);
-    g.fillStyle(0x1e5a42, 1);
-    g.fillRoundedRect(28, 28, 1864, 1024, 130);
-    g.lineStyle(4, 0x2f7a5b, 1);
-    g.strokeRoundedRect(44, 44, 1832, 992, 116);
-    // A soft pool of light and the chain mat: felt markings, not boxes.
-    g.fillStyle(0x246b4f, 0.55);
-    g.fillEllipse(960, 560, 1500, 700);
+    // With a background image the frame, felt and pool of light give way to it; the chain mat stays.
+    if (!artBackground(this, "combat")) {
+      g.fillStyle(0x2e2016, 1);
+      g.fillRect(0, 0, 1920, 1080);
+      g.fillStyle(0x4a3322, 1);
+      g.fillRoundedRect(8, 8, 1904, 1064, 150);
+      g.fillStyle(0x1e5a42, 1);
+      g.fillRoundedRect(28, 28, 1864, 1024, 130);
+      g.lineStyle(4, 0x2f7a5b, 1);
+      g.strokeRoundedRect(44, 44, 1832, 992, 116);
+      // A soft pool of light and the chain mat: felt markings, not boxes.
+      g.fillStyle(0x246b4f, 0.55);
+      g.fillEllipse(960, 560, 1500, 700);
+    }
     g.fillStyle(0x174c38, 0.6);
     g.fillRoundedRect(MAT.x, MAT.y, MAT.w, MAT.h, 60);
     g.lineStyle(3, 0x2f7a5b, 0.7);
@@ -444,11 +447,13 @@ export class CombatScene extends Phaser.Scene {
 
   private shield(layer: Layer, key: string, x: number, y: number, s: number, amount: number): void {
     const g = this.gfx(layer);
-    g.fillStyle(0x4a6fa5, 1);
-    g.lineStyle(3, 0x1c2b44, 1);
-    const pts = [[-1, -1], [1, -1], [1, 0.1], [0, 1.1], [-1, 0.1]].map(([a, b]) => new Phaser.Math.Vector2(x + a * s * 0.5, y + b * s * 0.5));
-    g.fillPoints(pts, true);
-    g.strokePoints(pts, true);
+    if (!artImage(this, "ui/block", x, y + s * 0.05, s, s, layer)) {
+      g.fillStyle(0x4a6fa5, 1);
+      g.lineStyle(3, 0x1c2b44, 1);
+      const pts = [[-1, -1], [1, -1], [1, 0.1], [0, 1.1], [-1, 0.1]].map(([a, b]) => new Phaser.Math.Vector2(x + a * s * 0.5, y + b * s * 0.5));
+      g.fillPoints(pts, true);
+      g.strokePoints(pts, true);
+    }
     const text = this.label(layer, x + s * 0.5 + 8, y, String(amount), Math.round(s * 0.7), "#dbe6f5", 0, true);
     this.anim.refs.shields.set(key, { text, x, y });
   }
@@ -579,6 +584,7 @@ export class CombatScene extends Phaser.Scene {
 
   // A padlock centred on x, y (about 30 wide at scale 1).
   private drawPadlock(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+    if (artImage(this, "ui/locked", x, y + 2 * scale, 34 * scale, 34 * scale, g.parentContainer)) return;
     g.lineStyle(5 * scale, 0xd8d8d8, 1);
     g.strokeEllipse(x, y - 9 * scale, 16 * scale, 20 * scale);
     g.fillStyle(0xe0b341, 1);

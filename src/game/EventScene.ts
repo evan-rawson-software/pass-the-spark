@@ -7,6 +7,7 @@ import type { EventOption, EventState } from "../engine/eventStops";
 import type { EventData } from "../engine/types";
 import { ACTION_LABEL, DECK_EVENTS, DECK_ILLUSTRATIONS, startDeckAction } from "./deckEventUi";
 import { drawGiant, drawGiantPanel } from "./giantDrawing";
+import { artImage } from "./art";
 import { drawDomino } from "./dominoDrawing";
 import { drawSparkShrine } from "./sparkShrineArt";
 import { scaleTime } from "./playbackSpeed";
@@ -209,7 +210,9 @@ export class EventScene extends Phaser.Scene {
     const y = 220;
     const w = 700;
     const h = 740;
-    if (id === "sleeping_giant") drawGiant(g, x, y, w, h, awake);
+    if (artImage(this, `events/${id}`, x + w / 2, y + h / 2, w, h, null, "cover")) {
+      // the picture fills the panel
+    } else if (id === "sleeping_giant") drawGiant(g, x, y, w, h, awake);
     else (ILLUSTRATIONS[id] ?? drawUnknown)(g, x, y, w, h);
     g.lineStyle(6, 0xf4ecd8, 1);
     g.strokeRect(x, y, w, h);
