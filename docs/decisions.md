@@ -26,7 +26,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Block:** soaks damage first and the rest hits health. A domino can have an "ignores block" flag.
 - **Enemy reactions and lap:** for now, enemy reactions ignore lap. This is a data setting so balance runs can test both.
 - **Player can't answer:** the chain ends and so does the round, even if players still hold dominoes. The next round starts with the draw, then the next lead's fuse. The enemy never fuses.
-- **Lead with an empty hand:** the lead is skipped and the next player in seat order fuses instead. If no player holds a domino, the round goes straight to round end.
+- **Lead with an empty hand:** the lead is skipped and the next player in seat order fuses instead. The player who fuses counts as that round's lead: lap goes up when the spark returns to their seat, and the next round's lead is the player after them. If no player holds a domino, the round goes straight to round end.
 - **Rot:** the engine supports it, but content uses it sparingly or not at all.
 
 ### Enemy
