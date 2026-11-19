@@ -21,7 +21,7 @@ export class MenuScene extends Phaser.Scene {
     } catch {
       // not allowed here
     }
-    drawBackground(this);
+    drawBackground(this, "title");
     label(this, 960, 110, "Pass the Spark", 96, { bold: true, origin: 0.5 });
 
     const bar = drawXpBar(this, 960, 215, 700, loadProfile().experience);
