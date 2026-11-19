@@ -30,7 +30,7 @@ import { describeEvent, eventDelay, newLogMemory } from "./eventLog";
 import type { LogContext } from "./eventLog";
 import { debugPanel } from "./DebugPanel";
 import type { DebugHost } from "./DebugPanel";
-import { SPEEDS, getPlaybackSpeed, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
+import { SPEEDS, getPlaybackSpeed, onPlaybackSpeedChange, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
 import { Animator, COMBO_METER_FULL, animTime, comboLook, hexString, newRefs, paintBar } from "./animations";
 import { activeTiers, heatColor } from "./heat";
 import { applyEvent, deckCount, startShown } from "./shownView";
@@ -121,6 +121,8 @@ export class CombatScene extends Phaser.Scene {
   create(data: { settings?: GameSettings; seed?: number; devQuery?: boolean; online?: OnlineData; run?: boolean }): void {
     const query = new URLSearchParams(window.location.search);
     const dev = devSettings(query);
+    const stopSpeed = onPlaybackSpeedChange(() => this.redraw()); // the menu can change the speed: keep the quick control in step
+    this.events.once("shutdown", stopSpeed);
     this.epoch++;
     this.online = data.online ?? null;
     this.inRun = data.run === true;
