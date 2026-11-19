@@ -203,7 +203,11 @@ export function makeStarterInstances(
   return { deck: instances.map((d) => d.id), dominoes: instances };
 }
 
-export function getPendingChoice(state: BattleState): PendingChoice | null {
+// What getPendingChoice reads. A BattleState or a player's BattleView both fit, so a client can
+// work out what it may play from the view it was sent.
+export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "chain">;
+
+export function getPendingChoice(state: PendingInput): PendingChoice | null {
   if (state.phase === "over") return null;
   const player = getPlayer(state, state.seat);
   if (state.phase === "opener") {
@@ -324,13 +328,13 @@ function playerSeats(seatOrder: string[]): string[] {
   return seatOrder.filter((s) => s !== ENEMY_SEAT);
 }
 
-function getPlayer(state: BattleState, id: string): PlayerState {
+function getPlayer(state: PendingInput, id: string): PlayerState {
   const p = state.players.find((x) => x.id === id);
   if (!p) throw new Error("no such player " + id);
   return p;
 }
 
-function getDomino(state: BattleState, id: string): Domino {
+function getDomino(state: PendingInput, id: string): Domino {
   const d = state.dominoes.find((x) => x.id === id);
   if (!d) throw new Error("unknown domino " + id);
   return d;
@@ -349,7 +353,7 @@ function answeredSparks(d: Domino, sparks: Spark[]): Spark[] {
   return sparks.filter((s) => d.intake === "any" || d.intake.includes(s));
 }
 
-function legalAnswers(state: BattleState, player: PlayerState) {
+function legalAnswers(state: PendingInput, player: PlayerState) {
   const options: { domino: string; sparks: Spark[] }[] = [];
   for (const id of unique(player.hand)) {
     const sparks = answeredSparks(getDomino(state, id), state.chain.sparks);
