@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
+    "dev": "vite",
+    "build": "vite build",
     "typecheck": "tsc --noEmit",
     "sim": "tsx scripts/sim.ts"
   },
@@ -12,5 +14,9 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.1"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1",
+    "vite": "^8.3.8"
   }
 }
