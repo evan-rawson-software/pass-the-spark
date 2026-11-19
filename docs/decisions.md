@@ -58,6 +58,9 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Spark history:** the spark each domino was answered with, in order, starting with the fuse's output. For a two-output domino, only the spark its successor actually answered counts. An enemy pass adds nothing; an enemy reaction's output counts like any other. Used by Spectrum and the Auditor.
 - **Spectrum:** a property any effect can have. The domino resolves at (chain strength + number of different spark types in the history so far, up to and including the spark that set it off), for itself only, then multiplied by lap as usual. The chain's strength still goes up by the usual 1. Example: at strength 5 with 3 different sparks so far, a Spectrum Jab (base 3) on lap 1 resolves at strength 8 and deals 24.
 
+### Elite and boss specials
+- **Pilfer:** dropped for now.
+
 ### Hidden information
 - The engine produces each player's own view of the game: all player hands visible, the enemy's hand hidden apart from revealed dominoes.
 - Safe sparks are not tracked or shown.
