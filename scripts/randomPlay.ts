@@ -18,7 +18,7 @@ export const starterDeck: DeckList = starterDeckJson;
 export interface BattleStats {
   result: "won" | "lost" | null; // null: stopped at the step cap
   rounds: number;
-  chains: number[]; // every domino played in each round's chain: fuse, player answers, enemy reactions
+  chains: number[]; // answers (player and enemy) in each round's chain, not the fuse
   steps: number;
   final: BattleState;
 }
@@ -64,7 +64,7 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
     const result = step(state, choice);
     state = result.state;
     steps += 1;
-    for (const e of result.events) if (e.type === "fuse" || e.type === "play") inRound += 1;
+    for (const e of result.events) if (e.type === "play") inRound += 1;
     if (state.round !== round) {
       chains.push(inRound);
       inRound = 0;

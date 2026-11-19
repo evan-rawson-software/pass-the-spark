@@ -116,7 +116,6 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 
 - **Sim chain length:** count every answer, player and enemy, and not the opener. That's the number of times strength went up from answers. Report player answers separately as well.
 - **Content:** stays in JSON (portable to Godot), checked by a hand-written validator when loaded (#37).
-- **Sim chain length:** counts every domino played in the chain, including the opener and enemy reactions.
 - **Headless engine:** enforced by a DOM-free engine tsconfig and a CI check (#38).
 
 ## 2026-11-19: Milestone 4 (the run)
