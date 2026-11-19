@@ -1,0 +1,47 @@
+import { createBattle, getPendingChoice, step } from "../engine/battle";
+import type { BattleState } from "../engine/battle";
+import type { Config, DeckList, Domino, Enemy } from "../engine/types";
+import configJson from "../../data/config.json";
+import dominoesJson from "../../data/dominoes.json";
+import enemiesJson from "../../data/enemies.json";
+import starterDeckJson from "../../data/starter-deck.json";
+
+// The placeholder battle the combat table shows until the start screen (#27)
+// exists. #27 replaces startPlaceholderBattle with the real setup.
+// Dev query params, all optional:
+//   enemy=ogre|brute|auditor|glutton   players=3|4   seed=<number>
+//   steps=<n>   play n scripted choices (always the first legal one)
+//   draw=<n>    players draw n per round (to build long chains)
+//   deck=wild   every player's deck is Wildcards (answers anything)
+export const dominoes = dominoesJson as Domino[];
+export const enemies = enemiesJson as Enemy[];
+const PLAYER_NAMES = ["Ana", "Ben", "Cy", "Dee"];
+
+export function startPlaceholderBattle(query: URLSearchParams): BattleState {
+  const playerCount = query.get("players") === "4" ? 4 : 3;
+  const names = PLAYER_NAMES.slice(0, playerCount);
+  const config = { ...(configJson as Config) };
+  const draw = Number(query.get("draw"));
+  if (draw > 0) config.playerDrawPerRound = draw;
+  const deck: DeckList = query.get("deck") === "wild" ? Array(10).fill("wildcard") : starterDeckJson;
+
+  let state = createBattle({
+    config,
+    content: { dominoes, enemies },
+    players: names.map((id) => ({ id, deck })),
+    seatOrder: [...names, "enemy"],
+    enemyId: query.get("enemy") ?? "ogre",
+    seed: Number(query.get("seed") ?? 1),
+  });
+  for (let i = Number(query.get("steps") ?? 0); i > 0; i--) {
+    const pending = getPendingChoice(state);
+    if (!pending) break;
+    state = step(
+      state,
+      pending.type === "fuse"
+        ? { type: "fuse", domino: pending.dominoes[0] }
+        : { type: "answer", domino: pending.options[0].domino, spark: pending.options[0].sparks[0] },
+    ).state;
+  }
+  return state;
+}
