@@ -236,6 +236,15 @@ Follow-ups:
   - Welding may break the rarity spark pools; that's allowed. The weld's rarity is the higher of the two, and its name is generated.
   - Needs a deck of at least 6, so the deck stays at the minimum of 5.
 
+### Coder choices during milestone 5 (confirmed)
+- **Sleeping Giant:** turn order starts at the lead and follows the party's player order, not the battle's rotated seats.
+- **Tinker's Bench:** a domino with an "any" intake can't be flipped. A flip may put a spark on a half that the rarity pools wouldn't allow (like a weld). Repaint options for starter dominoes use the common pool.
+- **Twin Forge:** the weld's name is built from the two dominoes, with no randomness. The weld keeps the first domino's upgrades only. A weld of two starters has no rarity.
+- **Wishing Well:** the free Tide removal doesn't raise the Trader's removal fee. Skip at any stage, even after turning a domino over, means no prize. Each player's turned domino and prize are visible to everyone.
+- **Toll Bridge:** "all rare" rewards after the hard fight are a fixed rule, not a data value. Turning back on the last floor hides nothing (the boss is always shown). A next floor with only one stop is entered straight away, so "?" never shows.
+- **Spark Shrine:** the blessing stays set if the party loses a non-boss fight; the run is over, so it has no effect.
+- **Event data:** the validator requires every event's numbers, including a Spark Shrine strength of at least 1.
+
 ## 2026-11-19: Milestone order
 
 After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playtest fixes; 8 progression and polish (experience bar, unlocks, chain spectacle, audio, art); 9 Godot port with Steam. Balance comes before polish so playtests can answer "is building a chain together fun?" early.

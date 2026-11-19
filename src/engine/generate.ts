@@ -3,18 +3,13 @@
 
 import { nextFloat, nextInt } from "./rng";
 import type { Rolled } from "./rng";
-import type { BattleType, Domino, Effect, Pools, Rarity, Spark } from "./types";
+import type { Domino, Effect, Pools, Rarity, Spark } from "./types";
 
 const RARITIES: Rarity[] = ["common", "uncommon", "rare"];
 
 function pick<T>(state: number, items: readonly T[]): Rolled<T> {
   const r = nextInt(state, items.length);
   return { value: items[r.value], state: r.state };
-}
-
-// Draws a rarity using the weights for this battle type.
-export function rollRarity(state: number, battleType: BattleType, pools: Pools): Rolled<Rarity> {
-  return rollRarityFromOdds(state, pools.rarityOdds[battleType]);
 }
 
 // Draws a rarity from the given weights.

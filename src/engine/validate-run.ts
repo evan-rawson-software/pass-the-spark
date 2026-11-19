@@ -3,6 +3,8 @@
 import type { Enemy, RunData } from "./types";
 
 const NODE_TYPES = ["fight", "elite", "rest", "trader", "event"];
+const BATTLE_TYPES = ["fight", "elite", "boss"];
+const RARITIES = ["common", "uncommon", "rare"];
 const FILE = "data/run.json";
 
 function fail(id: string, problem: string): never {
@@ -17,6 +19,26 @@ function checkWhole(id: string, v: unknown, what: string, min: number): void {
   if (typeof v !== "number" || !Number.isInteger(v) || v < min) fail(id, `${what} must be a whole number, ${min} or more`);
 }
 
+// Weights for common, uncommon and rare: numbers, 0 or more, not all 0.
+function checkOdds(id: string, v: unknown, what: string): void {
+  if (!isObject(v)) fail(id, `${what} must be an object`);
+  let total = 0;
+  for (const rarity of RARITIES) {
+    const w = v[rarity];
+    if (typeof w !== "number" || !Number.isFinite(w) || w < 0) fail(id, `${what}.${rarity} must be a number, 0 or more`);
+    total += w;
+  }
+  if (total <= 0) fail(id, `${what} needs some weight above 0`);
+}
+
+function checkEnemyPool(id: string, v: unknown, what: string, tier: string, enemies: Enemy[]): void {
+  if (!Array.isArray(v) || v.length === 0) fail(id, `"${what}" must be a non-empty list of enemy ids`);
+  for (const enemyId of v as unknown[]) {
+    const enemy = enemies.find((e) => e.id === enemyId);
+    if (enemy === undefined || enemy.tier !== tier) fail(id, `${what} has ${JSON.stringify(enemyId)}, which is not a ${tier} enemy`);
+  }
+}
+
 function checkRange(id: string, v: unknown, what: string): void {
   if (!isObject(v)) fail(id, `${what} must be an object with "min" and "max"`);
   checkWhole(id, v.min, `${what}.min`, 1);
@@ -27,8 +49,7 @@ function checkRange(id: string, v: unknown, what: string): void {
 export function validateRun(data: unknown, enemies: Enemy[]): RunData {
   if (!isObject(data) || !Array.isArray(data.acts) || data.acts.length === 0) fail("(file)", `"acts" must be a non-empty list`);
   checkWhole("(file)", data.startingCoins, "startingCoins", 0);
-  if (!isObject(data.battleCoins)) fail("(file)", `"battleCoins" must be an object`);
-  for (const type of ["fight", "elite", "boss"]) checkWhole("(file)", data.battleCoins[type], `battleCoins.${type}`, 0);
+  checkWhole("(file)", data.actStartHealPercent, "actStartHealPercent", 0);
   checkWhole("(file)", data.restHeal, "restHeal", 1);
   if (!isObject(data.upgrade)) fail("(file)", `"upgrade" must be an object`);
   for (const field of ["numberedPercent", "amplify", "echoTriggers", "lookoutReveals", "mimicStrength"]) {
@@ -44,15 +65,8 @@ export function validateRun(data: unknown, enemies: Enemy[]): RunData {
   checkWhole("trader", trader.charmPrice, "charmPrice", 0);
   if (!isObject(data.charmOffers)) fail("(file)", `"charmOffers" must be an object`);
   for (const type of ["elite", "boss"]) checkWhole("(file)", data.charmOffers[type], `charmOffers.${type}`, 0);
-  if (!isObject(trader.rarityOdds) || !isObject(trader.prices)) fail("trader", `"rarityOdds" and "prices" must be objects`);
-  let totalOdds = 0;
-  for (const rarity of ["common", "uncommon", "rare"]) {
-    const w = trader.rarityOdds[rarity];
-    if (typeof w !== "number" || !Number.isFinite(w) || w < 0) fail("trader", `rarityOdds.${rarity} must be a number, 0 or more`);
-    totalOdds += w;
-    checkWhole("trader", trader.prices[rarity], `prices.${rarity}`, 0);
-  }
-  if (totalOdds <= 0) fail("trader", "rarityOdds needs some weight above 0");
+  if (!isObject(trader.prices)) fail("trader", `"prices" must be an object`);
+  for (const rarity of RARITIES) checkWhole("trader", trader.prices[rarity], `prices.${rarity}`, 0);
   const seen: string[] = [];
   (data.acts as unknown[]).forEach((act: unknown, index: number) => {
     if (!isObject(act)) fail(`#${index}`, "must be an object");
@@ -60,11 +74,14 @@ export function validateRun(data: unknown, enemies: Enemy[]): RunData {
     const id = act.id;
     if (seen.includes(id)) fail(id, "duplicate id");
     seen.push(id);
-    if (!Array.isArray(act.bossPool) || act.bossPool.length === 0) fail(id, `"bossPool" must be a non-empty list of enemy ids`);
-    for (const enemyId of act.bossPool as unknown[]) {
-      const enemy = enemies.find((e) => e.id === enemyId);
-      if (enemy === undefined || enemy.tier !== "boss") fail(id, `bossPool has ${JSON.stringify(enemyId)}, which is not a boss enemy`);
-    }
+    checkEnemyPool(id, act.bossPool, "bossPool", "boss", enemies);
+    checkEnemyPool(id, act.normalPool, "normalPool", "basic", enemies);
+    checkEnemyPool(id, act.elitePool, "elitePool", "elite", enemies);
+    if (!isObject(act.battleCoins)) fail(id, `"battleCoins" must be an object`);
+    for (const type of BATTLE_TYPES) checkWhole(id, act.battleCoins[type], `battleCoins.${type}`, 0);
+    if (!isObject(act.rewardOdds)) fail(id, `"rewardOdds" must be an object`);
+    for (const type of BATTLE_TYPES) checkOdds(id, act.rewardOdds[type], `rewardOdds.${type}`);
+    checkOdds(id, act.traderOdds, "traderOdds");
     const map = act.map;
     if (!isObject(map)) fail(id, `"map" must be an object`);
     checkWhole(id, map.floors, "map.floors", 1);
