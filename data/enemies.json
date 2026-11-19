@@ -127,6 +127,7 @@
     "passives": [
       {
         "kind": "auditor",
+        "name": "Auditor",
         "text": "Charges the party when a player answers with the same spark as the previous one."
       }
     ]
@@ -153,6 +154,7 @@
     "passives": [
       {
         "kind": "glutton",
+        "name": "Glutton",
         "text": "Heals whenever the lap goes up."
       }
     ]
@@ -268,6 +270,7 @@
     "passives": [
       {
         "kind": "hoarder",
+        "name": "Hoarder",
         "text": "Gains block equal to the current strength whenever the lap goes up."
       }
     ]
@@ -294,6 +297,7 @@
     "passives": [
       {
         "kind": "smolder",
+        "name": "Smolder",
         "text": "At round end, its leftovers go off at the chain's final strength (at least 1) instead of strength 1."
       }
     ]
@@ -409,6 +413,7 @@
     "passives": [
       {
         "kind": "longNight",
+        "name": "Long Night",
         "text": "Its reactions and leftovers are multiplied by the lap."
       }
     ]
@@ -435,6 +440,7 @@
     "passives": [
       {
         "kind": "warden",
+        "name": "Warden",
         "sparks": [
           "Ember",
           "Tide",

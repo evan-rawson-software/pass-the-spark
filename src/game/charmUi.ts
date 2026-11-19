@@ -82,7 +82,7 @@ export function drawCharmList(scene: Phaser.Scene, x: number, y: number, seats: 
   seats.forEach((id, i) => {
     const cy = y + i * 27;
     label(scene, x, cy, shorten(names[id] ?? id, 9), 18, { bold: true, color: "#9fd1b8" });
-    drawCharmRow(scene, tooltip, charmsByIds(held[id] ?? []), x + 110, cy, 22, 200, (ch, ix, iy) => onIcon?.(id, ch, ix, iy));
+    drawCharmRow(scene, tooltip, charmsByIds(held[id] ?? []), x + 110, cy, 22, 180, (ch, ix, iy) => onIcon?.(id, ch, ix, iy));
   });
   return scene.children.list.slice(before);
 }
@@ -92,8 +92,8 @@ export function drawCharmList(scene: Phaser.Scene, x: number, y: number, seats: 
 export function drawPartyCharms(scene: Phaser.Scene, seats: string[], names: Record<string, string>, held: Record<string, string[]>): Phaser.GameObjects.GameObject[] {
   const before = scene.children.list.length;
   const tooltip = new Tooltip(scene);
-  const left = 960;
-  const colW = Math.min(200, 560 / Math.max(1, seats.length));
+  const left = 1080; // clear of the map's boss, which sits at x 1020
+  const colW = Math.min(200, 470 / Math.max(1, seats.length));
   seats.forEach((id, i) => {
     const x = left + i * colW;
     label(scene, x, 42, shorten(names[id] ?? id, Math.floor(colW / 11)), 20, { bold: true, color: "#9fd1b8" });

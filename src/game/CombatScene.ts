@@ -173,7 +173,8 @@ export class CombatScene extends Phaser.Scene {
               } else this.scene.restart({ settings: this.settings, seed, devQuery: this.fromQuery });
             },
             setState: (state) => {
-              if (this.inRun) setRun({ ...currentRun(), battle: state });
+              // In a run, charms given in the panel stay for the rest of the run.
+              if (this.inRun) setRun({ ...currentRun(), battle: state, charms: Object.fromEntries(state.players.map((p) => [p.id, p.charms])) });
               this.setState(state);
             },
             redraw: () => this.redraw(),
@@ -459,13 +460,15 @@ export class CombatScene extends Phaser.Scene {
         g.strokeRoundedRect(60 - i * 2, 30 - i * 2, 1480 + i * 4, 270 + i * 4, 60 + i * 2);
       }
     }
-    this.label(layer, 60, 62, def?.name ?? e.id, 48, onTurn ? "#ffe14d" : "#ffffff", 0, true);
+    const title = this.label(layer, 60, 62, def?.name ?? e.id, 48, onTurn ? "#ffe14d" : "#ffffff", 0, true);
+    if (title.width > 450) title.setFontSize(Math.floor((48 * 450) / title.width)); // a long name stays clear of the "Hand" label
     if (def) this.label(layer, 60, 108, def.tier.toUpperCase(), 20, "#9fd1b8", 0, true);
     this.bar(layer, "enemy", 60, 135, 400, 40, e.health, e.maxHealth, RED);
     this.shield(layer, "enemy", 80, 208, 40, e.block);
     e.passives.forEach((p, i) => this.drawPassive(layer, p, 230 + i * 130, 245));
     e.passives.forEach((p) => {
-      if (p.text) this.label(layer, 60, 290, p.text, 18, "#ffe14d", 0, false);
+      // Wrapped to stay left of the "Played" label.
+      if (p.text) this.label(layer, 60, 284, p.text, 18, "#ffe14d", 0, false).setOrigin(0, 0).setWordWrapWidth(440);
     });
 
     // The enemy's hand, oldest on the left.
@@ -545,8 +548,7 @@ export class CombatScene extends Phaser.Scene {
         g.fillTriangle(x - 18 + i * 9, y - 8, x - 10 + i * 9, y - 8, x - 14 + i * 9, y + 2);
       }
     }
-    const name = p.kind.charAt(0).toUpperCase() + p.kind.slice(1).replace(/([A-Z])/g, " $1");
-    this.label(layer, x - 44, y, name, 24, "#ffe14d", 1, true);
+    this.label(layer, x - 44, y, p.name, 24, "#ffe14d", 1, true);
   }
 
   // A padlock centred on x, y (about 30 wide at scale 1).

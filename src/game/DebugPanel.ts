@@ -319,7 +319,7 @@ class DebugPanel {
       host.setState(result);
       this.render();
     });
-    // Give a player a charm for this battle (debug only; it is not added to the run).
+    // Give a player a charm (debug only; in a run it lasts for the rest of the run).
     add(parent, "div", "Give a charm:").style.margin = "8px 0 2px";
     const who = add(parent, "select");
     for (const p of state.players) add(who, "option", p.id).value = p.id;

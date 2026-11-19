@@ -116,6 +116,7 @@ export function validateEnemies(data: unknown, dominoes: Domino[]): Enemy[] {
       if (!isObject(passive) || typeof passive.kind !== "string" || !PASSIVE_KINDS.includes(passive.kind)) {
         fail(file, id, `unknown passive ${JSON.stringify(passive)}`);
       }
+      if (typeof passive.name !== "string" || passive.name === "") fail(file, id, `passive "name" must be a non-empty string`);
       if (passive.text !== undefined && typeof passive.text !== "string") fail(file, id, `passive "text" must be a string`);
       // Parameters are optional overrides of Config; check them when present.
       if (passive.kind === "auditor" && passive.damage !== undefined) checkAuditorDamage(file, id, passive.damage);
