@@ -29,6 +29,11 @@ export function validateRun(data: unknown, enemies: Enemy[]): RunData {
   checkWhole("(file)", data.startingCoins, "startingCoins", 0);
   if (!isObject(data.battleCoins)) fail("(file)", `"battleCoins" must be an object`);
   for (const type of ["fight", "elite", "boss"]) checkWhole("(file)", data.battleCoins[type], `battleCoins.${type}`, 0);
+  checkWhole("(file)", data.restHeal, "restHeal", 1);
+  if (!isObject(data.upgrade)) fail("(file)", `"upgrade" must be an object`);
+  for (const field of ["numberedPercent", "amplify", "echoTriggers", "lookoutReveals", "mimicStrength"]) {
+    checkWhole("(file)", data.upgrade[field], `upgrade.${field}`, 1);
+  }
   const trader = data.trader;
   if (!isObject(trader)) fail("(file)", `"trader" must be an object`);
   checkWhole("trader", trader.stockSize, "stockSize", 1);
