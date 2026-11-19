@@ -345,7 +345,7 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - **Coins:** every coin amount on screen shows a gold coin icon and the number instead of the word "coins". Story text in events stays prose.
 - **Menu:** a menu button at the top right replaces the "Sound" button. It holds sound settings, playback speed and leaving the game, on every screen.
 - **Decks:** no Decks button. Clicking any player's name opens the deck viewer on that player. The current player's deck shows face down to the left of their hand; clicking it opens their deck.
-- **Effect icons drawn in code:** block (blue shield), damage (red sword) and Lookout (eye) are always drawn in code, not generated, on dominoes and in the HUD. Generated files for them are removed from the art manifest.
+- **Effect icons drawn in code:** every effect icon is drawn in code, not generated, in one consistent style: block (blue shield, also in the HUD), damage (red sword), Lookout (eye), heal, Amplify, Echo, Mimic and Reflect. Generated effect files are removed from the art manifest.
 - **Map readability:** the map is too cramped on one screen. It gets more height (bigger gaps between floors, bigger stops) and scrolls vertically; headings, party display and side panels stay fixed.
 - **Hover highlight:** hovering a playable domino in your hand highlights the dominoes that could answer it in the next seat's hand: teammates' dominoes, and the enemy's revealed ones. Which dominoes count comes from the engine. When the next seat is the enemy and none of its revealed dominoes could react, the matching dominoes of the player after the enemy are highlighted too, more faintly (the spark would pass on to them if the enemy can't react).
 
