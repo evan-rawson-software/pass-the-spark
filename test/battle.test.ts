@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { applyChoice, createBattle, getPendingChoice } from "../src/engine/battle";
+import { applyChoice, createBattle, getPendingChoice, previewPlay, step } from "../src/engine/battle";
 import type { BattleState } from "../src/engine/battle";
 import { getView } from "../src/engine/view";
 import type { Config, DeckList, Domino, Enemy } from "../src/engine/types";
@@ -230,4 +230,18 @@ test("the Glutton heals once per lap increment, capped at max health", () => {
   s = answer(s, "kindle"); // 2 x 3 x 2 = 12, then lap 3: +5 even though p1 can't answer
   expect(s.enemy.health).toBe(77);
   expect(s.round).toBe(2);
+});
+
+test("a preview matches what playing the domino then does (Echo pending, Spectrum, lap 2)", () => {
+  let s = setup(["brace", "prism"], ["echo_stone"]);
+  s = answer(fuse(s, "brace"), "echo_stone"); // Echo pending; the spark is back at p1 on lap 2
+  const before = JSON.stringify(s);
+  const [preview] = previewPlay(s, "p1", "prism");
+  expect(JSON.stringify(s)).toBe(before); // a preview changes nothing
+  const { state, events } = step(s, { type: "answer", domino: "prism" });
+  const triggers = events.filter((e) => e.type === "trigger");
+  // base 2 x (strength 2 + 2 different sparks) x lap 2 = 16, twice
+  expect(preview).toMatchObject({ triggers: 2, value: 16, spectrumBonus: 2, strength: 2, lap: 2 });
+  expect(triggers.map((e) => e.type === "trigger" && e.value)).toEqual([16, 16]);
+  expect(state.enemy.health).toBe(s.enemy.health - preview.triggers * preview.value);
 });
