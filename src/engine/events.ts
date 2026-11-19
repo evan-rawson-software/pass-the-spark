@@ -23,6 +23,8 @@ export type GameEvent =
   | { type: "block"; side: Side; amount: number; blocked: number }
   | { type: "heal"; side: Side; amount: number; blocked: number }
   | { type: "amplify"; amount: number; strength: number }
+  // A charm's extra trigger or bonus; the screen can flash its icon.
+  | { type: "charm"; player: string; charm: string }
   | { type: "echoPending"; count: number }
   | { type: "reveal"; positions: number[] } // positions in the enemy's hand
   | { type: "auditor"; damage: number }
