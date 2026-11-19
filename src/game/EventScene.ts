@@ -221,7 +221,6 @@ export class EventScene extends Phaser.Scene {
     const online = isOnlineRun();
     const tooltip = new Tooltip(this);
     let y = top;
-    if (!online && pending !== null) label(this, TEXT_X, y + 10, "The party's choice", 40, { bold: true, color: GOLD });
     y += 60;
     if (event.domino) {
       const c = drawDomino(this, event.domino, "large", "normal").setPosition(TEXT_X + 120, y + 60);
@@ -352,9 +351,7 @@ export class EventScene extends Phaser.Scene {
   }
 
   // A marker per voter in their seat colour with their seat number, then their names.
-  // Single player has no voting (one pick for the party), so there is nothing to show.
   private drawVoters(run: RunState, choices: Record<string, number>, option: number, x: number, y: number): void {
-    if (!isOnlineRun()) return;
     const voters = run.players.filter((id) => choices[id] === option);
     voters.forEach((id, k) => {
       const index = run.players.indexOf(id);
@@ -376,17 +373,13 @@ export class EventScene extends Phaser.Scene {
       const more = applyRunChoice(result.run, seat, { type: "event", option });
       result = { run: more.run, events: [...result.events, ...more.events] };
     }
-    const outcome = result.events.find((e) => e.type === "eventOutcome");
-    if (outcome === undefined || outcome.type !== "eventOutcome" || !run.event) {
-      setRun(result.run);
-      openRunScreen(this);
-      return;
-    }
-    this.showResult(run.event, outcome, result.events, result.run);
+    // Single player: no vote display, the outcome opens straight away.
+    setRun(result.run);
+    openRunScreen(this);
   }
 
   // The vote is settled: show the final votes, the winner and, if it was drawn, the odds; then go on.
-  private showResult(event: EventState, outcome: Extract<RunEvent, { type: "eventOutcome" }>, events: RunEvent[], next?: RunState): void {
+  private showResult(event: EventState, outcome: Extract<RunEvent, { type: "eventOutcome" }>, events: RunEvent[]): void {
     this.resolving = true;
     this.tweens.killAll();
     this.children.removeAll(true);
@@ -417,7 +410,6 @@ export class EventScene extends Phaser.Scene {
       label(this, TEXT_X, y + 50, `Drawn: ${optionText(outcome.option)}, ${odds}%`, 36, { bold: true, color: "#ff9d7a" });
     }
     this.time.delayedCall(scaleTime(2200), () => {
-      if (next) setRun(next);
       openRunScreen(this);
     });
   }
