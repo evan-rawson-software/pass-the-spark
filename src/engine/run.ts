@@ -12,7 +12,8 @@ import type { ActMap } from "./map";
 import { isRewardComplete, pickedDominoes, rollOffers, submitRewardChoice } from "./rewards";
 import type { RewardState } from "./rewards";
 import { nextInt, nextUint32 } from "./rng";
-import type { BattleType, Domino, NodeType } from "./types";
+import { previewUpgrade } from "./upgrades";
+import type { BattleType, Domino, NodeType, Spark, UpgradeSide } from "./types";
 
 export type RunNodeType = NodeType | "boss";
 
@@ -30,7 +31,7 @@ export interface RunState {
   actIndex: number;
   map: ActMap;
   position: RunPosition | null; // null before the first vote of an act
-  phase: "vote" | "battle" | "reward" | "over";
+  phase: "vote" | "battle" | "reward" | "rest" | "over";
   votes: Record<string, number>; // player id -> voted node index on the next floor; visible to everyone
   health: number; // the party's health between battles
   maxHealth: number;
@@ -43,6 +44,7 @@ export interface RunState {
   battle: BattleState | null; // present while phase is "battle"
   battleType: BattleType | null; // the type of the current battle, and of the one just won while rewards are open
   reward: RewardState | null; // present while phase is "reward"
+  rest: string[] | null; // present while phase is "rest": the players who have chosen
   result: "won" | "lost" | null;
 }
 
@@ -55,12 +57,15 @@ export interface RunSetup {
 export type RunChoice =
   | { type: "vote"; node: number } // index of a node on the next floor
   | { type: "battle"; choice: Choice }
-  | { type: "reward"; pick: string }; // a domino id from the player's offer, or SKIP
+  | { type: "reward"; pick: string } // a domino id from the player's offer, or SKIP
+  | { type: "rest" }
+  | { type: "upgrade"; domino: string; side: UpgradeSide; spark?: Spark }; // spark: the second intake, left side only
 
 export type RunPendingChoice =
   | { type: "vote"; player: string; options: number[] }
   | { type: "battle"; player: string; pending: PendingChoice }
-  | { type: "reward"; player: string; offer: Domino[] };
+  | { type: "reward"; player: string; offer: Domino[] }
+  | { type: "rest"; player: string }; // answered with a "rest" or an "upgrade" choice
 
 export type RunEvent =
   | GameEvent
@@ -70,6 +75,8 @@ export type RunEvent =
   | { type: "routeChosen"; floor: number; index: number; nodeType: RunNodeType; votes: Record<string, number>; tied: number[] }
   | { type: "battleStart"; enemy: string; nodeType: BattleType; seatOrder: string[]; lead: string; partyHealth: number }
   | { type: "coins"; player: string; amount: number }
+  | { type: "rest"; player: string; healed: number }
+  | { type: "upgrade"; player: string; from: string; to: Domino }
   | { type: "rewardOffers" }
   | { type: "rewardChosen"; player: string; pick: string }
   | { type: "actStart"; act: string }
@@ -114,6 +121,7 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     battle: null,
     battleType: null,
     reward: null,
+    rest: null,
     result: null,
   };
   for (const id of players) {
@@ -139,6 +147,10 @@ export function getPendingRunChoices(run: RunState): RunPendingChoice[] {
     const reward = run.reward;
     return run.players.filter((id) => reward.choices[id] === undefined).map((id) => ({ type: "reward", player: id, offer: reward.offers[id] }));
   }
+  if (run.phase === "rest" && run.rest) {
+    const done = run.rest;
+    return run.players.filter((id) => !done.includes(id)).map((id) => ({ type: "rest", player: id }));
+  }
   if (run.phase === "battle" && run.battle) {
     const pending = getPendingChoice(run.battle);
     if (pending) return [{ type: "battle", player: pending.player, pending }];
@@ -150,7 +162,7 @@ export function getPendingRunChoices(run: RunState): RunPendingChoice[] {
 export function applyRunChoice(input: RunState, playerId: string, choice: RunChoice): RunStepResult {
   const run: RunState = JSON.parse(JSON.stringify(input));
   const events: RunEvent[] = [];
-  const owed = getPendingRunChoices(run).find((p) => p.player === playerId && p.type === choice.type);
+  const owed = getPendingRunChoices(run).find((p) => p.player === playerId && (p.type === choice.type || (p.type === "rest" && choice.type === "upgrade")));
   if (!owed) throw new Error(`player ${playerId} has no ${choice.type} to make`);
 
   if (choice.type === "vote" && owed.type === "vote") {
@@ -163,6 +175,22 @@ export function applyRunChoice(input: RunState, playerId: string, choice: RunCho
     run.battle = result.state;
     events.push(...result.events);
     if (result.state.phase === "over") finishBattle(run, events);
+  } else if (owed.type === "rest" && run.rest) {
+    if (choice.type === "rest") {
+      const healed = Math.min(run.content.run.restHeal, run.maxHealth - run.health);
+      run.health += healed;
+      events.push({ type: "rest", player: playerId, healed });
+    } else if (choice.type === "upgrade") {
+      const { before, after } = previewUpgrade(run, playerId, choice.domino, choice.side, choice.spark);
+      run.decks[playerId][run.decks[playerId].indexOf(before.id)] = after.id;
+      run.dominoes[run.dominoes.findIndex((d) => d.id === before.id)] = after;
+      events.push({ type: "upgrade", player: playerId, from: before.id, to: after });
+    }
+    run.rest.push(playerId);
+    if (run.rest.length === run.players.length) {
+      run.rest = null;
+      goToVote(run, events);
+    }
   } else if (choice.type === "reward" && run.reward) {
     run.reward = submitRewardChoice(run.reward, playerId, choice.pick);
     events.push({ type: "rewardChosen", player: playerId, pick: choice.pick });
@@ -218,8 +246,11 @@ function enterNode(run: RunState, events: RunEvent[]): void {
   const type = run.position?.type;
   if (type === "fight" || type === "elite" || type === "boss") {
     startBattle(run, type, events);
+  } else if (type === "rest") {
+    run.phase = "rest";
+    run.rest = [];
   } else {
-    // Rest sites (#47), Traders (#48) and events plug in here. Until they exist there is
+    // Traders (#48) and events plug in here. Until they exist there is
     // nothing for anyone to choose, so the party goes straight on to the next vote.
     goToVote(run, events);
   }

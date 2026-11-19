@@ -30,7 +30,10 @@ export interface Domino {
   output: Spark[]; // one or more
   effect: Effect;
   rarity?: Rarity; // generated dominoes only
+  upgraded?: UpgradeSide[]; // sides already upgraded at a rest site (run instances only)
 }
+
+export type UpgradeSide = "left" | "right";
 
 export type Tier = "basic" | "elite" | "boss";
 
@@ -118,7 +121,18 @@ export interface ActData {
   map: MapRules;
 }
 
+// How much a right-side upgrade adds. All amounts are whole numbers, 1 or more.
+export interface UpgradeData {
+  numberedPercent: number; // damage, block and heal: base grows by this percent, rounded up
+  amplify: number; // added to Amplify's base
+  echoTriggers: number; // added to Echo's extraTriggers
+  lookoutReveals: number; // added to Lookout's extraReveals
+  mimicStrength: number; // added to Mimic's strengthBonus
+}
+
 export interface RunData {
+  restHeal: number; // party health healed by each player who rests
+  upgrade: UpgradeData;
   startingCoins: number; // each player's coins at the start of the run
   battleCoins: Record<BattleType, number>; // every player earns this for winning a battle of that type
   acts: ActData[];
