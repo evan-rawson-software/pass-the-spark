@@ -1,4 +1,5 @@
 import type Phaser from "phaser";
+import { playSound } from "./sound";
 import { runExperience } from "../engine/progression";
 import { applyRunChoice, createRun, getPendingRunChoices } from "../engine/run";
 import type { RunChoice, RunEvent, RunPendingChoice, RunState } from "../engine/run";
@@ -170,7 +171,15 @@ export function myPending(run: RunState): RunPendingChoice | null {
 
 // Sends a choice to the run engine, then opens whatever screen the new phase calls for.
 // Online the choice goes to the host and the screen changes when the host's answer arrives.
+// Sounds for the choices that rest or spend coins (#137): this browser's own click, nothing is sent.
+function playChoiceSound(choice: RunChoice): void {
+  if (choice.type === "rest") playSound("rest");
+  else if (choice.type === "trader" && (choice.action.kind === "buy" || choice.action.kind === "buyCharm")) playSound("buy");
+  else if (choice.type === "trader" && choice.action.kind === "remove") playSound("coins");
+}
+
 export function submitRunChoice(scene: Phaser.Scene, player: string, choice: RunChoice): void {
+  playChoiceSound(choice);
   const online = session?.online;
   if (online) {
     if (online.host) online.host.submitLocalRun(choice, session!.window, player);
