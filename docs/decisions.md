@@ -135,7 +135,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Rewards:** after every battle, each player gets their own offer of 3 dominoes, picks one or skips, and everyone picks at the same time. Rarity: common, uncommon, rare. Elites give better odds; the boss always offers rares. Offers come from everything until unlocks exist.
 - **Generated dominoes:** dominoes outside the starter deck are generated at runtime from pools, not hand-authored. A domino's left side (intake) and right side (effect + output) are each drawn from the pool for its rarity. Generation uses the run's seeded RNG. May be revisited.
   - Common: intake is one basic spark. Right side is damage or block, giving off one basic spark.
-  - Uncommon: intake is one basic spark. Right side is a stronger damage or block, Amplify, Echo or Lookout, or two basic output sparks.
+  - Uncommon: intake is one basic spark. Right side is a stronger damage or block, Amplify, Echo or Lookout. Any uncommon right side may give off one or two basic sparks.
   - Rare: intake is one spark (basic, Storm or Void) or "any". Right side adds Mimic and Spectrum, and outputs may include Storm or Void.
   - No generated domino has a dual intake. Dual intakes come only from upgrades.
   - No generated domino heals. Party healing comes from rest sites, with one exception: Mimic copying an enemy heal still heals the party.
@@ -143,6 +143,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
   - Names are generated from effect and spark (for example "Tide Strike").
   - Base values per effect and rarity live in data. The starter deck stays as written in the brief.
 - **Enemies:** hand-authored, not generated. For M4: 4 normal enemies, 2 elites, and the act boss (chosen at random from the Auditor and the Glutton, and shown on the map from the start).
+- **Enemy content:** the 3 extra normal enemies and the extra elite for M4 are placeholder content added with the run state machine (#46).
 - **Charms:** not in M4.
 - **Coins:** personal. Every battle pays some (normal < elite < boss), and players start with some. All amounts in data.
 - **Rest sites:** each player chooses rest or upgrade. Each resting player heals the shared party health by a data-set amount, and those heals add up.

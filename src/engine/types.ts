@@ -29,7 +29,11 @@ export interface Domino {
   intake: Spark[] | "any";
   output: Spark[]; // one or more
   effect: Effect;
+  rarity?: Rarity; // generated dominoes only
+  upgraded?: UpgradeSide[]; // sides already upgraded at a rest site (run instances only)
 }
+
+export type UpgradeSide = "left" | "right";
 
 export type Tier = "basic" | "elite" | "boss";
 
@@ -66,6 +70,33 @@ export interface Config {
 // data/starter-deck.json is a list of domino ids; copies repeat the id.
 export type DeckList = string[];
 
+// Generated dominoes (data/domino-pools.json).
+export type Rarity = "common" | "uncommon" | "rare";
+export type BattleType = "fight" | "elite" | "boss";
+export type Trait = "spectrum" | "ignoresBlock";
+
+// One possible right side. Value is drawn whole from [min, max]; the output list is drawn from outputs.
+export interface PoolEffect {
+  kind: EffectKind;
+  names: string[]; // word after the spark in the name, e.g. "Strike" -> "Tide Strike"
+  base?: [number, number]; // damage, block, amplify only
+  traits?: Trait[]; // traits this effect may roll
+  outputs: Spark[][];
+}
+
+export interface RarityPool {
+  intakes: (Spark[] | "any")[]; // each entry is one intake; lists hold exactly one spark
+  effects: PoolEffect[];
+  traits: { spectrum: number; ignoresBlock: number }; // chance 0..1 per trait
+}
+
+export interface Pools {
+  offerSize: number;
+  // Weights per battle type; an offered domino's rarity is drawn from these.
+  rarityOdds: Record<BattleType, Record<Rarity, number>>;
+  rarities: Record<Rarity, RarityPool>;
+}
+
 // data/run.json: the ordered list of acts for a run.
 export type NodeType = "fight" | "elite" | "rest" | "trader" | "event";
 
@@ -90,6 +121,29 @@ export interface ActData {
   map: MapRules;
 }
 
+// How much a right-side upgrade adds. All amounts are whole numbers, 1 or more.
+export interface UpgradeData {
+  numberedPercent: number; // damage, block and heal: base grows by this percent, rounded up
+  amplify: number; // added to Amplify's base
+  echoTriggers: number; // added to Echo's extraTriggers
+  lookoutReveals: number; // added to Lookout's extraReveals
+  mimicStrength: number; // added to Mimic's strengthBonus
+}
+
 export interface RunData {
+  restHeal: number; // party health healed by each player who rests
+  upgrade: UpgradeData;
+  startingCoins: number; // each player's coins at the start of the run
+  battleCoins: Record<BattleType, number>; // every player earns this for winning a battle of that type
+  trader: TraderData;
   acts: ActData[];
+}
+
+export interface TraderData {
+  stockSize: number; // dominoes in each player's stock
+  rarityOdds: Record<Rarity, number>; // weights for each stock domino's rarity
+  prices: Record<Rarity, number>; // coins per domino, by rarity
+  removalFeeStart: number; // a player's first removal costs this
+  removalFeeStep: number; // each removal raises that player's fee by this, for the rest of the run
+  minDeckSize: number; // a player can't remove a domino from a deck this small
 }
