@@ -240,9 +240,9 @@ export class MapScene extends Phaser.Scene {
     g.strokeCircle(CENTER_X, BOSS_Y, r);
     drawNodeIcon(g, "boss", CENTER_X, BOSS_Y, r);
     if (run.position?.floor === run.map.floors.length + 1) this.drawPartyMarker(CENTER_X, BOSS_Y);
-    // Above the boss, where no connection runs.
-    const name = label(this, CENTER_X, 20, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 0.5 });
-    const passives = label(this, CENTER_X, 58, passiveText(boss), 18, { color: "#ffe14d", origin: 0.5 }).setAlign("center").setWordWrapWidth(900);
+    // Left of the boss, right-aligned: the party's charm strip runs along the top to its right.
+    const name = label(this, CENTER_X - r - 20, 24, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 1 });
+    const passives = label(this, CENTER_X - r - 20, 46, passiveText(boss), 18, { color: "#ffe14d", origin: 1 }).setOrigin(1, 0).setAlign("right").setWordWrapWidth(520);
     const tip = new Tooltip(this);
     const lines = bossTip(boss);
     const hit = this.add.circle(CENTER_X, BOSS_Y, r, 0, 0);

@@ -117,7 +117,7 @@ export class TraderScene extends Phaser.Scene {
       if (why) icon.setAlpha(0.5);
       add(label(this, x + 44, 604, ch.name, 26, { bold: true }));
       add(label(this, x + 44, 636, `${prices.charmPrice} coins`, 22, { color: why ? "#9fd1b8" : "#ffffff" }));
-      if (mine) add(button(this, x + 250, 620, "Buy", () => submitRunChoice(this, player, { type: "trader", action: { kind: "buyCharm", charm: ch.id } }), { size: 30, origin: 0.5, disabled: why !== null }));
+      if (mine) add(button(this, x + 300, 620, "Buy", () => submitRunChoice(this, player, { type: "trader", action: { kind: "buyCharm", charm: ch.id } }), { size: 30, origin: 0.5, disabled: why !== null }));
     });
     if (charmStock.length === 0) add(label(this, 240, 620, "No charms left.", 28, { color: "#cfe9dc" }));
 
