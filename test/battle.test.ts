@@ -100,7 +100,15 @@ test("enemy at its hand limit discards the oldest domino to make room, and keeps
   s0.enemy.hand = ["ogre_gulp_a", "ogre_gulp_b", "ogre_gulp_a", "ogre_gulp_b", "ogre_gulp_a"];
   s0.enemy.revealed = [false, false, false, false, true];
   s0.enemy.deck = ["ogre_bellow_a", "ogre_bellow_b", "ogre_stomp_a"];
-  const s = opener(s0, "kindle"); // p2 can't answer, round 2 starts with the draw
+  s0.players[1].deck = [];
+  s0.players[1].discard = ["jab", "jab"];
+  const r = step(s0, { type: "opener", domino: "kindle" }); // p2 can't answer, round 2 starts with the draw
+  const s = r.state;
+  // p2's empty deck is reshuffled from its discard pile, announced before its draw.
+  const i = r.events.findIndex((e) => e.type === "reshuffle");
+  expect(r.events[i]).toEqual({ type: "reshuffle", seat: "p2" });
+  expect(r.events[i + 1]).toMatchObject({ type: "draw", seat: "p2" });
+  expect(r.events.filter((e) => e.type === "reshuffle")).toHaveLength(1);
   expect(s.enemy.hand).toEqual(["ogre_gulp_b", "ogre_gulp_a", "ogre_bellow_a", "ogre_bellow_b", "ogre_stomp_a"]);
   expect(s.enemy.discard).toEqual(["ogre_gulp_a", "ogre_gulp_b", "ogre_gulp_a"]);
   // Leftovers going off reveals them (decisions.md); the flag moved with its domino.

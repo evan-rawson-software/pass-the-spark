@@ -17,6 +17,12 @@ export function startShown(view: BattleView, enemyIds: string[]): ShownTable {
   return { view, enemyIds };
 }
 
+// How many dominoes are left in a seat's deck (the enemy's is its whole deck less its hand and discard).
+export function deckCount(v: BattleView, seat: string): number {
+  if (seat === ENEMY_SEAT) return v.enemy.deckList.length - v.enemy.hand.length - v.enemy.discard.length;
+  return v.players.find((p) => p.id === seat)?.deck.length ?? 0;
+}
+
 export function applyEvent(s: ShownTable, ev: GameEvent): void {
   const v = s.view;
   const side = (x: "party" | "enemy") => (x === "party" ? v.party : v.enemy);
@@ -35,13 +41,30 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
           s.enemyIds.push("");
         }
       } else {
-        v.players.find((p) => p.id === ev.seat)?.hand.push(...(ev.dominoes ?? []));
+        const p = v.players.find((q) => q.id === ev.seat);
+        p?.hand.push(...(ev.dominoes ?? []));
+        p?.deck.splice(0, ev.count);
       }
       break;
     case "enemyDiscard":
       v.enemy.hand.shift();
       s.enemyIds.shift();
+      v.enemy.discard.push(ev.domino);
       break;
+    case "reshuffle": {
+      // Only the counts matter on screen: the discard pile becomes the deck.
+      if (ev.seat === ENEMY_SEAT) {
+        v.enemy.discard = [];
+        v.enemy.faceUp = [];
+      } else {
+        const p = v.players.find((q) => q.id === ev.seat);
+        if (p) {
+          p.deck = p.deck.concat(p.discard);
+          p.discard = [];
+        }
+      }
+      break;
+    }
     case "opener": {
       const hand = v.players.find((p) => p.id === ev.player)?.hand;
       if (hand) removeOne(hand, ev.domino);

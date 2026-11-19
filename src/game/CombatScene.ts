@@ -30,7 +30,8 @@ import type { DebugHost } from "./DebugPanel";
 import { SPEEDS, getPlaybackSpeed, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
 import { Animator, COMBO_METER_FULL, animTime, comboLook, hexString, newRefs, paintBar } from "./animations";
 import { activeTiers, heatColor } from "./heat";
-import { applyEvent, startShown } from "./shownView";
+import { applyEvent, deckCount, startShown } from "./shownView";
+import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
 import type { ShownTable } from "./shownView";
 
 // The combat table. Draws everything from getView (and getPendingChoice for
@@ -160,6 +161,7 @@ export class CombatScene extends Phaser.Scene {
     } else {
       this.setState(startBattle(this.settings, this.seed, this.fromQuery ? query : undefined));
     }
+    void this.introDraw();
     // The debug panel is for single player and the host; a joined client has none.
     const online = this.online;
     const host: DebugHost | null =
@@ -189,6 +191,31 @@ export class CombatScene extends Phaser.Scene {
       this.epoch++;
       if (host) debugPanel.detach(host);
     });
+  }
+
+  // A fresh battle opens with the round 1 draw already done (no events come with it), so show it
+  // from the view: every hand starts empty and fills from its deck stack.
+  private async introDraw(): Promise<void> {
+    const view = this.view;
+    if (view.round !== 1 || view.result || view.chain.played.length > 0 || view.players.some((p) => p.discard.length > 0)) return;
+    const empty = JSON.parse(JSON.stringify(view)) as BattleView;
+    const events: GameEvent[] = [];
+    for (const p of empty.players) {
+      events.push({ type: "draw", seat: p.id, count: p.hand.length, dominoes: p.hand });
+      p.deck = p.hand.concat(p.deck);
+      p.hand = [];
+    }
+    events.push({ type: "draw", seat: ENEMY_SEAT, count: empty.enemy.hand.length });
+    empty.enemy.hand = [];
+    const epoch = this.epoch;
+    this.locked = true;
+    this.shown = startShown(empty, []);
+    this.redraw();
+    await playDraws(this, () => this.anim.refs, view.dominoes, events, this.shown, () => this.redraw());
+    if (epoch !== this.epoch) return;
+    this.locked = false;
+    this.shown = null;
+    this.redraw();
   }
 
   // Single player: the one entry point for new state.
@@ -370,6 +397,13 @@ export class CombatScene extends Phaser.Scene {
     this.pings.place(this.pingBoxes);
   }
 
+  // A player's hand slots as drawn, for the draw animation.
+  private slotsOf(seat: string): { c: Phaser.GameObjects.Container; pos: { x: number; y: number; k: number } }[] {
+    const slots = this.anim.refs.handSlots;
+    if (!slots.has(seat)) slots.set(seat, []);
+    return slots.get(seat)!;
+  }
+
   // ---- table (drawn once) ----
 
   // Returns the rectangle that dims the room at lap 2+ (heat ladder, #133): above the felt, below the dominoes.
@@ -514,6 +548,7 @@ export class CombatScene extends Phaser.Scene {
       if (slot.revealed) this.seatBoxes.set(`${ENEMY_SEAT}:${i}`, c);
     });
     if (debug) this.label(layer, rowX - 20, 100, "(debug view)", 16, "#ff6b64", 1, true);
+    drawDeckStack(this, layer, this.anim.refs, ENEMY_SEAT, this.view.dominoes[0], 545, 112, deckCount(view, ENEMY_SEAT));
     // Its whole deck, and what it has played since the last reshuffle.
     const y = this.smallRow(layer, "Deck", e.deckList, "normal", rowX, 158);
     this.smallRow(layer, "Played", e.faceUp, "playedFaceUp", rowX, y + 8);
@@ -784,8 +819,9 @@ export class CombatScene extends Phaser.Scene {
     if (prompt) {
       this.drawSparkPrompt(layer, prompt.domino, prompt.sparks);
     } else {
-      this.label(layer, HAND.x + 240, HAND.y + 4, `${hint}${hint ? "   ·   " : ""}Deck ${p.deck.length}   Discard ${p.discard.length}`, 22, "#cfe9dc", 0);
+      this.label(layer, HAND.x + 240, HAND.y + 4, `${hint}${hint ? "   ·   " : ""}Discard ${p.discard.length}`, 22, "#cfe9dc", 0);
     }
+    drawDeckStack(this, layer, this.anim.refs, p.id, this.view.dominoes[0], HAND.x + HAND.w - 70, HAND.y + 14, p.deck.length);
     if (p.hand.length === 0) {
       this.label(layer, HAND.x + HAND.w / 2, HAND.y + 130, "No dominoes in hand", 28, "#7fb59b", 0.5);
       return;
@@ -805,6 +841,7 @@ export class CombatScene extends Phaser.Scene {
         const c = this.domino(layer, id, k, state, hx, hy, click, { zone: "hand", seat: p.id, index: r * perRow + i });
         if (state === "playable") this.hoverHighlight(layer, c, p.id, id);
         if (!this.anim.refs.hand.has(id)) this.anim.refs.hand.set(id, { x: hx, y: hy, k });
+        this.slotsOf(p.id)[r * perRow + i] = { c, pos: { x: hx, y: hy, k } };
       });
     }
   }
@@ -962,7 +999,23 @@ export class CombatScene extends Phaser.Scene {
     const mem = newLogMemory();
     const epoch = this.epoch;
     const isPlayer = (seat: string) => seat !== ENEMY_SEAT;
-    for (const ev of events) {
+    for (let n = 0; n < events.length; n++) {
+      const ev = events[n];
+      if (isDrawEvent(ev)) {
+        // Everything drawn at round start plays at once; the table is redrawn from the end of it.
+        let end = n;
+        while (end + 1 < events.length && isDrawEvent(events[end + 1])) end++;
+        const batch = events.slice(n, end + 1);
+        for (const e of batch) {
+          const text = describeEvent(e, ctx, mem);
+          if (text !== null) this.logText?.setText(text);
+        }
+        await playDraws(this, () => this.anim.refs, this.view.dominoes, batch, this.shown!, () => this.redraw());
+        n = end;
+        if (debugPanel.stepMode) await debugPanel.waitForStep(ev.type);
+        if (epoch !== this.epoch) return false;
+        continue;
+      }
       let hl: string | null = this.hlSeat;
       let hand: string | null = this.handSeat;
       switch (ev.type) {
@@ -1007,7 +1060,8 @@ export class CombatScene extends Phaser.Scene {
     const p = view.players.find((q) => q.id === id);
     if (!p) return;
     this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), this.online !== null && view.phase !== "over" && this.turnSeat === p.id, 26);
-    this.label(layer, x + SIDE_W / 2, y + 62, `Deck ${p.deck.length}   Discard ${p.discard.length}`, 20, "#cfe9dc", 0.5);
+    this.label(layer, x + SIDE_W / 2 + 40, y + 62, `Discard ${p.discard.length}`, 20, "#cfe9dc", 0.5);
+    drawDeckStack(this, layer, this.anim.refs, id, this.view.dominoes[0], x + 50, y + 66, p.deck.length);
     const top = y + 90;
     const avail = h - 100;
     // Largest scale at which the whole hand fits.
@@ -1026,6 +1080,7 @@ export class CombatScene extends Phaser.Scene {
       const x0 = x + (SIDE_W - inRow * stepX) / 2 + stepX / 2;
       const c = this.domino(layer, did, k, "normal", x0 + (i % per) * stepX, top + (DH * k) / 2 + row * (DH * k + 6), undefined, { zone: "hand", seat: id, index: i });
       this.seatBoxes.set(`${id}:${i}`, c);
+      this.slotsOf(id)[i] = { c, pos: { x: x0 + (i % per) * stepX, y: top + (DH * k) / 2 + row * (DH * k + 6), k } };
     });
     if (p.hand.length === 0) this.label(layer, x + SIDE_W / 2, top + 20, "No dominoes", 20, "#7fb59b", 0.5);
   }
