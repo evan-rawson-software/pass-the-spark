@@ -13,6 +13,7 @@ import starterDeckJson from "../../data/starter-deck.json";
 //   steps=<n>   play n scripted choices (always the first legal one)
 //   draw=<n>    players draw n per round (to build long chains)
 //   deck=wild   every player's deck is Wildcards (answers anything)
+//   edraw=<n>   the enemy draws n per round (edraw=7 on a boss shows a full hand)
 export const dominoes = dominoesJson as Domino[];
 export const enemies = enemiesJson as Enemy[];
 const PLAYER_NAMES = ["Ana", "Ben", "Cy", "Dee"];
@@ -27,7 +28,7 @@ export function startPlaceholderBattle(query: URLSearchParams): BattleState {
 
   let state = createBattle({
     config,
-    content: { dominoes, enemies },
+    content: { dominoes, enemies: enemies.map((e) => ({ ...e, drawPerRound: Number(query.get("edraw")) || e.drawPerRound })) },
     players: names.map((id) => ({ id, deck })),
     seatOrder: [...names, "enemy"],
     enemyId: query.get("enemy") ?? "ogre",

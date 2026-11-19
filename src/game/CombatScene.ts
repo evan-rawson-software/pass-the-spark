@@ -190,9 +190,9 @@ export class CombatScene extends Phaser.Scene {
     const rowX = 600;
     this.label(layer, rowX - 20, 70, "Hand", 22, "#9fd1b8", 1);
     e.hand.forEach((slot, i) => {
-      const x = rowX + 72 + i * 146;
-      if (slot.revealed) this.domino(layer, slot.domino, 0.58, "revealed", x, 70);
-      else this.domino(layer, null, 0.58, "hidden", x, 70);
+      const x = rowX + 60 + i * 130; // 7 slots (the largest handLimit) end at x 1500, left of the party bar
+      if (slot.revealed) this.domino(layer, slot.domino, 0.5, "revealed", x, 70);
+      else this.domino(layer, null, 0.5, "hidden", x, 70);
     });
     // Its whole deck, and what it has played since the last reshuffle.
     const y = this.smallRow(layer, "Deck", e.deckList, "normal", rowX, 158);
