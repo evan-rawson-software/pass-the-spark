@@ -123,8 +123,8 @@ export class RestScene extends Phaser.Scene {
     // output (the other two thirds). A side that is picked is outlined, a closed one is dimmed.
     const reason = label(this, cx, top + 90, " ", 24, { origin: 0.5, color: "#ffb4a2" });
     const sides: { side: UpgradeSide; open: boolean; why: string; x: number; w: number }[] = [
-      { side: "left", open: options.left.length > 0, why: leftReason(picked), x: cx - LARGE.w / 3, w: LARGE.w / 3 },
-      { side: "right", open: options.right, why: picked.upgraded?.includes("right") ? "Already upgraded" : "This effect can't be upgraded", x: cx + LARGE.w / 6, w: (LARGE.w * 2) / 3 },
+      { side: "left", open: options.left.length > 0, why: options.leftReason ?? "", x: cx - LARGE.w / 3, w: LARGE.w / 3 },
+      { side: "right", open: options.right, why: options.rightReason ?? "", x: cx + LARGE.w / 6, w: (LARGE.w * 2) / 3 },
     ];
     for (const s of sides) {
       const zone = this.add.rectangle(s.x, top, s.w, LARGE.h, 0x000000, s.open ? 0 : 0.6).setInteractive({ useHandCursor: s.open });
@@ -170,11 +170,4 @@ export class RestScene extends Phaser.Scene {
       submitRunChoice(this, player, { type: "upgrade", domino: picked.id, side: this.side as UpgradeSide, spark: this.spark ?? undefined });
     }, { size: 44, origin: 0.5 });
   }
-}
-
-// Short text for why the left side is closed (display only; the engine decides whether it is).
-function leftReason(d: Domino): string {
-  if (d.upgraded?.includes("left")) return "Already upgraded";
-  if (d.intake === "any") return "Already takes any spark";
-  return "No spark to add";
 }
