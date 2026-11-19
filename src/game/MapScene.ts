@@ -3,6 +3,7 @@ import { applyRunChoice } from "../engine/run";
 import type { RunEvent, RunNodeType, RunState } from "../engine/run";
 import { content } from "./devBattle";
 import { scaleTime } from "./playbackSpeed";
+import { playRunEventSounds } from "./sound";
 import { playVoteRoll } from "./voteRoll";
 import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
@@ -371,6 +372,7 @@ export class MapScene extends Phaser.Scene {
       result = { run: more.run, events: [...result.events, ...more.events] };
     }
     // Single player: no vote display, the chosen stop opens straight away.
+    playRunEventSounds(result.events);
     setRun(result.run);
     openRunScreen(this);
   }

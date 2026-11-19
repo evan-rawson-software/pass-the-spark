@@ -1,6 +1,7 @@
 import type { LinkStatus } from "../net/client";
 import type { HostMessage } from "../net/protocol";
 import { awardExperience } from "./profile";
+import { playRunEventSounds } from "./sound";
 
 // Where messages from the host go on this machine. The host's own player (onLocalMessage) and a
 // joined client (onMessage) both hand every message to relay.deliver, and whichever screen is
@@ -42,6 +43,7 @@ export const relay = {
     else if (message.type === "experience") awardExperience(message.runId, message.gained);
     else if (message.type === "runUpdate") {
       if (message.view.phase === "battle") this.battle = null;
+      playRunEventSounds(message.events);
       this.onRun?.(message);
     } else if (message.type === "refused") {
       this.refused = message.reason;
