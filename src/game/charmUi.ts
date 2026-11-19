@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { loadContent } from "../engine/content";
 import type { Charm } from "../engine/types";
+import { artImage } from "./art";
 import { Tooltip } from "./tooltip";
 import { label } from "./ui";
 
@@ -23,6 +24,12 @@ export function charmsByIds(ids: string[]): Charm[] {
 
 // One icon, centred on its container's origin, `size` pixels across.
 export function charmIcon(scene: Phaser.Scene, charm: Charm, size: number): Phaser.GameObjects.Container {
+  const art = artImage(scene, `charms/${charm.id}`, 0, 0, size, size);
+  if (art) {
+    const c = scene.add.container(0, 0, [art]);
+    c.setSize(size, size);
+    return c;
+  }
   const color = COLORS[Math.max(0, allCharms().findIndex((c) => c.id === charm.id)) % COLORS.length];
   const r = size / 2;
   const g = scene.add.graphics();

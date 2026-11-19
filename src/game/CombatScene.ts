@@ -12,6 +12,7 @@ import { relay } from "./relay";
 import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
 import { applyRunChoice } from "../engine/run";
+import { artImage } from "./art";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import { SPARK_STYLE } from "./sparks";
 import { drawBlessedGlow } from "./sparkShrineArt";
@@ -460,6 +461,8 @@ export class CombatScene extends Phaser.Scene {
         g.strokeRoundedRect(60 - i * 2, 30 - i * 2, 1480 + i * 4, 270 + i * 4, 60 + i * 2);
       }
     }
+    // The portrait, if there is one, fills the free space on the right of the panel.
+    artImage(this, `enemies/${e.id}`, 1410, 165, 250, 250, layer);
     const title = this.label(layer, 60, 62, def?.name ?? e.id, 48, onTurn ? "#ffe14d" : "#ffffff", 0, true);
     if (title.width > 450) title.setFontSize(Math.floor((48 * 450) / title.width)); // a long name stays clear of the "Hand" label
     if (def) this.label(layer, 60, 108, def.tier.toUpperCase(), 20, "#9fd1b8", 0, true);

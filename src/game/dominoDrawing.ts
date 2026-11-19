@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { Domino, Spark } from "../engine/types";
+import { artImage } from "./art";
 import { SPARK_ORDER, SPARK_STYLE } from "./sparks";
 
 // All domino drawing lives here. Placeholder art: sprites will replace this
@@ -64,8 +65,15 @@ function wedge(cx: number, cy: number, r: number, a0: number, a1: number): Pt[] 
   return pts;
 }
 
+// Generated art for `key`, centred on (x, y) in the same container as `g` (or the scene, if it has
+// none). False means there is none, and the caller draws the code version.
+function artOn(g: Phaser.GameObjects.Graphics, key: string, x: number, y: number, size: number): boolean {
+  return artImage(g.scene, key, x, y, size, size, g.parentContainer) !== null;
+}
+
 // One spark: its colour and shape from SPARK_STYLE, with a dark outline.
 export function drawSparkGlyph(g: Phaser.GameObjects.Graphics, spark: Spark, x: number, y: number, r: number): void {
+  if (artOn(g, `sparks/${spark}`, x, y, r * 2.4)) return;
   const { color, shape } = SPARK_STYLE[spark];
   if (shape === "circle") {
     g.fillStyle(color, 1);
@@ -140,6 +148,7 @@ function drawHalf(g: Phaser.GameObjects.Graphics, sparks: Spark[] | "any", cx: n
 
 // Effect icons, centred on (0, cy), roughly 52 units across.
 function drawEffectIcon(g: Phaser.GameObjects.Graphics, kind: string, cy: number): void {
+  if (artOn(g, `effects/${kind}`, 0, cy, 60)) return;
   const p = (x: number, y: number): Pt => ({ x, y: cy + y });
   if (kind === "damage") {
     const pts: Pt[] = [];
@@ -196,36 +205,45 @@ function drawEffectIcon(g: Phaser.GameObjects.Graphics, kind: string, cy: number
   }
 }
 
-function drawFace(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, c: Phaser.GameObjects.Container, domino: Domino): void {
-  g.fillStyle(0xf4ecd8, 1);
-  g.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
-  g.fillStyle(0xe3d6b3, 1);
-  g.fillRect(-W / 2 + 6, -H / 2 + 6, 74, H - 12);
-  g.fillRect(W / 2 - 80, -H / 2 + 6, 74, H - 12);
-  g.lineStyle(3, DARK, 1);
-  g.lineBetween(-40, -H / 2 + 4, -40, H / 2 - 4);
-  g.lineBetween(40, -H / 2 + 4, 40, H / 2 - 4);
-  g.strokeRoundedRect(-W / 2, -H / 2, W, H, 14);
+// Draws the face; returns the number text, if any, so the caller can keep it above overlays.
+function drawFace(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, c: Phaser.GameObjects.Container, domino: Domino, tile: string): Phaser.GameObjects.Text | null {
+  if (!artImage(scene, `tiles/${tile}`, 0, 0, W, H, c)) {
+    g.fillStyle(0xf4ecd8, 1);
+    g.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
+    g.fillStyle(0xe3d6b3, 1);
+    g.fillRect(-W / 2 + 6, -H / 2 + 6, 74, H - 12);
+    g.fillRect(W / 2 - 80, -H / 2 + 6, 74, H - 12);
+    g.lineStyle(3, DARK, 1);
+    g.lineBetween(-40, -H / 2 + 4, -40, H / 2 - 4);
+    g.lineBetween(40, -H / 2 + 4, 40, H / 2 - 4);
+    g.strokeRoundedRect(-W / 2, -H / 2, W, H, 14);
+  }
 
   drawHalf(g, domino.intake, -80);
   drawHalf(g, domino.output, 80);
 
   const e = domino.effect;
   drawEffectIcon(g, e.kind, -4);
+  let text: Phaser.GameObjects.Text | null = null;
   if (e.base !== undefined) {
     const t = scene.add
       .text(0, 36, String(e.base), { fontSize: "34px", fontStyle: "bold", color: "#222222", stroke: "#ffffff", strokeThickness: 4 })
       .setOrigin(0.5);
     c.add(t);
+    text = t;
   }
   // Flag chips in the top band of the middle column (y -56 to -34).
-  if (e.ignoresBlock) {
+  if (e.ignoresBlock && artOn(g, "ui/ignores_block", -20, -45, 30)) {
+    // art shown
+  } else if (e.ignoresBlock) {
     g.fillStyle(DARK, 1);
     g.fillRoundedRect(-38, -56, 36, 22, 6);
     polygon(g, [{ x: -29, y: -52 }, { x: -11, y: -52 }, { x: -11, y: -45 }, { x: -20, y: -37 }, { x: -29, y: -45 }], 0x8fb4ea, 0xffffff);
     line(g, [{ x: -33, y: -37 }, { x: -7, y: -53 }], 5, 0xff3b3b);
   }
-  if (e.spectrum) {
+  if (e.spectrum && artOn(g, "ui/spectrum", 21, -45, 30)) {
+    // art shown
+  } else if (e.spectrum) {
     g.fillStyle(DARK, 1);
     g.fillRoundedRect(2, -56, 38, 22, 6);
     [0xff6a13, 0x2f80ed, 0x4cc46a].forEach((color, i) => {
@@ -235,6 +253,7 @@ function drawFace(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, c: Phaser
       g.strokeCircle(10 + i * 11, -45, 5.5);
     });
   }
+  return text;
 }
 
 function drawBack(g: Phaser.GameObjects.Graphics): void {
@@ -288,6 +307,8 @@ export function drawDomino(scene: Phaser.Scene, domino: Domino, size: DominoSize
   c.add(body);
   const g = scene.add.graphics();
   body.add(g);
+  const enemy = state === "revealed" || state === "playedFaceUp";
+  const tile = state === "hidden" ? "hidden" : enemy ? "enemy" : (domino.rarity ?? "starter");
 
   if (raised) {
     for (let i = 4; i >= 1; i--) {
@@ -296,25 +317,29 @@ export function drawDomino(scene: Phaser.Scene, domino: Domino, size: DominoSize
     }
   }
 
+  // State marks go on their own layer, above any art, with the number text kept above them.
   if (state === "hidden") {
-    drawBack(g);
+    if (!artImage(scene, "tiles/hidden", 0, 0, W, H, body)) drawBack(g);
   } else {
-    drawFace(scene, g, body, domino);
+    const text = drawFace(scene, g, body, domino, tile);
+    const over = scene.add.graphics();
+    body.add(over);
     if (state === "revealed") {
-      g.lineStyle(5, 0xffd23f, 1);
-      g.strokeRoundedRect(-W / 2, -H / 2, W, H, 14);
-      drawBadge(g, "revealed");
+      over.lineStyle(5, 0xffd23f, 1);
+      over.strokeRoundedRect(-W / 2, -H / 2, W, H, 14);
+      drawBadge(over, "revealed");
     } else if (state === "playedFaceUp") {
-      g.fillStyle(0x4a5568, 0.22);
-      g.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
-      drawBadge(g, "played");
+      over.fillStyle(0x4a5568, 0.22);
+      over.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
+      drawBadge(over, "played");
     } else if (state === "notPlayable") {
-      g.fillStyle(0x10131c, 0.55);
-      g.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
+      over.fillStyle(0x10131c, 0.55);
+      over.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
     } else if (raised) {
-      g.lineStyle(5, 0xffe14d, 1);
-      g.strokeRoundedRect(-W / 2, -H / 2, W, H, 14);
+      over.lineStyle(5, 0xffe14d, 1);
+      over.strokeRoundedRect(-W / 2, -H / 2, W, H, 14);
     }
+    if (text) body.bringToTop(text);
   }
   return c;
 }
