@@ -115,6 +115,7 @@ test("the enemy plays the leftmost matching domino", () => {
   expect(s.enemy.hand).toEqual(["ogre_gulp_a", "ogre_stomp_b"]);
   expect(s.enemy.discard).toEqual(["ogre_stomp_a"]);
   expect(s.enemy.faceUp).toEqual(["ogre_stomp_a"]);
+  expect(s.chain.strength).toBe(2);
 });
 
 test("leftover enemy dominoes go off at strength 1, in order, and stay in hand", () => {
