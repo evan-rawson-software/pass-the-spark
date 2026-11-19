@@ -1,34 +1,300 @@
 import Phaser from "phaser";
-import { currentRun, nextPending, submitRunChoice } from "./runSession";
+import { applyRunChoice } from "../engine/run";
+import type { RunNodeType, RunState } from "../engine/run";
+import { content } from "./devBattle";
+import { scaleTime } from "./playbackSpeed";
 import { drawPartyHud, drawRunHeader } from "./partyHud";
-import { button, drawBackground, label } from "./ui";
+import { currentRun, nextPending, openRunScreen, setRun } from "./runSession";
+import { button, drawBackground, FONT, label } from "./ui";
 
-// PLACEHOLDER for the map screen (#51), which replaces this whole file.
-// What it does: asks each seat in turn (single player) to pick the next stop from a plain list
-// of buttons, sends it to the run as a "vote" choice, and shows the votes so far as text. The
-// run settles the votes and says what comes next; this screen draws no map.
+// The map screen (#51). It draws the act the engine generated: floors bottom to top, the
+// connections, a code-drawn icon per stop type and the boss at the top. The party's position is
+// marked, and the stops the engine says can be voted for are lit. In single player each seat votes in
+// turn by clicking a lit stop. Which stops are lit, the tally and the tie-break all come from
+// the run engine; this screen only draws them and sends the vote.
+
+const CENTER_X = 1020;
+const NODE_GAP = 250;
+const BOSS_Y = 128;
+const FLOOR_Y0 = 980; // floor 1
+const FLOOR_STEP = 85;
+const NODE_R = 30;
+const GOLD = 0xffe14d;
+const PLAYER_COLORS = [0xff7a59, 0x5ec8ff, 0xffe14d, 0xc78bff];
+
+const NODE_STYLE: Record<RunNodeType, { color: number; name: string }> = {
+  fight: { color: 0x8a3b35, name: "Fight" },
+  elite: { color: 0x6b2f8f, name: "Elite" },
+  rest: { color: 0xc4741f, name: "Rest" },
+  trader: { color: 0x2f7a8f, name: "Trader" },
+  event: { color: 0x4a5a9a, name: "Event" },
+  boss: { color: 0x8f1f2f, name: "Boss" },
+};
+const LEGEND: RunNodeType[] = ["fight", "elite", "rest", "trader", "event"];
+
+function hex(color: number): string {
+  return `#${color.toString(16).padStart(6, "0")}`;
+}
+
+function nodeX(width: number, index: number): number {
+  return CENTER_X + (index - (width - 1) / 2) * NODE_GAP;
+}
+
+function floorY(floor: number): number {
+  return FLOOR_Y0 - (floor - 1) * FLOOR_STEP;
+}
+
+// A simple icon for each stop type, drawn with shapes, centred on (x, y).
+function drawNodeIcon(g: Phaser.GameObjects.Graphics, type: RunNodeType, x: number, y: number, r: number): void {
+  const white = 0xf4ecd8;
+  g.fillStyle(white, 1);
+  g.lineStyle(Math.max(2, r * 0.14), white, 1);
+  if (type === "fight") {
+    // Two crossed swords.
+    g.lineBetween(x - r * 0.6, y - r * 0.6, x + r * 0.6, y + r * 0.6);
+    g.lineBetween(x + r * 0.6, y - r * 0.6, x - r * 0.6, y + r * 0.6);
+    g.lineBetween(x - r * 0.7, y - r * 0.2, x - r * 0.2, y - r * 0.7);
+    g.lineBetween(x + r * 0.7, y - r * 0.2, x + r * 0.2, y - r * 0.7);
+  } else if (type === "elite") {
+    // A skull.
+    g.fillCircle(x, y - r * 0.12, r * 0.55);
+    g.fillRect(x - r * 0.3, y + r * 0.2, r * 0.6, r * 0.4);
+    g.fillStyle(0x3a1250, 1);
+    g.fillCircle(x - r * 0.22, y - r * 0.12, r * 0.15);
+    g.fillCircle(x + r * 0.22, y - r * 0.12, r * 0.15);
+  } else if (type === "rest") {
+    // A flame over two logs.
+    g.fillStyle(0xffd84d, 1);
+    g.fillTriangle(x - r * 0.4, y + r * 0.2, x + r * 0.4, y + r * 0.2, x, y - r * 0.65);
+    g.fillStyle(0xff7a2d, 1);
+    g.fillTriangle(x - r * 0.22, y + r * 0.2, x + r * 0.22, y + r * 0.2, x, y - r * 0.25);
+    g.lineStyle(Math.max(2, r * 0.16), white, 1);
+    g.lineBetween(x - r * 0.6, y + r * 0.5, x + r * 0.6, y + r * 0.3);
+    g.lineBetween(x - r * 0.6, y + r * 0.3, x + r * 0.6, y + r * 0.5);
+  } else if (type === "trader") {
+    // A coin with a bar through it.
+    g.fillStyle(0xffd84d, 1);
+    g.fillCircle(x, y, r * 0.6);
+    g.lineStyle(Math.max(2, r * 0.12), 0x8a6a10, 1);
+    g.strokeCircle(x, y, r * 0.6);
+    g.lineBetween(x, y - r * 0.35, x, y + r * 0.35);
+    g.lineBetween(x - r * 0.2, y - r * 0.15, x + r * 0.2, y - r * 0.15);
+    g.lineBetween(x - r * 0.2, y + r * 0.15, x + r * 0.2, y + r * 0.15);
+  } else if (type === "event") {
+    // A question mark.
+    g.lineStyle(Math.max(3, r * 0.2), white, 1);
+    g.beginPath();
+    g.arc(x, y - r * 0.2, r * 0.32, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(450), false);
+    g.lineTo(x, y + r * 0.2);
+    g.strokePath();
+    g.fillCircle(x, y + r * 0.5, r * 0.1);
+  } else {
+    // A crown.
+    g.fillStyle(0xffd84d, 1);
+    g.fillRect(x - r * 0.6, y + r * 0.1, r * 1.2, r * 0.4);
+    g.fillTriangle(x - r * 0.6, y + r * 0.1, x - r * 0.6, y - r * 0.5, x - r * 0.2, y + r * 0.1);
+    g.fillTriangle(x - r * 0.3, y + r * 0.1, x, y - r * 0.65, x + r * 0.3, y + r * 0.1);
+    g.fillTriangle(x + r * 0.6, y + r * 0.1, x + r * 0.6, y - r * 0.5, x + r * 0.2, y + r * 0.1);
+  }
+}
 
 export class MapScene extends Phaser.Scene {
+  private run!: RunState;
+  private voteLayer!: Phaser.GameObjects.Container;
+  private resolving = false;
+
   constructor() {
     super("map");
   }
 
   create(): void {
+    this.resolving = false;
     const run = currentRun();
+    this.run = run;
     const pending = nextPending(run);
     drawBackground(this);
     drawPartyHud(this, run);
-    const floor = (run.position?.floor ?? 0) + 1;
-    const boss = floor > run.map.floors.length;
-    drawRunHeader(this, boss ? "Route: the boss" : `Route: floor ${floor}`, pending?.player ?? null, "Vote for the next stop.");
-    if (pending?.type !== "vote") return;
-    const player = pending.player;
+    const next = (run.position?.floor ?? 0) + 1;
+    const toBoss = next > run.map.floors.length;
+    drawRunHeader(this, toBoss ? "Route: the boss" : `Route: floor ${next}`, pending?.player ?? null, "Vote for the next stop.");
 
-    pending.options.forEach((index, i) => {
-      const type = boss ? "boss" : run.map.floors[floor - 1][index].type;
-      button(this, 960, 380 + i * 110, `${type}  (stop ${index + 1})`, () => submitRunChoice(this, player, { type: "vote", node: index }), { size: 44, origin: 0.5 });
+    const options = pending?.type === "vote" ? pending.options : [];
+    this.drawEdges(run, options);
+    this.drawNodes(run, options, pending?.type === "vote" ? pending.player : null);
+    this.drawBoss(run, toBoss);
+    this.drawSidePanel(run);
+    this.voteLayer = this.add.container(0, 0);
+    this.drawVotes(run.votes);
+    this.drawDeckButton();
+  }
+
+  // Every connection, dim; the ones the party can take from where it stands, bright and thick.
+  private drawEdges(run: RunState, options: number[]): void {
+    const floors = run.map.floors;
+    const dim = this.add.graphics();
+    dim.lineStyle(3, 0x6fb08f, 0.45);
+    floors.forEach((row, f) => {
+      row.forEach((node) => {
+        const x = nodeX(row.length, node.index);
+        const y = floorY(f + 1);
+        const targets = f + 1 < floors.length ? node.next.map((j) => ({ x: nodeX(floors[f + 1].length, j), y: floorY(f + 2) })) : [{ x: CENTER_X, y: BOSS_Y }];
+        for (const t of targets) dim.lineBetween(x, y, t.x, t.y);
+      });
     });
-    const votes = Object.entries(run.votes).map(([id, node]) => `${id}: stop ${node + 1}`);
-    label(this, 960, 900, votes.length > 0 ? `Votes so far: ${votes.join(", ")}` : "No votes yet", 28, { origin: 0.5, color: "#9fd1b8" });
+    const lit = this.add.graphics();
+    lit.lineStyle(7, GOLD, 0.9);
+    const pos = run.position;
+    if (pos === null) return;
+    const from = { x: pos.floor > floors.length ? CENTER_X : nodeX(floors[pos.floor - 1].length, pos.index), y: pos.floor > floors.length ? BOSS_Y : floorY(pos.floor) };
+    for (const j of options) {
+      const to = pos.floor >= floors.length ? { x: CENTER_X, y: BOSS_Y } : { x: nodeX(floors[pos.floor].length, j), y: floorY(pos.floor + 1) };
+      lit.lineBetween(from.x, from.y, to.x, to.y);
+    }
+  }
+
+  private drawNodes(run: RunState, options: number[], voter: string | null): void {
+    const floors = run.map.floors;
+    const doneFloor = run.position?.floor ?? 0;
+    floors.forEach((row, f) => {
+      const floor = f + 1;
+      label(this, 560, floorY(floor), String(floor), 26, { origin: 0.5, color: "#9fd1b8" });
+      row.forEach((node) => {
+        const x = nodeX(row.length, node.index);
+        const y = floorY(floor);
+        const here = run.position?.floor === floor && run.position.index === node.index;
+        const isLit = floor === doneFloor + 1 && options.includes(node.index);
+        const g = this.add.graphics();
+        if (isLit) {
+          g.lineStyle(8, GOLD, 1);
+          g.strokeCircle(x, y, NODE_R + 8);
+        }
+        g.fillStyle(NODE_STYLE[node.type].color, 1);
+        g.fillCircle(x, y, NODE_R);
+        g.lineStyle(3, 0xf4ecd8, 1);
+        g.strokeCircle(x, y, NODE_R);
+        drawNodeIcon(g, node.type, x, y, NODE_R);
+        if (here) this.drawPartyMarker(x, y);
+        // Stops that are neither next nor the current one fade back.
+        if (!isLit && !here) g.setAlpha(floor <= doneFloor ? 0.35 : 0.65);
+        if (isLit && voter !== null) {
+          const hit = this.add.circle(x, y, NODE_R + 8, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
+          hit.on("pointerdown", () => this.castVote(voter, node.index));
+          this.tweens.add({ targets: g, alpha: 0.7, duration: 600, yoyo: true, repeat: -1 });
+        }
+      });
+    });
+  }
+
+  // A flag over the stop the party stands on.
+  private drawPartyMarker(x: number, y: number): void {
+    const g = this.add.graphics();
+    g.lineStyle(5, 0x7dffb0, 1);
+    g.strokeCircle(x, y, NODE_R + 8);
+    g.fillStyle(0x7dffb0, 1);
+    g.fillTriangle(x - 12, y - NODE_R - 12, x + 12, y - NODE_R - 12, x, y - NODE_R + 2);
+    label(this, x + NODE_R + 14, y, "You are here", 20, { bold: true, color: "#7dffb0" });
+  }
+
+  // The boss sits at the top from the start, with its name and passive.
+  private drawBoss(run: RunState, lit: boolean): void {
+    const boss = content.enemies.find((e) => e.id === run.map.bossId);
+    const g = this.add.graphics();
+    const r = NODE_R + 12;
+    if (lit) {
+      g.lineStyle(8, GOLD, 1);
+      g.strokeCircle(CENTER_X, BOSS_Y, r + 8);
+    }
+    g.fillStyle(NODE_STYLE.boss.color, 1);
+    g.fillCircle(CENTER_X, BOSS_Y, r);
+    g.lineStyle(4, 0xf4ecd8, 1);
+    g.strokeCircle(CENTER_X, BOSS_Y, r);
+    drawNodeIcon(g, "boss", CENTER_X, BOSS_Y, r);
+    if (run.position?.floor === run.map.floors.length + 1) this.drawPartyMarker(CENTER_X, BOSS_Y);
+    const passives = (boss?.passives ?? []).map((p) => p.kind.charAt(0).toUpperCase() + p.kind.slice(1)).join(", ");
+    // Above the boss, where no connection runs.
+    label(this, CENTER_X, 24, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 0.5 });
+    label(this, CENTER_X, 52, passives ? `Passive: ${passives}` : "No passive", 22, { color: "#ffe14d", origin: 0.5 });
+  }
+
+  // Coins per player (with their marker colour), what each marker means, and a legend of stop types.
+  private drawSidePanel(run: RunState): void {
+    label(this, 60, 340, "Players", 28, { bold: true, color: "#9fd1b8" });
+    const g = this.add.graphics();
+    run.players.forEach((id, i) => {
+      const y = 390 + i * 44;
+      g.fillStyle(PLAYER_COLORS[i % PLAYER_COLORS.length], 1);
+      g.fillCircle(80, y, 14);
+      g.lineStyle(2, 0x0d2a20, 1);
+      g.strokeCircle(80, y, 14);
+      label(this, 110, y, `${id}`, 28);
+      label(this, 400, y, `${run.coins[id] ?? 0} coins`, 26, { color: "#ffe14d", origin: 1 });
+    });
+    label(this, 60, 610, "Stops", 28, { bold: true, color: "#9fd1b8" });
+    LEGEND.forEach((type, i) => {
+      const y = 660 + i * 50;
+      g.fillStyle(NODE_STYLE[type].color, 1);
+      g.fillCircle(80, y, 20);
+      g.lineStyle(2, 0xf4ecd8, 1);
+      g.strokeCircle(80, y, 20);
+      drawNodeIcon(g, type, 80, y, 20);
+      label(this, 115, y, NODE_STYLE[type].name, 26);
+    });
+  }
+
+  // One marker per vote on the stop it was cast for, in the player's colour with their seat number.
+  private drawVotes(votes: Record<string, number>): void {
+    this.voteLayer.removeAll(true);
+    const floor = (this.run.position?.floor ?? 0) + 1;
+    const row = this.run.map.floors[floor - 1];
+    const byNode: Record<number, string[]> = {};
+    for (const id of this.run.players) {
+      const node = votes[id];
+      if (node !== undefined) (byNode[node] ??= []).push(id);
+    }
+    for (const [node, ids] of Object.entries(byNode)) {
+      const x = row ? nodeX(row.length, Number(node)) : CENTER_X;
+      const y = row ? floorY(floor) : BOSS_Y;
+      ids.forEach((id, k) => {
+        const mx = x + (k - (ids.length - 1) / 2) * 34;
+        const color = PLAYER_COLORS[this.run.players.indexOf(id) % PLAYER_COLORS.length];
+        const dot = this.add.circle(mx, y + NODE_R + 26, 15, color).setStrokeStyle(3, 0x0d2a20);
+        const text = this.add.text(mx, y + NODE_R + 26, String(this.run.players.indexOf(id) + 1), { fontFamily: FONT, fontSize: "18px", color: "#0d2a20", fontStyle: "bold" }).setOrigin(0.5);
+        this.voteLayer.add([dot, text]);
+      });
+    }
+  }
+
+  private drawDeckButton(): void {
+    // The deck viewer (#55) registers itself as the "deck" scene; until it exists the button is dimmed.
+    const available = this.scene.get("deck") !== null;
+    button(this, 1565, 150, "Deck", () => this.scene.start("deck", { back: "map" }), { size: 30, disabled: !available });
+  }
+
+  // Sends the vote to the run. When it was the last one, the run has already settled it:
+  // show the winner (and the tie message) for a moment, then go on to the next screen.
+  private castVote(player: string, node: number): void {
+    if (this.resolving) return;
+    const result = applyRunChoice(this.run, player, { type: "vote", node });
+    const chosen = result.events.find((e) => e.type === "routeChosen");
+    if (chosen === undefined || chosen.type !== "routeChosen") {
+      setRun(result.run);
+      openRunScreen(this);
+      return;
+    }
+    this.resolving = true;
+    this.drawVotes(chosen.votes);
+    const row = this.run.map.floors[chosen.floor - 1];
+    const x = row ? nodeX(row.length, chosen.index) : CENTER_X;
+    const y = row ? floorY(chosen.floor) : BOSS_Y;
+    const ring = this.add.graphics();
+    ring.lineStyle(10, 0x7dffb0, 1);
+    ring.strokeCircle(x, y, NODE_R + 14);
+    const nodeName = NODE_STYLE[chosen.nodeType].name;
+    label(this, 60, 245, `Winner: ${nodeName}`, 30, { bold: true, color: "#7dffb0" });
+    if (chosen.tied.length > 1) label(this, 60, 285, "Tie: decided at random", 30, { bold: true, color: "#ff9d7a" });
+    this.time.delayedCall(scaleTime(1800), () => {
+      setRun(result.run);
+      openRunScreen(this);
+    });
   }
 }
