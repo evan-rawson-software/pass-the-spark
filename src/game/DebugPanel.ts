@@ -49,6 +49,13 @@ class DebugPanel {
     this.render();
   }
 
+  // The scene calls this when its state changes and when playback starts or ends: reload the
+  // hand editor from the current state and redraw the panel.
+  stateChanged(): void {
+    if (this.host && this.editTarget) this.editHand = this.handOf(this.host.getState(), this.editTarget);
+    this.render();
+  }
+
   get open(): boolean {
     return this.root !== null && this.root.style.display !== "none";
   }
@@ -74,7 +81,7 @@ class DebugPanel {
     }
     const show = this.root.style.display === "none";
     this.root.style.display = show ? "block" : "none";
-    if (show) this.render();
+    if (show) this.stateChanged();
   }
 
   // ---- step mode (playback hook) ----

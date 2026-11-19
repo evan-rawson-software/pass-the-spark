@@ -101,6 +101,7 @@ export class CombatScene extends Phaser.Scene {
   setState(state: BattleState): void {
     this.state = state;
     this.redraw();
+    debugPanel.stateChanged();
     if (state.result) {
       // Leave the final table up for a moment, then show the end screen.
       this.time.delayedCall(1500, () =>
@@ -577,6 +578,7 @@ export class CombatScene extends Phaser.Scene {
   private async playback(result: StepResult): Promise<void> {
     this.locked = true;
     this.redraw();
+    debugPanel.stateChanged();
     const before = this.state;
     const enemyName = enemies.find((e) => e.id === before.enemy.id)?.name ?? before.enemy.id;
     const ctx: LogContext = {
