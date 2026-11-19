@@ -6,7 +6,8 @@ import type { BattleView } from "../engine/view";
 import type { Domino, Passive } from "../engine/types";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import type { DominoState } from "./dominoDrawing";
-import { dominoes, enemies, startPlaceholderBattle } from "./devBattle";
+import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
+import type { GameSettings } from "./devBattle";
 
 // The combat table. Draws everything from getView (and getPendingChoice for
 // whose turn it is and which dominoes are playable). No rules live here.
@@ -34,20 +35,35 @@ const RED = 0xe0443e;
 export class CombatScene extends Phaser.Scene {
   private state!: BattleState;
   private layer?: Layer;
+  private settings!: GameSettings;
+  private seed = 0;
 
   constructor() {
     super("combat");
   }
 
-  create(): void {
+  // Started by the start or end screen with { settings, seed }. With no data
+  // (page opened with dev query params) the setup comes from the query.
+  create(data: { settings?: GameSettings; seed?: number }): void {
+    const query = new URLSearchParams(window.location.search);
+    const dev = devSettings(query);
+    this.settings = data.settings ?? dev.settings;
+    this.seed = data.seed ?? dev.seed;
+    this.layer = undefined;
     this.drawTable();
-    this.setState(startPlaceholderBattle(new URLSearchParams(window.location.search)));
+    this.setState(startBattle(this.settings, this.seed, data.settings ? undefined : query));
   }
 
   // The one entry point for new state: later issues call this after each step.
   setState(state: BattleState): void {
     this.state = state;
     this.redraw();
+    if (state.result) {
+      // Leave the final table up for a moment, then show the end screen.
+      this.time.delayedCall(1500, () =>
+        this.scene.start("end", { won: state.result === "won", rounds: state.round, seed: this.seed, settings: this.settings }),
+      );
+    }
   }
 
   // ---- the one redraw ----
