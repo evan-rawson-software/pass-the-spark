@@ -1,0 +1,28 @@
+{
+  "acts": [
+    {
+      "id": "act1",
+      "bossPool": ["auditor", "glutton"],
+      "map": {
+        "floors": 10,
+        "nodesPerFloor": { "min": 3, "max": 4 },
+        "nextPerNode": { "min": 1, "max": 2 },
+        "fixedFloors": {
+          "1": "fight",
+          "2": "fight",
+          "3": "fight",
+          "6": "rest",
+          "10": "rest"
+        },
+        "weights": { "fight": 60, "elite": 15, "rest": 4, "trader": 8, "event": 0 },
+        "eliteMinFloor": 5,
+        "restMinFloor": 4,
+        "restBannedFloors": [9],
+        "maxRestPerPath": 3,
+        "maxTraderPerPath": 2,
+        "minTradersPerAct": 1,
+        "maxAttempts": 200
+      }
+    }
+  ]
+}

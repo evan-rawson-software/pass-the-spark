@@ -65,3 +65,31 @@ export interface Config {
 
 // data/starter-deck.json is a list of domino ids; copies repeat the id.
 export type DeckList = string[];
+
+// data/run.json: the ordered list of acts for a run.
+export type NodeType = "fight" | "elite" | "rest" | "trader" | "event";
+
+export interface MapRules {
+  floors: number; // floors before the boss
+  nodesPerFloor: { min: number; max: number };
+  nextPerNode: { min: number; max: number }; // connections to the next floor
+  fixedFloors: Record<string, NodeType>; // floor number -> type for every node on it
+  weights: Record<NodeType, number>; // mix of the other floors
+  eliteMinFloor: number;
+  restMinFloor: number; // random (non-fixed) rest nodes start here
+  restBannedFloors: number[];
+  maxRestPerPath: number;
+  maxTraderPerPath: number;
+  minTradersPerAct: number;
+  maxAttempts: number; // re-rolls before generation gives up
+}
+
+export interface ActData {
+  id: string;
+  bossPool: string[]; // enemy ids, tier "boss"
+  map: MapRules;
+}
+
+export interface RunData {
+  acts: ActData[];
+}
