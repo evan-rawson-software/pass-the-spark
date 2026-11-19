@@ -3,11 +3,13 @@
 import configJson from "../../data/config.json";
 import dominoesJson from "../../data/dominoes.json";
 import enemiesJson from "../../data/enemies.json";
+import eventsJson from "../../data/events.json";
 import poolsJson from "../../data/domino-pools.json";
 import runJson from "../../data/run.json";
 import starterDeckJson from "../../data/starter-deck.json";
-import type { Config, DeckList, Domino, Enemy, Pools, RunData } from "./types";
+import type { Config, DeckList, Domino, Enemy, EventData, Pools, RunData } from "./types";
 import { validateConfig, validateDominoes, validateEnemies, validatePools, validateStarterDeck } from "./validate";
+import { validateEvents } from "./validate-events";
 import { validateRun } from "./validate-run";
 
 export interface Content {
@@ -17,6 +19,7 @@ export interface Content {
   starterDeck: DeckList;
   pools: Pools;
   run: RunData;
+  events: EventData[];
 }
 
 export function loadContent(): Content {
@@ -29,5 +32,6 @@ export function loadContent(): Content {
     starterDeck: validateStarterDeck(starterDeckJson, dominoes),
     pools: validatePools(poolsJson),
     run: validateRun(runJson, enemies),
+    events: validateEvents(eventsJson),
   };
 }
