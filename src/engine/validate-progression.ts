@@ -29,6 +29,7 @@ export function validateProgression(data: unknown): ProgressionData {
     last = level.experience;
     if (typeof level.unlock !== "string" || !UNLOCK_IDS.includes(level.unlock)) fail(id, `"unlock" must be one of ${UNLOCK_IDS.join(", ")}`);
     if (seen.includes(level.unlock)) fail(id, `unlock "${level.unlock}" is listed twice`);
+    for (const key of ["name", "description"]) if (typeof level[key] !== "string" || level[key] === "") fail(id, `"${key}" must be some text`);
     seen.push(level.unlock);
   });
   if (seen.length !== UNLOCK_IDS.length) fail("levels", "every unlock must be given by exactly one level");

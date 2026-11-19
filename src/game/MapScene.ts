@@ -7,6 +7,7 @@ import { playVoteRoll } from "./voteRoll";
 import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
 import { bossTip, passiveText } from "./bossInfo";
+import { artImage } from "./art";
 import { Tooltip } from "./tooltip";
 import { deckViewerState } from "./deckViewer";
 import { drawBackground, FONT, label, PLAYER_COLORS } from "./ui";
@@ -58,7 +59,9 @@ function floorY(floor: number, floors: number): number {
 }
 
 // A simple icon for each stop type, drawn with shapes, centred on (x, y).
-function drawNodeIcon(g: Phaser.GameObjects.Graphics, type: RunNodeType, x: number, y: number, r: number): void {
+// With art (map/<type>) the image goes on top of the stop's disc, in g's container if it has one.
+function drawNodeIcon(g: Phaser.GameObjects.Graphics, type: RunNodeType, x: number, y: number, r: number, hidden = false): void {
+  if (artImage(g.scene, `map/${hidden ? "hidden" : type}`, x, y, r * 2, r * 2, g.parentContainer)) return;
   const white = 0xf4ecd8;
   g.fillStyle(white, 1);
   g.lineStyle(Math.max(2, r * 0.14), white, 1);
@@ -198,8 +201,12 @@ export class MapScene extends Phaser.Scene {
   // Moves map objects into the scrolling world: only the map camera draws them.
   private put(objects: Phaser.GameObjects.GameObject[]): void {
     this.world.add(objects);
-    this.cameras.main.ignore(objects);
-    for (const o of objects) o.cameraFilter &= ~this.mapCam.id;
+    const show = (o: Phaser.GameObjects.GameObject): void => {
+      this.cameras.main.ignore(o);
+      o.cameraFilter &= ~this.mapCam.id;
+      if (o instanceof Phaser.GameObjects.Container) o.list.forEach(show); // art inside a stop's holder
+    };
+    objects.forEach(show);
   }
 
   // Draws the screen. Online it runs again, in place, whenever the host reports a new vote or status:
@@ -209,7 +216,7 @@ export class MapScene extends Phaser.Scene {
     const run = currentRun();
     this.run = run;
     const pending = myPending(run);
-    drawBackground(this);
+    drawBackground(this, "map");
     for (const o of this.children.list) {
       o.cameraFilter &= ~this.bgCam.id; // the background is drawn by the background camera only
       this.cameras.main.ignore(o);
@@ -290,6 +297,7 @@ export class MapScene extends Phaser.Scene {
         const here = run.position?.floor === floor && run.position.index === node.index;
         const isLit = floor === doneFloor + 1 && options.includes(node.index);
         const g = this.add.graphics();
+        const holder = this.add.container(0, 0, [g]); // the stop's art, if any, joins its disc here
         if (isLit) {
           g.lineStyle(8, GOLD, 1);
           g.strokeCircle(x, y, NODE_R + 8);
@@ -300,17 +308,17 @@ export class MapScene extends Phaser.Scene {
         g.fillCircle(x, y, NODE_R);
         g.lineStyle(3, 0xf4ecd8, 1);
         g.strokeCircle(x, y, NODE_R);
-        drawNodeIcon(g, shown, x, y, NODE_R);
+        drawNodeIcon(g, shown, x, y, NODE_R, run.hiddenFloor === floor);
         if (here) this.drawPartyMarker(x, y);
         // Stops that are neither next nor the current one fade back.
-        if (!isLit && !here) g.setAlpha(floor <= doneFloor ? 0.35 : 0.65);
+        if (!isLit && !here) holder.setAlpha(floor <= doneFloor ? 0.35 : 0.65);
         if (isLit && voter !== null) {
           const hit = this.add.circle(x, y, NODE_R + 8, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
           // A click that moved the map (a drag) is not a vote.
           hit.on("pointerup", (p: Phaser.Input.Pointer) => {
             if (this.press !== null && !this.dragged && this.inView(p)) this.castVote(voter, node.index);
           });
-          this.tweens.add({ targets: g, alpha: 0.7, duration: 600, yoyo: true, repeat: -1 });
+          this.tweens.add({ targets: holder, alpha: 0.7, duration: 600, yoyo: true, repeat: -1 });
         }
       });
     });
