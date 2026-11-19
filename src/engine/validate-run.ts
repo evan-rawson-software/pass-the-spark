@@ -29,6 +29,21 @@ export function validateRun(data: unknown, enemies: Enemy[]): RunData {
   checkWhole("(file)", data.startingCoins, "startingCoins", 0);
   if (!isObject(data.battleCoins)) fail("(file)", `"battleCoins" must be an object`);
   for (const type of ["fight", "elite", "boss"]) checkWhole("(file)", data.battleCoins[type], `battleCoins.${type}`, 0);
+  const trader = data.trader;
+  if (!isObject(trader)) fail("(file)", `"trader" must be an object`);
+  checkWhole("trader", trader.stockSize, "stockSize", 1);
+  checkWhole("trader", trader.removalFeeStart, "removalFeeStart", 0);
+  checkWhole("trader", trader.removalFeeStep, "removalFeeStep", 0);
+  checkWhole("trader", trader.minDeckSize, "minDeckSize", 1);
+  if (!isObject(trader.rarityOdds) || !isObject(trader.prices)) fail("trader", `"rarityOdds" and "prices" must be objects`);
+  let totalOdds = 0;
+  for (const rarity of ["common", "uncommon", "rare"]) {
+    const w = trader.rarityOdds[rarity];
+    if (typeof w !== "number" || !Number.isFinite(w) || w < 0) fail("trader", `rarityOdds.${rarity} must be a number, 0 or more`);
+    totalOdds += w;
+    checkWhole("trader", trader.prices[rarity], `prices.${rarity}`, 0);
+  }
+  if (totalOdds <= 0) fail("trader", "rarityOdds needs some weight above 0");
   const seen: string[] = [];
   (data.acts as unknown[]).forEach((act: unknown, index: number) => {
     if (!isObject(act)) fail(`#${index}`, "must be an object");
