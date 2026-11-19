@@ -495,13 +495,11 @@ export class CombatScene extends Phaser.Scene {
 
   private shield(layer: Layer, key: string, x: number, y: number, s: number, amount: number): void {
     const g = this.gfx(layer);
-    if (!artImage(this, "ui/block", x, y + s * 0.05, s, s, layer)) {
-      g.fillStyle(0x4a6fa5, 1);
-      g.lineStyle(3, 0x1c2b44, 1);
-      const pts = [[-1, -1], [1, -1], [1, 0.1], [0, 1.1], [-1, 0.1]].map(([a, b]) => new Phaser.Math.Vector2(x + a * s * 0.5, y + b * s * 0.5));
-      g.fillPoints(pts, true);
-      g.strokePoints(pts, true);
-    }
+    g.fillStyle(0x4a6fa5, 1);
+    g.lineStyle(3, 0x1c2b44, 1);
+    const pts = [[-1, -1], [1, -1], [1, 0.1], [0, 1.1], [-1, 0.1]].map(([a, b]) => new Phaser.Math.Vector2(x + a * s * 0.5, y + b * s * 0.5));
+    g.fillPoints(pts, true);
+    g.strokePoints(pts, true);
     const text = this.label(layer, x + s * 0.5 + 8, y, String(amount), Math.round(s * 0.7), "#dbe6f5", 0, true);
     this.anim.refs.shields.set(key, { text, x, y });
   }
