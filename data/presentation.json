@@ -14,5 +14,7 @@
   "lightningMs": 260,
   "shake": { "ms": 220, "intensity": 0.004, "perLap": 0.002 },
   "stackedNumbers": { "step": 34, "growth": 0.04, "ms": 1400 },
-  "slowMotion": { "timeScale": 0.35, "holdMs": 350 }
+  "slowMotion": { "timeScale": 0.35, "holdMs": 350 },
+  "topple": { "stepMs": 110, "maxMs": 1200, "fallMs": 300, "tallyPopMs": 160, "holdMs": 500 },
+  "effects": { "travelMs": 350, "ms": 450 }
 }

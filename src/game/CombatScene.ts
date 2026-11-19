@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { ENEMY_SEAT, answerHighlights, getPendingChoice, previewPlay, step } from "../engine/battle";
+import { ENEMY_SEAT, answerHighlights, getPendingChoice, ignoresLap, previewPlay, step } from "../engine/battle";
 import type { BattleState, Choice, PendingChoice } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView } from "../engine/view";
@@ -13,10 +13,11 @@ import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
 import { applyRunChoice } from "../engine/run";
 import { artBackground, artImage } from "./art";
-import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
+import { addNoLapSymbol, drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import { SPARK_STYLE } from "./sparks";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import type { DominoState } from "./dominoDrawing";
+import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { Tooltip } from "./tooltip";
 import { charmWithTip, charmsByIds } from "./charmUi";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
@@ -404,7 +405,7 @@ export class CombatScene extends Phaser.Scene {
     return g;
   }
 
-  private domino(layer: Layer, id: string | null, k: number, state: DominoState, x: number, y: number, onClick?: () => void, ping?: PingTarget): Phaser.GameObjects.Container {
+  private domino(layer: Layer, id: string | null, k: number, state: DominoState, x: number, y: number, onClick?: () => void, ping?: PingTarget, byEnemy = false): Phaser.GameObjects.Container {
     const d: Domino = this.view.dominoes.find((q) => q.id === id) ?? this.view.dominoes[0];
     const c = drawDomino(this, d, "large", state);
     c.setScale(k);
@@ -415,7 +416,9 @@ export class CombatScene extends Phaser.Scene {
     // view (online players have nothing else).
     if (state !== "hidden") {
       const preview = state === "playable" ? () => previewPlay(this.view, this.tipPlayer, d.id) : undefined;
-      this.tooltip.attach(c, d, preview);
+      const noLap = ignoresLap(this.view, d, byEnemy); // the engine says which effects ignore the lap
+      if (noLap) addNoLapSymbol(this, c);
+      this.tooltip.attach(c, d, preview, noLap);
     }
     if (this.online && ping && state !== "hidden") {
       // Online, a visible domino can be pinged by holding on it. A tap (the normal click) then
@@ -498,10 +501,23 @@ export class CombatScene extends Phaser.Scene {
     }
     // The portrait, if there is one, fills the free space on the right of the panel.
     artImage(this, `enemies/${e.id}`, 1410, 165, 250, 250, layer);
-    const title = this.label(layer, 60, 62, def?.name ?? e.id, 48, onTurn ? "#ffe14d" : "#ffffff", 0, true);
-    if (title.width > 450) title.setFontSize(Math.floor((48 * 450) / title.width)); // a long name stays clear of the "Hand" label
-    if (def) this.label(layer, 60, 108, def.tier.toUpperCase(), 20, "#9fd1b8", 0, true);
-    this.bar(layer, "enemy", 60, 135, 400, 40, e.health, e.maxHealth, RED);
+    // The tier is an icon (the map's stop icons) beside the name; long names shrink to leave it room.
+    const ICON = 48;
+    const title = this.label(layer, 60 + ICON + 12, 62, def?.name ?? e.id, 48, onTurn ? "#ffe14d" : "#ffffff", 0, true);
+    if (title.width > 450 - ICON - 12) title.setFontSize(Math.floor((48 * (450 - ICON - 12)) / title.width)); // stays clear of the "Hand" label
+    if (def) {
+      const stop = def.tier === "basic" ? "fight" : def.tier;
+      const g = this.gfx(layer);
+      g.fillStyle(NODE_STYLE[stop].color, 1);
+      g.fillCircle(60 + ICON / 2, 62, ICON / 2);
+      g.lineStyle(2, 0xf4ecd8, 1);
+      g.strokeCircle(60 + ICON / 2, 62, ICON / 2);
+      drawNodeIcon(g, stop, 60 + ICON / 2, 62, ICON / 2);
+      const hit = this.add.circle(60 + ICON / 2, 62, ICON / 2, 0, 0);
+      layer.add(hit);
+      this.tooltip.attachLines(hit, [{ text: def.tier === "basic" ? "Normal enemy" : NODE_STYLE[stop].name, style: "title" }]);
+    }
+    this.bar(layer, "enemy", 60, 112, 400, 40, e.health, e.maxHealth, RED);
     this.shield(layer, "enemy", 80, 208, 40, e.block);
     e.passives.forEach((p, i) => this.drawPassive(layer, p, 230 + i * 130, 245));
     e.passives.forEach((p) => {
@@ -517,9 +533,9 @@ export class CombatScene extends Phaser.Scene {
     e.hand.forEach((slot, i) => {
       const x = rowX + 60 + i * 130; // 7 slots (the largest handLimit) end at x 1500, left of the party bar
       const c = slot.revealed
-        ? this.domino(layer, slot.domino, 0.5, "revealed", x, 70, undefined, { zone: "enemy", index: i })
+        ? this.domino(layer, slot.domino, 0.5, "revealed", x, 70, undefined, { zone: "enemy", index: i }, true)
         : debug
-          ? this.domino(layer, this.shown?.enemyIds[i] || trueHand![i], 0.5, "revealed", x, 70) // debug only: the true domino, with a red mark
+          ? this.domino(layer, this.shown?.enemyIds[i] || trueHand![i], 0.5, "revealed", x, 70, undefined, undefined, true) // debug only: the true domino, with a red mark
           : this.domino(layer, null, 0.5, "hidden", x, 70);
       if (!slot.revealed && debug) this.label(layer, x, 112, "DEBUG", 14, "#ff6b64", 0.5, true);
       this.anim.refs.enemyHand.push({ c, pos: { x, y: 70, k: 0.5 } });
@@ -540,7 +556,7 @@ export class CombatScene extends Phaser.Scene {
     }
     const perRow = 8;
     ids.forEach((id, i) => {
-      this.domino(layer, id, 0.4, state, x + 50 + (i % perRow) * 104, y + Math.floor(i / perRow) * 54);
+      this.domino(layer, id, 0.4, state, x + 50 + (i % perRow) * 104, y + Math.floor(i / perRow) * 54, undefined, undefined, true);
     });
     return y + Math.floor((ids.length - 1) / perRow) * 54 + 54;
   }
@@ -712,7 +728,7 @@ export class CombatScene extends Phaser.Scene {
         g.fillStyle(RED, 0.7);
         g.fillRoundedRect(x - w / 2 - 5, y - (DH * k) / 2 - 5, w + 10, DH * k + 10, 14 * k + 5);
       }
-      const c = this.domino(layer, p.domino, k, enemy ? "playedFaceUp" : "normal", x, y, undefined, { zone: "chain", index: i + hidden });
+      const c = this.domino(layer, p.domino, k, enemy ? "playedFaceUp" : "normal", x, y, undefined, { zone: "chain", index: i + hidden }, enemy);
       this.anim.refs.chain.push({ c, pos: { x, y, k } });
       this.anim.heat.decorate(c, view.chain.strength, view.chain.lap); // heat ladder: glowing dominoes
       if (k >= 0.5) {
