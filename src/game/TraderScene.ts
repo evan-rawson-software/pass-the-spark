@@ -23,6 +23,9 @@ function refusal(run: RunState, player: string, action: TraderAction): string | 
   }
 }
 
+const DECK_ROWS = 5; // deck rows shown at once; the rest are reached by scrolling
+const ROW = 72;
+
 type Add = <T extends Phaser.GameObjects.GameObject>(o: T) => T;
 
 export class TraderScene extends Phaser.Scene {
@@ -31,6 +34,8 @@ export class TraderScene extends Phaser.Scene {
   private viewing: string | null = null; // a teammate whose stock is being looked at
   private removing = false; // the deck is open to pick a domino to remove
   private selected: string | null = null; // the deck domino picked for removal
+  private scroll = 0; // first deck row shown (the mouse wheel moves it)
+  private deckRows = 0; // rows in the whole deck list
 
   constructor() {
     super("trader");
@@ -40,7 +45,9 @@ export class TraderScene extends Phaser.Scene {
     this.viewing = null;
     this.removing = false;
     this.selected = null;
+    this.scroll = 0;
     this.tooltip = new Tooltip(this);
+    this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => this.scrollDeck(dy > 0 ? 1 : -1));
     this.render();
   }
 
@@ -90,7 +97,7 @@ export class TraderScene extends Phaser.Scene {
       const deck = run.decks[player];
       const removeWhy = refusal(run, player, { kind: "remove", domino: deck[0] });
       add(label(this, 60, 575, `Remove a domino: fee ${fee} coins, rising by ${data.removalFeeStep} after each removal`, 28, { color: "#cfe9dc" }));
-      add(button(this, 1500, 575, this.removing ? "Close deck" : "Open deck", () => { this.removing = !this.removing; this.selected = null; this.render(); }, { size: 28 }));
+      add(button(this, 1500, 575, this.removing ? "Close deck" : "Open deck", () => { this.removing = !this.removing; this.selected = null; this.scroll = 0; this.render(); }, { size: 28 }));
       if (removeWhy) add(label(this, 60, 620, `Can't remove now: ${removeWhy}`, 24, { color: "#ff9d7a" }));
       if (this.removing) this.drawDeck(run, player, deck, removeWhy, fee, add);
     } else {
@@ -104,10 +111,18 @@ export class TraderScene extends Phaser.Scene {
       const done = run.trader?.done[id] ?? false;
       add(label(this, 1565, y, id, 28, { bold: true }));
       add(label(this, 1565, y + 34, `${run.coins[id]} coins · ${done ? "done" : "shopping"}`, 24, { color: done ? "#9fd1b8" : "#ffffff" }));
-      add(button(this, 1790, y + 8, "Stock", () => { this.viewing = id; this.removing = false; this.selected = null; this.render(); }, { size: 22, selected: this.viewing === id }));
+      add(button(this, 1790, y + 8, "Stock", () => { this.viewing = id; this.removing = false; this.selected = null; this.scroll = 0; this.render(); }, { size: 22, selected: this.viewing === id }));
     });
 
     add(button(this, 1860, 1030, "Done", () => submitRunChoice(this, player, { type: "trader", action: { kind: "done" } }), { size: 44, origin: 1 }));
+  }
+
+  private scrollDeck(by: number): void {
+    if (!this.removing) return;
+    const next = Math.max(0, Math.min(Math.max(0, this.deckRows - DECK_ROWS), this.scroll + by));
+    if (next === this.scroll) return;
+    this.scroll = next;
+    this.render();
   }
 
   // The deck, grouped by intake spark; click one to pick it, then confirm.
@@ -119,18 +134,30 @@ export class TraderScene extends Phaser.Scene {
       const key = d.intake === "any" ? "any spark" : d.intake.join(" / ");
       groups.set(key, [...(groups.get(key) ?? []), d]);
     }
-    let y = 690;
+    // Rows of up to 10 dominoes; a group with more than 10 wraps onto further rows.
+    const rows: { key: string | null; items: Domino[] }[] = [];
     for (const [key, items] of groups) {
-      add(label(this, 60, y, key, 24, { bold: true, color: "#9fd1b8" }));
-      items.forEach((d, i) => {
-        const c = add(drawDomino(this, d, "small", this.selected === d.id ? "playable" : "normal").setPosition(380 + (i % 10) * 135, y));
+      for (let i = 0; i < items.length; i += 10) rows.push({ key: i === 0 ? key : null, items: items.slice(i, i + 10) });
+    }
+    this.deckRows = rows.length;
+    this.scroll = Math.min(this.scroll, Math.max(0, rows.length - DECK_ROWS));
+    rows.slice(this.scroll, this.scroll + DECK_ROWS).forEach((row, r) => {
+      const y = 690 + r * ROW;
+      if (row.key) add(label(this, 60, y, row.key, 24, { bold: true, color: "#9fd1b8" }));
+      row.items.forEach((d, i) => {
+        const c = add(drawDomino(this, d, "small", this.selected === d.id ? "playable" : "normal").setPosition(380 + i * 135, y));
         this.tooltip.attach(c, d);
         if (!removeWhy) c.on("pointerdown", () => { this.selected = d.id; this.render(); });
       });
-      y += 72;
+    });
+    if (rows.length > DECK_ROWS) {
+      const last = this.scroll + DECK_ROWS;
+      add(label(this, 1780, 700, `Rows ${this.scroll + 1}-${Math.min(last, rows.length)} of ${rows.length}`, 22, { origin: 0.5, color: "#9fd1b8" }));
+      add(button(this, 1780, 750, "Up", () => this.scrollDeck(-1), { size: 26, origin: 0.5, disabled: this.scroll === 0 }));
+      add(button(this, 1780, 810, "Down", () => this.scrollDeck(1), { size: 26, origin: 0.5, disabled: last >= rows.length }));
     }
     const pick = this.selected;
-    add(button(this, 60, 1030, pick ? `Remove ${byId.get(pick)?.name} for ${fee} coins` : "Pick a domino to remove", () => {
+    add(button(this, 60, 1045, pick ? `Remove ${byId.get(pick)?.name} for ${fee} coins` : "Pick a domino to remove", () => {
       if (pick) submitRunChoice(this, player, { type: "trader", action: { kind: "remove", domino: pick } });
     }, { size: 30, disabled: !pick || removeWhy !== null }));
   }
