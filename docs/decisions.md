@@ -336,6 +336,7 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - **Single player setup:** no name inputs; seats are named Player 1-4. The seed box is filled with a random seed when the screen opens (still editable).
 - **Map screen:** drop "The party's choice". "Act N of 3" replaces "Route: floor N" as the heading.
 - **Single player votes:** no vote display. The chosen stop opens straight away. The same goes for single player event votes.
+- **Map readability:** the map is too cramped on one screen. It gets more height (bigger gaps between floors, bigger stops) and scrolls vertically; headings, party display and side panels stay fixed.
 - **Hover highlight:** hovering a playable domino in your hand highlights the dominoes that could answer it in the next seat's hand: teammates' dominoes, and the enemy's revealed ones. Which dominoes count comes from the engine. When the next seat is the enemy and none of its revealed dominoes could react, the matching dominoes of the player after the enemy are highlighted too, more faintly (the spark would pass on to them if the enemy can't react).
 
 ## 2026-11-19: Milestone 8 (progression and polish)
