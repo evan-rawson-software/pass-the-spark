@@ -97,10 +97,10 @@ test("a split vote resolves the same way for the same seed", () => {
 });
 
 // A run whose first floor is an event stop, with everyone standing on it.
-function atEvent(seed: number): RunState {
+function atEvent(seed: number, only = "lost_courier"): RunState {
   const content = JSON.parse(JSON.stringify(loadContent())) as Content; // a copy: loadContent shares its data objects
   content.run.acts[0].map.fixedFloors["1"] = "event";
-  for (const e of content.events) e.enabled = e.id === "lost_courier"; // the courier is the event under test
+  for (const e of content.events) e.enabled = e.id === only;
   let run = createRun({ players, seed, content });
   for (const id of players) run = applyRunChoice(run, id, { type: "vote", node: 0 }).run;
   return run;
@@ -157,4 +157,40 @@ test("Lost Courier: the domino goes to the player chosen, and a split vote resol
   const first = winners();
   expect(winners()).toEqual(first);
   expect(new Set(first).size).toBeGreaterThan(1);
+});
+
+test("Sleeping Giant: grabs pay coins and raise the chance in turn until it wakes, and the damage can end the run", () => {
+  const start = atEvent(2, "sleeping_giant");
+  const n = start.content.events.find((e) => e.id === "sleeping_giant")!.numbers;
+  expect(start.event!.giant).toMatchObject({ turn: "a", wakePercent: n.wakeStartPercent });
+  expect(getPendingRunChoices(start).map((p) => p.player)).toEqual(["a"]); // only the player whose turn it is
+  expect(() => applyRunChoice(start, "b", { type: "event", option: 0 })).toThrow();
+
+  // b stops on their first turn and is out; a and c keep grabbing, in turn, until it wakes.
+  let run = applyRunChoice(start, "a", { type: "event", option: 0 }).run;
+  expect(run.event!.giant).toMatchObject({ turn: "b", wakePercent: n.wakeStartPercent + n.wakeStepPercent });
+  expect(run.coins.a).toBe(start.coins.a + n.grabCoins);
+  const turns: string[] = [];
+  let guard = 0;
+  while (run.event !== null && guard++ < 30) {
+    const who = run.event.giant!.turn;
+    turns.push(who);
+    run = applyRunChoice(run, who, { type: "event", option: who === "b" ? 1 : 0 }).run;
+  }
+  expect(turns.slice(0, 3)).toEqual(["b", "c", "a"]);
+  expect(turns.slice(1).includes("b")).toBe(false); // a player who stopped is not asked again
+  expect(run.health).toBe(run.maxHealth - n.wakeDamage);
+  const grabbed = ["a", "b", "c"].reduce((sum, id) => sum + run.coins[id] - run.content.run.startingCoins, 0);
+  expect(grabbed % n.grabCoins).toBe(0); // the waking grab paid nothing
+  expect(run.phase).toBe("vote");
+
+  // Everyone stopping without a grab does nothing; waking at low health loses the run.
+  let quiet = start;
+  for (const id of players) quiet = applyRunChoice(quiet, id, { type: "event", option: 1 }).run;
+  expect(quiet.health).toBe(quiet.maxHealth);
+  expect(quiet.phase).toBe("vote");
+  let low: RunState = { ...start, health: n.wakeDamage };
+  while (low.phase === "event") low = applyRunChoice(low, low.event!.giant!.turn, { type: "event", option: 0 }).run;
+  expect(low.phase).toBe("over");
+  expect(low.result).toBe("lost");
 });
