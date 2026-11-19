@@ -39,10 +39,11 @@ export interface Refs {
   bars: Map<string, BarRef>; // "enemy" | "party"
   shields: Map<string, { text: Text; x: number; y: number }>;
   meter?: { text: Text; rect: Box; scale: number };
+  charms: Map<string, { x: number; y: number }>; // "seat:charm" -> the charm icon in the combat list (#108)
 }
 
 export function newRefs(): Refs {
-  return { hand: new Map(), chain: [], enemyHand: [], bars: new Map(), shields: new Map() };
+  return { hand: new Map(), chain: [], enemyHand: [], bars: new Map(), shields: new Map(), charms: new Map() };
 }
 
 export function paintBar(b: BarRef, value: number): void {
@@ -236,6 +237,15 @@ export class Animator {
             ring(scene, cx, cy, 0xff8a1f, 150);
             floatText(scene, cx, cy - 20, "REFLECT", "#ffb066", 40, 900);
           }
+        }
+        break;
+      }
+      case "charm": {
+        // The charm icon flashes (#108); screen-only, the engine already counted the effect.
+        const at = refs.charms.get(`${ev.player}:${ev.charm}`);
+        if (at) {
+          ring(scene, at.x, at.y, 0xffe14d);
+          flash(scene, { x: at.x - 16, y: at.y - 16, w: 32, h: 32 }, 0xffe14d);
         }
         break;
       }

@@ -591,7 +591,7 @@ export class CombatScene extends Phaser.Scene {
       names[q.id] = this.nameOf(q.id, false);
       held[q.id] = q.charms;
     }
-    layer.add(drawCharmList(this, RIGHT_X, 800, view.players.map((q) => q.id), names, held));
+    layer.add(drawCharmList(this, RIGHT_X, 800, view.players.map((q) => q.id), names, held, (seat, ch, x, y) => this.anim.refs.charms.set(`${seat}:${ch.id}`, { x, y })));
 
     // Combo meter: strength x lap.
     const { strength, lap } = view.chain;
