@@ -329,6 +329,7 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - **Who tunes:** the coders tune data values only (enemy health and damage, party health, coins, prices, charm and event numbers) to reach the targets, and post before-and-after tables. Any rule change comes back to the designer.
 - **Enemy lap scaling:** `enemyReactionsScaleWithLap` stays off. Only the Long Night scales with lap.
 - **Warden of Locks:** re-measure with the bot. If players still average under 2 answers per chain against it, bring options to soften it to the designer; don't change the rule in tuning.
+- **Party size (#126):** 4-player parties came out 25-35 points stronger than 3-player ones, and no single set of data numbers fit both. Enemy health now scales by party size: a multiplier per party size (1-4 players) in data, applied to every enemy's starting health, rounded up. Tuning then aims at the targets for 3 and 4 players separately.
 - **Playtest:** the designer playtests again once M7 is done.
 
 ### Playtest feedback (first playtest)
