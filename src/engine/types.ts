@@ -139,6 +139,7 @@ export interface RunData {
   startingCoins: number; // each player's coins at the start of the run
   battleCoins: Record<BattleType, number>; // every player earns this for winning a battle of that type
   trader: TraderData;
+  charmOffers: { elite: number; boss: number }; // charms offered to each player after an elite (normal pool) or boss (rare pool) win
   acts: ActData[];
 }
 
@@ -149,6 +150,19 @@ export interface TraderData {
   removalFeeStart: number; // a player's first removal costs this
   removalFeeStep: number; // each removal raises that player's fee by this, for the rest of the run
   minDeckSize: number; // a player can't remove a domino from a deck this small
+  charmStockSize: number; // normal charms in each player's stock
+  charmPrice: number; // coins per charm
+}
+
+// data/charms.json: a personal passive that lasts the whole run.
+export type CharmPool = "normal" | "rare";
+
+export interface Charm {
+  id: string;
+  name: string;
+  pool: CharmPool; // normal: elite offers and the Trader; rare: boss offers
+  description: string; // one line for tooltips
+  numbers: Record<string, number>; // this charm's own numbers (bonus, extra draws, coins, percent)
 }
 
 // data/events.json: the question-mark stops.

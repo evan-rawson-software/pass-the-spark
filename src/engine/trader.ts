@@ -7,6 +7,7 @@ import type { Domino, Pools, TraderData } from "./types";
 export interface TraderState {
   stock: Record<string, Domino[]>; // player id -> dominoes still for sale (a bought one leaves the stock)
   done: Record<string, boolean>; // player id -> pressed done
+  charmStock: Record<string, string[]>; // player id -> charm ids still for sale (a bought one leaves the stock)
 }
 
 export interface TraderRoll {
@@ -33,5 +34,5 @@ export function rollStock(state: number, playerIds: string[], data: TraderData, 
     stock[playerId] = items;
     done[playerId] = false;
   }
-  return { trader: { stock, done }, state: s, nextIndex: index };
+  return { trader: { stock, done, charmStock: {} }, state: s, nextIndex: index };
 }

@@ -40,6 +40,10 @@ export function validateRun(data: unknown, enemies: Enemy[]): RunData {
   checkWhole("trader", trader.removalFeeStart, "removalFeeStart", 0);
   checkWhole("trader", trader.removalFeeStep, "removalFeeStep", 0);
   checkWhole("trader", trader.minDeckSize, "minDeckSize", 1);
+  checkWhole("trader", trader.charmStockSize, "charmStockSize", 0);
+  checkWhole("trader", trader.charmPrice, "charmPrice", 0);
+  if (!isObject(data.charmOffers)) fail("(file)", `"charmOffers" must be an object`);
+  for (const type of ["elite", "boss"]) checkWhole("(file)", data.charmOffers[type], `charmOffers.${type}`, 0);
   if (!isObject(trader.rarityOdds) || !isObject(trader.prices)) fail("trader", `"rarityOdds" and "prices" must be objects`);
   let totalOdds = 0;
   for (const rarity of ["common", "uncommon", "rare"]) {

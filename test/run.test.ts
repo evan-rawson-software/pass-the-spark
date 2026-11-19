@@ -27,6 +27,8 @@ function play(start: RunState, stop: (run: RunState) => boolean): { run: RunStat
       r = applyRunChoice(run, owed.player, { type: "vote", node: owed.options[0] });
     } else if (owed.type === "reward") {
       r = applyRunChoice(run, owed.player, { type: "reward", pick: SKIP });
+    } else if (owed.type === "charmReward") {
+      r = applyRunChoice(run, owed.player, { type: "charmReward", pick: SKIP });
     } else if (owed.type === "rest") {
       r = applyRunChoice(run, owed.player, { type: "rest" });
     } else if (owed.type === "trader") {
@@ -193,4 +195,33 @@ test("Sleeping Giant: grabs pay coins and raise the chance in turn until it wake
   while (low.phase === "event") low = applyRunChoice(low, low.event!.giant!.turn, { type: "event", option: 0 }).run;
   expect(low.phase).toBe("over");
   expect(low.result).toBe("lost");
+});
+
+test("elite wins offer a normal charm and boss wins offer 3 rare ones, never ones the player owns", () => {
+  const content = easyContent();
+  content.run.acts.push(content.run.acts[0]); // so the act 1 boss isn't the last
+  const normal = content.charms.filter((c) => c.pool === "normal").map((c) => c.id);
+  const rare = content.charms.filter((c) => c.pool === "rare").map((c) => c.id);
+
+  // Wins the first battle as the given type (the enemy is one hit from dead), with "a" holding the given charms.
+  function winAs(type: "elite" | "boss", held: string[]): RunState {
+    const fighting = play(createRun({ players, seed: 7, content }), (r) => r.battle !== null).run;
+    fighting.battleType = type;
+    fighting.battle!.enemy.health = 1;
+    fighting.charms.a = held;
+    return play(fighting, (r) => r.phase === "reward").run;
+  }
+
+  const last = normal[normal.length - 1];
+  const elite = winAs("elite", normal.slice(0, -1)); // a owns every normal charm but the last
+  expect(elite.reward!.charmOffers.a).toEqual([last]);
+  expect(elite.reward!.charmOffers.b).toHaveLength(1);
+  expect(getPendingRunChoices(elite).filter((p) => p.type === "charmReward").map((p) => p.player)).toEqual(["a", "b", "c"]);
+  expect(applyRunChoice(elite, "a", { type: "charmReward", pick: last }).run.charms.a).toContain(last);
+
+  const boss = winAs("boss", rare.slice(0, 4)); // a owns 4 rare charms, so only 2 are left to offer
+  expect([...boss.reward!.charmOffers.a].sort()).toEqual(rare.slice(4).sort());
+  expect(boss.reward!.charmOffers.b).toHaveLength(3);
+  expect(new Set(boss.reward!.charmOffers.b).size).toBe(3);
+  expect(boss.reward!.charmOffers.b.every((c) => rare.includes(c))).toBe(true);
 });

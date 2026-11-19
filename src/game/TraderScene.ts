@@ -96,7 +96,7 @@ export class TraderScene extends Phaser.Scene {
     add(label(this, 60, 262, mine ? "Your stock" : `${seatName(shown)}'s stock (view only)`, 30, { bold: true, color: "#9fd1b8" }));
     stock.forEach((d, i) => {
       const x = 180 + i * 280;
-      const price = data.prices[d.rarity ?? "common"];
+      const price = pending.dominoPrices[d.id] ?? data.prices[d.rarity ?? "common"]; // the engine's price for the player whose turn it is (Haggler included)
       const why = mine ? refusal(run, player, { kind: "buy", domino: d.id }) : "not yours";
       const c = add(drawDomino(this, d, "large", why ? "notPlayable" : "normal").setPosition(x, 370));
       this.tooltip.attach(c, d);
