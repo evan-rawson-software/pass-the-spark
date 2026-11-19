@@ -30,3 +30,9 @@ Pass the Spark is a turn-based co-op deckbuilder. It will be built as a web MVP 
 - Ask before adding a dependency.
 - Run type-checking and tests before opening a PR.
 - Work on one branch per issue, open a small PR that references the issue, and don't mix unrelated changes into it.
+
+## Commands
+
+- `npm ci`: install dependencies.
+- `npm run typecheck`: type-check with `tsc --noEmit`.
+- `npm test`: run the Vitest tests once.
