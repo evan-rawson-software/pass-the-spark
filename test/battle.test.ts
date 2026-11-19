@@ -10,7 +10,9 @@ import starterDeckJson from "../data/starter-deck.json";
 // JSON string literals widen to string, so a plain annotation fails on Spark.
 // For the single-object config, satisfies still catches a missing key.
 const config = configJson satisfies Record<keyof Config, unknown> as Config;
-const dominoes = dominoesJson as Domino[];
+// Plus one test-only domino so two Echoes can follow each other (Echo Stone takes Gale).
+const echoTide: Domino = { id: "echo_tide", name: "Echo Tide", intake: ["Tide"], output: ["Gale"], effect: { kind: "echo" } };
+const dominoes = [...(dominoesJson as Domino[]), echoTide];
 const enemies = enemiesJson as Enemy[];
 const starterDeck: DeckList = starterDeckJson;
 
@@ -118,4 +120,41 @@ test("leftover enemy dominoes go off at strength 1, in order, and stay in hand",
   expect(s.party).toMatchObject({ health: 58, block: 0 }); // 3 + 3, block soaked 4
   expect(s.enemy.health).toBe(93);
   expect(s.enemy.hand).toHaveLength(3);
+});
+
+test("Amplify adds its bonus on top of the normal +1", () => {
+  let s = setup(["kindle", "splash", "bellows"], ["jab", "kindle", "shelter"]);
+  s = fuse(s, "kindle");
+  for (const d of ["jab", "splash", "kindle"]) s = answer(s, d); // strength 3
+  s = answer(s, "bellows"); // 3 + 1 + 2
+  expect(s.chain.strength).toBe(6);
+});
+
+test("Echo, Echo, then a damage domino triggers 3 times at the same strength", () => {
+  let s = setup(["brace", "echo_tide", "brace"], ["echo_stone", "kindle"]);
+  s = fuse(s, "brace");
+  for (const d of ["echo_stone", "echo_tide", "kindle"]) s = answer(s, d);
+  expect(s.enemy.health).toBe(100 - 3 * (2 * 3 * 2)); // base 2, strength 3, lap 2
+  expect(s.chain.strength).toBe(3);
+});
+
+test("Mimic after an enemy damage domino damages the enemy", () => {
+  let s = setup(["kindle", "mimic"], ["brace"], ["ogre_stomp_a"]);
+  s = fuse(s, "kindle");
+  s = answer(s, "brace"); // block 4; Stomp: 3 x 2 hits the party
+  expect(s.party.health).toBe(58);
+  s = answer(s, "mimic"); // copies the Stomp toward the enemy: 3 x 3 x lap 2
+  expect(s.enemy.health).toBe(100 - 18);
+  expect(s.party.health).toBe(58);
+});
+
+test("Spectrum adds the number of different sparks in the history to its strength", () => {
+  let s = fuse(setup(["kindle"], ["prism", "jab"]), "kindle");
+  s.players[0].hand = ["wildcard"];
+  s.chain.sparks = ["Tide"];
+  s.chain.strength = 4;
+  s.chain.history = ["Ember", "Tide", "Gale", "Ember"];
+  s = answer(s, "prism"); // 3 different sparks: 2 x (5 + 3) x lap 1
+  expect(s.enemy.health).toBe(100 - 16);
+  expect(s.chain.strength).toBe(5);
 });
