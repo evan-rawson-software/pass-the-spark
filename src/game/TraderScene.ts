@@ -2,8 +2,8 @@ import Phaser from "phaser";
 import { applyRunChoice } from "../engine/run";
 import type { RunState, TraderAction } from "../engine/run";
 import type { Domino } from "../engine/types";
-import { submitRunChoice, currentRun, nextPending } from "./runSession";
-import { drawPartyHud, drawRunHeader } from "./partyHud";
+import { submitRunChoice, currentRun, isOnlineRun, myPending, seatName, watchRun } from "./runSession";
+import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { drawDomino } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
 import { button, label } from "./ui";
@@ -49,13 +49,15 @@ export class TraderScene extends Phaser.Scene {
     this.tooltip = new Tooltip(this);
     this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => this.scrollDeck(dy > 0 ? 1 : -1));
     this.render();
+    // Online the others' shopping arrives while this player is looking at a stock or the deck: redraw, keeping that.
+    watchRun(this, "trader", { redraw: () => this.render() });
   }
 
   private render(): void {
     this.tooltip.hide();
     this.root?.destroy(true);
     const run = currentRun();
-    const pending = nextPending(run);
+    const pending = myPending(run);
     this.root = this.add.container(0, 0);
     const add: Add = (o) => {
       this.root.add(o);
@@ -65,7 +67,17 @@ export class TraderScene extends Phaser.Scene {
     bg.fillStyle(0x1e5a42, 1);
     bg.fillRect(0, 0, 1920, 1080);
     add(bg);
-    if (pending?.type !== "trader") return;
+    if (pending?.type !== "trader") {
+      // Online, this player is done: wait for the others.
+      if (isOnlineRun()) {
+        const first = this.children.list.length;
+        drawPartyHud(this, run);
+        drawRunHeader(this, "Trader", null, "You are done shopping.");
+        drawWaitingFor(this, run, 960, 520, 0.5);
+        for (const o of this.children.list.slice(first)) this.root.add(o);
+      }
+      return;
+    }
     const player = pending.player;
     const data = run.content.run.trader;
     const fee = pending.removalFee;
@@ -76,12 +88,12 @@ export class TraderScene extends Phaser.Scene {
     // The shared HUD and header draw straight onto the scene; move them into the root so a redraw clears them.
     const before = this.children.list.length;
     drawPartyHud(this, run);
-    drawRunHeader(this, "Trader", player, "Buy dominoes or remove one, then press Done.");
+    drawRunHeader(this, "Trader", isOnlineRun() ? null : player, "Buy dominoes or remove one, then press Done.");
     for (const o of this.children.list.slice(before)) this.root.add(o);
     add(label(this, 520, 70, `Coins: ${run.coins[player]}`, 44, { bold: true, color: "#ffe14d" }));
 
     // Stock
-    add(label(this, 60, 262, mine ? "Your stock" : `${shown}'s stock (view only)`, 30, { bold: true, color: "#9fd1b8" }));
+    add(label(this, 60, 262, mine ? "Your stock" : `${seatName(shown)}'s stock (view only)`, 30, { bold: true, color: "#9fd1b8" }));
     stock.forEach((d, i) => {
       const x = 180 + i * 280;
       const price = data.prices[d.rarity ?? "common"];
@@ -109,7 +121,7 @@ export class TraderScene extends Phaser.Scene {
     run.players.filter((id) => id !== player).forEach((id, i) => {
       const y = 225 + i * 90;
       const done = run.trader?.done[id] ?? false;
-      add(label(this, 1565, y, id, 28, { bold: true }));
+      add(label(this, 1565, y, seatName(id), 28, { bold: true }));
       add(label(this, 1565, y + 34, `${run.coins[id]} coins · ${done ? "done" : "shopping"}`, 24, { color: done ? "#9fd1b8" : "#ffffff" }));
       add(button(this, 1790, y + 8, "Stock", () => { this.viewing = id; this.removing = false; this.selected = null; this.scroll = 0; this.render(); }, { size: 22, selected: this.viewing === id }));
     });

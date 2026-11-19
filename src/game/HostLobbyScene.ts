@@ -7,11 +7,12 @@ import type { HostMessage } from "../net/protocol";
 import { generateRoomCode, loadHostedRoom, saveHostedRoom } from "../net/room";
 import type { SavedRoom } from "../net/room";
 import { debugPanel } from "./DebugPanel";
-import { content, enemies } from "./devBattle";
+import { content } from "./devBattle";
 import { relay } from "./relay";
+import { openRunScreen, startOnlineRun } from "./runSession";
 import { button, drawBackground, INPUT_STYLE, label } from "./ui";
 
-// The host's lobby (#33): room code and link, the seat list, the enemy, and Start.
+// The host's lobby (#33): room code and link, the seat list, and Start, which starts the run (#49).
 // Draws what the host reports and calls the host's lobby methods; it holds no rules.
 
 type Lobby = NonNullable<typeof relay.lobby>;
@@ -28,7 +29,7 @@ export class HostLobbyScene extends Phaser.Scene {
     super("hostLobby");
   }
 
-  // With `resume`, the room is already open (a battle just ended): show its lobby again.
+  // With `resume`, the room is already open (a run just ended): show its lobby again.
   // With `restore` (or, opened with ?room=CODE, a room this browser saved), the page was reloaded:
   // open the same room again from the save.
   create(data: { name?: string; resume?: { host: Host; roomCode: string }; restore?: SavedRoom } = {}): void {
@@ -62,15 +63,14 @@ export class HostLobbyScene extends Phaser.Scene {
     const status = label(this, 960, 540, "Creating room...", 36, { origin: 0.5 });
     button(this, 60, 1000, "Back", () => this.leave());
 
-    const defaultEnemy = enemies.some((e) => e.id === "ogre") ? "ogre" : enemies[0].id;
-    this.lobby = { type: "lobby", players: [{ seat: "p1", name }], seats: ["p1"], enemyId: defaultEnemy };
+    this.lobby = { type: "lobby", players: [{ seat: "p1", name }], seats: ["p1"] };
     debugPanel.onLobbyChange = () => this.redraw();
     this.events.once("shutdown", () => {
       debugPanel.onLobbyChange = null;
       if (!this.started) this.host?.close();
     });
 
-    this.open(name, defaultEnemy, restore).then(
+    this.open(name, restore).then(
       (host) => {
         if (!this.scene.isActive()) return host.close();
         this.host = host;
@@ -83,7 +83,7 @@ export class HostLobbyScene extends Phaser.Scene {
         }
         this.drawRoom();
         this.redraw();
-        if (restore) host.announce(); // the lobby, or straight back into the battle
+        if (restore) host.announce(); // the lobby, or straight back into the run
       },
       (e: { type?: string }) =>
         status.setText(
@@ -96,7 +96,7 @@ export class HostLobbyScene extends Phaser.Scene {
 
   // A new room: the code can already be taken on the broker; try a few. A restored room has
   // only its own code, and the broker may need a few seconds to let go of it after a reload.
-  private async open(name: string, enemyId: string, restore: SavedRoom | null): Promise<Host> {
+  private async open(name: string, restore: SavedRoom | null): Promise<Host> {
     let lastError: unknown;
     for (let i = 0; i < 5; i++) {
       const roomCode = restore ? restore.roomCode : generateRoomCode();
@@ -106,10 +106,7 @@ export class HostLobbyScene extends Phaser.Scene {
           roomCode,
           buildId: BUILD_ID,
           hostName: name,
-          config: content.config,
           content,
-          starterDeck: content.starterDeck,
-          enemyId,
           onLocalMessage: (m) => relay.deliver(m),
           resume: restore ?? undefined,
           onSave: (room) => saveHostedRoom(roomCode, room, safeStorage()),
@@ -132,13 +129,15 @@ export class HostLobbyScene extends Phaser.Scene {
     else if (m.type === "lobby") {
       this.lobby = m;
       this.redraw();
-    } else if (m.type === "update") {
-      // The battle started: hand over to the battle screen.
+    } else if (m.type === "runUpdate") {
+      // The run started (or this page was reloaded in the middle of one): hand over to its screens.
+      // A battle opens when its first view arrives, just after this.
       this.started = true;
       relay.lobby = null;
-      const names: Record<string, string> = {};
-      this.lobby?.players.forEach((p) => (names[p.seat] = p.name));
-      this.scene.start("combat", { online: { host: this.host, seat: this.mySeat, view: m.view, names, roomCode: this.roomCode } });
+      startOnlineRun({ host: this.host ?? undefined, seat: this.mySeat, roomCode: this.roomCode }, m.view);
+      if (m.view.phase !== "battle") openRunScreen(this);
+    } else if (m.type === "update") {
+      if (this.started) openRunScreen(this);
     }
   }
 
@@ -165,7 +164,6 @@ export class HostLobbyScene extends Phaser.Scene {
       else if (document.execCommand("copy")) done();
     }, { size: 26 });
     label(this, 100, 250, "Seats (the first seat leads)", 34, { bold: true });
-    label(this, 1150, 250, "Enemy", 34, { bold: true });
   }
 
   private redraw(): void {
@@ -190,10 +188,6 @@ export class HostLobbyScene extends Phaser.Scene {
     for (let i = lobby.players.length; i < MAX_SEATS; i++) {
       keep(label(this, 100, 340 + i * 90, `${i + 1}.  (empty)`, 36, { color: "#9fd1b8" }));
     }
-
-    enemies.forEach((e, i) => {
-      keep(button(this, 1150, 340 + i * 62, `${e.name}  (${e.tier})`, () => host.setEnemy(e.id), { size: 26, selected: e.id === lobby.enemyId }));
-    });
 
     const count = lobby.players.length;
     const canStart = count >= MIN_SEATS || debugPanel.allowFewerPlayers;

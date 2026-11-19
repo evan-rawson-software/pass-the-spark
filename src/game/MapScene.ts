@@ -1,10 +1,10 @@
 import Phaser from "phaser";
 import { applyRunChoice } from "../engine/run";
-import type { RunNodeType, RunState } from "../engine/run";
+import type { RunEvent, RunNodeType, RunState } from "../engine/run";
 import { content } from "./devBattle";
 import { scaleTime } from "./playbackSpeed";
-import { drawPartyHud, drawRunHeader } from "./partyHud";
-import { currentRun, nextPending, openRunScreen, setRun } from "./runSession";
+import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
+import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
 import { drawBackground, FONT, label } from "./ui";
 
 // The map screen (#51). It draws the act the engine generated: floors bottom to top, the
@@ -12,6 +12,8 @@ import { drawBackground, FONT, label } from "./ui";
 // marked, and the stops the engine says can be voted for are lit. In single player each seat votes in
 // turn by clicking a lit stop. Which stops are lit, the tally and the tie-break all come from
 // the run engine; this screen only draws them and sends the vote.
+// Online (#49) every player votes at once on their own screen; the votes appear on the map as the
+// host reports them, and when the last one is in everyone sees the winner (and the tie message).
 
 const CENTER_X = 1020;
 const NODE_GAP = 250;
@@ -109,14 +111,23 @@ export class MapScene extends Phaser.Scene {
 
   create(): void {
     this.resolving = false;
+    this.build();
+  }
+
+  // Draws the screen. Online it runs again, in place, whenever the host reports a new vote or status:
+  // a scene restart is only carried out at the next frame, which could wipe the winner display
+  // that a later update has just started.
+  private build(): void {
     const run = currentRun();
     this.run = run;
-    const pending = nextPending(run);
+    const pending = myPending(run);
     drawBackground(this);
     drawPartyHud(this, run);
     const next = (run.position?.floor ?? 0) + 1;
     const toBoss = next > run.map.floors.length;
-    drawRunHeader(this, toBoss ? "Route: the boss" : `Route: floor ${next}`, pending?.player ?? null, "Vote for the next stop.");
+    const online = isOnlineRun();
+    drawRunHeader(this, toBoss ? "Route: the boss" : `Route: floor ${next}`, online ? null : (pending?.player ?? null), "Vote for the next stop.");
+    if (online && pending === null) drawWaitingFor(this, run, 60, 200);
 
     const options = pending?.type === "vote" ? pending.options : [];
     this.drawEdges(run, options);
@@ -125,6 +136,21 @@ export class MapScene extends Phaser.Scene {
     this.drawSidePanel(run);
     this.voteLayer = this.add.container(0, 0);
     this.drawVotes(run.votes);
+    // A run update with the winner in it: show it, then go on (the votes before it just redraw the map).
+    watchRun(this, "map", {
+      redraw: () => {
+        this.tweens.killAll();
+        this.children.removeAll(true);
+        this.build();
+      },
+      onUpdate: (events) => {
+        const chosen = events.find((e) => e.type === "routeChosen");
+        if (chosen === undefined || chosen.type !== "routeChosen") return false;
+        this.showWinner(chosen);
+        return true;
+      },
+      busy: () => this.resolving,
+    });
   }
 
   // Every connection, dim; the ones the party can take from where it stands, bright and thick.
@@ -220,13 +246,14 @@ export class MapScene extends Phaser.Scene {
     label(this, 60, 340, "Players", 28, { bold: true, color: "#9fd1b8" });
     const g = this.add.graphics();
     run.players.forEach((id, i) => {
-      const y = 390 + i * 44;
+      const y = 390 + i * 56;
       g.fillStyle(PLAYER_COLORS[i % PLAYER_COLORS.length], 1);
       g.fillCircle(80, y, 14);
       g.lineStyle(2, 0x0d2a20, 1);
       g.strokeCircle(80, y, 14);
-      label(this, 110, y, `${id}`, 28);
+      label(this, 110, y, seatName(id), 28);
       label(this, 400, y, `${run.coins[id] ?? 0} coins`, 26, { color: "#ffe14d", origin: 1 });
+      if (isOnlineRun() && run.phase === "vote") label(this, 110, y + 24, run.votes[id] === undefined ? "voting" : "voted", 18, { color: run.votes[id] === undefined ? "#cfe9dc" : "#8fe3a8" });
     });
     label(this, 60, 610, "Stops", 28, { bold: true, color: "#9fd1b8" });
     LEGEND.forEach((type, i) => {
@@ -267,6 +294,8 @@ export class MapScene extends Phaser.Scene {
   // show the winner (and the tie message) for a moment, then go on to the next screen.
   private castVote(player: string, node: number): void {
     if (this.resolving) return;
+    // Online the host settles the vote; the screen follows when its update arrives.
+    if (isOnlineRun()) return submitRunChoice(this, player, { type: "vote", node });
     const result = applyRunChoice(this.run, player, { type: "vote", node });
     const chosen = result.events.find((e) => e.type === "routeChosen");
     if (chosen === undefined || chosen.type !== "routeChosen") {
@@ -274,6 +303,11 @@ export class MapScene extends Phaser.Scene {
       openRunScreen(this);
       return;
     }
+    this.showWinner(chosen, result.run);
+  }
+
+  // The vote is settled: show the winner (and the tie message) for a moment, then go on to the next screen.
+  private showWinner(chosen: Extract<RunEvent, { type: "routeChosen" }>, next?: RunState): void {
     this.resolving = true;
     this.drawVotes(chosen.votes);
     const row = this.run.map.floors[chosen.floor - 1];
@@ -286,7 +320,7 @@ export class MapScene extends Phaser.Scene {
     label(this, 60, 245, `Winner: ${nodeName}`, 30, { bold: true, color: "#7dffb0" });
     if (chosen.tied.length > 1) label(this, 60, 285, "Tie: decided at random", 30, { bold: true, color: "#ff9d7a" });
     this.time.delayedCall(scaleTime(1800), () => {
-      setRun(result.run);
+      if (next) setRun(next);
       openRunScreen(this);
     });
   }
