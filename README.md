@@ -19,5 +19,6 @@ behaviour is pinned down by test cases that the Godot version must also pass.
 
 ## Docs
 
-- `docs/` holds the design brief and reference material (to be added).
+- `docs/pass-the-spark-build-brief.md`: the design brief (2026-11-18).
+- `docs/chain_sim.py`: Monte Carlo model of the chain rules. A reference for rule order, not production code.
 - Work is specified in GitHub issues; see the Issues tab.
