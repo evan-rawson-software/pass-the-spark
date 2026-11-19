@@ -54,9 +54,9 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 
 - **Mimic:** repeats the effect of the last domino played in this chain, at the Mimic's own strength and lap. Enemy passes don't count. It copies the fuse's effect even though the fuse's own effect never triggered. It copies enemy effects toward the enemy: damage hits the enemy, and healing or block goes to the party. Mimic never hurts the party. It copies augments too (Amplify, Echo, Lookout). Mimic after Mimic repeats the original effect. Echo on Mimic makes the copied effect happen twice.
 - **Trigger cap:** at most 100 triggers per domino (data setting).
-- **Streak:** dropped.
+- **Streak and Momentum:** dropped for now. More properties may be defined later.
 - **Spark history:** the spark each domino was answered with, in order, starting with the fuse's output. For a two-output domino, only the spark its successor actually answered counts. An enemy pass adds nothing; an enemy reaction's output counts like any other. Used by Spectrum and the Auditor.
-- **Spectrum:** a property any effect can have. The domino resolves at (chain strength + number of different spark types in the history so far, up to and including the spark that set it off), for itself only. The chain's strength still goes up by the usual 1. Example: at strength 5 with 3 different sparks so far, a Spectrum Jab (base 3) on lap 1 resolves at strength 8 and deals 24.
+- **Spectrum:** a property any effect can have. The domino resolves at (chain strength + number of different spark types in the history so far, up to and including the spark that set it off), for itself only, then multiplied by lap as usual. The chain's strength still goes up by the usual 1. Example: at strength 5 with 3 different sparks so far, a Spectrum Jab (base 3) on lap 1 resolves at strength 8 and deals 24.
 
 ### Hidden information
 - The engine produces each player's own view of the game: all player hands visible, the enemy's hand hidden apart from revealed dominoes.
@@ -72,4 +72,4 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - A big combo meter during combat shows strength × lap and grows bigger and redder as the chain grows.
 
 ### Still open
-- A28 (augments) and A30 (elite and boss specials), being answered one by one.
+- A30 (elite and boss specials), being answered one by one.
