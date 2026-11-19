@@ -1,18 +1,22 @@
 import Phaser from "phaser";
-import { ENEMY_SEAT, getPendingChoice, previewPlay } from "../engine/battle";
-import type { BattleState } from "../engine/battle";
+import { ENEMY_SEAT, getPendingChoice, previewPlay, step } from "../engine/battle";
+import type { BattleState, Choice, PendingChoice, StepResult } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView } from "../engine/view";
-import type { Domino, Passive } from "../engine/types";
+import type { Domino, Passive, Spark } from "../engine/types";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import type { DominoState } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
 import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
+import { describeEvent, eventDelay, newLogMemory } from "./eventLog";
+import type { LogContext } from "./eventLog";
+import { SPEEDS, getPlaybackSpeed, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
 
 // The combat table. Draws everything from getView (and getPendingChoice for
 // whose turn it is and which dominoes are playable). No rules live here.
-// No interaction (#24) or animation (#25) yet. Tooltips come from tooltip.ts.
+// Clicking submits only choices getPendingChoice offers, then the step's events play back in
+// order (see playback below). Animation (#25) is not here yet. Tooltips come from tooltip.ts.
 
 type Layer = Phaser.GameObjects.Container;
 
@@ -36,6 +40,13 @@ const RED = 0xe0443e;
 export class CombatScene extends Phaser.Scene {
   private state!: BattleState;
   private layer?: Layer;
+  private logText?: Phaser.GameObjects.Text;
+  private locked = false; // true while events play back: no input
+  private sparkPrompt: string | null = null; // a clicked domino that answers both sparks of the set
+  // During playback the table keeps showing the state from before the step; these two follow the
+  // events: the seat that is highlighted, and the player whose hand is in front.
+  private hlSeat: string | null = null;
+  private handSeat: string | null = null;
   private settings!: GameSettings;
   private seed = 0;
   private tooltip!: Tooltip;
@@ -54,6 +65,15 @@ export class CombatScene extends Phaser.Scene {
     this.seed = data.seed ?? dev.seed;
     this.layer = undefined;
     this.drawTable();
+    this.locked = false;
+    this.sparkPrompt = null;
+    this.hlSeat = null;
+    this.handSeat = null;
+    this.logText = this.add
+      .text(LEFT_X + SIDE_W / 2, 925, "Click a domino in your hand to fuse.", {
+        fontFamily: FONT, fontSize: "26px", color: "#ffffff", align: "center", wordWrap: { width: SIDE_W - 20 },
+      })
+      .setOrigin(0.5);
     this.tooltip = new Tooltip(this);
     this.setState(startBattle(this.settings, this.seed, data.settings ? undefined : query));
   }
@@ -79,18 +99,17 @@ export class CombatScene extends Phaser.Scene {
     this.layer = layer;
     const state = this.state;
     const view = getView(state, state.players[0].id);
-    const pending = getPendingChoice(state);
-    const playable = new Set<string>(
-      pending === null ? [] : pending.type === "fuse" ? pending.dominoes : pending.options.map((o) => o.domino),
-    );
-    const active = state.seat === ENEMY_SEAT ? state.lead : state.seat;
+    const pending = this.locked ? null : getPendingChoice(state);
+    const active = this.handSeat ?? (state.seat === ENEMY_SEAT ? state.lead : state.seat);
+    const turn = this.hlSeat ?? state.seat;
     this.tipPlayer = pending === null ? "" : pending.player;
 
-    this.drawEnemy(layer, view);
-    this.drawHud(layer, view);
+    this.drawEnemy(layer, view, turn);
+    this.drawHud(layer, view, turn);
     this.drawParty(layer, view);
     this.drawChain(layer, view);
-    this.drawActiveHand(layer, view, active, playable, pending?.type ?? null);
+    this.drawActiveHand(layer, view, active, pending);
+    this.drawSpeedControl(layer);
     const others = view.players.filter((p) => p.id !== active);
     others.forEach((p, i) => {
       // Left column takes the 1st and 3rd teammate, the right column the 2nd.
@@ -139,7 +158,7 @@ export class CombatScene extends Phaser.Scene {
     return g;
   }
 
-  private domino(layer: Layer, id: string | null, k: number, state: DominoState, x: number, y: number): void {
+  private domino(layer: Layer, id: string | null, k: number, state: DominoState, x: number, y: number, onClick?: () => void): void {
     const d: Domino = dominoes.find((q) => q.id === id) ?? dominoes[0];
     const c = drawDomino(this, d, "large", state);
     c.setScale(k);
@@ -150,6 +169,10 @@ export class CombatScene extends Phaser.Scene {
     if (state !== "hidden") {
       const preview = state === "playable" ? () => previewPlay(this.state, this.tipPlayer, d.id) : undefined;
       this.tooltip.attach(c, d, preview);
+    }
+    if (onClick) {
+      c.setInteractive({ useHandCursor: true });
+      c.on("pointerdown", onClick);
     }
   }
 
@@ -197,10 +220,10 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- enemy (top) ----
 
-  private drawEnemy(layer: Layer, view: BattleView): void {
+  private drawEnemy(layer: Layer, view: BattleView, turn: string): void {
     const e = view.enemy;
     const def = enemies.find((x) => x.id === e.id);
-    const onTurn = view.seat === ENEMY_SEAT;
+    const onTurn = turn === ENEMY_SEAT;
     if (onTurn) {
       const g = this.gfx(layer);
       for (let i = 5; i >= 1; i--) {
@@ -268,7 +291,7 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- HUD (band under the enemy) ----
 
-  private drawHud(layer: Layer, view: BattleView): void {
+  private drawHud(layer: Layer, view: BattleView, turn: string): void {
     const y = 350;
     this.label(layer, MAT.x + 10, y, `Round ${view.round}`, 36, "#ffffff", 0, true);
     if (view.result) {
@@ -282,7 +305,7 @@ export class CombatScene extends Phaser.Scene {
     const g = this.gfx(layer);
     view.seatOrder.forEach((seat, i) => {
       const x = x0 + i * step;
-      this.plate(layer, x, y - 6, seat === ENEMY_SEAT ? "Enemy" : seat, seat === view.seat && view.phase !== "over", 24);
+      this.plate(layer, x, y - 6, seat === ENEMY_SEAT ? "Enemy" : seat, seat === turn && view.phase !== "over", 24);
       if (seat === view.lead) this.label(layer, x, y + 28, "LEAD", 16, "#ffe14d", 0.5, true);
       if (i < n - 1) {
         g.fillStyle(0x9fd1b8, 1);
@@ -402,7 +425,11 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- hands ----
 
-  private drawActiveHand(layer: Layer, view: BattleView, active: string, playable: Set<string>, pendingType: "fuse" | "answer" | null): void {
+  private drawActiveHand(layer: Layer, view: BattleView, active: string, pending: PendingChoice | null): void {
+    const playable = new Set<string>(
+      pending === null ? [] : pending.type === "fuse" ? pending.dominoes : pending.options.map((o) => o.domino),
+    );
+    const pendingType = pending?.type ?? null;
     const p = view.players.find((x) => x.id === active);
     if (!p) return;
     const onTurn = view.phase !== "over";
@@ -415,7 +442,12 @@ export class CombatScene extends Phaser.Scene {
     }
     this.plate(layer, HAND.x + 110, HAND.y + 4, p.id, onTurn, 28);
     const hint = pendingType === "fuse" ? "Choose a domino to fuse" : pendingType === "answer" ? "Answer the spark" : "";
-    this.label(layer, HAND.x + 240, HAND.y + 4, `${hint}${hint ? "   ·   " : ""}Deck ${p.deck.length}   Discard ${p.discard.length}`, 22, "#cfe9dc", 0);
+    const prompt = pending?.type === "answer" && this.sparkPrompt ? pending.options.find((o) => o.domino === this.sparkPrompt) : undefined;
+    if (prompt) {
+      this.drawSparkPrompt(layer, prompt.domino, prompt.sparks);
+    } else {
+      this.label(layer, HAND.x + 240, HAND.y + 4, `${hint}${hint ? "   ·   " : ""}Deck ${p.deck.length}   Discard ${p.discard.length}`, 22, "#cfe9dc", 0);
+    }
     if (p.hand.length === 0) {
       this.label(layer, HAND.x + HAND.w / 2, HAND.y + 130, "No dominoes in hand", 28, "#7fb59b", 0.5);
       return;
@@ -429,9 +461,132 @@ export class CombatScene extends Phaser.Scene {
       const x0 = HAND.x + (HAND.w - inRow.length * step) / 2 + step / 2;
       inRow.forEach((id, i) => {
         const state: DominoState = !onTurn ? "normal" : playable.has(id) ? "playable" : "notPlayable";
-        this.domino(layer, id, k, state, x0 + i * step, HAND.y + 100 + r * (DH * k + 12));
+        const click = state === "playable" ? () => this.onHandClick(id) : undefined;
+        this.domino(layer, id, k, state, x0 + i * step, HAND.y + 100 + r * (DH * k + 12), click);
       });
     }
+  }
+
+  // ---- input ----
+
+  // A click on a playable domino. Playable means the engine offered it in getPendingChoice.
+  private onHandClick(id: string): void {
+    if (this.locked) return;
+    const pending = getPendingChoice(this.state);
+    if (pending === null) return;
+    if (pending.type === "fuse") {
+      if (pending.dominoes.includes(id)) this.submit({ type: "fuse", domino: id });
+      return;
+    }
+    const option = pending.options.find((o) => o.domino === id);
+    if (!option) return;
+    if (option.sparks.length > 1) {
+      // The engine says this domino answers both sparks of the set: ask which one.
+      this.sparkPrompt = id;
+      this.redraw();
+    } else {
+      this.submit({ type: "answer", domino: id, spark: option.sparks[0] });
+    }
+  }
+
+  // The inline question in the hand's header row: one button per spark the engine listed.
+  private drawSparkPrompt(layer: Layer, id: string, sparks: Spark[]): void {
+    const y = HAND.y + 4;
+    const name = dominoes.find((d) => d.id === id)?.name ?? id;
+    const t = this.label(layer, HAND.x + 240, y, `Which spark does ${name} answer?`, 22, "#ffe14d", 0, true);
+    let x = HAND.x + 240 + t.width + 24;
+    const button = (w: number, onClick: () => void): Phaser.GameObjects.Graphics => {
+      const g = this.gfx(layer);
+      g.fillStyle(0x0d2a20, 0.95);
+      g.fillRoundedRect(x, y - 20, w, 40, 20);
+      g.lineStyle(3, GOLD, 1);
+      g.strokeRoundedRect(x, y - 20, w, 40, 20);
+      const z = this.add.zone(x + w / 2, y, w, 40).setInteractive({ useHandCursor: true });
+      z.on("pointerdown", onClick);
+      layer.add(z);
+      return g;
+    };
+    for (const s of sparks) {
+      const g = button(150, () => this.submit({ type: "answer", domino: id, spark: s }));
+      drawSparkGlyph(g, s, x + 26, y, 14);
+      this.label(layer, x + 50, y, s, 22, "#ffffff", 0, true);
+      x += 162;
+    }
+    button(100, () => {
+      this.sparkPrompt = null;
+      this.redraw();
+    });
+    this.label(layer, x + 50, y, "Cancel", 20, "#cfe9dc", 0.5);
+  }
+
+  private drawSpeedControl(layer: Layer): void {
+    const x = RIGHT_X;
+    const y = 960;
+    this.label(layer, x + SIDE_W / 2, y - 36, "Playback speed", 20, "#9fd1b8", 0.5, true);
+    SPEEDS.forEach((v, i) => {
+      const bx = x + i * 76;
+      const on = v === getPlaybackSpeed();
+      const g = this.gfx(layer);
+      g.fillStyle(on ? GOLD : 0x0d2a20, 0.95);
+      g.fillRoundedRect(bx, y - 18, 68, 36, 18);
+      this.label(layer, bx + 34, y, `${v}×`, 22, on ? "#2a2200" : "#ffffff", 0.5, true);
+      const z = this.add.zone(bx + 34, y, 68, 36).setInteractive({ useHandCursor: true });
+      z.on("pointerdown", () => {
+        setPlaybackSpeed(v);
+        this.redraw();
+      });
+      layer.add(z);
+    });
+  }
+
+  // ---- submitting and playback ----
+
+  private submit(choice: Choice): void {
+    if (this.locked) return;
+    this.sparkPrompt = null;
+    void this.playback(step(this.state, choice));
+  }
+
+  // Plays the step's events in order. The table keeps showing the state from before the step
+  // while the log line and the highlighted seat follow the events; when they are done it
+  // redraws from the new state (getView). Input is locked until then.
+  private async playback(result: StepResult): Promise<void> {
+    this.locked = true;
+    this.redraw();
+    const before = this.state;
+    const enemyName = enemies.find((e) => e.id === before.enemy.id)?.name ?? before.enemy.id;
+    const ctx: LogContext = {
+      enemyName,
+      name: (seat) => (seat === ENEMY_SEAT ? enemyName : seat),
+      domino: (id) => dominoes.find((d) => d.id === id)?.name ?? id,
+    };
+    const mem = newLogMemory();
+    const isPlayer = (seat: string) => seat !== ENEMY_SEAT;
+    for (const ev of result.events) {
+      let hl: string | null = this.hlSeat;
+      let hand: string | null = this.handSeat;
+      switch (ev.type) {
+        case "roundStart": hl = ev.lead; hand = ev.lead; break;
+        case "draw": hl = ev.seat; break;
+        case "fuse": hl = ev.player; hand = ev.player; break;
+        case "pass": hl = ev.to; if (isPlayer(ev.to)) hand = ev.to; break;
+        case "play": hl = ev.seat; if (isPlayer(ev.seat)) hand = ev.seat; break;
+        case "enemyDiscard": case "enemyNoReaction": case "leftover": hl = ENEMY_SEAT; break;
+      }
+      const text = describeEvent(ev, ctx, mem);
+      if (text !== null) this.logText?.setText(text);
+      if (hl !== this.hlSeat || hand !== this.handSeat) {
+        this.hlSeat = hl;
+        this.handSeat = hand;
+        this.redraw();
+      }
+      const delay = eventDelay(ev, mem);
+      if (delay > 0) await new Promise<void>((resolve) => this.time.delayedCall(scaleTime(delay), resolve));
+    }
+    this.locked = false;
+    this.hlSeat = null;
+    this.handSeat = null;
+    this.setState(result.state);
   }
 
   private drawTeammate(layer: Layer, view: BattleView, id: string, x: number, y: number, h: number): void {
