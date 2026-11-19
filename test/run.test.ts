@@ -47,7 +47,7 @@ function play(start: RunState, stop: (run: RunState) => boolean): { run: RunStat
   return { run, events };
 }
 
-test("two battles: health carries over, seats rotate and the lead carries over", () => {
+test("two battles: health carries over, seats rotate and the lead carries over; beating act 1's boss opens act 2", () => {
   const start = createRun({ players, seed: 5, content: easyContent() });
 
   const first = play(start, (r) => r.battle !== null).run;
@@ -75,18 +75,17 @@ test("two battles: health carries over, seats rotate and the lead carries over",
   // Same seed and choices, same run.
   const replay = play(play(start, (r) => r.phase === "reward").run, (r) => r.phase !== "battle" && r.battlesFought === 2).run;
   expect(JSON.stringify(replay)).toBe(JSON.stringify(afterSecond));
-});
 
-test("beating act 1's boss opens act 2: the party heals once, and fights come from act 2's pools", () => {
-  const content = JSON.parse(JSON.stringify(easyContent())) as Content; // a copy: loadContent shares its data objects
-  content.run.actStartHealPercent = 50;
-  content.run.acts[0].map.floors = 1;
-  content.run.acts[0].map.fixedFloors = { "1": "fight" };
-  content.run.acts[0].map.minTradersPerAct = 0;
-  for (const e of content.enemies) if (e.tier === "boss" || content.run.acts[1].normalPool.includes(e.id)) e.maxHealth = 1; // quick wins
-  const start = createRun({ players, seed: 7, content });
+  // Crossing into act 2 (act 1 cut down to one fight and the boss): the heal applies once, act 2's pools are used.
+  const shortContent = JSON.parse(JSON.stringify(easyContent())) as Content; // a copy: loadContent shares its data objects
+  shortContent.run.actStartHealPercent = 50;
+  shortContent.run.acts[0].map.floors = 1;
+  shortContent.run.acts[0].map.fixedFloors = { "1": "fight" };
+  shortContent.run.acts[0].map.minTradersPerAct = 0;
+  for (const e of shortContent.enemies) if (e.tier === "boss" || shortContent.run.acts[1].normalPool.includes(e.id)) e.maxHealth = 1; // quick wins
+  const shortStart = createRun({ players, seed: 7, content: shortContent });
 
-  const atBoss = play(start, (r) => r.position?.type === "boss" && r.phase === "battle").run;
+  const atBoss = play(shortStart, (r) => r.position?.type === "boss" && r.phase === "battle").run;
   expect(atBoss.actIndex).toBe(0);
   const won = play(atBoss, (r) => r.phase === "reward").run;
   const before = won.health;
@@ -107,7 +106,7 @@ test("beating act 1's boss opens act 2: the party heals once, and fights come fr
   expect(run.health).toBe(before + heal);
   expect(run.position).toBeNull(); // the first vote of act 2 is still to come
   expect(act2.bossPool).toContain(run.map.bossId);
-  expect(run.coins.a).toBe(run.content.run.startingCoins + content.run.acts[0].battleCoins.fight + content.run.acts[0].battleCoins.boss); // coins carry over
+  expect(run.coins.a).toBe(run.content.run.startingCoins + shortContent.run.acts[0].battleCoins.fight + shortContent.run.acts[0].battleCoins.boss); // coins carry over
 
   const fight = play(run, (r) => r.battle !== null).run;
   expect(act2.normalPool).toContain(fight.battle!.enemy.id);
