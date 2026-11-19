@@ -3,6 +3,7 @@ import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
 import type { Domino } from "../engine/types";
 import { scaleTime } from "./playbackSpeed";
+import { Heat, METER_FULL, METER_MAX_SCALE } from "./heat";
 
 // Basic table animations (#25), driven only by engine events and the numbers in them.
 // Every duration goes through scaleTime. The scene redraws from getView when the step is over,
@@ -14,7 +15,7 @@ const DH = 120;
 const GOLD = 0xffe14d;
 const RED = 0xff3b2f;
 
-export const COMBO_METER_FULL = 60; // strength x lap at which the meter looks full (cosmetic only)
+export const COMBO_METER_FULL = METER_FULL; // strength x lap at which the meter looks full (cosmetic only; data/presentation.json)
 
 export interface Pos { x: number; y: number; k: number }
 interface Box { x: number; y: number; w: number; h: number }
@@ -66,7 +67,7 @@ export function comboLook(total: number): { scale: number; color: number } {
   const f = Math.min(1, total / COMBO_METER_FULL);
   const lerp = (a: number, b: number) => Math.round(a + (b - a) * f);
   const color = (lerp((GOLD >> 16) & 255, (RED >> 16) & 255) << 16) | (lerp((GOLD >> 8) & 255, (RED >> 8) & 255) << 8) | lerp(GOLD & 255, RED & 255);
-  return { scale: 1 + 0.3 * f, color };
+  return { scale: 1 + (METER_MAX_SCALE - 1) * f, color };
 }
 
 export function hexString(color: number): string {
@@ -172,7 +173,11 @@ export class Animator {
   refs: Refs = newRefs();
   private anchor: Box | null = null; // where the domino whose effect is going off sits
 
-  constructor(private scene: Phaser.Scene, public dominoes: Domino[]) {}
+  heat: Heat; // the heat ladder (#133); the scene's chain drawing also calls heat.decorate and heat.syncRoom
+
+  constructor(private scene: Phaser.Scene, public dominoes: Domino[], dim: Phaser.GameObjects.Rectangle) {
+    this.heat = new Heat(scene, dim);
+  }
 
   // Plays an event's animation. `apply` updates the shown table and redraws it; it is called once,
   // after any "before" animation (the chain clearing) and before the "after" ones.
@@ -210,6 +215,11 @@ export class Animator {
           last.c.setPosition(from.x, from.y).setScale(from.k);
           refs.layer?.bringToTop(last.c);
           scene.tweens.add({ targets: last.c, x: last.pos.x, y: last.pos.y, scale: last.pos.k, duration: scaleTime(350), ease: "Cubic.easeOut" });
+        }
+        // Heat ladder: links (strength) and lap come straight from the event.
+        if (ev.type === "play") {
+          const prev = refs.chain[refs.chain.length - 2];
+          this.heat.onPlay(ev.strength, ev.lap, prev && boxOf(prev.pos), last && boxOf(last.pos));
         }
         break;
       }
@@ -253,7 +263,12 @@ export class Animator {
         const key = ev.side;
         const sh = refs.shields.get(key);
         const bar = refs.bars.get(key);
-        if (ev.amount > 0 && bar) floatText(scene, bar.x + bar.w / 2, bar.y - 10, `-${ev.amount}`, "#ff6a5f");
+        if (ev.amount > 0 && bar) {
+          const at = bar.x + bar.w / 2;
+          if (!this.heat.damageNumber(shown.chain.strength, shown.chain.lap, at, bar.y - 10, `-${ev.amount}`, "#ff6a5f")) {
+            floatText(scene, at, bar.y - 10, `-${ev.amount}`, "#ff6a5f");
+          }
+        }
         if (ev.blocked > 0 && sh) floatText(scene, sh.x + 30, sh.y - 10, `${ev.blocked} blocked`, "#9cc4ff", 32);
         this.tweenHealth(key, before, after);
         break;
@@ -289,6 +304,10 @@ export class Animator {
         break;
     }
     this.meter(ev, before.total, after.total);
+    if (ev.type === "lapUp") this.heat.onLapUp(ev.lap);
+    if (ev.type === "chainEnd") this.heat.onChainEnd();
+    // Lap 3+: slow motion after each play. Local to this screen; scaled by playback speed.
+    if (ev.type === "play") await this.heat.slowMotion(ev.strength, ev.lap);
   }
 
   private tweenHealth(side: "party" | "enemy", before: Snapshot, after: Snapshot): void {
