@@ -10,7 +10,7 @@ const KINDS = ["vote", "personal", "push"];
 const REQUIRED: Record<string, { kind: string; numbers: string[] }> = {
   toll_bridge: { kind: "vote", numbers: ["payCoins"] },
   tinkers_bench: { kind: "personal", numbers: ["repaintCost"] },
-  wishing_well: { kind: "personal", numbers: ["coinPrize", "upgradeFallbackCoins"] },
+  wishing_well: { kind: "personal", numbers: ["coinPrize", "fallbackCoins"] },
   sleeping_giant: { kind: "push", numbers: ["grabCoins", "wakeStartPercent", "wakeStepPercent", "wakeDamage"] },
   spark_shrine: { kind: "vote", numbers: ["blessedAnswerStrength"] },
   lost_courier: { kind: "vote", numbers: ["coinsEach"] },

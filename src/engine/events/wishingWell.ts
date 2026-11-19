@@ -5,7 +5,7 @@
 // Every step is an ordinary personal choice: option 1 (turn over) with no pick, then option 1 again
 // with the pick the stage asks for. Skip (option 0) ends it at any stage with no prize.
 // Prize kinds: "coins" (numbers.coinPrize), "remove" (free removal), "upgrade" (a free upgrade, or
-// numbers.upgradeFallbackCoins when nothing can be upgraded), "rare" (an offer of rares, pick one).
+// numbers.fallbackCoins when nothing can be upgraded; a removal pays them too when the deck is at its minimum size), "rare" (an offer of rares, pick one).
 
 import type { RunState } from "../run";
 import { rollOffers } from "../rewards";
@@ -71,12 +71,12 @@ function settle(run: RunState, player: string, well: WellState, spark: Spark): P
     run.coins[player] += numbers.coinPrize;
     return done(well, "coins", numbers.coinPrize, [], null);
   }
-  if (kind === "remove") return canRemove(run, player) ? null : done(well, "none", 0, [], null);
-  if (kind === "upgrade") {
-    if (run.decks[player].some((id) => upgradeChoices(run, player, id).length > 0)) return null;
-    run.coins[player] += numbers.upgradeFallbackCoins;
-    return done(well, "coins", numbers.upgradeFallbackCoins, [], null);
-  }
+  const fallback = () => {
+    run.coins[player] += numbers.fallbackCoins;
+    return done(well, "coins", numbers.fallbackCoins, [], null);
+  };
+  if (kind === "remove") return canRemove(run, player) ? null : fallback(); // deck already at the minimum
+  if (kind === "upgrade") return run.decks[player].some((id) => upgradeChoices(run, player, id).length > 0) ? null : fallback();
   const roll = rollOffers(run.rng, [player], "fight", run.content.pools, run.nextIndex, true);
   run.rng = roll.state;
   run.nextIndex = roll.nextIndex;
