@@ -98,7 +98,7 @@ export function botChoice(view: BattleView, seat: string, rng: number): { choice
     const previews = previewPlay(view, seat, option.domino);
     for (const spark of option.sparks) {
       const pv = previews.find((p) => p.spark === spark);
-      scored.push({ id: option.domino, spark, key: [passes, pv ? pv.value : 0] });
+      scored.push({ id: option.domino, spark, key: [passes, pv ? pv.value * pv.triggers : 0] });
     }
   }
   const r = pickOne(bestOf(scored), rng);
