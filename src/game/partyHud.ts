@@ -2,10 +2,11 @@ import Phaser from "phaser";
 import { getPendingRunChoices } from "../engine/run";
 import type { RunState } from "../engine/run";
 import { openDeckViewer, runDeckPlayers } from "./deckViewer";
-import { actingSeat, isOnlineRun, myPending, onlineRun, seatName } from "./runSession";
+import { actingSeat, isOnlineRun, myPending, onlineRun, seatName, seatNames } from "./runSession";
 import { relay } from "./relay";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import { drawSparkGlyph } from "./dominoDrawing";
+import { drawPartyCharms } from "./charmUi";
 import { FONT, button, label } from "./ui";
 
 // Shared HUD for the run screens (#50): the party's health, top right, and a header that says
@@ -37,6 +38,8 @@ export function drawPartyHud(scene: Phaser.Scene, run: RunState): void {
   }
   const acting = actingSeat(run);
   if (acting !== null && acting !== onlineRun()?.seat) label(scene, x, 175, `Playing for ${seatName(acting)}`, 24, { bold: true, color: "#ffe14d" });
+  // Everyone's charms, by their names (#108).
+  drawPartyCharms(scene, run.players, seatNames(), run.charms);
   drawPause(scene);
 }
 

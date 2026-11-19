@@ -5,6 +5,7 @@ import type { Domino } from "../engine/types";
 import { drawDomino, drawSparkGlyph, drawAnySymbol } from "./dominoDrawing";
 import { SPARK_ORDER, SPARK_STYLE } from "./sparks";
 import { Tooltip } from "./tooltip";
+import { charmsByIds, drawCharmRow } from "./charmUi";
 import { actingSeat, currentRun, myPending, sceneFor, seatName } from "./runSession";
 import { FONT, button, drawBackground } from "./ui";
 
@@ -22,6 +23,7 @@ interface DeckCard {
 export interface DeckViewPlayer {
   id: string;
   name: string;
+  charms?: string[]; // charm ids held, shown under the name
   cards: DeckCard[];
 }
 
@@ -30,6 +32,7 @@ export function runDeckPlayers(run: RunState): DeckViewPlayer[] {
   return run.players.map((id) => ({
     id,
     name: seatName(id),
+    charms: run.charms[id],
     cards: run.decks[id].map((inst) => ({ domino: run.dominoes.find((d) => d.id === inst) ?? missing(inst) })),
   }));
 }
@@ -41,6 +44,7 @@ export function battleDeckPlayers(view: BattleView, name: (id: string) => string
   return view.players.map((p) => ({
     id: p.id,
     name: name(p.id),
+    charms: p.charms,
     cards: [
       ...p.deck.map((i) => ({ domino: find(i), zone: "draw" as const })),
       ...p.hand.map((i) => ({ domino: find(i), zone: "hand" as const })),
@@ -201,6 +205,10 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
         { size: 30, selected: i === current },
       );
       c.add(b);
+      // This player's charms, under the name (#108).
+      const before = scene.children.list.length;
+      drawCharmRow(scene, tooltip, charmsByIds(p.charms ?? []), x, PANEL.y + 158, 24, Math.max(b.width, 120));
+      c.add(scene.children.list.slice(before));
       x += b.width + 16;
     });
     const cards = players[current].cards;

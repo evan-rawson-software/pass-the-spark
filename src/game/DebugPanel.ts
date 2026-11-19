@@ -1,7 +1,7 @@
 import { ENEMY_SEAT, getPendingChoice } from "../engine/battle";
 import { handLimitOf } from "../engine/battleCharms";
 import type { BattleState } from "../engine/battle";
-import { dominoes } from "./devBattle";
+import { content, dominoes } from "./devBattle";
 
 // Developer debug panel (#28). A plain HTML overlay, hidden until the backtick key opens it.
 // The scene hooks in through DebugHost; nothing here is a game rule except the explicit
@@ -317,6 +317,22 @@ class DebugPanel {
         return;
       }
       host.setState(result);
+      this.render();
+    });
+    // Give a player a charm for this battle (debug only; it is not added to the run).
+    add(parent, "div", "Give a charm:").style.margin = "8px 0 2px";
+    const who = add(parent, "select");
+    for (const p of state.players) add(who, "option", p.id).value = p.id;
+    const which = add(parent, "select");
+    for (const c of content.charms) add(which, "option", c.name).value = c.id;
+    button(parent, "Give charm", () => {
+      const next: BattleState = JSON.parse(JSON.stringify(host.getState() ?? state));
+      const p = next.players.find((q) => q.id === who.value);
+      const charm = content.charms.find((c) => c.id === which.value);
+      if (!p || !charm || p.charms.includes(charm.id)) return;
+      p.charms.push(charm.id);
+      if (!next.charmDefs.some((c) => c.id === charm.id)) next.charmDefs.push(charm);
+      host.setState(next);
       this.render();
     });
   }
