@@ -1,5 +1,5 @@
 {
-  "partyMaxHealth": 60,
+  "partyMaxHealth": 90,
   "playerDrawPerRound": 3,
   "playerFirstDraw": 5,
   "playerHandLimit": 10,
@@ -8,5 +8,6 @@
   "auditorDamage": {
     "rule": "strength"
   },
-  "gluttonHeal": 5
+  "gluttonHeal": 5,
+  "enemyHealthPercentByPartySize": [100, 100, 100, 165]
 }

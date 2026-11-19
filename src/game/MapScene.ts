@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { enemyStartingHealth } from "../engine/battle";
 import { applyRunChoice } from "../engine/run";
 import type { RunEvent, RunNodeType, RunState } from "../engine/run";
 import { content } from "./devBattle";
@@ -307,7 +308,7 @@ export class MapScene extends Phaser.Scene {
       hits.push(this.add.circle(iconX - i * 60, 36, 24, 0, 0));
     });
     const tip = new Tooltip(this);
-    const lines = bossTip(boss);
+    const lines = bossTip(boss, boss ? enemyStartingHealth(content.config, boss, run.players.length) : 0);
     const hit = this.add.circle(CENTER_X, BOSS_Y, r, 0, 0);
     // The boss itself scrolls with the map; its name and passive icons stay in the heading.
     const fixed = new Set<Phaser.GameObjects.GameObject>([name, ...icons, ...hits]);

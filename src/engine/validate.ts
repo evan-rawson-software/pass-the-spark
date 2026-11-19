@@ -142,6 +142,10 @@ export function validateConfig(data: unknown): Config {
     checkPositive(file, id, data, field);
   }
   if (typeof data.enemyReactionsScaleWithLap !== "boolean") fail(file, id, `"enemyReactionsScaleWithLap" must be true or false`);
+  const pct = data.enemyHealthPercentByPartySize;
+  if (!Array.isArray(pct) || pct.length !== 4 || !pct.every((p) => typeof p === "number" && Number.isInteger(p) && p > 0)) {
+    fail(file, id, `"enemyHealthPercentByPartySize" must be 4 whole numbers above 0 (party sizes 1 to 4)`);
+  }
   checkAuditorDamage(file, id, data.auditorDamage);
   return data as unknown as Config;
 }

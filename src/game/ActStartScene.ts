@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { enemyStartingHealth } from "../engine/battle";
 import { applyRunChoice } from "../engine/run";
 import { bossTip } from "./bossInfo";
 import { drawPassiveIcon } from "./passiveIcon";
@@ -40,7 +41,7 @@ export class ActStartScene extends Phaser.Scene {
     label(this, 960, 600, "This act's boss", 30, { origin: 0.5, color: "#9fd1b8" });
     const name = label(this, 960, 660, boss?.name ?? run.map.bossId, 56, { bold: true, origin: 0.5 });
     const tip = new Tooltip(this);
-    const lines = bossTip(boss);
+    const lines = bossTip(boss, boss ? enemyStartingHealth(content.config, boss, run.players.length) : 0);
     tip.attachLines(name, lines);
     const list = boss?.passives ?? [];
     list.forEach((p, i) => {

@@ -1,7 +1,7 @@
 {
   "startingCoins": 50,
   "actStartHealPercent": 100,
-  "restHeal": 8,
+  "restHeal": 20,
   "upgrade": { "numberedPercent": 50, "amplify": 1, "echoTriggers": 1, "lookoutReveals": 1, "mimicStrength": 1 },
   "trader": {
     "stockSize": 5,

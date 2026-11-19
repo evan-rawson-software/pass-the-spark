@@ -70,6 +70,8 @@ export interface Config {
   enemyReactionsScaleWithLap: boolean;
   auditorDamage: AuditorDamage;
   gluttonHeal: number;
+  // Enemy starting health, in percent of its data health, for parties of 1, 2, 3 and 4 players.
+  enemyHealthPercentByPartySize: number[];
 }
 
 // data/starter-deck.json is a list of domino ids; copies repeat the id.
