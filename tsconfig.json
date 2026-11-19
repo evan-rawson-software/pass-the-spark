@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "test", "data"]
+  "include": ["src", "test", "data", "scripts"]
 }

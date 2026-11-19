@@ -36,3 +36,4 @@ Pass the Spark is a turn-based co-op deckbuilder. It will be built as a web MVP 
 - `npm ci`: install dependencies.
 - `npm run typecheck`: type-check with `tsc --noEmit`.
 - `npm test`: run the Vitest tests once.
+- `npm run sim`: play random battles against every enemy and print win rate, rounds and chain length.
