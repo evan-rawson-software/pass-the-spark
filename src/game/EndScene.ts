@@ -3,6 +3,7 @@ import type { Client } from "../net/client";
 import type { Host } from "../net/host";
 import { rememberSettings } from "./devBattle";
 import type { GameSettings } from "./devBattle";
+import { watchLink } from "./linkBanner";
 import { relay } from "./relay";
 
 // Placeholder end screen (#27). Shows the result handed over by the combat
@@ -44,6 +45,7 @@ export class EndScene extends Phaser.Scene {
 
   private createOnline(online: NonNullable<EndData["online"]>): void {
     const { host, client, roomCode } = online;
+    watchLink(this, client);
     const toLobby = () => {
       if (host) this.scene.start("hostLobby", { name: online.names["p1"] ?? "Host", resume: { host, roomCode } });
       else if (client) this.scene.start("join", { resume: { client, roomCode } });

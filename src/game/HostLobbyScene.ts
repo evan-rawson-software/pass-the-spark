@@ -4,7 +4,8 @@ import type { Host } from "../net/host";
 import { BUILD_ID } from "../net/buildId";
 import { createPeerTransport } from "../net/peerTransport";
 import type { HostMessage } from "../net/protocol";
-import { generateRoomCode } from "../net/room";
+import { generateRoomCode, loadHostedRoom, saveHostedRoom } from "../net/room";
+import type { SavedRoom } from "../net/room";
 import { debugPanel } from "./DebugPanel";
 import { content, enemies } from "./devBattle";
 import { relay } from "./relay";
@@ -28,16 +29,22 @@ export class HostLobbyScene extends Phaser.Scene {
   }
 
   // With `resume`, the room is already open (a battle just ended): show its lobby again.
-  create(data: { name: string; resume?: { host: Host; roomCode: string } }): void {
+  // With `restore` (or, opened with ?room=CODE, a room this browser saved), the page was reloaded:
+  // open the same room again from the save.
+  create(data: { name?: string; resume?: { host: Host; roomCode: string }; restore?: SavedRoom } = {}): void {
+    const roomParam = (new URLSearchParams(window.location.search).get("room") ?? "").toUpperCase();
+    const restore = data.restore ?? (!data.name && !data.resume && roomParam !== "" ? loadHostedRoom(roomParam, BUILD_ID, safeStorage()) : null);
+    const name = data.name ?? restore?.members.find((m) => m.token === null)?.name ?? "Host";
     this.host = null;
     this.lobby = null;
-    this.mySeat = "p1";
+    this.mySeat = restore?.members.find((m) => m.token === null)?.seat ?? "p1";
     this.started = false;
     this.note = "";
     this.dynamic = [];
     drawBackground(this);
     label(this, 960, 70, "Host online game", 56, { bold: true, origin: 0.5 });
     relay.handler = (m) => this.onMessage(m);
+    if (!data.resume) relay.reset();
     if (data.resume && relay.lobby) {
       this.host = data.resume.host;
       this.roomCode = data.resume.roomCode;
@@ -56,30 +63,43 @@ export class HostLobbyScene extends Phaser.Scene {
     button(this, 60, 1000, "Back", () => this.leave());
 
     const defaultEnemy = enemies.some((e) => e.id === "ogre") ? "ogre" : enemies[0].id;
-    this.lobby = { type: "lobby", players: [{ seat: "p1", name: data.name }], seats: ["p1"], enemyId: defaultEnemy };
+    this.lobby = { type: "lobby", players: [{ seat: "p1", name }], seats: ["p1"], enemyId: defaultEnemy };
     debugPanel.onLobbyChange = () => this.redraw();
     this.events.once("shutdown", () => {
       debugPanel.onLobbyChange = null;
       if (!this.started) this.host?.close();
     });
 
-    this.open(data.name, defaultEnemy).then(
+    this.open(name, defaultEnemy, restore).then(
       (host) => {
         if (!this.scene.isActive()) return host.close();
         this.host = host;
         status.destroy();
+        // Reloading this page now brings the host back to the same room.
+        try {
+          window.history.replaceState(null, "", `${window.location.pathname}?room=${this.roomCode}`);
+        } catch {
+          // not allowed here
+        }
         this.drawRoom();
         this.redraw();
+        if (restore) host.announce(); // the lobby, or straight back into the battle
       },
-      () => status.setText("Couldn't reach the connection server. Go back and try again."),
+      (e: { type?: string }) =>
+        status.setText(
+          e?.type === "unavailable-id" && restore
+            ? "This room is already open in another tab."
+            : "Couldn't reach the connection server. Go back and try again.",
+        ),
     );
   }
 
-  // The room code can already be taken on the broker; try a few.
-  private async open(name: string, enemyId: string): Promise<Host> {
+  // A new room: the code can already be taken on the broker; try a few. A restored room has
+  // only its own code, and the broker may need a few seconds to let go of it after a reload.
+  private async open(name: string, enemyId: string, restore: SavedRoom | null): Promise<Host> {
     let lastError: unknown;
     for (let i = 0; i < 5; i++) {
-      const roomCode = generateRoomCode();
+      const roomCode = restore ? restore.roomCode : generateRoomCode();
       try {
         const host = await createHost({
           transport: createPeerTransport(),
@@ -91,12 +111,15 @@ export class HostLobbyScene extends Phaser.Scene {
           starterDeck: content.starterDeck,
           enemyId,
           onLocalMessage: (m) => relay.deliver(m),
+          resume: restore ?? undefined,
+          onSave: (room) => saveHostedRoom(roomCode, room, safeStorage()),
         });
         this.roomCode = roomCode;
         return host;
       } catch (e) {
         lastError = e;
         if ((e as { type?: string }).type !== "unavailable-id") break;
+        if (restore) await new Promise((r) => setTimeout(r, 2000));
       }
     }
     throw lastError;
@@ -159,7 +182,7 @@ export class HostLobbyScene extends Phaser.Scene {
     lobby.players.forEach((p, i) => {
       const y = 340 + i * 90;
       const you = p.seat === this.mySeat;
-      keep(label(this, 100, y, `${i + 1}.  ${p.name}${you ? "  (you, host)" : ""}`, 36));
+      keep(label(this, 100, y, `${i + 1}.  ${p.name}${you ? "  (you, host)" : ""}${p.away ? "  (away)" : ""}`, 36));
       keep(button(this, 620, y, "Up", () => host.moveSeat(p.seat, -1), { size: 26, disabled: i === 0 }));
       keep(button(this, 720, y, "Down", () => host.moveSeat(p.seat, 1), { size: 26, disabled: i === lobby.players.length - 1 }));
       if (!you) keep(button(this, 850, y, "Kick", () => host.kick(p.seat), { size: 26 }));
@@ -186,5 +209,13 @@ export class HostLobbyScene extends Phaser.Scene {
       this.note = e instanceof Error ? e.message : "Couldn't start";
       this.redraw();
     }
+  }
+}
+
+function safeStorage(): Storage | undefined {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
   }
 }

@@ -39,6 +39,9 @@ class PeerConnection implements Connection {
 
 export function createPeerTransport(): Transport {
   const peers: Peer[] = [];
+  // When the page goes away (closed or reloaded), say goodbye so the other side sees the
+  // connection close at once instead of waiting for WebRTC to time out.
+  if (typeof window !== "undefined") window.addEventListener("pagehide", () => peers.forEach((p) => p.destroy()));
 
   function openPeer(id?: string): Promise<Peer> {
     return new Promise((resolve, reject) => {
@@ -63,10 +66,15 @@ export function createPeerTransport(): Transport {
       const peer = await openPeer();
       const conn = peer.connect(peerId, { serialization: "json", reliable: true });
       const c = new PeerConnection(conn);
+      // A client reconnects with a fresh peer each time, so drop this one when its link is over.
+      c.onStatus((s) => s === "closed" && peer.destroy());
       return new Promise<Connection>((resolve, reject) => {
         if (c.status === "open") return resolve(c);
         c.onStatus((s) => (s === "open" ? resolve(c) : reject(new Error("connection closed"))));
-        peer.on("error", (err) => reject(err));
+        peer.on("error", (err) => {
+          peer.destroy();
+          reject(err);
+        });
       });
     },
     close() {

@@ -11,11 +11,14 @@ import { getView } from "../engine/view";
 import { REFUSED_BUILD, REFUSED_KICKED } from "./protocol";
 import type { ClientMessage, HostMessage } from "./protocol";
 import { hostPeerId } from "./room";
+import type { SavedRoom } from "./room";
 import type { Connection, Transport } from "./transport";
 
 export const MAX_SEATS = 4;
 export const MIN_SEATS = 3;
 export const MAX_NAME_LENGTH = 24;
+// How long the game waits for an away player on their turn before the host may play for them.
+export const PLAY_FOR_DELAY_MS = 60_000;
 
 export interface HostOptions {
   transport: Transport;
@@ -28,13 +31,18 @@ export interface HostOptions {
   enemyId: string;
   // Called with what the host's own player (seat p1) would receive over the network.
   onLocalMessage: (message: HostMessage) => void;
+  // Resume a room that was saved earlier: same seats and tokens, same battle. Players reconnect on their own.
+  resume?: SavedRoom;
+  // Called with the room after every lobby change and every step, and with null when the host closes the room.
+  onSave?: (room: SavedRoom | null) => void;
 }
 
 interface Member {
   seat: string;
   name: string;
   token: string | null; // null for the host's own seat: no remote token can ever match it
-  connection: Connection | null; // null for the host's own seat, which is local
+  local: boolean; // the host's own seat: no connection, messages go to onLocalMessage
+  connection: Connection | null; // null for the host's own seat, and for a saved seat nobody has reclaimed yet
   connected: boolean;
 }
 
@@ -47,8 +55,13 @@ export interface Host {
   moveSeat(seat: string, direction: -1 | 1): void;
   kick(seat: string): void;
   setEnemy(enemyId: string): void;
-  // The host's own player submits a choice, checked like everyone else's.
+  // The host's own player submits a choice, checked like everyone else's. It counts for a seat the
+  // host is playing for when that seat's turn is up.
   submitLocal(choice: Choice): void;
+  // After the wait for an away player has run out: take over that seat until the player returns.
+  playFor(seat: string): void;
+  // After a resume: send the host's own player the lobby or the battle as it stands.
+  announce(): void;
   close(): void;
   // After a battle: back to the lobby with the same seats. Everyone is sent the lobby.
   backToLobby(): void;
@@ -59,15 +72,38 @@ export interface Host {
 
 export async function createHost(options: HostOptions): Promise<Host> {
   const { transport, buildId } = options;
-  const members: Member[] = [
-    { seat: "p1", name: options.hostName, token: null, connection: null, connected: true },
-  ];
-  let state: BattleState | null = null;
-  let enemyId = options.enemyId;
+  const saved = options.resume;
+  const members: Member[] = saved
+    ? saved.members.map((x) => ({
+        seat: x.seat,
+        name: x.name,
+        token: x.token,
+        local: x.token === null, // only the host's own seat has no token
+        connection: null,
+        connected: x.token === null,
+      }))
+    : [{ seat: "p1", name: options.hostName, token: null, local: true, connection: null, connected: true }];
+  let state: BattleState | null = saved?.state ?? null;
+  let enemyId = saved?.enemyId ?? options.enemyId;
+  const controlled = new Set<string>(); // away seats the host is playing for
+  let pauseSeat: string | null = null; // the away seat the game is waiting on
+  let pauseTimer: ReturnType<typeof setTimeout> | null = null;
+  let playForReady = false; // the wait on pauseSeat has run out
 
   function deliver(m: Member, message: HostMessage): void {
-    if (m.connection === null) options.onLocalMessage(message);
-    else if (m.connection.status === "open") m.connection.send(message);
+    if (m.local) options.onLocalMessage(message);
+    else if (m.connection !== null && m.connection.status === "open") m.connection.send(message);
+  }
+
+  // Taken only after a step has completed (and on lobby changes), so a resume never replays half a step.
+  function save(): void {
+    options.onSave?.({
+      roomCode: options.roomCode,
+      buildId,
+      enemyId,
+      members: members.map((m) => ({ seat: m.seat, name: m.name, token: m.token })),
+      state,
+    });
   }
 
   // The one way game data reaches a player: their own view plus their own events.
@@ -78,26 +114,61 @@ export async function createHost(options: HostOptions): Promise<Host> {
 
   function sendToAll(events: GameEvent[]): void {
     for (const m of members) sendToPlayer(m, events);
-    sendPauseIfNeeded();
+    sendStatus();
   }
 
-  function sendPauseIfNeeded(): void {
+  function presenceMessage(): HostMessage {
+    return { type: "presence", players: members.map((m) => ({ seat: m.seat, name: m.name, away: !m.connected })) };
+  }
+
+  function clearPause(): void {
+    if (pauseTimer !== null) clearTimeout(pauseTimer);
+    pauseTimer = null;
+    pauseSeat = null;
+    playForReady = false;
+  }
+
+  // Who is here, whether the game is waiting on someone who is away, and (for the host) who it is
+  // playing for. Sent after every step and whenever someone leaves or returns.
+  function sendStatus(): void {
     if (state === null) return;
     const pending = getPendingChoice(state);
-    const waiting = pending ? members.find((m) => m.seat === pending.player) : undefined;
-    if (waiting && !waiting.connected) {
-      for (const m of members) deliver(m, { type: "paused", waitingFor: waiting.name });
+    const turn = pending ? members.find((m) => m.seat === pending.player) : undefined;
+    const waiting = turn && !turn.connected && !controlled.has(turn.seat) ? turn : undefined;
+    if (!waiting) clearPause();
+    else if (pauseSeat !== waiting.seat) {
+      clearPause();
+      pauseSeat = waiting.seat;
+      pauseTimer = setTimeout(() => {
+        playForReady = true;
+        sendStatus();
+      }, PLAY_FOR_DELAY_MS);
+    }
+    const presence = presenceMessage();
+    for (const m of members) {
+      deliver(m, presence);
+      deliver(m, {
+        type: "paused",
+        waitingFor: waiting?.name ?? null,
+        ...(m.local && waiting && playForReady ? { playFor: waiting.seat } : {}),
+      });
+      if (m.local) deliver(m, { type: "playing-for", seat: turn && controlled.has(turn.seat) ? turn.seat : null });
     }
   }
 
-  function sendLobby(): void {
-    const message: HostMessage = {
+  function lobbyMessage(): HostMessage {
+    return {
       type: "lobby",
-      players: members.map((m) => ({ seat: m.seat, name: m.name })),
+      players: members.map((m) => ({ seat: m.seat, name: m.name, away: !m.connected })),
       seats: members.map((m) => m.seat),
       enemyId,
     };
+  }
+
+  function sendLobby(): void {
+    const message = lobbyMessage();
     for (const m of members) deliver(m, message);
+    save();
   }
 
   // Seats are list order: p1, p2, ... Tell anyone whose seat changed.
@@ -112,18 +183,20 @@ export async function createHost(options: HostOptions): Promise<Host> {
 
   // Every choice, local or remote, goes through here. The seat comes from the connection
   // the choice arrived on and is never read from the message.
-  function handleChoice(m: Member, choice: Choice): void {
-    if (state === null) return deliver(m, { type: "error", message: "the battle has not started" });
+  // `m` is the seat the choice is for; errors go to `from` (the host's own player when it plays for a seat).
+  function handleChoice(m: Member, choice: Choice, from: Member = m): void {
+    if (state === null) return deliver(from, { type: "error", message: "the battle has not started" });
     const pending = getPendingChoice(state);
-    if (pending === null) return deliver(m, { type: "error", message: "the battle is over" });
-    if (pending.player !== m.seat) return deliver(m, { type: "error", message: "not your turn" });
+    if (pending === null) return deliver(from, { type: "error", message: "the battle is over" });
+    if (pending.player !== m.seat) return deliver(from, { type: "error", message: "not your turn" });
     let result: StepResult;
     try {
       result = step(state, choice);
     } catch (e) {
-      return deliver(m, { type: "error", message: "choice rejected: " + (e instanceof Error ? e.message : "invalid") });
+      return deliver(from, { type: "error", message: "choice rejected: " + (e instanceof Error ? e.message : "invalid") });
     }
     state = result.state;
+    save();
     sendToAll(result.events);
   }
 
@@ -146,7 +219,9 @@ export async function createHost(options: HostOptions): Promise<Host> {
       const token = msg.token;
       let me = members.find((x) => x.token !== null && x.token === token);
       if (me) {
-        // A returning player gets their seat back.
+        // A returning player gets their seat back (and the host stops playing for it).
+        if (me.connection !== null && me.connection !== connection) me.connection.close();
+        controlled.delete(me.seat);
         me.connection = connection;
         me.connected = true;
         me.name = name;
@@ -155,12 +230,17 @@ export async function createHost(options: HostOptions): Promise<Host> {
       } else if (members.length >= MAX_SEATS) {
         return reply({ type: "refused", reason: "The room is full." });
       } else {
-        me = { seat: "p" + (members.length + 1), name, token, connection, connected: true };
+        me = { seat: "p" + (members.length + 1), name, token, local: false, connection, connected: true };
         members.push(me);
       }
       reply({ type: "welcome", seat: me.seat, token });
       if (state === null) sendLobby();
-      else sendToAll([]);
+      else {
+        // The current view straight away, with no events to replay; then everyone hears who is here.
+        reply(presenceMessage());
+        sendToPlayer(me, []);
+        sendStatus();
+      }
     } else if (msg.type === "choice") {
       if (!known) return reply({ type: "error", message: "say hello first" });
       handleChoice(known, msg.choice as Choice);
@@ -181,7 +261,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
         members.splice(members.indexOf(m), 1);
         renumber();
         sendLobby();
-      } else sendPauseIfNeeded();
+      } else sendStatus();
     });
   });
 
@@ -189,6 +269,8 @@ export async function createHost(options: HostOptions): Promise<Host> {
     start(seed, allowFewer = false) {
       if (state !== null) throw new Error("already started");
       if (members.length < MIN_SEATS && !allowFewer) throw new Error("need " + MIN_SEATS + " players");
+      const away = members.find((m) => !m.connected);
+      if (away) throw new Error("waiting for " + away.name + " to reconnect");
       const seats = members.map((m) => m.seat);
       const result = createBattleWithEvents({
         config: options.config,
@@ -199,6 +281,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
         seed,
       });
       state = result.state;
+      save();
       sendToAll(result.events);
     },
     moveSeat(seat, direction) {
@@ -213,10 +296,12 @@ export async function createHost(options: HostOptions): Promise<Host> {
     kick(seat) {
       if (state !== null) return;
       const m = members.find((x) => x.seat === seat);
-      if (!m || m.connection === null) return; // the host cannot kick itself
+      if (!m || m.local) return; // the host cannot kick itself
       members.splice(members.indexOf(m), 1);
-      m.connection.send({ type: "refused", reason: REFUSED_KICKED } satisfies HostMessage);
-      m.connection.close();
+      if (m.connection !== null && m.connection.status === "open") {
+        m.connection.send({ type: "refused", reason: REFUSED_KICKED } satisfies HostMessage);
+        m.connection.close();
+      }
       renumber();
       sendLobby();
     },
@@ -226,14 +311,34 @@ export async function createHost(options: HostOptions): Promise<Host> {
       sendLobby();
     },
     submitLocal(choice) {
-      handleChoice(members.find((x) => x.connection === null)!, choice);
+      const local = members.find((x) => x.local)!;
+      const pending = state === null ? null : getPendingChoice(state);
+      const target = pending !== null && controlled.has(pending.player) ? members.find((x) => x.seat === pending.player)! : local;
+      handleChoice(target, choice, local);
+    },
+    playFor(seat) {
+      if (!playForReady || pauseSeat !== seat) return;
+      controlled.add(seat);
+      sendStatus();
+    },
+    announce() {
+      const local = members.find((x) => x.local)!;
+      deliver(local, lobbyMessage());
+      if (state !== null) {
+        sendToPlayer(local, []);
+        sendStatus();
+      }
     },
     close() {
+      clearPause();
+      options.onSave?.(null);
       transport.close();
     },
     backToLobby() {
       if (state === null) return;
       state = null;
+      controlled.clear();
+      clearPause();
       sendLobby();
     },
     getState() {
