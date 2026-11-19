@@ -41,3 +41,27 @@ test("generated dominoes pass validation and respect the pool rules", () => {
   }
   expect(uncommonAdvancedOutputs).toBeGreaterThan(0);
 });
+
+test("a player with no unlocks is never offered a locked effect, shape or spark", () => {
+  const { pools, progression } = loadContent();
+  const everything = progression.levels.map((l) => l.unlock);
+  const basic = ["Ember", "Tide", "Gale"];
+  let state = 99;
+  for (const rarity of ["common", "uncommon", "rare"] as Rarity[]) {
+    for (let i = 0; i < 300; i++) {
+      const r = generateDomino(state, rarity, pools, i, []);
+      state = r.state;
+      const d = r.value;
+      expect(["damage", "block", "amplify"]).toContain(d.effect.kind);
+      expect(d.output.length).toBe(1);
+      expect(d.effect.spectrum ?? false).toBe(false);
+      expect(d.effect.ignoresBlock ?? false).toBe(false);
+      expect(d.intake !== "any" && d.intake.every((s) => basic.includes(s))).toBe(true);
+      expect(d.output.every((s) => basic.includes(s))).toBe(true);
+      expect(d.rarity).toBe(rarity === "rare" ? "uncommon" : rarity); // a rare slot falls back to uncommon
+    }
+  }
+  // With everything unlocked the draw is exactly the same as with no gating.
+  expect(generateDomino(7, "rare", pools, 1, everything)).toEqual(generateDomino(7, "rare", pools, 1, null));
+  expect(generateDomino(8, "uncommon", pools, 1, everything)).toEqual(generateDomino(8, "uncommon", pools, 1, null));
+});

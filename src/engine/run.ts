@@ -65,12 +65,14 @@ export interface RunState {
   blessing: Spark | null; // the Spark Shrine's blessed spark; lasts until the act's boss fight is over
   eventsSeen: string[]; // event ids met this run, across acts; starts again once every enabled event has been seen
   result: "won" | "lost" | null;
+  unlocks?: Record<string, string[]>; // player id -> unlock ids, fixed at run start; absent (an older save) means everything is unlocked
 }
 
 export interface RunSetup {
   players: string[]; // player ids in seat order; the first one leads the first battle
   seed: number;
   content: Content;
+  unlocks?: Record<string, string[]>; // player id -> unlock ids; omitted (or a player left out) means everything unlocked
 }
 
 export type RunChoice =
@@ -233,6 +235,7 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     eventsSeen: [],
     result: null,
   };
+  if (setup.unlocks) run.unlocks = JSON.parse(JSON.stringify(setup.unlocks));
   for (const id of players) {
     const starter = makeStarterInstances(content.starterDeck, content.dominoes, run.nextIndex);
     run.nextIndex += starter.deck.length;
@@ -424,7 +427,7 @@ function enterNode(run: RunState, events: RunEvent[]): void {
     run.phase = "rest";
     run.rest = [];
   } else if (type === "trader") {
-    const roll = rollStock(run.rng, run.players, run.content.run.trader, run.content.pools, run.nextIndex, currentAct(run).traderOdds);
+    const roll = rollStock(run.rng, run.players, run.content.run.trader, run.content.pools, run.nextIndex, currentAct(run).traderOdds, run.unlocks);
     run.nextIndex = roll.nextIndex;
     run.trader = roll.trader;
     const charmRoll = rollCharmsForPlayers(roll.state, run.content.charms, "normal", run.charms, run.players, run.content.run.trader.charmStockSize);
@@ -442,7 +445,7 @@ function enterEvent(run: RunState, events: RunEvent[]): void {
   const picked = pickEvent(run.rng, run.content.events, run.eventsSeen);
   run.eventsSeen = picked.seen;
   const data = run.content.events.find((e) => e.id === picked.id)!;
-  const opened = openEvent(picked.state, data, run.players, run.content.pools, run.nextIndex, run.lead, run.coins);
+  const opened = openEvent(picked.state, data, run.players, run.content.pools, run.nextIndex, run.lead, run.coins, run.unlocks);
   run.rng = opened.state;
   run.nextIndex = opened.nextIndex;
   run.event = opened.event;
@@ -623,7 +626,7 @@ function finishBattle(run: RunState, events: RunEvent[]): void {
     endRun(run, "won", events);
     return;
   }
-  const roll = rollOffers(run.rng, run.players, currentAct(run).rewardOdds[type], run.content.pools, run.nextIndex, run.allRareRewards);
+  const roll = rollOffers(run.rng, run.players, currentAct(run).rewardOdds[type], run.content.pools, run.nextIndex, run.allRareRewards, run.unlocks);
   run.rng = roll.state;
   run.nextIndex = roll.nextIndex;
   run.reward = roll.reward;

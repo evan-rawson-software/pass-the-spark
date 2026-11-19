@@ -77,7 +77,7 @@ function settle(run: RunState, player: string, well: WellState, spark: Spark): P
   };
   if (kind === "remove") return canRemove(run, player) ? null : fallback(); // deck already at the minimum
   if (kind === "upgrade") return run.decks[player].some((id) => upgradeChoices(run, player, id).length > 0) ? null : fallback();
-  const roll = rollOffers(run.rng, [player], run.content.run.acts[run.actIndex].rewardOdds.fight, run.content.pools, run.nextIndex, true);
+  const roll = rollOffers(run.rng, [player], run.content.run.acts[run.actIndex].rewardOdds.fight, run.content.pools, run.nextIndex, true, run.unlocks);
   run.rng = roll.state;
   run.nextIndex = roll.nextIndex;
   well.offers = roll.reward.offers[player];
