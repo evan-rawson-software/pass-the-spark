@@ -355,6 +355,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
     } else if (msg.type === "unlocks") {
       if (!known) return reply({ type: "error", message: "say hello first" });
       if (run === null || run.phase === "over") known.unlocks = cleanUnlocks(msg.unlocks); // the run is over: they count for the next one
+      if (run === null) sendLobby(); // already back in the lobby: show the new level (while the run screen is up, a lobby message would send everyone back)
     } else if (msg.type === "ping") {
       if (!known) return reply({ type: "error", message: "say hello first" });
       handlePing(known, msg.target);
