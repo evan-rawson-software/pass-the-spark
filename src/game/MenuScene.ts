@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { MAX_NAME_LENGTH } from "../net/host";
 import { debugPanel } from "./DebugPanel";
+import { resetProfile } from "./profile";
 import { button, drawBackground, label, saveName, savedName, textInput } from "./ui";
 
 // The start screen (#33): host online, join, or single player.
@@ -34,5 +35,28 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start("join");
     }, { size: 48, origin: 0.5 });
     button(this, 960, 800, "Single player", () => this.scene.start("start"), { size: 48, origin: 0.5 });
+    this.resetButton();
+  }
+
+  // Wiping the profile takes two clicks.
+  private resetButton(): void {
+    const shown: Phaser.GameObjects.Text[] = [];
+    const ask = () => {
+      shown.forEach((t) => t.destroy());
+      shown.length = 0;
+      shown.push(label(this, 60, 940, "Erase all experience and unlocks?", 30));
+      shown.push(button(this, 60, 1000, "Yes, reset", () => {
+        resetProfile();
+        shown.forEach((t) => t.destroy());
+        shown.length = 0;
+        shown.push(label(this, 60, 1000, "Progress reset.", 30, { color: "#9fd1b8" }));
+      }));
+      shown.push(button(this, 400, 1000, "Cancel", () => {
+        shown.forEach((t) => t.destroy());
+        shown.length = 0;
+        shown.push(button(this, 60, 1000, "Reset progress", ask));
+      }));
+    };
+    shown.push(button(this, 60, 1000, "Reset progress", ask));
   }
 }

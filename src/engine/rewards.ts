@@ -2,6 +2,7 @@
 // Plain data; the run (a later issue) decides when to roll offers and adds the picks to decks.
 
 import { generateDomino, rollRarityFromOdds } from "./generate";
+import { unlocksOf } from "./progression";
 import type { Domino, Pools, Rarity } from "./types";
 
 export const SKIP = "skip";
@@ -27,6 +28,7 @@ export function rollOffers(
   pools: Pools,
   startIndex: number,
   allRare = false, // every offered domino is rare (the Toll Bridge's hard fight)
+  unlocks: Record<string, string[]> | undefined = undefined, // player id -> unlock ids; none: everything unlocked
 ): RewardRoll {
   const offers: Record<string, Domino[]> = {};
   let s = state;
@@ -36,7 +38,7 @@ export function rollOffers(
     for (let i = 0; i < pools.offerSize; i++) {
       const rarity = allRare ? { value: "rare" as const, state: s } : rollRarityFromOdds(s, odds);
       s = rarity.state;
-      const domino = generateDomino(s, rarity.value, pools, index);
+      const domino = generateDomino(s, rarity.value, pools, index, unlocksOf(unlocks, playerId));
       s = domino.state;
       index++;
       offer.push(domino.value);

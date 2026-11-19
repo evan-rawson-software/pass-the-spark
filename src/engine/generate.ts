@@ -3,7 +3,7 @@
 
 import { nextFloat, nextInt } from "./rng";
 import type { Rolled } from "./rng";
-import type { Domino, Effect, Pools, Rarity, Spark } from "./types";
+import type { Domino, Effect, PoolEffect, Pools, Rarity, RarityPool, Spark } from "./types";
 
 const RARITIES: Rarity[] = ["common", "uncommon", "rare"];
 
@@ -25,10 +25,35 @@ export function rollRarityFromOdds(state: number, odds: Record<Rarity, number>):
   return { value: "rare", state: r.state }; // not reached: validation requires some weight
 }
 
+// The pool a player may draw from: entries they have not unlocked are left out (order kept).
+// Returns null when nothing is left to draw (no intake or no effect). unlocks is a list of
+// unlock ids (data/progression.json); null means everything is unlocked and the pool is used as is.
+export function unlockedPool(pool: RarityPool, unlocks: readonly string[] | null, advancedSparks: readonly Spark[]): RarityPool | null {
+  if (unlocks === null) return pool;
+  const has = (id: string) => unlocks.includes(id);
+  const advanced = has("advancedSparks");
+  const intakes = pool.intakes.filter((i) => (i === "any" ? has("anyIntake") : advanced || i.every((x) => !advancedSparks.includes(x))));
+  const effects: PoolEffect[] = [];
+  for (const e of pool.effects) {
+    if ((e.kind === "lookout" || e.kind === "echo" || e.kind === "mimic") && !has(e.kind)) continue;
+    const outputs = has("twoSpark") ? e.outputs : e.outputs.filter((o) => o.length === 1);
+    if (outputs.length === 0) continue;
+    const traits = e.traits?.filter((t) => has(t));
+    effects.push({ ...e, outputs, traits });
+  }
+  if (intakes.length === 0 || effects.length === 0) return null;
+  return { ...pool, intakes, effects, advancedOutputShare: advanced ? pool.advancedOutputShare : 0 };
+}
+
 // One domino. index makes the id run-unique ("gen#7"); the caller keeps the counter.
 // The intake side and the effect + output side are drawn separately.
-export function generateDomino(state: number, rarity: Rarity, pools: Pools, index: number): Rolled<Domino> {
-  const pool = pools.rarities[rarity];
+// unlocks limits what can be drawn; a rarity with nothing unlocked is rolled one rarity lower.
+export function generateDomino(state: number, rarity: Rarity, pools: Pools, index: number, unlocks: readonly string[] | null = null): Rolled<Domino> {
+  let pool = unlockedPool(pools.rarities[rarity], unlocks, pools.sparkGroups.advanced);
+  while (pool === null) {
+    rarity = RARITIES[RARITIES.indexOf(rarity) - 1]; // common always has damage and block
+    pool = unlockedPool(pools.rarities[rarity], unlocks, pools.sparkGroups.advanced);
+  }
   let s = state;
 
   const intakeRoll = pick(s, pool.intakes);
