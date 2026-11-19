@@ -341,7 +341,8 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 
 ### Scope
 - The web game gets progression, a spectacle prototype and sound effects, to answer "does it feel good?" before the port. Real art and final screen polish go into the Godot version (M9). Asset files (sounds, images) carry over; screen code doesn't.
-- **Art:** the designer will generate art locally (Stable Diffusion, with a local Claude Code session). The web game stays code-drawn unless decided otherwise.
+- **Art:** the designer generates art locally (Stable Diffusion, with a local Claude Code session), following `docs/art-assets.md`. The web game shows a generated image wherever one exists (listed in `public/art/manifest.json`) and falls back to the code-drawn version otherwise. The same files carry over to Godot.
+- **Art process:** the art session only adds files under `public/art/` (and updates the manifest and `docs/art-assets.md`). It works on its own branch and merges through a pull request, never pushing to main directly, and never touches game code.
 
 ### Progression
 - **Saved per browser:** each player's profile (experience, level, unlocks) lives in their own browser. No accounts. Online, a joining player sends their unlocks to the host. In single player, one profile covers all seats.
