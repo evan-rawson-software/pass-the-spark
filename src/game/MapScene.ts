@@ -5,7 +5,7 @@ import { content } from "./devBattle";
 import { scaleTime } from "./playbackSpeed";
 import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
-import { drawBackground, FONT, label } from "./ui";
+import { drawBackground, FONT, label, PLAYER_COLORS } from "./ui";
 
 // The map screen (#51). It draws the act the engine generated: floors bottom to top, the
 // connections, a code-drawn icon per stop type and the boss at the top. The party's position is
@@ -22,7 +22,6 @@ const FLOOR_Y0 = 980; // floor 1
 const FLOOR_STEP = 85;
 const NODE_R = 30;
 const GOLD = 0xffe14d;
-const PLAYER_COLORS = [0xff7a59, 0x5ec8ff, 0xffe14d, 0xc78bff];
 
 const NODE_STYLE: Record<RunNodeType, { color: number; name: string }> = {
   fight: { color: 0x8a3b35, name: "Fight" },

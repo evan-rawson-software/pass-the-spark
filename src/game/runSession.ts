@@ -111,7 +111,7 @@ export function sceneFor(run: RunState): string {
     case "reward": return "reward";
     case "rest": return "rest";
     case "trader": return "trader";
-    case "event": return "event"; // the screen itself comes with #87
+    case "event": return "event";
     case "over": return "runEnd";
   }
 }
