@@ -46,8 +46,8 @@ function checkAuditorDamage(file: string, id: string, damage: unknown): void {
   }
 }
 
-export function validateDominoes(data: unknown): Domino[] {
-  const file = "data/dominoes.json";
+// `file` names the source in error messages (extra definitions passed to createBattle use their own name).
+export function validateDominoes(data: unknown, file = "data/dominoes.json"): Domino[] {
   if (!Array.isArray(data)) fail(file, "(file)", "must be a list of dominoes");
   const seen: string[] = [];
   data.forEach((item: unknown, index: number) => {
@@ -68,6 +68,13 @@ export function validateDominoes(data: unknown): Domino[] {
       if (!isNumber(effect.base)) fail(file, id, `effect "${effect.kind}" needs a numeric "base"`);
     } else if (effect.base !== undefined) {
       fail(file, id, `effect "${effect.kind}" must not have a "base"`);
+    }
+    // Upgrade parameters: whole numbers of 0 or more, each only on its own effect kind.
+    for (const [field, kind] of [["extraTriggers", "echo"], ["extraReveals", "lookout"], ["strengthBonus", "mimic"]]) {
+      const n = effect[field];
+      if (n === undefined) continue;
+      if (effect.kind !== kind) fail(file, id, `effect "${field}" is only for "${kind}"`);
+      if (!Number.isInteger(n) || (n as number) < 0) fail(file, id, `effect "${field}" must be a whole number, 0 or more`);
     }
     for (const flag of ["spectrum", "ignoresBlock"]) {
       if (effect[flag] !== undefined && typeof effect[flag] !== "boolean") fail(file, id, `effect "${flag}" must be true or false`);

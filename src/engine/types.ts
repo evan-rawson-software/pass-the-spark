@@ -17,6 +17,10 @@ export interface Effect {
   base?: number; // damage, block, heal, amplify only
   spectrum?: boolean;
   ignoresBlock?: boolean;
+  // Upgrade parameters. Each is optional and defaults to 0, which keeps the base behaviour.
+  extraTriggers?: number; // echo only: extra pending triggers each time it triggers
+  extraReveals?: number; // lookout only: extra dominoes revealed
+  strengthBonus?: number; // mimic only: added to the strength the copied effect resolves at
 }
 
 export interface Domino {

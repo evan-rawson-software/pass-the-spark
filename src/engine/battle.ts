@@ -2,6 +2,7 @@
 // applyChoice never changes its input: it works on a JSON copy.
 
 import { shuffle } from "./rng";
+import { validateDominoes } from "./validate";
 import type { GameEvent } from "./events";
 import type { Config, DeckList, Domino, Effect, Enemy, Passive, Spark } from "./types";
 
@@ -102,6 +103,11 @@ export interface BattleSetup {
   startingLead?: string;
   enemyId: string;
   seed: number;
+  // Run-unique domino definitions (instances, generated or upgraded dominoes) used by the decks,
+  // in addition to content.dominoes. Their ids must not clash with any other domino id.
+  extraDominoes?: Domino[];
+  // The party's current health, for a battle inside a run. Defaults to max health.
+  partyHealth?: number;
 }
 
 export interface StepResult {
@@ -125,6 +131,13 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     throw new Error("startingLead must be a player in seatOrder");
   }
 
+  const extra = validateDominoes(setup.extraDominoes ?? [], "extraDominoes");
+  for (const d of extra) {
+    if (content.dominoes.some((x) => x.id === d.id)) throw new Error("extra domino id already exists: " + d.id);
+  }
+  const partyHealth = setup.partyHealth ?? config.partyMaxHealth;
+  if (!(partyHealth > 0 && partyHealth <= config.partyMaxHealth)) throw new Error("partyHealth must be above 0 and at most max health");
+
   let rng = setup.seed;
   const players: PlayerState[] = [];
   for (const id of seats) {
@@ -139,7 +152,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
 
   const state: BattleState = {
     config,
-    dominoes: content.dominoes,
+    dominoes: [...content.dominoes, ...extra],
     rng,
     seatOrder,
     round: 0,
@@ -147,7 +160,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     seat: lead,
     phase: "fuse",
     chain: newChain([]),
-    party: { health: config.partyMaxHealth, maxHealth: config.partyMaxHealth, block: 0 },
+    party: { health: partyHealth, maxHealth: config.partyMaxHealth, block: 0 },
     players,
     enemy: {
       id: enemyDef.id,
@@ -169,6 +182,25 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
   const events: GameEvent[] = [];
   startRound(state, events);
   return { state, events };
+}
+
+// The starter deck as run instances: one new definition per card, with ids like "jab#1", numbered
+// from startIndex. Give each player a different startIndex so ids are unique across the run.
+// deck lists the instance ids (pass it as the player's deck); dominoes goes in extraDominoes.
+export function makeStarterInstances(
+  starterDeck: DeckList,
+  dominoes: Domino[],
+  startIndex: number,
+): { deck: string[]; dominoes: Domino[] } {
+  const instances: Domino[] = [];
+  starterDeck.forEach((baseId, i) => {
+    const base = dominoes.find((d) => d.id === baseId);
+    if (!base) throw new Error("unknown domino " + baseId);
+    const copy: Domino = JSON.parse(JSON.stringify(base));
+    copy.id = `${baseId}#${startIndex + i}`;
+    instances.push(copy);
+  });
+  return { deck: instances.map((d) => d.id), dominoes: instances };
 }
 
 export function getPendingChoice(state: BattleState): PendingChoice | null {
@@ -523,8 +555,10 @@ function playEffect(state: BattleState, d: Domino, seat: string, side: Side, sca
   chain.last = resolved;
   const triggers = Math.min(1 + chain.echo, state.config.triggerCap);
   chain.echo = 0;
+  // An upgraded Mimic resolves what it copied at extra strength; chain strength is unaffected.
+  const bonus = effect.kind === "mimic" ? (effect.strengthBonus ?? 0) : 0;
   for (let i = 0; i < triggers; i++) {
-    trigger(state, resolved.effect, resolved.side, scaleLap, events, seat, d.id, i);
+    trigger(state, resolved.effect, resolved.side, scaleLap, events, seat, d.id, i, bonus);
     if (state.phase === "over") return;
   }
 }
@@ -539,8 +573,10 @@ function trigger(
   seat: string,
   dominoId: string,
   index: number,
+  strengthBonus = 0,
 ): void {
   const chain = state.chain;
+  const strengthNow = chain.strength + strengthBonus;
   if (effect.kind === "amplify") {
     const amount = effect.base ?? 0;
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: amount });
@@ -548,13 +584,13 @@ function trigger(
     events.push({ type: "amplify", amount, strength: chain.strength });
   } else if (effect.kind === "echo") {
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: 0 });
-    chain.echo += 1;
+    chain.echo += 1 + (effect.extraTriggers ?? 0);
     events.push({ type: "echoPending", count: chain.echo });
   } else if (effect.kind === "lookout") {
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: 0 });
-    if (side === "party") lookout(state, Math.ceil(chain.strength / 2), events);
+    if (side === "party") lookout(state, Math.ceil(strengthNow / 2) + (effect.extraReveals ?? 0), events);
   } else {
-    let strength = chain.strength;
+    let strength = strengthNow;
     if (effect.spectrum) strength += spectrumBonus(chain.history);
     let value = (effect.base ?? 0) * strength;
     if (scaleLap) value *= chain.lap;
