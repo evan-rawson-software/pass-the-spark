@@ -119,5 +119,7 @@ export interface ActData {
 }
 
 export interface RunData {
+  startingCoins: number; // each player's coins at the start of the run
+  battleCoins: Record<BattleType, number>; // every player earns this for winning a battle of that type
   acts: ActData[];
 }

@@ -17,6 +17,57 @@
     "passives": []
   },
   {
+    "id": "goblin",
+    "name": "Placeholder Goblin",
+    "tier": "basic",
+    "maxHealth": 80,
+    "drawPerRound": 3,
+    "handLimit": 5,
+    "deck": [
+      "goblin_stab",
+      "goblin_slice",
+      "goblin_dodge",
+      "goblin_jab",
+      "goblin_nick",
+      "goblin_scurry"
+    ],
+    "passives": []
+  },
+  {
+    "id": "slime",
+    "name": "Placeholder Slime",
+    "tier": "basic",
+    "maxHealth": 120,
+    "drawPerRound": 3,
+    "handLimit": 5,
+    "deck": [
+      "slime_ooze",
+      "slime_glob",
+      "slime_splat",
+      "slime_sponge",
+      "slime_slurp",
+      "slime_slap"
+    ],
+    "passives": []
+  },
+  {
+    "id": "wisp",
+    "name": "Placeholder Wisp",
+    "tier": "basic",
+    "maxHealth": 70,
+    "drawPerRound": 3,
+    "handLimit": 5,
+    "deck": [
+      "wisp_zap",
+      "wisp_flit",
+      "wisp_spark",
+      "wisp_flicker",
+      "wisp_glow",
+      "wisp_dart"
+    ],
+    "passives": []
+  },
+  {
     "id": "brute",
     "name": "Brute",
     "tier": "elite",
@@ -30,6 +81,23 @@
       "elite_mend",
       "elite_reflect",
       "elite_slam"
+    ],
+    "passives": []
+  },
+  {
+    "id": "warden",
+    "name": "Placeholder Warden",
+    "tier": "elite",
+    "maxHealth": 220,
+    "drawPerRound": 4,
+    "handLimit": 6,
+    "deck": [
+      "warden_strike",
+      "warden_bash",
+      "warden_shield",
+      "warden_rally",
+      "warden_sweep",
+      "warden_counter"
     ],
     "passives": []
   },

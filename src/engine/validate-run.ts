@@ -26,6 +26,9 @@ function checkRange(id: string, v: unknown, what: string): void {
 
 export function validateRun(data: unknown, enemies: Enemy[]): RunData {
   if (!isObject(data) || !Array.isArray(data.acts) || data.acts.length === 0) fail("(file)", `"acts" must be a non-empty list`);
+  checkWhole("(file)", data.startingCoins, "startingCoins", 0);
+  if (!isObject(data.battleCoins)) fail("(file)", `"battleCoins" must be an object`);
+  for (const type of ["fight", "elite", "boss"]) checkWhole("(file)", data.battleCoins[type], `battleCoins.${type}`, 0);
   const seen: string[] = [];
   (data.acts as unknown[]).forEach((act: unknown, index: number) => {
     if (!isObject(act)) fail(`#${index}`, "must be an object");

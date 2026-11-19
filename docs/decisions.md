@@ -143,6 +143,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
   - Names are generated from effect and spark (for example "Tide Strike").
   - Base values per effect and rarity live in data. The starter deck stays as written in the brief.
 - **Enemies:** hand-authored, not generated. For M4: 4 normal enemies, 2 elites, and the act boss (chosen at random from the Auditor and the Glutton, and shown on the map from the start).
+- **Enemy content:** the 3 extra normal enemies and the extra elite for M4 are placeholder content added with the run state machine (#46).
 - **Charms:** not in M4.
 - **Coins:** personal. Every battle pays some (normal < elite < boss), and players start with some. All amounts in data.
 - **Rest sites:** each player chooses rest or upgrade. Each resting player heals the shared party health by a data-set amount, and those heals add up.
