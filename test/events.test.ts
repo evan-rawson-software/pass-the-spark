@@ -2,21 +2,17 @@ import { expect, test } from "vitest";
 import { createBattle, step } from "../src/engine/battle";
 import type { Choice } from "../src/engine/battle";
 import { getEventsView } from "../src/engine/events";
-import type { Config, Domino, Enemy } from "../src/engine/types";
-import configJson from "../data/config.json";
-import dominoesJson from "../data/dominoes.json";
-import enemiesJson from "../data/enemies.json";
-import starterDeckJson from "../data/starter-deck.json";
+import { loadContent } from "../src/engine/content";
 
-const config = configJson satisfies Record<keyof Config, unknown> as Config;
+const { config, dominoes, enemies, starterDeck } = loadContent();
 
 test("scripted round: events come out in order, and a leftover is revealed as it goes off", () => {
   let s = createBattle({
     config,
-    content: { dominoes: dominoesJson as Domino[], enemies: enemiesJson as Enemy[] },
+    content: { dominoes, enemies },
     players: [
-      { id: "p1", deck: starterDeckJson },
-      { id: "p2", deck: starterDeckJson },
+      { id: "p1", deck: starterDeck },
+      { id: "p2", deck: starterDeck },
     ],
     seatOrder: ["p1", "p2", "enemy"],
     enemyId: "ogre",
