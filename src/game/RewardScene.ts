@@ -75,7 +75,7 @@ export class RewardScene extends Phaser.Scene {
     const order = online ? [local, ...run.players.filter((p) => p !== local)] : run.players;
     const tooltip = new Tooltip(this);
 
-    let y = 290;
+    let y = 270;
     for (const id of order) {
       const isActive = id === active;
       const canPick = isActive && reward.choices[id] === undefined;
@@ -83,7 +83,7 @@ export class RewardScene extends Phaser.Scene {
       const charmOffer = reward.charmOffers[id];
       const charmChoice = reward.charmChoices[id];
       const canPickCharm = isActive && charmOffer !== undefined && charmChoice === undefined;
-      const rowH = isActive ? (charmOffer ? 360 : 250) : 140;
+      const rowH = isActive ? (charmOffer ? 350 : 250) : 130;
       const cy = y + (isActive && charmOffer ? 125 : rowH / 2);
       const choice = reward.choices[id];
       const offer: Domino[] = reward.offers[id];
@@ -127,7 +127,7 @@ export class RewardScene extends Phaser.Scene {
         const small = !isActive;
         const size = small ? 34 : 64;
         const left = small ? 1100 : 560;
-        const cyc = small ? cy : y + 290;
+        const cyc = small ? cy : y + 280;
         if (!small) label(this, 60, cyc, "Charm", 30, { bold: true, color: "#9fd1b8" });
         charmsByIds(charmOffer).forEach((ch, i) => {
           const x = left + i * (small ? 150 : 400);

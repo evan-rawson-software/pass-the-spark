@@ -16,7 +16,7 @@ import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import type { DominoState } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
-import { drawPartyCharms } from "./charmUi";
+import { drawCharmList } from "./charmUi";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
 import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
@@ -591,7 +591,7 @@ export class CombatScene extends Phaser.Scene {
       names[q.id] = this.nameOf(q.id, false);
       held[q.id] = q.charms;
     }
-    layer.add(drawPartyCharms(this, view.players.map((q) => q.id), names, held));
+    layer.add(drawCharmList(this, RIGHT_X, 800, view.players.map((q) => q.id), names, held));
 
     // Combo meter: strength x lap.
     const { strength, lap } = view.chain;

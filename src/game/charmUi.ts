@@ -67,6 +67,23 @@ export function drawCharmRow(scene: Phaser.Scene, tooltip: Tooltip, charms: Char
   charms.forEach((ch, i) => charmWithTip(scene, tooltip, ch, size, x + size / 2 + i * step, y));
 }
 
+function shorten(name: string, max: number): string {
+  return name.length > max ? name.slice(0, max - 1) + "…" : name;
+}
+
+// The combat table has no free strip along the top, so there everyone's charms are a list, one
+// line per player (name, then icons), in the free spot under the right-hand column.
+export function drawCharmList(scene: Phaser.Scene, x: number, y: number, seats: string[], names: Record<string, string>, held: Record<string, string[]>): Phaser.GameObjects.GameObject[] {
+  const before = scene.children.list.length;
+  const tooltip = new Tooltip(scene);
+  seats.forEach((id, i) => {
+    const cy = y + i * 27;
+    label(scene, x, cy, shorten(names[id] ?? id, 9), 18, { bold: true, color: "#9fd1b8" });
+    drawCharmRow(scene, tooltip, charmsByIds(held[id] ?? []), x + 110, cy, 22, 200);
+  });
+  return scene.children.list.slice(before);
+}
+
 // Everyone's name and charm icons in a strip along the top, left of the party bar.
 // `names` maps seat -> display name; `held` maps seat -> charm ids. Returns what it drew.
 export function drawPartyCharms(scene: Phaser.Scene, seats: string[], names: Record<string, string>, held: Record<string, string[]>): Phaser.GameObjects.GameObject[] {
@@ -76,7 +93,7 @@ export function drawPartyCharms(scene: Phaser.Scene, seats: string[], names: Rec
   const colW = Math.min(200, 560 / Math.max(1, seats.length));
   seats.forEach((id, i) => {
     const x = left + i * colW;
-    label(scene, x, 42, names[id] ?? id, 20, { bold: true, color: "#9fd1b8" });
+    label(scene, x, 42, shorten(names[id] ?? id, Math.floor(colW / 11)), 20, { bold: true, color: "#9fd1b8" });
     drawCharmRow(scene, tooltip, charmsByIds(held[id] ?? []), x, 78, 26, colW - 12);
   });
   return scene.children.list.slice(before);
