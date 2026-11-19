@@ -7,8 +7,11 @@ import { dominoes } from "./devBattle";
 // "set hands" edit, which builds a modified BattleState directly (debug tool only).
 
 export interface DebugHost {
-  getState(): BattleState;
+  getState(): BattleState | null;
   getSeed(): number;
+  // Online, on the host: the panel only looks (enemy hand, step mode, state dump). Restarting and
+  // editing hands would have to go through the host, which is not part of #34.
+  readOnly?: boolean;
   isLocked(): boolean; // true while events play back
   restart(seed: number): void;
   setState(state: BattleState): void;
@@ -26,12 +29,19 @@ class DebugPanel {
   stepMode = false;
   allowFewerPlayers = false; // the online lobby's Start works with fewer than 3 players
   onLobbyChange: (() => void) | null = null; // the lobby screen redraws when this changes
+  private enabled = true; // off for a player who joined someone else's room
   private host: DebugHost | null = null;
   private root: HTMLDivElement | null = null;
   private release: (() => void) | null = null;
   private stepLabel = "";
   private editTarget = "";
   private editHand: string[] = [];
+
+  // The panel is for the host and for single player. A joined client switches it off.
+  setEnabled(on: boolean): void {
+    this.enabled = on;
+    if (!on && this.root) this.root.style.display = "none";
+  }
 
   // Called once at startup.
   install(): void {
@@ -54,7 +64,8 @@ class DebugPanel {
   // The scene calls this when its state changes and when playback starts or ends: reload the
   // hand editor from the current state and redraw the panel.
   stateChanged(): void {
-    if (this.host && this.editTarget) this.editHand = this.handOf(this.host.getState(), this.editTarget);
+    const state = this.host?.getState();
+    if (state && this.editTarget) this.editHand = this.handOf(state, this.editTarget);
     this.render();
   }
 
@@ -66,7 +77,7 @@ class DebugPanel {
     const el = e.target as HTMLElement | null;
     const typing = el !== null && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT");
     if (e.key === "`") {
-      if (typing) return;
+      if (typing || !this.enabled) return;
       e.preventDefault();
       this.toggle();
     } else if (e.key === " " && this.stepMode && this.release && !typing) {
@@ -155,9 +166,14 @@ class DebugPanel {
       return;
     }
     const state = host.getState();
+    if (!state) {
+      add(root, "div", "No battle running.").style.marginTop = "6px";
+      return;
+    }
 
     // Seed
     const s = section("Seed");
+    s.style.display = host.readOnly ? "none" : "block";
     add(s, "div", `Current seed: ${host.getSeed()}`);
     const input = add(s, "input");
     input.id = "dbg-seed";
@@ -205,7 +221,10 @@ class DebugPanel {
 
     // Set hands
     const h = section("Set hands");
-    if (host.isLocked()) {
+    h.style.display = host.readOnly ? "none" : "block";
+    if (host.readOnly) {
+      // nothing: editing is single player only
+    } else if (host.isLocked()) {
       add(h, "div", "Only between choices (playback is running).");
     } else {
       this.renderSetHands(h, state, host, add, button);
@@ -261,7 +280,7 @@ class DebugPanel {
     sel.value = this.editTarget;
     sel.addEventListener("change", () => {
       this.editTarget = sel.value;
-      this.editHand = this.handOf(host.getState(), this.editTarget);
+      this.editHand = this.handOf(host.getState() ?? state, this.editTarget);
       this.render();
     });
     const limit = this.limitOf(state, this.editTarget);
@@ -291,7 +310,7 @@ class DebugPanel {
     const err = add(parent, "div");
     err.style.color = "#ff8a84";
     button(parent, "Apply hand", () => {
-      const result = this.withHand(host.getState(), this.editTarget, this.editHand);
+      const result = this.withHand(host.getState() ?? state, this.editTarget, this.editHand);
       if (typeof result === "string") {
         err.textContent = result;
         return;

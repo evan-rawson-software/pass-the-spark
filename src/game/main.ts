@@ -6,7 +6,6 @@ import { StartScene } from "./StartScene";
 import { MenuScene } from "./MenuScene";
 import { HostLobbyScene } from "./HostLobbyScene";
 import { JoinScene } from "./JoinScene";
-import { OnlineBattleScene } from "./OnlineBattleScene";
 import { DominoTestScene } from "./DominoTestScene";
 import { TitleScene } from "./TitleScene";
 import { debugPanel } from "./DebugPanel";
@@ -24,7 +23,7 @@ const first =
   : MenuScene;
 const scenes = [
   first,
-  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, OnlineBattleScene, CombatScene, EndScene, TitleScene, DominoTestScene].filter(
+  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, TitleScene, DominoTestScene].filter(
     (s) => s !== first,
   ),
 ];

@@ -1,5 +1,4 @@
 import { ENEMY_SEAT } from "../engine/battle";
-import type { BattleState } from "../engine/battle";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
 
@@ -12,8 +11,10 @@ export interface ShownTable {
   enemyIds: string[]; // the enemy's hand by position (used to place a flip; never shown while hidden)
 }
 
-export function startShown(view: BattleView, before: BattleState): ShownTable {
-  return { view, enemyIds: before.enemy.hand.slice() };
+// enemyIds: the enemy's hand by position. Where a domino is not known to this player (online, a
+// hidden one) it is "".
+export function startShown(view: BattleView, enemyIds: string[]): ShownTable {
+  return { view, enemyIds };
 }
 
 export function applyEvent(s: ShownTable, ev: GameEvent): void {
@@ -56,7 +57,10 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
       v.chain.lap = ev.lap;
       v.chain.played.push({ seat: ev.seat, domino: ev.domino });
       if (ev.seat === ENEMY_SEAT) {
-        const i = s.enemyIds.indexOf(ev.domino);
+        let i = s.enemyIds.indexOf(ev.domino);
+        // Online, a hidden domino has no id here: take the first hidden slot (the redraw after the
+        // step puts the real hand back).
+        if (i < 0) i = v.enemy.hand.findIndex((slot) => !slot.revealed);
         if (i >= 0) {
           v.enemy.hand.splice(i, 1);
           s.enemyIds.splice(i, 1);

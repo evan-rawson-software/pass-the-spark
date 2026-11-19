@@ -8,12 +8,14 @@ import { REFUSED_BUILD } from "../net/protocol";
 import type { HostMessage } from "../net/protocol";
 import { getRoomToken, ROOM_CODE_LENGTH } from "../net/room";
 import { content } from "./devBattle";
+import { debugPanel } from "./DebugPanel";
+import { relay } from "./relay";
 import { button, drawBackground, label, saveName, savedName, textInput } from "./ui";
 
 // Joining a room (#33): code and name, then the seat list as the host changes it.
 // Draws what the host sends; the host decides everything.
 
-type Lobby = Extract<HostMessage, { type: "lobby" }>;
+type Lobby = NonNullable<typeof relay.lobby>;
 
 export class JoinScene extends Phaser.Scene {
   private client: Client | null = null;
@@ -26,7 +28,11 @@ export class JoinScene extends Phaser.Scene {
     super("join");
   }
 
-  create(): void {
+  private roomCode = "";
+
+  // With `resume`, the player is already in the room (a battle just ended): show its lobby again.
+  create(data: { resume?: { client: Client; roomCode: string } } = {}): void {
+    debugPanel.setEnabled(false); // the debug panel is the host's alone
     this.client = null;
     this.lobby = null;
     this.started = false;
@@ -37,6 +43,15 @@ export class JoinScene extends Phaser.Scene {
       this.joinId++;
       if (!this.started) this.client?.close();
     });
+    if (data.resume && relay.lobby) {
+      this.client = data.resume.client;
+      this.roomCode = data.resume.roomCode;
+      this.lobby = relay.lobby;
+      const id = this.joinId;
+      relay.handler = (m) => id === this.joinId && this.onMessage(m, this.roomCode);
+      this.showLobby();
+      return;
+    }
     this.showForm(new URLSearchParams(window.location.search).get("room") ?? "");
   }
 
@@ -79,8 +94,10 @@ export class JoinScene extends Phaser.Scene {
         buildId: BUILD_ID,
         name,
         token: getRoomToken(code, safeStorage()),
-        onMessage: (m) => id === this.joinId && this.onMessage(m, code),
+        onMessage: (m) => relay.deliver(m),
       });
+      relay.handler = (m) => id === this.joinId && this.onMessage(m, code);
+      this.roomCode = code;
       if (id !== this.joinId) return client.close();
       this.client = client;
     } catch (e) {
@@ -101,9 +118,12 @@ export class JoinScene extends Phaser.Scene {
       this.showLobby();
     } else if (m.type === "update") {
       this.started = true;
+      relay.lobby = null;
       const names: Record<string, string> = {};
       this.lobby?.players.forEach((p) => (names[p.seat] = p.name));
-      this.scene.start("onlineBattle", { client: this.client, seat: this.client?.seat ?? "", view: m.view, names });
+      this.scene.start("combat", {
+        online: { client: this.client, seat: this.client?.seat ?? "", view: m.view, names, roomCode: this.roomCode },
+      });
     }
   }
 
