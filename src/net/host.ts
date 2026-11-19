@@ -50,8 +50,11 @@ export interface Host {
   // The host's own player submits a choice, checked like everyone else's.
   submitLocal(choice: Choice): void;
   close(): void;
-  // For tests only: the host's BattleState.
-  getStateForTest(): BattleState | null;
+  // After a battle: back to the lobby with the same seats. Everyone is sent the lobby.
+  backToLobby(): void;
+  // The host's BattleState. Only for code running on the host's own machine (debug panel, tests);
+  // it is never sent to a client.
+  getState(): BattleState | null;
 }
 
 export async function createHost(options: HostOptions): Promise<Host> {
@@ -228,7 +231,12 @@ export async function createHost(options: HostOptions): Promise<Host> {
     close() {
       transport.close();
     },
-    getStateForTest() {
+    backToLobby() {
+      if (state === null) return;
+      state = null;
+      sendLobby();
+    },
+    getState() {
       return state;
     },
   };

@@ -81,7 +81,7 @@ test("host and two clients play a round; views match, out-of-turn choice is reje
   expect(hostView.round).toBeGreaterThan(1);
 
   // Each player's view is exactly what the engine's getView gives that player from the host's state.
-  const state = host.getStateForTest()!;
+  const state = host.getState()!;
   expect(hostView).toEqual(getView(state, "p1"));
   for (const c of clients) {
     expect(c.view).toEqual(getView(state, c.seat!));

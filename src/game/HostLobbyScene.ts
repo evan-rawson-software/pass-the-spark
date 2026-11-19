@@ -7,12 +7,13 @@ import type { HostMessage } from "../net/protocol";
 import { generateRoomCode } from "../net/room";
 import { debugPanel } from "./DebugPanel";
 import { content, enemies } from "./devBattle";
+import { relay } from "./relay";
 import { button, drawBackground, INPUT_STYLE, label } from "./ui";
 
 // The host's lobby (#33): room code and link, the seat list, the enemy, and Start.
 // Draws what the host reports and calls the host's lobby methods; it holds no rules.
 
-type Lobby = Extract<HostMessage, { type: "lobby" }>;
+type Lobby = NonNullable<typeof relay.lobby>;
 
 export class HostLobbyScene extends Phaser.Scene {
   private host: Host | null = null;
@@ -26,7 +27,8 @@ export class HostLobbyScene extends Phaser.Scene {
     super("hostLobby");
   }
 
-  create(data: { name: string }): void {
+  // With `resume`, the room is already open (a battle just ended): show its lobby again.
+  create(data: { name: string; resume?: { host: Host; roomCode: string } }): void {
     this.host = null;
     this.lobby = null;
     this.mySeat = "p1";
@@ -35,6 +37,21 @@ export class HostLobbyScene extends Phaser.Scene {
     this.dynamic = [];
     drawBackground(this);
     label(this, 960, 70, "Host online game", 56, { bold: true, origin: 0.5 });
+    relay.handler = (m) => this.onMessage(m);
+    if (data.resume && relay.lobby) {
+      this.host = data.resume.host;
+      this.roomCode = data.resume.roomCode;
+      this.lobby = relay.lobby;
+      button(this, 60, 1000, "Back", () => this.leave());
+      debugPanel.onLobbyChange = () => this.redraw();
+      this.events.once("shutdown", () => {
+        debugPanel.onLobbyChange = null;
+        if (!this.started) this.host?.close();
+      });
+      this.drawRoom();
+      this.redraw();
+      return;
+    }
     const status = label(this, 960, 540, "Creating room...", 36, { origin: 0.5 });
     button(this, 60, 1000, "Back", () => this.leave());
 
@@ -73,7 +90,7 @@ export class HostLobbyScene extends Phaser.Scene {
           content,
           starterDeck: content.starterDeck,
           enemyId,
-          onLocalMessage: (m) => this.onMessage(m),
+          onLocalMessage: (m) => relay.deliver(m),
         });
         this.roomCode = roomCode;
         return host;
@@ -95,9 +112,10 @@ export class HostLobbyScene extends Phaser.Scene {
     } else if (m.type === "update") {
       // The battle started: hand over to the battle screen.
       this.started = true;
+      relay.lobby = null;
       const names: Record<string, string> = {};
       this.lobby?.players.forEach((p) => (names[p.seat] = p.name));
-      this.scene.start("onlineBattle", { host: this.host, seat: this.mySeat, view: m.view, names });
+      this.scene.start("combat", { online: { host: this.host, seat: this.mySeat, view: m.view, names, roomCode: this.roomCode } });
     }
   }
 

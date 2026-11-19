@@ -1,9 +1,14 @@
 import Phaser from "phaser";
 import { ENEMY_SEAT, getPendingChoice, previewPlay, step } from "../engine/battle";
-import type { BattleState, Choice, PendingChoice, StepResult } from "../engine/battle";
+import type { BattleState, Choice, PendingChoice } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView } from "../engine/view";
 import type { Domino, Passive, Spark } from "../engine/types";
+import type { GameEvent } from "../engine/events";
+import type { Client } from "../net/client";
+import type { Host } from "../net/host";
+import type { HostMessage } from "../net/protocol";
+import { relay } from "./relay";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import type { DominoState } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
@@ -22,6 +27,24 @@ import type { ShownTable } from "./shownView";
 // whose turn it is and which dominoes are playable). No rules live here.
 // Clicking submits only choices getPendingChoice offers, then the step's events play back in
 // order (see playback below), animated by animations.ts. Tooltips come from tooltip.ts.
+//
+// One scene serves both modes (#34). Single player owns the BattleState and steps it itself.
+// Online, the scene never has a BattleState: it holds the latest BattleView and plays back the
+// events the host sends, on the host's machine too (the host's own player gets its messages by
+// the same path). Choices go to the host, which checks them; the table stays locked until its
+// reply (an update, or an error) arrives. Your own hand is in front; teammates are at the sides.
+
+// What the lobby hands over to start an online battle.
+export interface OnlineData {
+  host?: Host; // set on the host's machine
+  client?: Client; // set on a joining player's machine
+  seat: string; // this player's seat
+  view: BattleView; // the first view
+  names: Record<string, string>; // seat -> name
+  roomCode: string;
+}
+
+type Update = Extract<HostMessage, { type: "update" }>;
 
 type Layer = Phaser.GameObjects.Container;
 
@@ -42,7 +65,12 @@ const GOLD = 0xffe14d;
 const RED = 0xe0443e;
 
 export class CombatScene extends Phaser.Scene {
-  private state!: BattleState;
+  private state: BattleState | null = null; // single player only
+  private view!: BattleView; // what the table shows when no step is being played back
+  private online: OnlineData | null = null;
+  private waiting = false; // online: a choice was sent and the host has not answered yet
+  private queue: Update[] = []; // online: updates not played back yet
+  private draining = false;
   private layer?: Layer;
   private logText?: Phaser.GameObjects.Text;
   private locked = false; // true while events play back: no input
@@ -66,11 +94,16 @@ export class CombatScene extends Phaser.Scene {
 
   // Started by the start or end screen with { settings, seed }. With no data
   // (page opened with dev query params) the setup comes from the query.
-  create(data: { settings?: GameSettings; seed?: number; devQuery?: boolean }): void {
+  create(data: { settings?: GameSettings; seed?: number; devQuery?: boolean; online?: OnlineData }): void {
     const query = new URLSearchParams(window.location.search);
     const dev = devSettings(query);
     this.epoch++;
-    this.fromQuery = !data.settings || data.devQuery === true;
+    this.online = data.online ?? null;
+    this.state = null;
+    this.waiting = false;
+    this.queue = [];
+    this.draining = false;
+    this.fromQuery = !this.online && (!data.settings || data.devQuery === true);
     this.settings = data.settings ?? dev.settings;
     this.seed = data.seed ?? dev.seed;
     this.layer = undefined;
@@ -82,38 +115,120 @@ export class CombatScene extends Phaser.Scene {
     this.hlSeat = null;
     this.handSeat = null;
     this.logText = this.add
-      .text(LEFT_X + SIDE_W / 2, 925, "Play an opener: click a domino in your hand.", {
+      .text(LEFT_X + SIDE_W / 2, 925, this.online ? "" : "Play an opener: click a domino in your hand.", {
         fontFamily: FONT, fontSize: "26px", color: "#ffffff", align: "center", wordWrap: { width: SIDE_W - 20 },
       })
       .setOrigin(0.5);
     this.tooltip = new Tooltip(this);
-    this.setState(startBattle(this.settings, this.seed, this.fromQuery ? query : undefined));
-    const host: DebugHost = {
-      getState: () => this.state,
-      getSeed: () => this.seed,
-      isLocked: () => this.locked,
-      restart: (seed) => this.scene.restart({ settings: this.settings, seed, devQuery: this.fromQuery }),
-      setState: (state) => this.setState(state),
-      redraw: () => this.redraw(),
-    };
-    debugPanel.attach(host);
+    if (this.online) {
+      this.logText.setText(`Round ${data.online!.view.round}: ${this.nameOf(data.online!.view.lead, false)} leads`);
+      this.setView(this.online.view);
+      const handler = (m: HostMessage) => this.onMessage(m);
+      relay.handler = handler;
+      this.events.once("shutdown", () => {
+        if (relay.handler === handler) relay.handler = null;
+      });
+    } else {
+      this.setState(startBattle(this.settings, this.seed, this.fromQuery ? query : undefined));
+    }
+    // The debug panel is for single player and the host; a joined client has none.
+    const online = this.online;
+    const host: DebugHost | null =
+      online && !online.host
+        ? null
+        : {
+            getState: () => this.state ?? online?.host?.getState() ?? null,
+            getSeed: () => this.seed,
+            readOnly: online !== null,
+            isLocked: () => this.locked,
+            restart: (seed) => this.scene.restart({ settings: this.settings, seed, devQuery: this.fromQuery }),
+            setState: (state) => this.setState(state),
+            redraw: () => this.redraw(),
+          };
+    if (host) debugPanel.attach(host);
     this.events.once("shutdown", () => {
       this.epoch++;
-      debugPanel.detach(host);
+      if (host) debugPanel.detach(host);
     });
   }
 
-  // The one entry point for new state: later issues call this after each step.
+  // Single player: the one entry point for new state.
   setState(state: BattleState): void {
     this.state = state;
+    this.setView(getView(state, state.players[0].id));
+  }
+
+  // The one entry point for a new view (single player: from setState; online: from the host).
+  private setView(view: BattleView): void {
+    this.view = view;
     this.redraw();
     debugPanel.stateChanged();
-    if (state.result) {
+    if (view.result) {
       // Leave the final table up for a moment, then show the end screen.
+      const online = this.online;
       this.time.delayedCall(1500, () =>
-        this.scene.start("end", { won: state.result === "won", rounds: state.round, seed: this.seed, settings: this.settings }),
+        this.scene.start("end", {
+          won: view.result === "won",
+          rounds: view.round,
+          seed: this.seed,
+          settings: this.settings,
+          online: online ? { host: online.host, client: online.client, roomCode: online.roomCode, names: online.names } : undefined,
+        }),
       );
     }
+  }
+
+  // A seat's display name. Online it is the player's name; single player the seat id is the name.
+  private nameOf(seat: string, forPlate = true, max = 12): string {
+    if (seat === ENEMY_SEAT) return "Enemy";
+    const name = this.online?.names[seat] ?? seat;
+    return forPlate && name.length > max ? name.slice(0, max - 1) + "…" : name;
+  }
+
+  // The true enemy hand, for the debug "show enemy hand" only: single player, or the host.
+  private trueEnemyHand(): string[] | null {
+    return (this.state ?? this.online?.host?.getState())?.enemy.hand ?? null;
+  }
+
+  // ---- online: messages from the host ----
+
+  private onMessage(m: HostMessage): void {
+    if (m.type === "update") {
+      this.waiting = false;
+      this.queue.push(m);
+      void this.drain();
+    } else if (m.type === "error") {
+      // The host rejected the choice: say so briefly and unlock.
+      this.waiting = false;
+      this.showError(m.message);
+      if (!this.locked) this.redraw();
+    }
+    // "lobby" is kept in relay.lobby and acted on by the end screen.
+  }
+
+  private showError(message: string): void {
+    const text = this.logText;
+    if (!text) return;
+    const shown = `The host says: ${message}`;
+    text.setText(shown).setColor("#ff9a94");
+    this.time.delayedCall(3000, () => {
+      if (text.text !== shown) return;
+      text.setColor("#ffffff").setText("");
+    });
+  }
+
+  // Plays the received updates one after another, each at this player's playback speed.
+  private async drain(): Promise<void> {
+    if (this.draining) return;
+    this.draining = true;
+    const epoch = this.epoch;
+    while (this.queue.length > 0) {
+      const update = this.queue.shift()!;
+      const finished = await this.playback(update.events);
+      if (!finished || epoch !== this.epoch) return;
+      this.setView(update.view);
+    }
+    this.draining = false;
   }
 
   // ---- the one redraw ----
@@ -123,22 +238,30 @@ export class CombatScene extends Phaser.Scene {
     this.layer?.destroy(true);
     const layer = this.add.container(0, 0);
     this.layer = layer;
-    const state = this.state;
-    const view = this.shown?.view ?? getView(state, state.players[0].id);
+    const now = this.view;
+    const view = this.shown?.view ?? now;
     this.anim.refs = newRefs();
     this.anim.refs.layer = layer;
-    const pending = this.locked ? null : getPendingChoice(state);
-    const active = this.handSeat ?? (state.seat === ENEMY_SEAT ? state.lead : state.seat);
-    const turn = this.hlSeat ?? state.seat;
+    let pending = this.locked || this.waiting ? null : getPendingChoice(now);
+    // Online, only the player whose turn it is gets anything to click.
+    if (this.online && pending !== null && pending.player !== this.online.seat) pending = null;
+    // Single player: the front hand follows whoever's turn it is. Online: it is always your own.
+    const active = this.online ? this.online.seat : (this.handSeat ?? (now.seat === ENEMY_SEAT ? now.lead : now.seat));
+    const turn = this.hlSeat ?? now.seat;
     this.tipPlayer = pending === null ? "" : pending.player;
 
     this.drawEnemy(layer, view, turn);
     this.drawHud(layer, view, turn);
     this.drawParty(layer, view);
     this.drawChain(layer, view);
-    this.drawActiveHand(layer, view, active, pending);
+    this.drawActiveHand(layer, view, active, pending, turn);
     this.drawSpeedControl(layer);
-    const others = view.players.filter((p) => p.id !== active);
+    let others = view.players.filter((p) => p.id !== active);
+    if (this.online) {
+      // Teammates in seat order, starting with the one after you.
+      const i = view.players.findIndex((p) => p.id === active);
+      others = [...view.players.slice(i + 1), ...view.players.slice(0, i)];
+    }
     others.forEach((p, i) => {
       // Left column takes the 1st and 3rd teammate, the right column the 2nd.
       const left = i !== 1;
@@ -193,9 +316,10 @@ export class CombatScene extends Phaser.Scene {
     c.setPosition(x, y);
     layer.add(c);
     // Every face-up domino has a tooltip; hidden enemy dominoes have none. Only a playable
-    // domino in the active hand gets the engine's "if played now" numbers.
+    // domino in the active hand gets the engine's "if played now" numbers, worked out from the
+    // view (online players have nothing else).
     if (state !== "hidden") {
-      const preview = state === "playable" ? () => previewPlay(this.state, this.tipPlayer, d.id) : undefined;
+      const preview = state === "playable" ? () => previewPlay(this.view, this.tipPlayer, d.id) : undefined;
       this.tooltip.attach(c, d, preview);
     }
     if (onClick) {
@@ -263,18 +387,20 @@ export class CombatScene extends Phaser.Scene {
 
     // The enemy's hand, oldest on the left.
     const rowX = 600;
+    const trueHand = this.trueEnemyHand(); // null for a joined client, which never has it
+    const debug = debugPanel.showEnemyHand && trueHand !== null;
     this.label(layer, rowX - 20, 70, "Hand", 22, "#9fd1b8", 1);
     e.hand.forEach((slot, i) => {
       const x = rowX + 60 + i * 130; // 7 slots (the largest handLimit) end at x 1500, left of the party bar
       const c = slot.revealed
         ? this.domino(layer, slot.domino, 0.5, "revealed", x, 70)
-        : debugPanel.showEnemyHand
-          ? this.domino(layer, this.shown?.enemyIds[i] || this.state.enemy.hand[i], 0.5, "revealed", x, 70) // debug only: the true domino, with a red mark
+        : debug
+          ? this.domino(layer, this.shown?.enemyIds[i] || trueHand![i], 0.5, "revealed", x, 70) // debug only: the true domino, with a red mark
           : this.domino(layer, null, 0.5, "hidden", x, 70);
-      if (!slot.revealed && debugPanel.showEnemyHand) this.label(layer, x, 112, "DEBUG", 14, "#ff6b64", 0.5, true);
+      if (!slot.revealed && debug) this.label(layer, x, 112, "DEBUG", 14, "#ff6b64", 0.5, true);
       this.anim.refs.enemyHand.push({ c, pos: { x, y: 70, k: 0.5 } });
     });
-    if (debugPanel.showEnemyHand) this.label(layer, rowX - 20, 100, "(debug view)", 16, "#ff6b64", 1, true);
+    if (debug) this.label(layer, rowX - 20, 100, "(debug view)", 16, "#ff6b64", 1, true);
     // Its whole deck, and what it has played since the last reshuffle.
     const y = this.smallRow(layer, "Deck", e.deckList, "normal", rowX, 158);
     this.smallRow(layer, "Played", e.faceUp, "playedFaceUp", rowX, y + 8);
@@ -335,7 +461,7 @@ export class CombatScene extends Phaser.Scene {
     const g = this.gfx(layer);
     view.seatOrder.forEach((seat, i) => {
       const x = x0 + i * step;
-      this.plate(layer, x, y - 6, seat === ENEMY_SEAT ? "Enemy" : seat, seat === turn && view.phase !== "over", 24);
+      this.plate(layer, x, y - 6, this.nameOf(seat, true, 9), seat === turn && view.phase !== "over", 24);
       if (seat === view.lead) this.label(layer, x, y + 28, "LEAD", 16, "#ffe14d", 0.5, true);
       if (i < n - 1) {
         g.fillStyle(0x9fd1b8, 1);
@@ -422,7 +548,7 @@ export class CombatScene extends Phaser.Scene {
       const c = this.domino(layer, p.domino, k, enemy ? "playedFaceUp" : "normal", x, y);
       this.anim.refs.chain.push({ c, pos: { x, y, k } });
       if (k >= 0.5) {
-        const tag = (enemy ? "Enemy" : p.seat) + (i + hidden === 0 ? " (opener)" : "");
+        const tag = this.nameOf(p.seat, true, 10) + (i + hidden === 0 ? " (opener)" : "");
         this.label(layer, x, y + (DH * k) / 2 + 13, tag, 16, enemy ? "#ff9a94" : "#cfe9dc", 0.5, true);
       }
       // Row breaks: a small arrow at the row's end and one at the next row's start.
@@ -459,14 +585,15 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- hands ----
 
-  private drawActiveHand(layer: Layer, view: BattleView, active: string, pending: PendingChoice | null): void {
+  private drawActiveHand(layer: Layer, view: BattleView, active: string, pending: PendingChoice | null, turn: string): void {
     const playable = new Set<string>(
       pending === null ? [] : pending.type === "opener" ? pending.dominoes : pending.options.map((o) => o.domino),
     );
     const pendingType = pending?.type ?? null;
     const p = view.players.find((x) => x.id === active);
     if (!p) return;
-    const onTurn = view.phase !== "over";
+    // Online, the hand is only lit up (and clickable) while it is your seat's turn.
+    const onTurn = view.phase !== "over" && (!this.online || turn === active);
     const g = this.gfx(layer);
     if (onTurn) {
       for (let i = 5; i >= 1; i--) {
@@ -474,8 +601,13 @@ export class CombatScene extends Phaser.Scene {
         g.strokeRoundedRect(HAND.x - i * 2, HAND.y - i * 2, HAND.w + i * 4, HAND.h + i * 4, 50 + i * 2);
       }
     }
-    this.plate(layer, HAND.x + 110, HAND.y + 4, p.id, onTurn, 28);
-    const hint = pendingType === "opener" ? "Play an opener" : pendingType === "answer" ? "Answer the spark" : "";
+    const you = this.online ? " (you)" : "";
+    this.plate(layer, HAND.x + 110, HAND.y + 4, this.nameOf(p.id, true, 9) + you, onTurn, 28);
+    let hint = pendingType === "opener" ? "Play an opener" : pendingType === "answer" ? "Answer the spark" : "";
+    if (this.online && view.phase !== "over" && !this.locked) {
+      if (this.waiting) hint = "Waiting for the host";
+      else if (pending === null) hint = `Waiting for ${this.nameOf(turn, true, 14)}`;
+    }
     const prompt = pending?.type === "answer" && this.sparkPrompt ? pending.options.find((o) => o.domino === this.sparkPrompt) : undefined;
     if (prompt) {
       this.drawSparkPrompt(layer, prompt.domino, prompt.sparks);
@@ -508,9 +640,10 @@ export class CombatScene extends Phaser.Scene {
 
   // A click on a playable domino. Playable means the engine offered it in getPendingChoice.
   private onHandClick(id: string): void {
-    if (this.locked) return;
-    const pending = getPendingChoice(this.state);
+    if (this.locked || this.waiting) return;
+    const pending = getPendingChoice(this.view);
     if (pending === null) return;
+    if (this.online && pending.player !== this.online.seat) return; // not your turn
     if (pending.type === "opener") {
       if (pending.dominoes.includes(id)) this.submit({ type: "opener", domino: id });
       return;
@@ -579,31 +712,46 @@ export class CombatScene extends Phaser.Scene {
   // ---- submitting and playback ----
 
   private submit(choice: Choice): void {
-    if (this.locked) return;
+    if (this.locked || this.waiting) return;
     this.sparkPrompt = null;
-    void this.playback(step(this.state, choice));
+    const online = this.online;
+    if (online) {
+      // Send the choice to the host and lock the table until it answers (an update or an error).
+      this.waiting = true;
+      this.redraw();
+      if (online.host) online.host.submitLocal(choice);
+      else online.client?.sendChoice(choice);
+      return;
+    }
+    const result = step(this.state!, choice);
+    void this.playback(result.events).then((finished) => {
+      if (finished) this.setState(result.state);
+    });
   }
 
   // Plays the step's events in order. The table follows them (shownView.ts nudges a copy of the
   // pre-step view with each event's numbers, animations.ts animates it) while the log line and
-  // the highlighted seat follow too. When they are done it redraws from the new state (getView),
-  // so the final table is exactly what the engine says. Input is locked until then.
-  private async playback(result: StepResult): Promise<void> {
+  // the highlighted seat follow too. The caller then redraws from the new state or view, so the
+  // final table is exactly what the engine says. Input is locked until then.
+  // Returns false if the scene was left meanwhile.
+  private async playback(events: GameEvent[]): Promise<boolean> {
     this.locked = true;
-    const before = this.state;
-    this.shown = startShown(getView(before, before.players[0].id), before);
+    const before = this.view;
+    // The enemy's hand by position; online the hidden ones are not known, only the revealed.
+    const enemyIds = this.state ? this.state.enemy.hand.slice() : before.enemy.hand.map((slot) => (slot.revealed ? slot.domino : ""));
+    this.shown = startShown(JSON.parse(JSON.stringify(before)) as BattleView, enemyIds);
     this.redraw();
     debugPanel.stateChanged();
     const enemyName = enemies.find((e) => e.id === before.enemy.id)?.name ?? before.enemy.id;
     const ctx: LogContext = {
       enemyName,
-      name: (seat) => (seat === ENEMY_SEAT ? enemyName : seat),
+      name: (seat) => (seat === ENEMY_SEAT ? enemyName : this.nameOf(seat, false)),
       domino: (id) => dominoes.find((d) => d.id === id)?.name ?? id,
     };
     const mem = newLogMemory();
     const epoch = this.epoch;
     const isPlayer = (seat: string) => seat !== ENEMY_SEAT;
-    for (const ev of result.events) {
+    for (const ev of events) {
       let hl: string | null = this.hlSeat;
       let hand: string | null = this.handSeat;
       switch (ev.type) {
@@ -631,19 +779,23 @@ export class CombatScene extends Phaser.Scene {
       // Step mode: the event and its animation have started; wait for the next click instead of the timer.
       if (debugPanel.stepMode) await debugPanel.waitForStep(ev.type);
       else if (wait > 0) await new Promise<void>((resolve) => this.time.delayedCall(scaleTime(wait), resolve));
-      if (epoch !== this.epoch) return; // the scene was restarted or left meanwhile
+      if (epoch !== this.epoch) return false; // the scene was restarted or left meanwhile
     }
     this.locked = false;
     this.hlSeat = null;
     this.handSeat = null;
     this.shown = null;
-    this.setState(result.state);
+    return true;
+  }
+
+  private get turnSeat(): string {
+    return this.hlSeat ?? this.view.seat;
   }
 
   private drawTeammate(layer: Layer, view: BattleView, id: string, x: number, y: number, h: number): void {
     const p = view.players.find((q) => q.id === id);
     if (!p) return;
-    this.plate(layer, x + SIDE_W / 2, y + 22, p.id, false, 26);
+    this.plate(layer, x + SIDE_W / 2, y + 22, this.nameOf(p.id), this.online !== null && view.phase !== "over" && this.turnSeat === p.id, 26);
     this.label(layer, x + SIDE_W / 2, y + 62, `Deck ${p.deck.length}   Discard ${p.discard.length}`, 20, "#cfe9dc", 0.5);
     const top = y + 90;
     const avail = h - 100;

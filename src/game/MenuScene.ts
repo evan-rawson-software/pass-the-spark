@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { MAX_NAME_LENGTH } from "../net/host";
+import { debugPanel } from "./DebugPanel";
 import { button, drawBackground, label, saveName, savedName, textInput } from "./ui";
 
 // The start screen (#33): host online, join, or single player.
@@ -10,6 +11,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    debugPanel.setEnabled(true);
     drawBackground(this);
     label(this, 960, 160, "Pass the Spark", 96, { bold: true, origin: 0.5 });
 
