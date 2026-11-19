@@ -106,7 +106,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Seats:** join order, and the host can reorder them in the lobby. The host picks the enemy and can start with 3 or 4 players (fewer only through the debug panel).
 - **Single player:** kept as a start-screen option.
 - **Dropped player:** they rejoin by reopening the link, and their browser remembers their seat. The game pauses on their turn with "Waiting for [name]". After a delay, the host can take that seat's turns until they return.
-- **Host drops:** the host's browser saves the room after every step. Everyone uses the same link (`?room=CODE`). A browser that has a saved hosted room with that code resumes as host; any other browser joins as a player. Resuming works only in the same browser on the same device. No host migration.
+- **Host drops:** the host's browser saves the room after every step. Everyone uses the same link (`?room=CODE`). A browser that has a saved hosted room with that code resumes as host; any other browser joins as a player. Resuming works only in the same browser on the same device. No host migration. There is no separate host link (`&host=1`); the saved room alone decides who resumes as host (#35).
 - **No turn timer. No chat or pings yet.**
 - **Version check:** a client on a different build is refused with a "refresh the page" message.
 - **Debug panel online:** host only.
