@@ -64,6 +64,7 @@ export interface Enemy {
 export interface Config {
   partyMaxHealth: number;
   playerDrawPerRound: number;
+  playerFirstDraw: number; // drawn in round 1 instead of playerDrawPerRound
   playerHandLimit: number;
   triggerCap: number;
   enemyReactionsScaleWithLap: boolean;
@@ -187,4 +188,10 @@ export interface EventData {
   text: string; // placeholder story text, 1-2 sentences
   prizes?: Record<string, string>; // events with prizes keyed by spark (the Wishing Well): spark -> prize kind
   numbers: Record<string, number>; // this event's own numbers (coin amounts, chances, damage)
+}
+
+// data/progression.json: experience amounts and the levels. Level N needs levels[N-1].experience in total and unlocks levels[N-1].unlock.
+export interface ProgressionData {
+  experience: { perFloor: number; perBoss: number; forWin: number };
+  levels: { experience: number; unlock: string }[];
 }

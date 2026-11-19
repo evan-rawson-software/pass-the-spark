@@ -1,0 +1,17 @@
+{
+  "experience": {
+    "perFloor": 10,
+    "perBoss": 50,
+    "forWin": 100
+  },
+  "levels": [
+    { "experience": 150, "unlock": "lookout" },
+    { "experience": 350, "unlock": "advancedSparks" },
+    { "experience": 600, "unlock": "echo" },
+    { "experience": 900, "unlock": "twoSpark" },
+    { "experience": 1300, "unlock": "ignoresBlock" },
+    { "experience": 1800, "unlock": "spectrum" },
+    { "experience": 2400, "unlock": "mimic" },
+    { "experience": 3200, "unlock": "anyIntake" }
+  ]
+}

@@ -497,7 +497,7 @@ function startRound(state: BattleState, events: GameEvent[]): void {
       const e = state.enemy;
       draw(state, e, e.drawPerRound, e.handLimit, events, seat, e);
     } else {
-      draw(state, getPlayer(state, seat), state.config.playerDrawPerRound + extraDraws(state, seat), handLimitOf(state, seat), events, seat);
+      draw(state, getPlayer(state, seat), (state.round === 1 ? state.config.playerFirstDraw : state.config.playerDrawPerRound) + extraDraws(state, seat), handLimitOf(state, seat), events, seat);
     }
   }
   const seats = playerSeats(state.seatOrder);

@@ -5,7 +5,7 @@ import type { Choice } from "../engine/battle";
 import type { RunChoice } from "../engine/run";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
-import type { ClientMessage, HostMessage } from "./protocol";
+import type { ClientMessage, HostMessage, PingTarget } from "./protocol";
 import { hostPeerId } from "./room";
 import type { Connection, Transport } from "./transport";
 
@@ -22,6 +22,7 @@ export interface ClientOptions {
   buildId: string;
   name: string;
   token: string;
+  unlocks: () => string[]; // this player's unlocks now (from the profile), read at every hello
   onMessage?: (message: HostMessage) => void;
   // The link to the host: lost ("reconnecting"), back ("ok", once the host has welcomed us), or given up ("gone").
   onLink?: (status: LinkStatus) => void;
@@ -33,6 +34,7 @@ export interface Client {
   lastEvents: GameEvent[];
   sendChoice(choice: Choice): void;
   sendRunChoice(choice: RunChoice, window: string): void;
+  sendPing(target: PingTarget): void;
   close(): void;
 }
 
@@ -54,6 +56,11 @@ export async function joinRoom(options: ClientOptions): Promise<Client> {
     sendRunChoice(choice, window) {
       if (connection.status !== "open") return;
       const message: ClientMessage = { type: "runChoice", choice, window };
+      connection.send(message);
+    },
+    sendPing(target) {
+      if (connection.status !== "open") return;
+      const message: ClientMessage = { type: "ping", target };
       connection.send(message);
     },
     close() {
@@ -80,11 +87,13 @@ export async function joinRoom(options: ClientOptions): Promise<Client> {
         client.lastEvents = message.events;
       }
       options.onMessage?.(message);
+      // The profile has just been given its experience: tell the host what is unlocked for the next run.
+      if (message.type === "experience") c.send({ type: "unlocks", unlocks: options.unlocks() } satisfies ClientMessage);
     });
     c.onStatus((status) => {
       if (status === "closed" && c === connection && !closed) void reconnect();
     });
-    const hello: ClientMessage = { type: "hello", buildId: options.buildId, name: options.name, token: options.token };
+    const hello: ClientMessage = { type: "hello", buildId: options.buildId, name: options.name, token: options.token, unlocks: options.unlocks() };
     c.send(hello);
   }
 
