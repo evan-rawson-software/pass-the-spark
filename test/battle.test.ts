@@ -17,7 +17,7 @@ const enemies = content.enemies;
 const starterDeck = content.starterDeck;
 
 // A fresh battle (seats p1, p2, enemy) with hands set to known dominoes.
-function setup(p1: string[], p2: string[], enemyHand: string[] = []): BattleState {
+function setup(p1: string[], p2: string[], enemyHand: string[] = [], extraDominoes: Domino[] = []): BattleState {
   const state = createBattle({
     config,
     content: { dominoes, enemies },
@@ -28,6 +28,7 @@ function setup(p1: string[], p2: string[], enemyHand: string[] = []): BattleStat
     seatOrder: ["p1", "p2", "enemy"],
     enemyId: "ogre",
     seed: 1,
+    extraDominoes,
   });
   state.players[0].hand = p1;
   state.players[1].hand = p2;
@@ -140,6 +141,14 @@ test("Echo, Echo, then a damage domino triggers 3 times at the same strength", (
   for (const d of ["echo_stone", "echo_tide", "kindle"]) s = answer(s, d);
   expect(s.enemy.health).toBe(100 - 3 * (2 * 3 * 2)); // base 2, strength 3, lap 2
   expect(s.chain.strength).toBe(3);
+});
+
+test("an upgraded Echo (a run instance) makes the next domino trigger 3 times", () => {
+  const upgraded: Domino = { id: "echo_stone#1+R", name: "Echo Stone", intake: ["Gale"], output: ["Gale"], effect: { kind: "echo", extraTriggers: 1 } };
+  let s = setup(["brace", "kindle"], ["echo_stone#1+R"], [], [upgraded]);
+  s = fuse(s, "brace");
+  for (const d of ["echo_stone#1+R", "kindle"]) s = answer(s, d);
+  expect(s.enemy.health).toBe(100 - 3 * (2 * 2 * 2)); // base 2, strength 2, lap 2, three triggers
 });
 
 test("Mimic after an enemy damage domino damages the enemy", () => {
