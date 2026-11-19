@@ -300,3 +300,32 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
   - Player dominoes can't be set off by the locked spark; an "any" intake can't answer it either.
   - The enemy can still react to it, and dominoes can still give it off. If it's the only spark passed to a player, they can't answer and the chain ends. With a two-spark output, they can answer the other spark.
 - **Screens:** the map shows "Act N of 3"; a short act-transition screen shows the heal and the next boss with its passive; the run-end screen shows how far the party got.
+
+### Coder choices during milestone 6 (confirmed)
+- `PlayPreview.lap` is the chain's lap and leaves out Overcharge's +1 (preview values include it).
+- Lap Runner's block is not a block effect, so Bulwark and other block bonuses don't apply. It fires only when the lap goes up after its holder's answer: not for the opener, not after an enemy reaction, and not once the battle is over.
+- When the lap goes up, passives run in this order: Glutton, Hoarder, Lap Runner.
+- Spark Starter's opener leaves chain strength at 0 unless its effect raises it, and gets no Lens bonus. A Mimic gets the Lens bonus of the spark that set it off.
+- First Echo is used up by the holder's first effect that triggers each round.
+- Lightning Rod's sparks (Storm, Void) are listed in `charms.json`.
+- The act-start heal is one global `actStartHealPercent`, rounded up.
+- The act transition is an engine phase (`act`) where each player presses Continue.
+- The Warden of Locks' lock applies only to players' answers. Enemy reactions, the opener and Mimic ignore it.
+- The Toll Bridge's hard fight counts as an elite fight, so it also offers a normal charm.
+- Charm rolls changed the runs that old seeds produce. That's fine.
+
+## 2026-11-19: Milestone 7 (balance pass and playtest fixes)
+
+### Simulation
+- **Bot player:** the sims get a simple co-op bot alongside random play. It sees what a real player sees (its own hand, teammates' open hands, the enemy's revealed dominoes). Among legal moves it prefers one the next seat can answer, then the highest value. Sims report random and bot results side by side.
+- **Whole-run sim:** the bot plays full runs. It takes the rarest domino offered, always takes charms, rests below half health and upgrades otherwise, buys at random at the Trader, and picks event choices at random. It reports run win rate, how far runs get and where they die.
+- **Charm strength:** the run sim reports win rate by charm held.
+
+### Screens
+- One issue covers the unchecked M6 screens: Playwright screenshots at 1920×1080 with 4 players and many charms, fixing any overlaps. Boss passive display names move into data. The debug panel's "give a charm" lasts for the rest of the run when used in a run.
+
+### Playtest feedback (first playtest)
+- **Single player setup:** no name inputs; seats are named Player 1-4. The seed box is filled with a random seed when the screen opens (still editable).
+- **Map screen:** drop "The party's choice". "Act N of 3" replaces "Route: floor N" as the heading.
+- **Single player votes:** no vote display. The chosen stop opens straight away. The same goes for single player event votes.
+- **Hover highlight:** hovering a playable domino in your hand highlights the dominoes that could answer it in the next seat's hand: teammates' dominoes, and the enemy's revealed ones. Which dominoes count comes from the engine.
