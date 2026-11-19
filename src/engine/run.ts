@@ -41,7 +41,7 @@ export interface RunState {
   actIndex: number;
   map: ActMap;
   position: RunPosition | null; // null before the first vote of an act
-  phase: "vote" | "battle" | "reward" | "rest" | "trader" | "event" | "over";
+  phase: "vote" | "battle" | "reward" | "rest" | "trader" | "event" | "act" | "over";
   votes: Record<string, number>; // player id -> voted node index on the next floor; visible to everyone
   health: number; // the party's health between battles
   maxHealth: number;
@@ -57,6 +57,7 @@ export interface RunState {
   battleType: BattleType | null; // the type of the current battle, and of the one just won while rewards are open
   reward: RewardState | null; // present while phase is "reward"
   rest: string[] | null; // present while phase is "rest": the players who have chosen
+  actStart: { heal: number; done: string[] } | null; // present while phase is "act" (the screen between acts): what the heal restored and who has pressed Continue
   trader: TraderState | null; // present while phase is "trader"
   event: EventState | null; // present while phase is "event"
   hiddenFloor: number | null; // the floor whose stops show as "?" until the party enters one (Toll Bridge: turn back)
@@ -80,6 +81,7 @@ export type RunChoice =
   | { type: "rest" }
   | { type: "upgrade"; domino: string; side: UpgradeSide; spark?: Spark } // spark: the second intake, left side only
   | { type: "trader"; action: TraderAction }
+  | { type: "act" } // Continue, from the screen between acts
   | { type: "event"; option: number; pick?: EventPick }; // an index into the pending choice's options; pick: the dominoes (and spark) a personal event's option works on
 
 // Any number of buys and removes, in any order, then done. domino is an id: from your stock to buy, from your deck to remove.
@@ -93,7 +95,8 @@ export type RunPendingChoice =
   | { type: "rest"; player: string } // answered with a "rest" or an "upgrade" choice
   // Prices are what this player pays now (Haggler included): dominoPrices by domino id, charmPrice for each charm, removalFee for the next removal.
   | { type: "trader"; player: string; stock: Domino[]; charmStock: Charm[]; dominoPrices: Record<string, number>; charmPrice: number; removalFee: number }
-  | { type: "event"; player: string; event: string; options: EventOption[] };
+  | { type: "event"; player: string; event: string; options: EventOption[] }
+  | { type: "act"; player: string };
 
 export type RunEvent =
   | GameEvent
@@ -221,6 +224,7 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     battleType: null,
     reward: null,
     rest: null,
+    actStart: null,
     trader: null,
     event: null,
     hiddenFloor: null,
@@ -280,6 +284,10 @@ export function getPendingRunChoices(run: RunState): RunPendingChoice[] {
     if (event.giant) return [{ type: "event", player: event.giant.turn, event: event.id, options: event.options }]; // only the player whose turn it is
     return run.players.filter((id) => event.choices[id] === undefined).map((id) => ({ type: "event", player: id, event: event.id, options: event.options }));
   }
+  if (run.phase === "act" && run.actStart) {
+    const done = run.actStart.done;
+    return run.players.filter((id) => !done.includes(id)).map((id) => ({ type: "act", player: id }));
+  }
   if (run.phase === "battle" && run.battle) {
     const pending = getPendingChoice(run.battle);
     if (pending) return [{ type: "battle", player: pending.player, pending }];
@@ -333,6 +341,12 @@ export function applyRunChoice(input: RunState, playerId: string, choice: RunCho
     run.rest.push(playerId);
     if (run.rest.length === run.players.length) {
       run.rest = null;
+      goToVote(run, events);
+    }
+  } else if (choice.type === "act" && run.actStart) {
+    run.actStart.done.push(playerId);
+    if (run.actStart.done.length === run.players.length) {
+      run.actStart = null;
       goToVote(run, events);
     }
   } else if (choice.type === "reward" && run.reward) {
@@ -653,6 +667,11 @@ function finishRewards(run: RunState, events: RunEvent[]): void {
     const heal = Math.ceil(((run.maxHealth - run.health) * run.content.run.actStartHealPercent) / 100);
     run.health += heal;
     events.push({ type: "actStart", act: act.id, number: run.actIndex + 1, heal, boss: map.value.bossId });
+    // A short screen shows the heal and the next boss; Continue (from everyone) opens the map.
+    run.battleType = null;
+    run.phase = "act";
+    run.actStart = { heal, done: [] };
+    return;
   }
   run.battleType = null;
   goToVote(run, events);

@@ -91,6 +91,15 @@ export class Tooltip {
     target.on("destroy", () => this.hide());
   }
 
+  // A tooltip of plain lines on any object (the map's boss).
+  attachLines(target: Phaser.GameObjects.GameObject, lines: TipLine[]): void {
+    target.setInteractive();
+    target.on("pointerover", (pointer: Phaser.Input.Pointer) => this.show(lines, pointer));
+    target.on("pointermove", (pointer: Phaser.Input.Pointer) => this.move(pointer));
+    target.on("pointerout", () => this.hide());
+    target.on("destroy", () => this.hide());
+  }
+
   hide(): void {
     this.box?.destroy(true);
     this.box = undefined;
