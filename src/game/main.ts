@@ -1,15 +1,22 @@
 import Phaser from "phaser";
 import { CombatScene } from "./CombatScene";
+import { EndScene } from "./EndScene";
+import { hasDevParams } from "./devBattle";
+import { StartScene } from "./StartScene";
 import { DominoTestScene } from "./DominoTestScene";
 import { TitleScene } from "./TitleScene";
 
-// The combat table is the default. ?scene=dominoes opens the domino drawing test
-// page and ?scene=title the title. The start screen (#27) will replace this choice.
-const which = new URLSearchParams(window.location.search).get("scene");
-const scenes =
-  which === "dominoes" ? [DominoTestScene, TitleScene, CombatScene]
-  : which === "title" ? [TitleScene, DominoTestScene, CombatScene]
-  : [CombatScene, TitleScene, DominoTestScene];
+// The start screen is the default. Dev query params (see devBattle.ts) skip it and
+// open the combat table directly. ?scene=dominoes opens the domino drawing test
+// page and ?scene=title the title.
+const query = new URLSearchParams(window.location.search);
+const which = query.get("scene");
+const first =
+  which === "dominoes" ? DominoTestScene
+  : which === "title" ? TitleScene
+  : hasDevParams(query) ? CombatScene
+  : StartScene;
+const scenes = [first, ...[StartScene, CombatScene, EndScene, TitleScene, DominoTestScene].filter((s) => s !== first)];
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -21,5 +28,6 @@ new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
+  dom: { createContainer: true },
   scene: scenes,
 });
