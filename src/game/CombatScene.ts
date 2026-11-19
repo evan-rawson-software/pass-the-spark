@@ -11,6 +11,8 @@ import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
 import { describeEvent, eventDelay, newLogMemory } from "./eventLog";
 import type { LogContext } from "./eventLog";
+import { debugPanel } from "./DebugPanel";
+import type { DebugHost } from "./DebugPanel";
 import { SPEEDS, getPlaybackSpeed, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
 
 // The combat table. Draws everything from getView (and getPendingChoice for
@@ -51,6 +53,8 @@ export class CombatScene extends Phaser.Scene {
   private seed = 0;
   private tooltip!: Tooltip;
   private tipPlayer = ""; // whose playable dominoes get an "if played now" preview
+  private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
+  private fromQuery = false; // the setup came from the dev query params
 
   constructor() {
     super("combat");
@@ -58,9 +62,11 @@ export class CombatScene extends Phaser.Scene {
 
   // Started by the start or end screen with { settings, seed }. With no data
   // (page opened with dev query params) the setup comes from the query.
-  create(data: { settings?: GameSettings; seed?: number }): void {
+  create(data: { settings?: GameSettings; seed?: number; devQuery?: boolean }): void {
     const query = new URLSearchParams(window.location.search);
     const dev = devSettings(query);
+    this.epoch++;
+    this.fromQuery = !data.settings || data.devQuery === true;
     this.settings = data.settings ?? dev.settings;
     this.seed = data.seed ?? dev.seed;
     this.layer = undefined;
@@ -75,7 +81,20 @@ export class CombatScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.tooltip = new Tooltip(this);
-    this.setState(startBattle(this.settings, this.seed, data.settings ? undefined : query));
+    this.setState(startBattle(this.settings, this.seed, this.fromQuery ? query : undefined));
+    const host: DebugHost = {
+      getState: () => this.state,
+      getSeed: () => this.seed,
+      isLocked: () => this.locked,
+      restart: (seed) => this.scene.restart({ settings: this.settings, seed, devQuery: this.fromQuery }),
+      setState: (state) => this.setState(state),
+      redraw: () => this.redraw(),
+    };
+    debugPanel.attach(host);
+    this.events.once("shutdown", () => {
+      this.epoch++;
+      debugPanel.detach(host);
+    });
   }
 
   // The one entry point for new state: later issues call this after each step.
@@ -243,8 +262,13 @@ export class CombatScene extends Phaser.Scene {
     e.hand.forEach((slot, i) => {
       const x = rowX + 60 + i * 130; // 7 slots (the largest handLimit) end at x 1500, left of the party bar
       if (slot.revealed) this.domino(layer, slot.domino, 0.5, "revealed", x, 70);
-      else this.domino(layer, null, 0.5, "hidden", x, 70);
+      else if (debugPanel.showEnemyHand) {
+        // Debug only: the true domino, read straight from the state, with a red mark.
+        this.domino(layer, this.state.enemy.hand[i], 0.5, "revealed", x, 70);
+        this.label(layer, x, 112, "DEBUG", 14, "#ff6b64", 0.5, true);
+      } else this.domino(layer, null, 0.5, "hidden", x, 70);
     });
+    if (debugPanel.showEnemyHand) this.label(layer, rowX - 20, 100, "(debug view)", 16, "#ff6b64", 1, true);
     // Its whole deck, and what it has played since the last reshuffle.
     const y = this.smallRow(layer, "Deck", e.deckList, "normal", rowX, 158);
     this.smallRow(layer, "Played", e.faceUp, "playedFaceUp", rowX, y + 8);
@@ -561,6 +585,7 @@ export class CombatScene extends Phaser.Scene {
       domino: (id) => dominoes.find((d) => d.id === id)?.name ?? id,
     };
     const mem = newLogMemory();
+    const epoch = this.epoch;
     const isPlayer = (seat: string) => seat !== ENEMY_SEAT;
     for (const ev of result.events) {
       let hl: string | null = this.hlSeat;
@@ -581,7 +606,9 @@ export class CombatScene extends Phaser.Scene {
         this.redraw();
       }
       const delay = eventDelay(ev, mem);
-      if (delay > 0) await new Promise<void>((resolve) => this.time.delayedCall(scaleTime(delay), resolve));
+      if (debugPanel.stepMode) await debugPanel.waitForStep(ev.type);
+      else if (delay > 0) await new Promise<void>((resolve) => this.time.delayedCall(scaleTime(delay), resolve));
+      if (epoch !== this.epoch) return; // the scene was restarted or left meanwhile
     }
     this.locked = false;
     this.hlSeat = null;
