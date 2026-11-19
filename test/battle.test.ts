@@ -1,0 +1,92 @@
+import { expect, test } from "vitest";
+import { applyChoice, createBattle, getPendingChoice } from "../src/engine/battle";
+import type { BattleState } from "../src/engine/battle";
+import type { Config, DeckList, Domino, Enemy } from "../src/engine/types";
+import configJson from "../data/config.json";
+import dominoesJson from "../data/dominoes.json";
+import enemiesJson from "../data/enemies.json";
+import starterDeckJson from "../data/starter-deck.json";
+
+// JSON string literals widen to string, so a plain annotation fails on Spark.
+// For the single-object config, satisfies still catches a missing key.
+const config = configJson satisfies Record<keyof Config, unknown> as Config;
+const dominoes = dominoesJson as Domino[];
+const enemies = enemiesJson as Enemy[];
+const starterDeck: DeckList = starterDeckJson;
+
+// A fresh battle (seats p1, p2, enemy) with hands set to known dominoes.
+function setup(p1: string[], p2: string[], enemyHand: string[] = []): BattleState {
+  const state = createBattle({
+    config,
+    content: { dominoes, enemies },
+    players: [
+      { id: "p1", deck: starterDeck },
+      { id: "p2", deck: starterDeck },
+    ],
+    seatOrder: ["p1", "p2", "enemy"],
+    enemyId: "ogre",
+    seed: 1,
+  });
+  state.players[0].hand = p1;
+  state.players[1].hand = p2;
+  state.enemy.hand = enemyHand;
+  return state;
+}
+
+function fuse(s: BattleState, domino: string): BattleState {
+  return applyChoice(s, { type: "fuse", domino });
+}
+function answer(s: BattleState, domino: string): BattleState {
+  return applyChoice(s, { type: "answer", domino });
+}
+
+test("scripted round: strength rises per answer, lap per return to the lead", () => {
+  const s0 = setup(["kindle", "splash", "parry"], ["jab", "kindle"]);
+  const before = JSON.stringify(s0);
+
+  const s1 = fuse(s0, "kindle"); // Ember, strength 0
+  expect(JSON.stringify(s0)).toBe(before); // input untouched
+  expect(s1.chain).toMatchObject({ strength: 0, lap: 1 });
+
+  const s2 = answer(s1, "jab"); // p2: 3 x 1 x 1
+  expect(s2.chain).toMatchObject({ strength: 1, lap: 2, history: ["Ember"] });
+  expect(s2.enemy.health).toBe(100 - 3);
+
+  const s3 = answer(s2, "splash"); // p1: 2 x 2 x 2
+  expect(s3.chain).toMatchObject({ strength: 2, lap: 2 });
+  expect(s3.enemy.health).toBe(97 - 8);
+
+  const s4 = answer(s3, "kindle"); // p2: 2 x 3 x 2, then p1 holds no Ember domino
+  expect(s4.enemy.health).toBe(89 - 12);
+  expect(s4.round).toBe(2);
+});
+
+test("the chain ends when a player can't answer; unplayed dominoes stay in hand", () => {
+  const s = fuse(setup(["kindle"], ["parry"]), "kindle"); // p2 can't answer Ember
+  expect(s.round).toBe(2);
+  expect(s.players[1].hand).toContain("parry");
+  expect(s.players[1].hand).toHaveLength(1 + config.playerDrawPerRound);
+  expect(getPendingChoice(s)).toMatchObject({ type: "fuse", player: "p2" });
+});
+
+test("block absorbs damage before health, and resets at round end", () => {
+  let s = setup(["kindle", "brace"], ["brace", "shelter"], ["ogre_stomp_a"]);
+  s = fuse(s, "kindle");
+  s = answer(s, "brace"); // p2 block 4; enemy Stomp at strength 2 hits for 6
+  expect(s.party).toMatchObject({ health: 58, block: 0 });
+  s = answer(s, "brace"); // p1 lap 2, strength 3: 4 x 3 x 2
+  expect(s.party.block).toBe(24);
+  s = answer(s, "shelter"); // p2: 4 x 4 x 2, then p1 can't answer Tide
+  expect(s.round).toBe(2);
+  expect(s.party).toMatchObject({ health: 58, block: 0 });
+});
+
+test("battle ends immediately when enemy health reaches 0 mid-chain", () => {
+  const s0 = setup(["kindle", "jab"], ["jab"]);
+  s0.enemy.health = 3;
+  const s = answer(fuse(s0, "kindle"), "jab");
+  expect(s.result).toBe("won");
+  expect(s.nextLead).toBe("p2");
+  expect(getPendingChoice(s)).toBeNull();
+  expect(s.players[0].hand).toEqual(["jab"]); // p1 never got another turn
+});
