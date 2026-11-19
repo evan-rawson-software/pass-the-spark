@@ -150,3 +150,16 @@ export interface TraderData {
   removalFeeStep: number; // each removal raises that player's fee by this, for the rest of the run
   minDeckSize: number; // a player can't remove a domino from a deck this small
 }
+
+// data/events.json: the question-mark stops.
+export type EventKind = "vote" | "personal" | "push";
+
+export interface EventData {
+  id: string;
+  name: string;
+  kind: EventKind;
+  weight: number; // chance weight when the next event is picked
+  enabled: boolean; // false: the event is in data but not playable yet, so the pool skips it
+  text: string; // placeholder story text, 1-2 sentences
+  numbers: Record<string, number>; // this event's own numbers (coin amounts, chances, damage)
+}

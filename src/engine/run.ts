@@ -7,6 +7,8 @@ import { ENEMY_SEAT, createBattleWithEvents, getPendingChoice, makeStarterInstan
 import type { BattleState, Choice, PendingChoice } from "./battle";
 import type { Content } from "./content";
 import type { GameEvent } from "./events";
+import { openEvent, pickEvent } from "./eventStops";
+import type { EventOption, EventState } from "./eventStops";
 import { generateActMap } from "./map";
 import type { ActMap } from "./map";
 import { isRewardComplete, pickedDominoes, rollOffers, submitRewardChoice } from "./rewards";
@@ -16,7 +18,7 @@ import { previewUpgrade } from "./upgrades";
 import { settleVote } from "./vote";
 import { rollStock } from "./trader";
 import type { TraderState } from "./trader";
-import type { BattleType, Domino, NodeType, Rarity, Spark, UpgradeSide } from "./types";
+import type { BattleType, Domino, EventKind, NodeType, Rarity, Spark, UpgradeSide } from "./types";
 
 export type RunNodeType = NodeType | "boss";
 
@@ -34,7 +36,7 @@ export interface RunState {
   actIndex: number;
   map: ActMap;
   position: RunPosition | null; // null before the first vote of an act
-  phase: "vote" | "battle" | "reward" | "rest" | "trader" | "over";
+  phase: "vote" | "battle" | "reward" | "rest" | "trader" | "event" | "over";
   votes: Record<string, number>; // player id -> voted node index on the next floor; visible to everyone
   health: number; // the party's health between battles
   maxHealth: number;
@@ -50,6 +52,8 @@ export interface RunState {
   reward: RewardState | null; // present while phase is "reward"
   rest: string[] | null; // present while phase is "rest": the players who have chosen
   trader: TraderState | null; // present while phase is "trader"
+  event: EventState | null; // present while phase is "event"
+  eventsSeen: string[]; // event ids met this run, across acts; starts again once every enabled event has been seen
   result: "won" | "lost" | null;
 }
 
@@ -65,7 +69,8 @@ export type RunChoice =
   | { type: "reward"; pick: string } // a domino id from the player's offer, or SKIP
   | { type: "rest" }
   | { type: "upgrade"; domino: string; side: UpgradeSide; spark?: Spark } // spark: the second intake, left side only
-  | { type: "trader"; action: TraderAction };
+  | { type: "trader"; action: TraderAction }
+  | { type: "event"; option: number }; // an index into the pending choice's options
 
 // Any number of buys and removes, in any order, then done. domino is an id: from your stock to buy, from your deck to remove.
 export type TraderAction = { kind: "buy"; domino: string } | { kind: "remove"; domino: string } | { kind: "done" };
@@ -75,7 +80,8 @@ export type RunPendingChoice =
   | { type: "battle"; player: string; pending: PendingChoice }
   | { type: "reward"; player: string; offer: Domino[] }
   | { type: "rest"; player: string } // answered with a "rest" or an "upgrade" choice
-  | { type: "trader"; player: string; stock: Domino[]; removalFee: number };
+  | { type: "trader"; player: string; stock: Domino[]; removalFee: number }
+  | { type: "event"; player: string; event: string; options: EventOption[] };
 
 export type RunEvent =
   | GameEvent
@@ -90,6 +96,12 @@ export type RunEvent =
   | { type: "rewardOffers" }
   | { type: "rewardChosen"; player: string; pick: string }
   | { type: "traderStock" }
+  | { type: "eventStart"; event: string; kind: EventKind; domino: Domino | null }
+  | { type: "eventChoice"; player: string; option: number }
+  // winner is the option that won. counts is the number of votes per option; drawn is true when the
+  // vote was split and the RNG drew the winner. Coins are paid with "coins" events; a domino goes to
+  // the player named by the option.
+  | { type: "eventOutcome"; event: string; winner: number; option: EventOption; counts: Record<number, number>; drawn: boolean }
   | { type: "bought"; player: string; domino: string; price: number }
   | { type: "removed"; player: string; domino: string; fee: number }
   | { type: "traderDone"; player: string }
@@ -116,6 +128,9 @@ const RUN_ONLY: Record<RunOnlyEvent["type"], true> = {
   rewardOffers: true,
   rewardChosen: true,
   traderStock: true,
+  eventStart: true,
+  eventChoice: true,
+  eventOutcome: true,
   bought: true,
   removed: true,
   traderDone: true,
@@ -176,6 +191,8 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     reward: null,
     rest: null,
     trader: null,
+    event: null,
+    eventsSeen: [],
     result: null,
   };
   for (const id of players) {
@@ -209,6 +226,10 @@ export function getPendingRunChoices(run: RunState): RunPendingChoice[] {
   if (run.phase === "trader" && run.trader) {
     const trader = run.trader;
     return run.players.filter((id) => !trader.done[id]).map((id) => ({ type: "trader", player: id, stock: trader.stock[id], removalFee: run.removalFee[id] }));
+  }
+  if (run.phase === "event" && run.event) {
+    const event = run.event;
+    return run.players.filter((id) => event.choices[id] === undefined).map((id) => ({ type: "event", player: id, event: event.id, options: event.options }));
   }
   if (run.phase === "battle" && run.battle) {
     const pending = getPendingChoice(run.battle);
@@ -254,6 +275,11 @@ export function applyRunChoice(input: RunState, playerId: string, choice: RunCho
     run.reward = submitRewardChoice(run.reward, playerId, choice.pick);
     events.push({ type: "rewardChosen", player: playerId, pick: choice.pick });
     if (isRewardComplete(run.reward)) finishRewards(run, events);
+  } else if (choice.type === "event" && owed.type === "event" && run.event) {
+    if (!Number.isInteger(choice.option) || choice.option < 0 || choice.option >= owed.options.length) throw new Error(`option ${choice.option} is not offered`);
+    run.event.choices[playerId] = choice.option;
+    events.push({ type: "eventChoice", player: playerId, option: choice.option });
+    if (run.players.every((id) => run.event?.choices[id] !== undefined)) settleEvent(run, events);
   } else if (choice.type === "trader" && run.trader) {
     applyTraderAction(run, playerId, choice.action, events);
     if (run.players.every((id) => run.trader?.done[id])) {
@@ -314,10 +340,42 @@ function enterNode(run: RunState, events: RunEvent[]): void {
     run.phase = "trader";
     events.push({ type: "traderStock" });
   } else {
-    // Events plug in here. Until they exist there is
-    // nothing for anyone to choose, so the party goes straight on to the next vote.
-    goToVote(run, events);
+    enterEvent(run, events);
   }
+}
+
+// Picks the stop's event (weighted, none twice until all have been seen) and opens it.
+function enterEvent(run: RunState, events: RunEvent[]): void {
+  const picked = pickEvent(run.rng, run.content.events, run.eventsSeen);
+  run.eventsSeen = picked.seen;
+  const data = run.content.events.find((e) => e.id === picked.id)!;
+  const opened = openEvent(picked.state, data, run.players, run.content.pools, run.nextIndex);
+  run.rng = opened.state;
+  run.nextIndex = opened.nextIndex;
+  run.event = opened.event;
+  run.phase = "event";
+  events.push({ type: "eventStart", event: data.id, kind: data.kind, domino: opened.event.domino });
+}
+
+// Everyone has chosen. Settles the vote, applies the winning option and moves on to the next route vote.
+function settleEvent(run: RunState, events: RunEvent[]): void {
+  const event = run.event as EventState;
+  const result = settleVote(run.rng, run.players.map((id) => event.choices[id]));
+  run.rng = result.state;
+  const option = event.options[result.winner];
+  events.push({ type: "eventOutcome", event: event.id, winner: result.winner, option, counts: result.counts, drawn: result.drawn });
+  if (option.type === "player") {
+    const domino = event.domino as Domino;
+    run.decks[option.player].push(domino.id);
+    run.dominoes.push(domino);
+  } else {
+    for (const id of run.players) {
+      run.coins[id] += option.amount;
+      events.push({ type: "coins", player: id, amount: option.amount });
+    }
+  }
+  run.event = null;
+  goToVote(run, events);
 }
 
 // Validates and applies one buy, remove or done. Throws on anything illegal (the caller works on a copy).

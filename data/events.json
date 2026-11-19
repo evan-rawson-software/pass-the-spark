@@ -1,0 +1,76 @@
+{
+  "events": [
+    {
+      "id": "toll_bridge",
+      "name": "The Toll Bridge",
+      "kind": "vote",
+      "weight": 4,
+      "enabled": false,
+      "text": "A troll sits at the end of a rickety bridge, tapping a heavy club. \"Pay up, or prove you're worth letting by.\"",
+      "numbers": { "payCoins": 15 }
+    },
+    {
+      "id": "tinkers_bench",
+      "name": "The Tinker's Bench",
+      "kind": "personal",
+      "weight": 4,
+      "enabled": false,
+      "text": "A traveling tinker has set up a workbench by the road, tools laid out and a kettle on the boil. \"Something need fixing?\"",
+      "numbers": { "repaintCost": 20 }
+    },
+    {
+      "id": "wishing_well",
+      "name": "The Wishing Well",
+      "kind": "personal",
+      "weight": 4,
+      "enabled": false,
+      "text": "An old well hums faintly in the middle of a clearing. Drop something in, and it hums back.",
+      "numbers": { "emberCoins": 30, "galeFallbackCoins": 30 }
+    },
+    {
+      "id": "sleeping_giant",
+      "name": "The Sleeping Giant",
+      "kind": "push",
+      "weight": 4,
+      "enabled": false,
+      "text": "A giant snores across the path, a heap of gold spilling from his pockets. Every grab is a gamble.",
+      "numbers": { "grabCoins": 30, "wakeStartPercent": 10, "wakeStepPercent": 10, "wakeDamage": 10 }
+    },
+    {
+      "id": "spark_shrine",
+      "name": "The Spark Shrine",
+      "kind": "vote",
+      "weight": 4,
+      "enabled": false,
+      "text": "Three stone bowls glow at a mossy shrine, one each for Ember, Tide and Gale. The party may kneel at one.",
+      "numbers": { "blessedAnswerStrength": 2 }
+    },
+    {
+      "id": "lost_courier",
+      "name": "The Lost Courier",
+      "kind": "vote",
+      "weight": 4,
+      "enabled": true,
+      "text": "A courier sits on a milestone, sweating, with one parcel left and no idea where it goes. \"Take it off my hands, or take my fee.\"",
+      "numbers": { "coinsEach": 15 }
+    },
+    {
+      "id": "mirror_pond",
+      "name": "The Mirror Pond",
+      "kind": "personal",
+      "weight": 4,
+      "enabled": false,
+      "text": "The pond is perfectly still. Lean over it and your reflection reaches back, holding something familiar.",
+      "numbers": {}
+    },
+    {
+      "id": "twin_forge",
+      "name": "The Twin Forge",
+      "kind": "personal",
+      "weight": 1,
+      "enabled": false,
+      "text": "Two anvils face each other in a ruined smithy, a single fire burning between them. Something could be joined here.",
+      "numbers": { "minDeckSize": 6 }
+    }
+  ]
+}
