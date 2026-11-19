@@ -12,6 +12,12 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     debugPanel.setEnabled(true);
+    // Back at the start: the address bar no longer points at a room.
+    try {
+      window.history.replaceState(null, "", window.location.pathname);
+    } catch {
+      // not allowed here
+    }
     drawBackground(this);
     label(this, 960, 160, "Pass the Spark", 96, { bold: true, origin: 0.5 });
 

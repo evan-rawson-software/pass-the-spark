@@ -2,6 +2,8 @@ import Phaser from "phaser";
 import { CombatScene } from "./CombatScene";
 import { EndScene } from "./EndScene";
 import { hasDevParams } from "./devBattle";
+import { BUILD_ID } from "../net/buildId";
+import { loadHostedRoom } from "../net/room";
 import { StartScene } from "./StartScene";
 import { MapScene } from "./MapScene";
 import { RewardScene } from "./RewardScene";
@@ -16,7 +18,8 @@ import { TitleScene } from "./TitleScene";
 import { DeckScene } from "./deckViewer";
 import { debugPanel } from "./DebugPanel";
 
-// The menu is the default; a link with ?room=CODE opens the join screen. Dev query params (see devBattle.ts) skip it and
+// The menu is the default; a link with ?room=CODE opens the join screen, or, in the browser that
+// hosts that room, resumes it as host (#35). Dev query params (see devBattle.ts) skip it and
 // open the combat table directly. ?scene=dominoes opens the domino drawing test
 // page and ?scene=title the title.
 const query = new URLSearchParams(window.location.search);
@@ -25,8 +28,15 @@ const first =
   which === "dominoes" ? DominoTestScene
   : which === "title" ? TitleScene
   : hasDevParams(query) ? CombatScene
-  : query.has("room") ? JoinScene
+  : query.has("room") ? (isMyRoom(query.get("room")!) ? HostLobbyScene : JoinScene)
   : MenuScene;
+function isMyRoom(code: string): boolean {
+  try {
+    return loadHostedRoom(code.toUpperCase(), BUILD_ID, window.localStorage) !== null;
+  } catch {
+    return false;
+  }
+}
 const scenes = [
   first,
   ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, TraderScene, RunEndScene, DeckScene, TitleScene, DominoTestScene].filter(

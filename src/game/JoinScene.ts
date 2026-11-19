@@ -6,9 +6,10 @@ import type { Client } from "../net/client";
 import { createPeerTransport } from "../net/peerTransport";
 import { REFUSED_BUILD } from "../net/protocol";
 import type { HostMessage } from "../net/protocol";
-import { getRoomToken, ROOM_CODE_LENGTH } from "../net/room";
+import { getRoomToken, hasRoomToken, ROOM_CODE_LENGTH } from "../net/room";
 import { content } from "./devBattle";
 import { debugPanel } from "./DebugPanel";
+import { watchLink } from "./linkBanner";
 import { relay } from "./relay";
 import { button, drawBackground, label, saveName, savedName, textInput } from "./ui";
 
@@ -49,10 +50,14 @@ export class JoinScene extends Phaser.Scene {
       this.lobby = relay.lobby;
       const id = this.joinId;
       relay.handler = (m) => id === this.joinId && this.onMessage(m, this.roomCode);
+      watchLink(this, this.client);
       this.showLobby();
       return;
     }
-    this.showForm(new URLSearchParams(window.location.search).get("room") ?? "");
+    const room = (new URLSearchParams(window.location.search).get("room") ?? "").toUpperCase();
+    // Reopening the link of a room this browser was in before: go straight back to the seat.
+    if (room !== "" && savedName() !== "" && hasRoomToken(room, safeStorage())) void this.join(room, savedName());
+    else this.showForm(room);
   }
 
   private clear(): void {
@@ -85,6 +90,7 @@ export class JoinScene extends Phaser.Scene {
 
   private async join(code: string, name: string): Promise<void> {
     const id = ++this.joinId;
+    relay.reset();
     this.clear();
     this.keep(label(this, 960, 540, "Joining...", 40, { origin: 0.5 }));
     try {
@@ -95,11 +101,19 @@ export class JoinScene extends Phaser.Scene {
         name,
         token: getRoomToken(code, safeStorage()),
         onMessage: (m) => relay.deliver(m),
+        onLink: (status) => relay.setLink(status),
       });
       relay.handler = (m) => id === this.joinId && this.onMessage(m, code);
       this.roomCode = code;
       if (id !== this.joinId) return client.close();
       this.client = client;
+      watchLink(this, client);
+      // Reloading this page now brings the player back to the same room.
+      try {
+        window.history.replaceState(null, "", `${window.location.pathname}?room=${code}`);
+      } catch {
+        // not allowed here
+      }
     } catch (e) {
       if (id !== this.joinId) return;
       const missing = (e as { type?: string }).type === "peer-unavailable";
@@ -120,7 +134,7 @@ export class JoinScene extends Phaser.Scene {
       this.started = true;
       relay.lobby = null;
       const names: Record<string, string> = {};
-      this.lobby?.players.forEach((p) => (names[p.seat] = p.name));
+      (this.lobby?.players ?? relay.roster?.players ?? []).forEach((p) => (names[p.seat] = p.name));
       this.scene.start("combat", {
         online: { client: this.client, seat: this.client?.seat ?? "", view: m.view, names, roomCode: this.roomCode },
       });
@@ -140,7 +154,7 @@ export class JoinScene extends Phaser.Scene {
     this.keep(label(this, 100, 200, "Seats (the first seat leads)", 34, { bold: true }));
     lobby.players.forEach((p, i) => {
       const you = p.seat === this.client?.seat;
-      this.keep(label(this, 100, 290 + i * 90, `${i + 1}.  ${p.name}${you ? "  (you)" : ""}`, 36));
+      this.keep(label(this, 100, 290 + i * 90, `${i + 1}.  ${p.name}${you ? "  (you)" : ""}${p.away ? "  (away)" : ""}`, 36));
     });
     const enemy = content.enemies.find((e) => e.id === lobby.enemyId);
     this.keep(label(this, 1150, 200, "Enemy", 34, { bold: true }));

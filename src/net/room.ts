@@ -1,3 +1,5 @@
+import type { BattleState } from "../engine/battle";
+
 // Room codes and the host's peer id. Not part of the engine, so Math.random and crypto are fine here.
 
 // No 0/O, 1/I/L.
@@ -46,4 +48,47 @@ export function getRoomToken(code: string, storage?: TokenStorage): string {
     // storage unavailable
   }
   return token;
+}
+
+// Whether this browser already has a token for the room, meaning it has been in it before.
+export function hasRoomToken(code: string, storage?: TokenStorage): boolean {
+  try {
+    return !!storage?.getItem("pass-the-spark-token-" + code);
+  } catch {
+    return false;
+  }
+}
+
+// What the host keeps in localStorage so it can resume after a reload: the seats and the battle.
+export interface SavedRoom {
+  roomCode: string;
+  buildId: string;
+  enemyId: string;
+  members: { seat: string; name: string; token: string | null }[]; // in seat order; the host's own seat has no token
+  state: BattleState | null;
+}
+
+const hostedKey = (code: string) => "pass-the-spark-hosted-" + code;
+
+// Pass null to forget the room. Storage can be unavailable or full.
+export function saveHostedRoom(code: string, room: SavedRoom | null, storage?: TokenStorage & { removeItem(key: string): void }): void {
+  try {
+    if (room === null) storage?.removeItem(hostedKey(code));
+    else storage?.setItem(hostedKey(code), JSON.stringify(room));
+  } catch {
+    // storage unavailable
+  }
+}
+
+// The room this browser hosted with that code, if it is saved and made by this build.
+export function loadHostedRoom(code: string, buildId: string, storage?: TokenStorage): SavedRoom | null {
+  try {
+    const raw = storage?.getItem(hostedKey(code));
+    if (!raw) return null;
+    const room = JSON.parse(raw) as SavedRoom;
+    if (room.roomCode !== code || room.buildId !== buildId || !Array.isArray(room.members) || room.members.length === 0) return null;
+    return room;
+  } catch {
+    return null;
+  }
 }

@@ -9,6 +9,7 @@ import type { Client } from "../net/client";
 import type { Host } from "../net/host";
 import type { HostMessage } from "../net/protocol";
 import { relay } from "./relay";
+import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
 import { applyRunChoice } from "../engine/run";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
@@ -78,6 +79,7 @@ export class CombatScene extends Phaser.Scene {
   private waiting = false; // online: a choice was sent and the host has not answered yet
   private queue: Update[] = []; // online: updates not played back yet
   private draining = false;
+  private pauseUi: Phaser.GameObjects.GameObject[] = []; // online: "Waiting for [name]" and "Play for [name]"
   private layer?: Layer;
   private logText?: Phaser.GameObjects.Text;
   private locked = false; // true while events play back: no input
@@ -136,6 +138,9 @@ export class CombatScene extends Phaser.Scene {
       this.setView(this.online.view);
       const handler = (m: HostMessage) => this.onMessage(m);
       relay.handler = handler;
+      watchLink(this, this.online.client);
+      this.pauseUi = [];
+      this.drawPause();
       this.events.once("shutdown", () => {
         if (relay.handler === handler) relay.handler = null;
       });
@@ -229,8 +234,45 @@ export class CombatScene extends Phaser.Scene {
       this.waiting = false;
       this.showError(m.message);
       if (!this.locked) this.redraw();
+    } else if (m.type === "paused" || m.type === "presence" || m.type === "playing-for") {
+      // relay has kept it; show it.
+      this.drawPause();
+      if (!this.locked) this.redraw();
     }
     // "lobby" is kept in relay.lobby and acted on by the end screen.
+  }
+
+  // Online: the seat this machine's player is acting as right now. Normally their own; the host
+  // also acts as an away player's seat once it has taken over for them (and only on that seat's turn).
+  private mySeat(): string {
+    const pending = getPendingChoice(this.view);
+    if (relay.playingFor !== null && pending?.player === relay.playingFor) return relay.playingFor;
+    return this.online!.seat;
+  }
+
+  private isAway(seat: string): boolean {
+    return relay.roster?.players.find((p) => p.seat === seat)?.away === true;
+  }
+
+  // A seat's name for its plate on the table, marked when the player is away.
+  private plateName(seat: string, max = 12): string {
+    return this.nameOf(seat, true, max) + (this.online && this.isAway(seat) ? " (away)" : "");
+  }
+
+  // The pause across the top: everyone sees who the game is waiting for; the host may get a button.
+  private drawPause(): void {
+    this.pauseUi.forEach((o) => o.destroy());
+    this.pauseUi = [];
+    const paused = relay.paused;
+    if (!this.online || !paused || paused.waitingFor === null) return;
+    const style = { fontFamily: FONT, fontSize: "30px", color: "#ffd0cc", fontStyle: "bold", backgroundColor: "#0d2a20", padding: { x: 24, y: 10 } };
+    this.pauseUi.push(this.add.text(900, 268, `Waiting for ${paused.waitingFor} to reconnect...`, style).setOrigin(0.5).setDepth(900));
+    const seat = paused.playFor;
+    const host = this.online.host;
+    if (host && seat) {
+      const name = relay.roster?.players.find((p) => p.seat === seat)?.name ?? seat;
+      this.pauseUi.push(button(this, 1400, 268, `Play for ${name}`, () => host.playFor(seat), { size: 30, origin: 0.5 }).setDepth(900));
+    }
   }
 
   private showError(message: string): void {
@@ -271,9 +313,9 @@ export class CombatScene extends Phaser.Scene {
     this.anim.refs.layer = layer;
     let pending = this.locked || this.waiting ? null : getPendingChoice(now);
     // Online, only the player whose turn it is gets anything to click.
-    if (this.online && pending !== null && pending.player !== this.online.seat) pending = null;
+    if (this.online && pending !== null && pending.player !== this.mySeat()) pending = null;
     // Single player: the front hand follows whoever's turn it is. Online: it is always your own.
-    const active = this.online ? this.online.seat : (this.handSeat ?? (now.seat === ENEMY_SEAT ? now.lead : now.seat));
+    const active = this.online ? this.mySeat() : (this.handSeat ?? (now.seat === ENEMY_SEAT ? now.lead : now.seat));
     const turn = this.hlSeat ?? now.seat;
     this.tipPlayer = pending === null ? "" : pending.player;
 
@@ -628,7 +670,7 @@ export class CombatScene extends Phaser.Scene {
         g.strokeRoundedRect(HAND.x - i * 2, HAND.y - i * 2, HAND.w + i * 4, HAND.h + i * 4, 50 + i * 2);
       }
     }
-    const you = this.online ? " (you)" : "";
+    const you = this.online ? (p.id === this.online.seat ? " (you)" : " (playing for)") : "";
     this.plate(layer, HAND.x + 110, HAND.y + 4, this.nameOf(p.id, true, 9) + you, onTurn, 28);
     let hint = pendingType === "opener" ? "Play an opener" : pendingType === "answer" ? "Answer the spark" : "";
     if (this.online && view.phase !== "over" && !this.locked) {
@@ -670,7 +712,7 @@ export class CombatScene extends Phaser.Scene {
     if (this.locked || this.waiting) return;
     const pending = getPendingChoice(this.view);
     if (pending === null) return;
-    if (this.online && pending.player !== this.online.seat) return; // not your turn
+    if (this.online && pending.player !== this.mySeat()) return; // not your turn
     if (pending.type === "opener") {
       if (pending.dominoes.includes(id)) this.submit({ type: "opener", domino: id });
       return;
@@ -827,7 +869,7 @@ export class CombatScene extends Phaser.Scene {
   private drawTeammate(layer: Layer, view: BattleView, id: string, x: number, y: number, h: number): void {
     const p = view.players.find((q) => q.id === id);
     if (!p) return;
-    this.plate(layer, x + SIDE_W / 2, y + 22, this.nameOf(p.id), this.online !== null && view.phase !== "over" && this.turnSeat === p.id, 26);
+    this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), this.online !== null && view.phase !== "over" && this.turnSeat === p.id, 26);
     this.label(layer, x + SIDE_W / 2, y + 62, `Deck ${p.deck.length}   Discard ${p.discard.length}`, 20, "#cfe9dc", 0.5);
     const top = y + 90;
     const avail = h - 100;
