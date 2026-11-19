@@ -1,4 +1,5 @@
 import { ENEMY_SEAT, getPendingChoice } from "../engine/battle";
+import { handLimitOf } from "../engine/battleCharms";
 import type { BattleState } from "../engine/battle";
 import { dominoes } from "./devBattle";
 
@@ -325,7 +326,7 @@ class DebugPanel {
   }
 
   private limitOf(state: BattleState, seat: string): number {
-    return seat === ENEMY_SEAT ? state.enemy.handLimit : state.config.playerHandLimit;
+    return seat === ENEMY_SEAT ? state.enemy.handLimit : handLimitOf(state, seat);
   }
 
   // The debug edit: a copy of the state with one hand replaced. Returns an error text if the
