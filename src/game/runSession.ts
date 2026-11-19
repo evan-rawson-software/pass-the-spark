@@ -70,6 +70,16 @@ export function leaveOnlineRun(): void {
   relay.onRun = null;
 }
 
+// The menu's Leave game: an online host closes the room (the game ends for everyone), an online
+// player closes only their own link (their seat is kept for the room link), single player just goes.
+export function leaveRun(): void {
+  const online = session?.online;
+  online?.host?.close();
+  online?.client?.close();
+  session = null;
+  relay.onRun = null;
+}
+
 export function currentRun(): RunState {
   if (!session) throw new Error("no run in progress");
   return session.run;
