@@ -103,7 +103,7 @@ Confirmed rulings. These override the build brief where they differ. Newest last
 - **Connection:** peer-to-peer in the browser (WebRTC via PeerJS and its free public broker). The host's browser is the server. A hosted relay is added only if friends can't connect. Replaced by Steam in the Godot port.
 - **Authority:** the host runs the engine. Clients send only choices; the host sends each player their own view (`getView`) and events (`getEventsView`).
 - **Joining:** the host creates a room with a short code and a shareable link. Friends open it, type a name and join. No accounts.
-- **Seats:** join order, and the host can reorder them in the lobby. The host picks the enemy and can start with 3 or 4 players (fewer only through the debug panel).
+- **Seats:** join order, and the host can reorder them in the lobby. The host can start with 3 or 4 players (fewer only through the debug panel). Start begins a run, and the map decides each enemy (#49).
 - **Single player:** kept as a start-screen option.
 - **Dropped player:** they rejoin by reopening the link, and their browser remembers their seat. The game pauses on their turn with "Waiting for [name]". After a delay, the host can take that seat's turns until they return.
 - **Host drops:** the host's browser saves the room after every step. Everyone uses the same link (`?room=CODE`). A browser that has a saved hosted room with that code resumes as host; any other browser joins as a player. Resuming works only in the same browser on the same device. No host migration. There is no separate host link (`&host=1`); the saved room alone decides who resumes as host (#35).
