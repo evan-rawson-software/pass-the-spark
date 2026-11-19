@@ -29,6 +29,7 @@ export interface Domino {
   intake: Spark[] | "any";
   output: Spark[]; // one or more
   effect: Effect;
+  rarity?: Rarity; // generated dominoes only
 }
 
 export type Tier = "basic" | "elite" | "boss";
@@ -65,6 +66,33 @@ export interface Config {
 
 // data/starter-deck.json is a list of domino ids; copies repeat the id.
 export type DeckList = string[];
+
+// Generated dominoes (data/domino-pools.json).
+export type Rarity = "common" | "uncommon" | "rare";
+export type BattleType = "fight" | "elite" | "boss";
+export type Trait = "spectrum" | "ignoresBlock";
+
+// One possible right side. Value is drawn whole from [min, max]; the output list is drawn from outputs.
+export interface PoolEffect {
+  kind: EffectKind;
+  names: string[]; // word after the spark in the name, e.g. "Strike" -> "Tide Strike"
+  base?: [number, number]; // damage, block, amplify only
+  traits?: Trait[]; // traits this effect may roll
+  outputs: Spark[][];
+}
+
+export interface RarityPool {
+  intakes: (Spark[] | "any")[]; // each entry is one intake; lists hold exactly one spark
+  effects: PoolEffect[];
+  traits: { spectrum: number; ignoresBlock: number }; // chance 0..1 per trait
+}
+
+export interface Pools {
+  offerSize: number;
+  // Weights per battle type; an offered domino's rarity is drawn from these.
+  rarityOdds: Record<BattleType, Record<Rarity, number>>;
+  rarities: Record<Rarity, RarityPool>;
+}
 
 // data/run.json: the ordered list of acts for a run.
 export type NodeType = "fight" | "elite" | "rest" | "trader" | "event";

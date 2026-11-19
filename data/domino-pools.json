@@ -1,0 +1,539 @@
+{
+  "offerSize": 3,
+  "rarityOdds": {
+    "fight": {
+      "common": 70,
+      "uncommon": 27,
+      "rare": 3
+    },
+    "elite": {
+      "common": 30,
+      "uncommon": 50,
+      "rare": 20
+    },
+    "boss": {
+      "common": 0,
+      "uncommon": 0,
+      "rare": 100
+    }
+  },
+  "rarities": {
+    "common": {
+      "intakes": [
+        [
+          "Ember"
+        ],
+        [
+          "Tide"
+        ],
+        [
+          "Gale"
+        ]
+      ],
+      "traits": {
+        "spectrum": 0,
+        "ignoresBlock": 0
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "names": [
+            "Strike",
+            "Jab",
+            "Slash"
+          ],
+          "base": [
+            2,
+            4
+          ],
+          "traits": [
+            "spectrum",
+            "ignoresBlock"
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ]
+          ]
+        },
+        {
+          "kind": "block",
+          "names": [
+            "Ward",
+            "Guard",
+            "Shield"
+          ],
+          "base": [
+            3,
+            5
+          ],
+          "traits": [
+            "spectrum"
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ]
+          ]
+        }
+      ]
+    },
+    "uncommon": {
+      "intakes": [
+        [
+          "Ember"
+        ],
+        [
+          "Tide"
+        ],
+        [
+          "Gale"
+        ]
+      ],
+      "traits": {
+        "spectrum": 0.15,
+        "ignoresBlock": 0.15
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "names": [
+            "Strike",
+            "Cut",
+            "Blow"
+          ],
+          "base": [
+            4,
+            6
+          ],
+          "traits": [
+            "spectrum",
+            "ignoresBlock"
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ],
+            [
+              "Ember",
+              "Tide"
+            ],
+            [
+              "Tide",
+              "Gale"
+            ],
+            [
+              "Gale",
+              "Ember"
+            ]
+          ]
+        },
+        {
+          "kind": "block",
+          "names": [
+            "Ward",
+            "Bulwark",
+            "Barrier"
+          ],
+          "base": [
+            5,
+            8
+          ],
+          "traits": [
+            "spectrum"
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ],
+            [
+              "Ember",
+              "Tide"
+            ],
+            [
+              "Tide",
+              "Gale"
+            ],
+            [
+              "Gale",
+              "Ember"
+            ]
+          ]
+        },
+        {
+          "kind": "amplify",
+          "names": [
+            "Surge",
+            "Swell"
+          ],
+          "base": [
+            1,
+            2
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ],
+            [
+              "Ember",
+              "Tide"
+            ],
+            [
+              "Tide",
+              "Gale"
+            ],
+            [
+              "Gale",
+              "Ember"
+            ]
+          ]
+        },
+        {
+          "kind": "echo",
+          "names": [
+            "Echo",
+            "Ripple"
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ],
+            [
+              "Ember",
+              "Tide"
+            ],
+            [
+              "Tide",
+              "Gale"
+            ],
+            [
+              "Gale",
+              "Ember"
+            ]
+          ]
+        },
+        {
+          "kind": "lookout",
+          "names": [
+            "Scout",
+            "Watch"
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ],
+            [
+              "Ember",
+              "Tide"
+            ],
+            [
+              "Tide",
+              "Gale"
+            ],
+            [
+              "Gale",
+              "Ember"
+            ]
+          ]
+        }
+      ]
+    },
+    "rare": {
+      "intakes": [
+        [
+          "Ember"
+        ],
+        [
+          "Tide"
+        ],
+        [
+          "Gale"
+        ],
+        [
+          "Storm"
+        ],
+        [
+          "Void"
+        ],
+        "any"
+      ],
+      "traits": {
+        "spectrum": 0.25,
+        "ignoresBlock": 0.25
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "names": [
+            "Strike",
+            "Rend",
+            "Smite"
+          ],
+          "base": [
+            6,
+            9
+          ],
+          "traits": [
+            "spectrum",
+            "ignoresBlock"
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ],
+            [
+              "Storm"
+            ],
+            [
+              "Void"
+            ],
+            [
+              "Ember",
+              "Tide"
+            ],
+            [
+              "Tide",
+              "Gale"
+            ],
+            [
+              "Gale",
+              "Ember"
+            ],
+            [
+              "Ember",
+              "Storm"
+            ],
+            [
+              "Tide",
+              "Void"
+            ],
+            [
+              "Gale",
+              "Storm"
+            ],
+            [
+              "Ember",
+              "Void"
+            ],
+            [
+              "Storm",
+              "Void"
+            ]
+          ]
+        },
+        {
+          "kind": "block",
+          "names": [
+            "Ward",
+            "Aegis",
+            "Bastion"
+          ],
+          "base": [
+            8,
+            12
+          ],
+          "traits": [
+            "spectrum"
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ],
+            [
+              "Storm"
+            ],
+            [
+              "Void"
+            ],
+            [
+              "Ember",
+              "Tide"
+            ],
+            [
+              "Tide",
+              "Gale"
+            ],
+            [
+              "Gale",
+              "Ember"
+            ],
+            [
+              "Ember",
+              "Storm"
+            ],
+            [
+              "Tide",
+              "Void"
+            ],
+            [
+              "Gale",
+              "Storm"
+            ],
+            [
+              "Ember",
+              "Void"
+            ],
+            [
+              "Storm",
+              "Void"
+            ]
+          ]
+        },
+        {
+          "kind": "amplify",
+          "names": [
+            "Surge",
+            "Crescendo"
+          ],
+          "base": [
+            2,
+            3
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ],
+            [
+              "Storm"
+            ],
+            [
+              "Void"
+            ]
+          ]
+        },
+        {
+          "kind": "echo",
+          "names": [
+            "Echo",
+            "Reverb"
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ],
+            [
+              "Storm"
+            ],
+            [
+              "Void"
+            ]
+          ]
+        },
+        {
+          "kind": "lookout",
+          "names": [
+            "Scout",
+            "Oracle"
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ],
+            [
+              "Storm"
+            ],
+            [
+              "Void"
+            ]
+          ]
+        },
+        {
+          "kind": "mimic",
+          "names": [
+            "Mirror",
+            "Mimic"
+          ],
+          "outputs": [
+            [
+              "Ember"
+            ],
+            [
+              "Tide"
+            ],
+            [
+              "Gale"
+            ],
+            [
+              "Storm"
+            ],
+            [
+              "Void"
+            ]
+          ]
+        }
+      ]
+    }
+  }
+}
