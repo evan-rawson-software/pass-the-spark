@@ -57,7 +57,7 @@ function previewLines(domino: Domino, p: PlayPreview): string[] {
 
 // Everything the tooltip says. `previews` is previewPlay's result for a playable domino
 // in the active hand, or undefined.
-export function tipLines(domino: Domino, previews?: PlayPreview[]): TipLine[] {
+export function tipLines(domino: Domino, previews?: PlayPreview[], noLap = false): TipLine[] {
   const lines: TipLine[] = [{ text: domino.name, style: "title" }];
   lines.push({ text: `Intake: ${domino.intake === "any" ? "any spark" : domino.intake.join(" or ")}` });
   lines.push({ text: `Effect: ${effectText(domino.effect)}` });
@@ -66,6 +66,7 @@ export function tipLines(domino: Domino, previews?: PlayPreview[]): TipLine[] {
   if (domino.effect.spectrum) flags.push("spectrum");
   if (domino.effect.ignoresBlock) flags.push("ignoresBlock");
   if (flags.length > 0) lines.push({ text: `Flags: ${flags.join(", ")}`, style: "dim" });
+  if (noLap) lines.push({ text: "Does not scale with lap", style: "dim" });
   if (previews && previews.length > 0) {
     lines.push({ text: "If played now", style: "head" });
     for (const p of previews) {
@@ -83,9 +84,9 @@ export class Tooltip {
 
   constructor(private scene: Phaser.Scene) {}
 
-  attach(target: Phaser.GameObjects.Container, domino: Domino, previews?: () => PlayPreview[]): void {
+  attach(target: Phaser.GameObjects.Container, domino: Domino, previews?: () => PlayPreview[], noLap = false): void {
     target.setInteractive();
-    target.on("pointerover", (pointer: Phaser.Input.Pointer) => this.show(tipLines(domino, previews?.()), pointer));
+    target.on("pointerover", (pointer: Phaser.Input.Pointer) => this.show(tipLines(domino, previews?.(), noLap), pointer));
     target.on("pointermove", (pointer: Phaser.Input.Pointer) => this.move(pointer));
     target.on("pointerout", () => this.hide());
     target.on("destroy", () => this.hide());

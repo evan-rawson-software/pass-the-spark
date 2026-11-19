@@ -318,3 +318,23 @@ export function drawDomino(scene: Phaser.Scene, domino: Domino, size: DominoSize
   }
   return c;
 }
+
+// "Doesn't scale with lap": a small round symbol (a lap arrow crossed out) in the top-right corner.
+// The caller decides when to add it (the engine's ignoresLap says). A generated image can replace
+// the drawing here later (ui/no_lap in docs/art-assets.md).
+export function addNoLapSymbol(scene: Phaser.Scene, c: Phaser.GameObjects.Container): void {
+  const x = W / 2 - 4;
+  const y = -H / 2 + 4;
+  const g = scene.add.graphics();
+  g.fillStyle(0x1e2a44, 1);
+  g.lineStyle(3, 0xffffff, 1);
+  g.fillCircle(x, y, 18);
+  g.strokeCircle(x, y, 18);
+  g.lineStyle(4, 0xffe14d, 1);
+  g.beginPath();
+  g.arc(x, y, 9, 0.5, Math.PI * 1.75);
+  g.strokePath();
+  polygon(g, [{ x: x + 9, y: y - 9 }, { x: x + 15, y: y - 1 }, { x: x + 4, y: y - 2 }], 0xffe14d, 0xffe14d);
+  line(g, [{ x: x - 13, y: y + 13 }, { x: x + 13, y: y - 13 }], 4, 0xff3b3b);
+  c.add(g);
+}
