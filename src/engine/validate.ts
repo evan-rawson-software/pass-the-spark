@@ -138,7 +138,7 @@ export function validateConfig(data: unknown): Config {
   const file = "data/config.json";
   const id = "(config)";
   if (!isObject(data)) fail(file, id, "must be an object");
-  for (const field of ["partyMaxHealth", "playerDrawPerRound", "playerHandLimit", "triggerCap", "gluttonHeal"]) {
+  for (const field of ["partyMaxHealth", "playerDrawPerRound", "playerFirstDraw", "playerHandLimit", "triggerCap", "gluttonHeal"]) {
     checkPositive(file, id, data, field);
   }
   if (typeof data.enemyReactionsScaleWithLap !== "boolean") fail(file, id, `"enemyReactionsScaleWithLap" must be true or false`);

@@ -10,6 +10,7 @@ import { getRoomToken, hasRoomToken, ROOM_CODE_LENGTH } from "../net/room";
 import { debugPanel } from "./DebugPanel";
 import { watchLink } from "./linkBanner";
 import { relay } from "./relay";
+import { loadProfile } from "./profile";
 import { openRunScreen, startOnlineRun } from "./runSession";
 import { button, drawBackground, label, saveName, savedName, textInput } from "./ui";
 
@@ -101,6 +102,7 @@ export class JoinScene extends Phaser.Scene {
         buildId: BUILD_ID,
         name,
         token: getRoomToken(code, safeStorage()),
+        unlocks: () => loadProfile().unlocks,
         onMessage: (m) => relay.deliver(m),
         onLink: (status) => relay.setLink(status),
       });
@@ -159,7 +161,7 @@ export class JoinScene extends Phaser.Scene {
     this.keep(label(this, 100, 200, "Seats (the first seat leads)", 34, { bold: true }));
     lobby.players.forEach((p, i) => {
       const you = p.seat === this.client?.seat;
-      this.keep(label(this, 100, 290 + i * 90, `${i + 1}.  ${p.name}${you ? "  (you)" : ""}${p.away ? "  (away)" : ""}`, 36));
+      this.keep(label(this, 100, 290 + i * 90, `${i + 1}.  ${p.name}  (level ${p.level})${you ? "  (you)" : ""}${p.away ? "  (away)" : ""}`, 36));
     });
     this.keep(label(this, 960, 900, "Waiting for the host to start...", 36, { origin: 0.5, color: "#9fd1b8" }));
     this.keep(button(this, 60, 1000, "Leave", () => this.scene.start("menu")));

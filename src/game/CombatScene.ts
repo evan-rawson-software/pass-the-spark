@@ -12,10 +12,12 @@ import { relay } from "./relay";
 import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
 import { applyRunChoice } from "../engine/run";
+import { artBackground, artImage } from "./art";
 import { drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import { SPARK_STYLE } from "./sparks";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import type { DominoState } from "./dominoDrawing";
+import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { Tooltip } from "./tooltip";
 import { drawCharmList } from "./charmUi";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
@@ -408,18 +410,23 @@ export class CombatScene extends Phaser.Scene {
 
   // Returns the rectangle that dims the room at lap 2+ (heat ladder, #133): above the felt, below the dominoes.
   private drawTable(): Phaser.GameObjects.Rectangle {
+    // With a background image (added first, so behind everything) the frame, felt and pool of light
+    // give way to it; the chain mat stays.
+    const hasArt = artBackground(this, "combat");
     const g = this.add.graphics();
-    g.fillStyle(0x2e2016, 1);
-    g.fillRect(0, 0, 1920, 1080);
-    g.fillStyle(0x4a3322, 1);
-    g.fillRoundedRect(8, 8, 1904, 1064, 150);
-    g.fillStyle(0x1e5a42, 1);
-    g.fillRoundedRect(28, 28, 1864, 1024, 130);
-    g.lineStyle(4, 0x2f7a5b, 1);
-    g.strokeRoundedRect(44, 44, 1832, 992, 116);
-    // A soft pool of light and the chain mat: felt markings, not boxes.
-    g.fillStyle(0x246b4f, 0.55);
-    g.fillEllipse(960, 560, 1500, 700);
+    if (!hasArt) {
+      g.fillStyle(0x2e2016, 1);
+      g.fillRect(0, 0, 1920, 1080);
+      g.fillStyle(0x4a3322, 1);
+      g.fillRoundedRect(8, 8, 1904, 1064, 150);
+      g.fillStyle(0x1e5a42, 1);
+      g.fillRoundedRect(28, 28, 1864, 1024, 130);
+      g.lineStyle(4, 0x2f7a5b, 1);
+      g.strokeRoundedRect(44, 44, 1832, 992, 116);
+      // A soft pool of light and the chain mat: felt markings, not boxes.
+      g.fillStyle(0x246b4f, 0.55);
+      g.fillEllipse(960, 560, 1500, 700);
+    }
     g.fillStyle(0x174c38, 0.6);
     g.fillRoundedRect(MAT.x, MAT.y, MAT.w, MAT.h, 60);
     g.lineStyle(3, 0x2f7a5b, 0.7);
@@ -480,11 +487,13 @@ export class CombatScene extends Phaser.Scene {
 
   private shield(layer: Layer, key: string, x: number, y: number, s: number, amount: number): void {
     const g = this.gfx(layer);
-    g.fillStyle(0x4a6fa5, 1);
-    g.lineStyle(3, 0x1c2b44, 1);
-    const pts = [[-1, -1], [1, -1], [1, 0.1], [0, 1.1], [-1, 0.1]].map(([a, b]) => new Phaser.Math.Vector2(x + a * s * 0.5, y + b * s * 0.5));
-    g.fillPoints(pts, true);
-    g.strokePoints(pts, true);
+    if (!artImage(this, "ui/block", x, y + s * 0.05, s, s, layer)) {
+      g.fillStyle(0x4a6fa5, 1);
+      g.lineStyle(3, 0x1c2b44, 1);
+      const pts = [[-1, -1], [1, -1], [1, 0.1], [0, 1.1], [-1, 0.1]].map(([a, b]) => new Phaser.Math.Vector2(x + a * s * 0.5, y + b * s * 0.5));
+      g.fillPoints(pts, true);
+      g.strokePoints(pts, true);
+    }
     const text = this.label(layer, x + s * 0.5 + 8, y, String(amount), Math.round(s * 0.7), "#dbe6f5", 0, true);
     this.anim.refs.shields.set(key, { text, x, y });
   }
@@ -520,10 +529,25 @@ export class CombatScene extends Phaser.Scene {
         g.strokeRoundedRect(60 - i * 2, 30 - i * 2, 1480 + i * 4, 270 + i * 4, 60 + i * 2);
       }
     }
-    const title = this.label(layer, 60, 62, def?.name ?? e.id, 48, onTurn ? "#ffe14d" : "#ffffff", 0, true);
-    if (title.width > 450) title.setFontSize(Math.floor((48 * 450) / title.width)); // a long name stays clear of the "Hand" label
-    if (def) this.label(layer, 60, 108, def.tier.toUpperCase(), 20, "#9fd1b8", 0, true);
-    this.bar(layer, "enemy", 60, 135, 400, 40, e.health, e.maxHealth, RED);
+    // The portrait, if there is one, fills the free space on the right of the panel.
+    artImage(this, `enemies/${e.id}`, 1410, 165, 250, 250, layer);
+    // The tier is an icon (the map's stop icons) beside the name; long names shrink to leave it room.
+    const ICON = 48;
+    const title = this.label(layer, 60 + ICON + 12, 62, def?.name ?? e.id, 48, onTurn ? "#ffe14d" : "#ffffff", 0, true);
+    if (title.width > 450 - ICON - 12) title.setFontSize(Math.floor((48 * (450 - ICON - 12)) / title.width)); // stays clear of the "Hand" label
+    if (def) {
+      const stop = def.tier === "basic" ? "fight" : def.tier;
+      const g = this.gfx(layer);
+      g.fillStyle(NODE_STYLE[stop].color, 1);
+      g.fillCircle(60 + ICON / 2, 62, ICON / 2);
+      g.lineStyle(2, 0xf4ecd8, 1);
+      g.strokeCircle(60 + ICON / 2, 62, ICON / 2);
+      drawNodeIcon(g, stop, 60 + ICON / 2, 62, ICON / 2);
+      const hit = this.add.circle(60 + ICON / 2, 62, ICON / 2, 0, 0);
+      layer.add(hit);
+      this.tooltip.attachLines(hit, [{ text: def.tier === "basic" ? "Normal enemy" : NODE_STYLE[stop].name, style: "title" }]);
+    }
+    this.bar(layer, "enemy", 60, 112, 400, 40, e.health, e.maxHealth, RED);
     this.shield(layer, "enemy", 80, 208, 40, e.block);
     e.passives.forEach((p, i) => this.drawPassive(layer, p, 230 + i * 130, 245));
     e.passives.forEach((p) => {
@@ -614,6 +638,7 @@ export class CombatScene extends Phaser.Scene {
 
   // A padlock centred on x, y (about 30 wide at scale 1).
   private drawPadlock(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+    if (artImage(this, "ui/locked", x, y + 2 * scale, 34 * scale, 34 * scale, g.parentContainer)) return;
     g.lineStyle(5 * scale, 0xd8d8d8, 1);
     g.strokeEllipse(x, y - 9 * scale, 16 * scale, 20 * scale);
     g.fillStyle(0xe0b341, 1);
@@ -647,27 +672,19 @@ export class CombatScene extends Phaser.Scene {
       }
     });
 
-    // The spark(s) the next domino must answer.
-    this.label(layer, 1330, y - 6, "Spark", 22, "#9fd1b8", 0);
+    // The Warden's locked spark and the Spark Shrine's blessing (the sparks themselves show in the chain's empty slot).
     const sg = this.gfx(layer);
-    if (view.chain.sparks.length === 0) this.label(layer, 1405, y - 6, "none", 22, "#ffffff", 0);
-    view.chain.sparks.forEach((s, i) => {
-      if (s === view.blessing?.spark) drawBlessedGlow(sg, s, 1430 + i * 56, y - 6, 22);
-      drawSparkGlyph(sg, s, 1430 + i * 56, y - 6, 22);
-      if (s === view.locked) this.drawPadlock(sg, 1430 + i * 56 + 10, y + 6, 0.7);
-    });
-    // The Warden's locked spark: players can't answer it this round.
+    let ly = y - 6;
     if (view.locked) {
-      const ly = view.blessing ? y + 76 : y + 40;
       drawSparkGlyph(sg, view.locked, 1342, ly, 12);
       this.drawPadlock(sg, 1346, ly + 2, 0.6);
       this.label(layer, 1372, ly, `${view.locked} locked`, 20, "#ff8a8a", 0, true);
+      ly += 48;
     }
-    // The Spark Shrine's blessing, for the whole act's boss fight.
     if (view.blessing) {
-      drawBlessedGlow(sg, view.blessing.spark, 1342, y + 40, 12);
-      drawSparkGlyph(sg, view.blessing.spark, 1342, y + 40, 12);
-      this.label(layer, 1372, y + 40, `Blessed ${view.blessing.spark}: +${view.blessing.strength}`, 20, "#ffe14d", 0, true);
+      drawBlessedGlow(sg, view.blessing.spark, 1342, ly, 12);
+      drawSparkGlyph(sg, view.blessing.spark, 1342, ly, 12);
+      this.label(layer, 1372, ly, `Blessed ${view.blessing.spark}: +${view.blessing.strength}`, 20, "#ffe14d", 0, true);
     }
   }
 
@@ -785,7 +802,11 @@ export class CombatScene extends Phaser.Scene {
       if (sparks.length === 0) this.label(layer, x, y, "OPENER", Math.round(40 * k + 6), "#ffe14d", 0.5, true);
       sparks.forEach((s, i) => {
         const gy = sparks.length === 1 ? y : y + (i === 0 ? -1 : 1) * 27 * k;
-        drawSparkGlyph(g, s, x - 80 * k, gy, (sparks.length === 1 ? 24 : 16) * k);
+        const gx = x - 80 * k;
+        const gr = (sparks.length === 1 ? 24 : 16) * k;
+        if (s === view.blessing?.spark) drawBlessedGlow(g, s, gx, gy, gr);
+        drawSparkGlyph(g, s, gx, gy, gr);
+        if (s === view.locked) this.drawPadlock(g, gx + gr * 0.5, gy + gr * 0.3, Math.max(0.5, gr / 34));
       });
     }
   }

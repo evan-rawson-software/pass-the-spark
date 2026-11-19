@@ -66,6 +66,15 @@ test("scripted round: strength rises per answer, lap per return to the lead", ()
 });
 
 test("the chain ends when a player can't answer; unplayed dominoes stay in hand", () => {
+  const fresh = createBattle({
+    config,
+    content: { dominoes, enemies },
+    players: [{ id: "p1", deck: starterDeck }, { id: "p2", deck: starterDeck }],
+    seatOrder: ["p1", "p2", "enemy"],
+    enemyId: "ogre",
+    seed: 1,
+  });
+  expect(fresh.players.map((p) => p.hand.length)).toEqual([5, 5]); // round 1 draws 5
   const s = opener(setup(["kindle"], ["parry"]), "kindle"); // p2 can't answer Ember
   expect(s.round).toBe(2);
   expect(s.players[1].hand).toContain("parry");
