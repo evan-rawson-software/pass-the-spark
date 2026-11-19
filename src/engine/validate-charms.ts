@@ -3,6 +3,7 @@
 import type { Charm } from "./types";
 
 const FILE = "data/charms.json";
+const SPARKS = ["Ember", "Tide", "Gale", "Storm", "Void", "Rot"];
 
 function fail(id: string, problem: string): never {
   throw new Error(`${FILE}: ${id}: ${problem}`);
@@ -22,6 +23,12 @@ export function validateCharms(data: unknown): Charm[] {
       if (typeof charm[field] !== "string" || charm[field] === "") fail(id, `"${field}" must be a non-empty string`);
     }
     if (charm.pool !== "normal" && charm.pool !== "rare") fail(id, `"pool" must be "normal" or "rare"`);
+    if (charm.sparks !== undefined) {
+      if (!Array.isArray(charm.sparks) || charm.sparks.length === 0 || charm.sparks.some((s) => !SPARKS.includes(s))) {
+        fail(id, `"sparks" must be a non-empty list of sparks`);
+      }
+    }
+    if (id === "lightning_rod" && charm.sparks === undefined) fail(id, `"sparks" is needed`);
     const numbers = charm.numbers;
     if (typeof numbers !== "object" || numbers === null || Array.isArray(numbers)) fail(id, `"numbers" must be an object`);
     for (const [key, value] of Object.entries(numbers)) {
