@@ -66,7 +66,7 @@ export class HostLobbyScene extends Phaser.Scene {
     const status = label(this, 960, 540, "Creating room...", 36, { origin: 0.5 });
     button(this, 60, 1000, "Back", () => this.leave());
 
-    this.lobby = { type: "lobby", players: [{ seat: "p1", name }], seats: ["p1"] };
+    this.lobby = { type: "lobby", players: [{ seat: "p1", name, level: loadProfile().unlocks.length }], seats: ["p1"] };
     debugPanel.onLobbyChange = () => this.redraw();
     this.events.once("shutdown", () => {
       debugPanel.onLobbyChange = null;
@@ -200,7 +200,7 @@ export class HostLobbyScene extends Phaser.Scene {
     lobby.players.forEach((p, i) => {
       const y = 340 + i * 90;
       const you = p.seat === this.mySeat;
-      keep(label(this, 100, y, `${i + 1}.  ${p.name}${you ? "  (you, host)" : ""}${p.away ? "  (away)" : ""}`, 36));
+      keep(label(this, 100, y, `${i + 1}.  ${p.name}  (level ${p.level})${you ? "  (you, host)" : ""}${p.away ? "  (away)" : ""}`, 36));
       keep(button(this, 620, y, "Up", () => host.moveSeat(p.seat, -1), { size: 26, disabled: i === 0 }));
       keep(button(this, 720, y, "Down", () => host.moveSeat(p.seat, 1), { size: 26, disabled: i === lobby.players.length - 1 }));
       if (!you) keep(button(this, 850, y, "Kick", () => host.kick(p.seat), { size: 26 }));
