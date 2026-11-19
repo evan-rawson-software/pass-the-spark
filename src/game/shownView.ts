@@ -90,6 +90,8 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
     case "heal":
       side(ev.side).health += ev.amount;
       break;
+    case "hoarder":
+      break; // its block arrives as an ordinary block event
     case "glutton":
       v.enemy.health += ev.heal;
       break;

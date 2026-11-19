@@ -268,6 +268,27 @@ test("blessed spark: answers and enemy reactions made with it add 2 strength, ot
   expect(plays).toEqual(["p2:Ember:2", "enemy:Ember:4", "p1:Tide:5"]);
 });
 
+test("the Hoarder gains block equal to the strength when the lap goes up", () => {
+  let s = setup(["kindle", "splash"], ["jab"]);
+  s.enemy.passives = [{ kind: "hoarder" }];
+  s = opener(s, "kindle");
+  const { state, events } = step(s, { type: "answer", domino: "jab" }); // strength 1, then lap 2
+  expect(events.filter((e) => e.type === "hoarder")).toEqual([{ type: "hoarder", block: 1 }]);
+  expect(state.enemy.block).toBe(1);
+});
+
+test("the Smolder leftovers go off at the chain final strength, never below 1", () => {
+  let s = setup(["kindle", "splash"], ["jab"], ["elite_slash"]);
+  s.enemy.passives = [{ kind: "smolder" }];
+  s = answer(answer(opener(s, "kindle"), "jab"), "splash"); // final strength 2; p2 cannot answer; slash is left over
+  expect(s.party.health).toBe(60 - 4 * 2);
+
+  let t = setup(["kindle"], ["parry"], ["elite_slash"]); // no answers: strength 0 counts as 1
+  t.enemy.passives = [{ kind: "smolder" }];
+  t = opener(t, "kindle");
+  expect(t.party.health).toBe(60 - 4);
+});
+
 test("charms: lenses, Bulwark, Keystone and Overcharge change values and strength; previews match", () => {
   const s0 = createBattle({
     config,
