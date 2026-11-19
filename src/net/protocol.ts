@@ -14,9 +14,11 @@ export type PingTarget =
 
 // client -> host
 export type ClientMessage =
-  | { type: "hello"; buildId: string; name: string; token: string }
+  | { type: "hello"; buildId: string; name: string; token: string; unlocks: string[] }
   // A choice in a battle.
   | { type: "choice"; choice: Choice }
+  // This player's unlocks changed (after a run). Only counts between runs.
+  | { type: "unlocks"; unlocks: string[] }
   // Any other choice in the run (a vote, a reward pick, rest, upgrade, Trader). window is the
   // decision the player was looking at (RunView.window); the host ignores a choice for an earlier one.
   | { type: "runChoice"; choice: RunChoice; window: string }
@@ -39,6 +41,8 @@ export type HostMessage =
   | { type: "paused"; waitingFor: string | null; playFor?: string }
   // Host only: the seat the host is playing for right now (null: only its own).
   | { type: "playing-for"; seat: string | null }
+  // The run has ended: the experience it earned, sent to everyone in the room at that moment.
+  | { type: "experience"; runId: string; gained: number }
   // A ping the host has checked, from the seat's own connection. Sent to everyone, the pinger included.
   | { type: "ping"; seat: string; name: string; target: PingTarget }
   | { type: "error"; message: string };

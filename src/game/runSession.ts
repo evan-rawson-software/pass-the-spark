@@ -1,4 +1,5 @@
 import type Phaser from "phaser";
+import { runExperience } from "../engine/progression";
 import { applyRunChoice, createRun, getPendingRunChoices } from "../engine/run";
 import type { RunChoice, RunEvent, RunPendingChoice, RunState } from "../engine/run";
 import type { RunView } from "../engine/view";
@@ -8,6 +9,7 @@ import type { HostMessage } from "../net/protocol";
 import { content } from "./devBattle";
 import { deckViewerState } from "./deckViewer";
 import { watchLink } from "./linkBanner";
+import { awardExperience, loadProfile } from "./profile";
 import { relay } from "./relay";
 
 // The run the screens draw. Single player: the game layer keeps the RunState here and sends every
@@ -28,13 +30,16 @@ interface RunSession {
   seed: number;
   names: string[];
   online: OnlineRun | null;
+  runId: string; // single player: which run this is
   window: string; // online: the decision the run was waiting on in the last view (RunView.window)
 }
 
 let session: RunSession | null = null;
 
 export function startSingleRun(names: string[], seed: number): RunState {
-  session = { run: createRun({ players: names, seed, content }), seed, names, online: null, window: "" };
+  // One profile covers every seat. runId says which run this is, so its experience is added once.
+  const unlocks = Object.fromEntries(names.map((n) => [n, loadProfile().unlocks]));
+  session = { run: createRun({ players: names, seed, content, unlocks }), seed, names, online: null, window: "", runId: `${seed}-${Date.now()}` };
   return session.run;
 }
 
@@ -48,7 +53,7 @@ function standIn(view: RunView): RunState {
 
 // Online: a run has started (or the page reopened in the middle of one) and this is its first view.
 export function startOnlineRun(online: OnlineRun, view: RunView): void {
-  session = { run: standIn(view), seed: 0, names: [], online, window: view.window };
+  session = { run: standIn(view), seed: 0, names: [], online, window: view.window, runId: "" };
   relay.onRun = (m) => {
     if (!session?.online) return;
     session.run = standIn(m.view);
@@ -65,6 +70,11 @@ export function leaveOnlineRun(): void {
 export function currentRun(): RunState {
   if (!session) throw new Error("no run in progress");
   return session.run;
+}
+
+// Single player: the run is over; its experience goes to the profile (once, however often the screen opens).
+export function awardSingleRun(): void {
+  if (session && !session.online) awardExperience(session.runId, runExperience(session.run));
 }
 
 export function runSeed(): number {
