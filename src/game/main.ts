@@ -20,7 +20,7 @@ import { DeckScene } from "./deckViewer";
 import { debugPanel } from "./DebugPanel";
 
 // The menu is the default; a link with ?room=CODE opens the join screen, or, in the browser that
-// hosts that room, resumes it as host (#35). Dev query params (see devBattle.ts) skip it and
+// hosts that room, resumes it as host (#35; an unreadable save is dropped there and the page joins instead). Dev query params (see devBattle.ts) skip it and
 // open the combat table directly. ?scene=dominoes opens the domino drawing test
 // page and ?scene=title the title.
 const query = new URLSearchParams(window.location.search);
@@ -46,6 +46,11 @@ const scenes = [
 ];
 
 debugPanel.install(); // backtick opens the debug panel (#28)
+
+// A page restored from the back/forward cache has lost its connections: reload so it reconnects normally.
+window.addEventListener("pageshow", (e) => {
+  if (e.persisted) window.location.reload();
+});
 
 new Phaser.Game({
   type: Phaser.AUTO,

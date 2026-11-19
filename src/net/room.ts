@@ -81,14 +81,22 @@ export function saveHostedRoom(code: string, room: SavedRoom | null, storage?: T
 }
 
 // The room this browser hosted with that code, if it is saved and made by this build.
-export function loadHostedRoom(code: string, buildId: string, storage?: TokenStorage): SavedRoom | null {
+// A save from another build is ignored (null). A save that cannot be read is "corrupt".
+export function loadHostedRoom(code: string, buildId: string, storage?: TokenStorage): SavedRoom | "corrupt" | null {
+  let raw: string | null | undefined;
   try {
-    const raw = storage?.getItem(hostedKey(code));
-    if (!raw) return null;
-    const room = JSON.parse(raw) as SavedRoom;
-    if (room.roomCode !== code || room.buildId !== buildId || !Array.isArray(room.members) || room.members.length === 0) return null;
-    return room;
+    raw = storage?.getItem(hostedKey(code));
   } catch {
     return null;
+  }
+  if (!raw) return null;
+  try {
+    const room = JSON.parse(raw) as SavedRoom;
+    if (room.buildId !== buildId) return null;
+    if (room.roomCode !== code || !Array.isArray(room.members) || room.members.length === 0) return "corrupt";
+    if (room.run !== null && typeof room.run !== "object") return "corrupt";
+    return room;
+  } catch {
+    return "corrupt";
   }
 }
