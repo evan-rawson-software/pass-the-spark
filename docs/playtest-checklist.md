@@ -26,6 +26,7 @@ Things automated tests don't cover. Run through what you can at a playtest and n
 - [ ] The host reloads in the middle of an enemy turn playing out.
 - [ ] The host reloads in the lobby: away seats, kick, Start refused while anyone is away.
 - [ ] Browser back then forward on a joiner.
+- [ ] A player on a different build joins or reconnects to a live host: they see "refresh the page" at once.
 
 ## The run
 - [ ] Play a run to the boss: votes, rewards, rest, upgrades, Trader, deck viewer.
