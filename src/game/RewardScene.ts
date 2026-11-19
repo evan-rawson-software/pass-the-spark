@@ -49,21 +49,29 @@ export class RewardScene extends Phaser.Scene {
     super("reward");
   }
 
-  create(): void {
+  // data.localSeat: the seat this screen belongs to (online; the online layer passes it, #49).
+  // For trying the online layout by hand without networking, ?seat=NAME does the same.
+  create(data?: { localSeat?: string }): void {
     const run = currentRun();
     const reward = run.reward;
     const pending = nextPending(run);
+    const local = data?.localSeat ?? new URLSearchParams(window.location.search).get("seat") ?? undefined;
+    const online = local !== undefined && run.players.includes(local);
     drawBackground(this);
     drawPartyHud(this, run);
-    drawRunHeader(this, "Victory!", pending?.player ?? null, "Pick one domino for your deck, or skip.");
+    drawRunHeader(this, "Victory!", online ? null : (pending?.player ?? null), "Pick one domino for your deck, or skip.");
     if (!reward || pending?.type !== "reward") return;
-    const active = pending.player;
+    // Single player: the seat whose turn it is to pick is large and can pick. Online: your own
+    // seat is large (and first), can pick while undecided, and teammates are small.
+    const active = online ? local : pending.player;
+    const order = online ? [local, ...run.players.filter((p) => p !== local)] : run.players;
     const tooltip = new Tooltip(this);
     const earned = run.battleType ? run.content.run.battleCoins[run.battleType] : 0;
 
     let y = 290;
-    for (const id of run.players) {
+    for (const id of order) {
       const isActive = id === active;
+      const canPick = isActive && reward.choices[id] === undefined;
       const size: DominoSize = isActive ? "large" : "small";
       const rowH = isActive ? 250 : 140;
       const cy = y + rowH / 2;
@@ -79,7 +87,7 @@ export class RewardScene extends Phaser.Scene {
       }
       label(this, 60, cy - 30, id, isActive ? 40 : 30, { bold: true, color: isActive ? "#ffe14d" : "#ffffff" });
       label(this, 60, cy + 12, `+${earned} coins  (${run.coins[id] ?? 0} total)`, isActive ? 26 : 22, { color: "#ffe9a0" });
-      const status = choice === undefined ? (isActive ? "choosing" : "waiting") : choice === SKIP ? "skipped" : "picked";
+      const status = choice === undefined ? (isActive || online ? "choosing" : "waiting") : choice === SKIP ? "skipped" : "picked";
       label(this, 60, cy + 48, status, 22, { bold: true, color: choice === undefined ? "#cfe9dc" : "#8fe3a8" });
 
       const { w, h } = dominoPixelSize(size);
@@ -96,14 +104,14 @@ export class RewardScene extends Phaser.Scene {
           g.lineStyle(6, 0x8fe3a8, 1);
           g.strokeRoundedRect(x - w / 2 - 6, c.y - h / 2 - 6, w + 12, h + 12, 14);
         }
-        if (isActive) {
+        if (canPick) {
           c.on("pointerover", () => c.setScale(1.06));
           c.on("pointerout", () => c.setScale(1));
           c.on("pointerdown", () => submitRunChoice(this, id, { type: "reward", pick: d.id }));
         }
         drawRarity(this, x, c.y + h / 2 + (isActive ? 36 : 18), d.rarity, size);
       });
-      if (isActive) button(this, 1650, cy, "Skip", () => submitRunChoice(this, id, { type: "reward", pick: SKIP }), { size: 40, origin: 0.5 });
+      if (canPick) button(this, 1650, cy, "Skip", () => submitRunChoice(this, id, { type: "reward", pick: SKIP }), { size: 40, origin: 0.5 });
       y += rowH;
     }
   }
