@@ -35,6 +35,8 @@ import type { ShownTable } from "./shownView";
 //
 // Run mode (#50): started with { run: true }, the battle is the current run's. Choices go to
 // applyRunChoice, and when the battle is over the run's phase says which screen opens next.
+// Online (#49) a run's battle is the same online table as below; when it ends, the screen for the
+// run's new phase (which the host's run update has already set) opens after a short pause.
 //
 // One scene serves both modes (#34). Single player owns the BattleState and steps it itself.
 // Online, the scene never has a BattleState: it holds the latest BattleView and plays back the
@@ -229,6 +231,10 @@ export class CombatScene extends Phaser.Scene {
       this.waiting = false;
       this.queue.push(m);
       void this.drain();
+    } else if (m.type === "runUpdate") {
+      // runSession already has the new run. If the battle ended while this table was not told (we were
+      // away), move on; otherwise the last update is still playing and the table moves on after it.
+      if (this.inRun && m.view.phase !== "battle" && !this.draining && !this.locked) openRunScreen(this);
     } else if (m.type === "error") {
       // The host rejected the choice: say so briefly and unlock.
       this.waiting = false;

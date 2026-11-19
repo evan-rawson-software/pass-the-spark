@@ -1,8 +1,8 @@
 import Phaser from "phaser";
 import { getUpgradeOptions, previewUpgrade } from "../engine/upgrades";
 import type { Domino, Spark, UpgradeSide } from "../engine/types";
-import { currentRun, nextPending, submitRunChoice } from "./runSession";
-import { drawPartyHud, drawRunHeader } from "./partyHud";
+import { currentRun, isOnlineRun, myPending, submitRunChoice, watchRun } from "./runSession";
+import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
 import { drawDomino, drawSparkGlyph, dominoPixelSize } from "./dominoDrawing";
 import { SPARK_ORDER } from "./sparks";
 import { Tooltip } from "./tooltip";
@@ -15,7 +15,8 @@ import { button, drawBackground, label } from "./ui";
 // upgraded, the spark choices and the upgraded domino all come from src/engine/upgrades.ts.
 
 // The party's health when the first seat started choosing, to show what has been healed so far.
-let healthAtStart = 0;
+// (-1: not known, because this page was opened after the first seat had chosen.)
+let healthAtStart = -1;
 
 const LARGE = dominoPixelSize("large");
 const SMALL = dominoPixelSize("small");
@@ -40,18 +41,28 @@ export class RestScene extends Phaser.Scene {
     const run = currentRun();
     if (!run.rest || run.rest.length === 0) healthAtStart = run.health;
     this.render();
+    // Online the others' choices arrive while this player is mid-upgrade: redraw, keeping the selection.
+    watchRun(this, "rest", { redraw: () => this.render() });
   }
 
   private render(): void {
     this.tooltip.hide();
     this.children.removeAll(true);
     const run = currentRun();
-    const pending = nextPending(run);
+    const pending = myPending(run);
+    const online = isOnlineRun();
     drawBackground(this);
     drawPartyHud(this, run);
-    const upgrade = this.mode === "upgrade";
-    drawRunHeader(this, upgrade ? "Upgrade" : "Rest site", pending?.player ?? null, upgrade ? "Pick a domino, then a side." : "Rest to heal the party, or upgrade a domino.");
-    if (pending?.type !== "rest") return;
+    const upgrade = this.mode === "upgrade" && pending !== null;
+    drawRunHeader(this, upgrade ? "Upgrade" : "Rest site", online ? null : (pending?.player ?? null), upgrade ? "Pick a domino, then a side." : "Rest to heal the party, or upgrade a domino.");
+    if (pending?.type !== "rest") {
+      // Online, this player has chosen: wait for the others.
+      if (online) {
+        if (healthAtStart >= 0) label(this, 960, 440, `Party healed so far: +${run.health - healthAtStart}`, 32, { origin: 0.5, color: "#9fd1b8" });
+        drawWaitingFor(this, run, 960, 520, 0.5);
+      }
+      return;
+    }
     if (upgrade) this.renderUpgrade(pending.player);
     else this.renderChoose(pending.player);
   }
@@ -60,7 +71,7 @@ export class RestScene extends Phaser.Scene {
     const run = currentRun();
     button(this, 960, 440, `Rest (heal ${run.content.run.restHeal})`, () => submitRunChoice(this, player, { type: "rest" }), { size: 48, origin: 0.5 });
     button(this, 960, 600, "Upgrade a domino", () => { this.mode = "upgrade"; this.render(); }, { size: 48, origin: 0.5 });
-    label(this, 960, 800, `Party healed so far: +${run.health - healthAtStart}`, 32, { origin: 0.5, color: "#9fd1b8" });
+    if (healthAtStart >= 0) label(this, 960, 800, `Party healed so far: +${run.health - healthAtStart}`, 32, { origin: 0.5, color: "#9fd1b8" });
     label(this, 960, 850, `${run.rest?.length ?? 0} of ${run.players.length} have chosen`, 28, { origin: 0.5, color: "#9fd1b8" });
   }
 

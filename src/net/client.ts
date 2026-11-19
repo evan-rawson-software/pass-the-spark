@@ -2,6 +2,7 @@
 // If the connection drops it reconnects by itself with the same token and gets its seat back.
 
 import type { Choice } from "../engine/battle";
+import type { RunChoice } from "../engine/run";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
 import type { ClientMessage, HostMessage } from "./protocol";
@@ -31,6 +32,7 @@ export interface Client {
   view: BattleView | null;
   lastEvents: GameEvent[];
   sendChoice(choice: Choice): void;
+  sendRunChoice(choice: RunChoice, window: string): void;
   close(): void;
 }
 
@@ -47,6 +49,11 @@ export async function joinRoom(options: ClientOptions): Promise<Client> {
     sendChoice(choice) {
       if (connection.status !== "open") return; // the host will say where things stand once we are back
       const message: ClientMessage = { type: "choice", choice };
+      connection.send(message);
+    },
+    sendRunChoice(choice, window) {
+      if (connection.status !== "open") return;
+      const message: ClientMessage = { type: "runChoice", choice, window };
       connection.send(message);
     },
     close() {

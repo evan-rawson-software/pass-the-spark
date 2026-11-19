@@ -5,7 +5,7 @@ import type { Domino } from "../engine/types";
 import { drawDomino, drawSparkGlyph, drawAnySymbol } from "./dominoDrawing";
 import { SPARK_ORDER, SPARK_STYLE } from "./sparks";
 import { Tooltip } from "./tooltip";
-import { currentRun, nextPending, sceneFor } from "./runSession";
+import { actingSeat, currentRun, myPending, sceneFor, seatName } from "./runSession";
 import { FONT, button, drawBackground } from "./ui";
 
 // The deck viewer (#55): a read-only overlay that shows any player's dominoes grouped by intake
@@ -29,7 +29,7 @@ export interface DeckViewPlayer {
 export function runDeckPlayers(run: RunState): DeckViewPlayer[] {
   return run.players.map((id) => ({
     id,
-    name: id,
+    name: seatName(id),
     cards: run.decks[id].map((inst) => ({ domino: run.dominoes.find((d) => d.id === inst) ?? missing(inst) })),
   }));
 }
@@ -102,8 +102,12 @@ const LEFT = PANEL.x + 40;
 const PER_ROW = Math.floor((PANEL.w - 80 + GAP) / (DW + GAP));
 const ZONE_LABEL: Record<DeckZone, string> = { draw: "draw pile", hand: "hand", discard: "discard" };
 
+// Whether a viewer is open, so an online screen can hold its redraws until it is closed.
+export const deckViewerState = { open: false, onClose: null as (() => void) | null };
+
 export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], startId?: string, onClose?: () => void): void {
   if (players.length === 0) return;
+  deckViewerState.open = true;
   const root = scene.add.container(0, 0).setDepth(900);
   const tooltip = new Tooltip(scene);
   let current = Math.max(0, players.findIndex((p) => p.id === startId));
@@ -128,7 +132,11 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
     scene.input.off("wheel", onWheel);
     scene.input.keyboard?.off("keydown-ESC", close);
     root.destroy(true);
+    deckViewerState.open = false;
+    const later = deckViewerState.onClose;
+    deckViewerState.onClose = null;
     onClose?.();
+    later?.();
   };
   const onWheel = (_p: unknown, _o: unknown, _dx: number, dy: number) => {
     scroll = Math.max(0, Math.min(maxScroll(), scroll + dy));
@@ -254,6 +262,8 @@ export class DeckScene extends Phaser.Scene {
   create(data: { back?: string }): void {
     const run = currentRun();
     drawBackground(this);
-    openDeckViewer(this, runDeckPlayers(run), nextPending(run)?.player, () => this.scene.start(data.back ?? sceneFor(currentRun()), { run: true }));
+    openDeckViewer(this, runDeckPlayers(run), myPending(run)?.player, () =>
+      this.scene.start(data.back ?? sceneFor(currentRun()), { run: true, localSeat: actingSeat(currentRun()) ?? undefined }),
+    );
   }
 }

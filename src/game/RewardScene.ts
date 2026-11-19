@@ -4,15 +4,15 @@ import type { Domino, Rarity } from "../engine/types";
 import { drawDomino, dominoPixelSize } from "./dominoDrawing";
 import type { DominoSize } from "./dominoDrawing";
 import { drawPartyHud, drawRunHeader } from "./partyHud";
-import { currentRun, nextPending, submitRunChoice } from "./runSession";
+import { actingSeat, currentRun, nextPending, seatName, submitRunChoice, watchRun } from "./runSession";
 import { Tooltip } from "./tooltip";
 import { button, drawBackground, label } from "./ui";
 
 // Victory and domino choice screen (#52). Draws the run's reward state and sends picks to the
 // run as "reward" choices; offers, rarities, coins and what counts as a legal pick all come
 // from the engine. Single player: every seat's offer is on screen, the seat whose turn it is
-// to pick is highlighted and large, and one person picks for each seat in turn. The online
-// layout (own offer large, teammates' small with "picked" or "choosing") is a later issue (#49).
+// to pick is highlighted and large, and one person picks for each seat in turn. Online (#49) your
+// own offer is large, teammates' are small with "picked" or "choosing", and everyone picks at once.
 
 const RARITY_STYLE: Record<Rarity, { color: number; text: string; gems: number }> = {
   common: { color: 0xb8c4bd, text: "#d8e2dc", gems: 1 },
@@ -49,7 +49,7 @@ export class RewardScene extends Phaser.Scene {
     super("reward");
   }
 
-  // data.localSeat: the seat this screen belongs to (online; the online layer passes it, #49).
+  // data.localSeat: the seat this screen belongs to (online; runSession passes it, #49).
   // For trying the online layout by hand without networking, ?seat=NAME does the same.
   create(data?: { localSeat?: string }): void {
     const run = currentRun();
@@ -57,6 +57,13 @@ export class RewardScene extends Phaser.Scene {
     const pending = nextPending(run);
     const local = data?.localSeat ?? new URLSearchParams(window.location.search).get("seat") ?? undefined;
     const online = local !== undefined && run.players.includes(local);
+    // Redraw in place when the host reports a pick (a scene restart is only carried out at the next frame).
+    watchRun(this, "reward", {
+      redraw: () => {
+        this.children.removeAll(true);
+        this.create({ localSeat: actingSeat(currentRun()) ?? data?.localSeat });
+      },
+    });
     drawBackground(this);
     drawPartyHud(this, run);
     drawRunHeader(this, "Victory!", online ? null : (pending?.player ?? null), "Pick one domino for your deck, or skip.");
@@ -85,7 +92,7 @@ export class RewardScene extends Phaser.Scene {
         g.lineStyle(4, 0xffe14d, 1);
         g.strokeRoundedRect(30, y, 1860, rowH - 10, 18);
       }
-      label(this, 60, cy - 30, id, isActive ? 40 : 30, { bold: true, color: isActive ? "#ffe14d" : "#ffffff" });
+      label(this, 60, cy - 30, seatName(id), isActive ? 40 : 30, { bold: true, color: isActive ? "#ffe14d" : "#ffffff" });
       label(this, 60, cy + 12, `+${earned} coins  (${run.coins[id] ?? 0} total)`, isActive ? 26 : 22, { color: "#ffe9a0" });
       const status = choice === undefined ? (isActive || online ? "choosing" : "waiting") : choice === SKIP ? "skipped" : "picked";
       label(this, 60, cy + 48, status, 22, { bold: true, color: choice === undefined ? "#cfe9dc" : "#8fe3a8" });

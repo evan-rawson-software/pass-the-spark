@@ -14,7 +14,7 @@ import { generateRoomCode } from "../src/net/room";
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
-test("host and two clients play a round; views match, out-of-turn choice is rejected", async () => {
+test("host and two clients vote, then play a round; views match, out-of-turn choice is rejected", async () => {
   const content = loadContent();
   const network = createMemoryNetwork();
   const code = generateRoomCode();
@@ -24,10 +24,7 @@ test("host and two clients play a round; views match, out-of-turn choice is reje
     roomCode: code,
     buildId: BUILD_ID,
     hostName: "Host",
-    config: content.config,
     content,
-    starterDeck: content.starterDeck,
-    enemyId: content.enemies[0].id,
     onLocalMessage: (m) => hostMessages.push(m),
   });
   const messages: HostMessage[][] = [[], []];
@@ -48,6 +45,12 @@ test("host and two clients play a round; views match, out-of-turn choice is reje
   expect(clients.map((c) => c.seat)).toEqual(["p2", "p3"]);
 
   host.start(7);
+  await flush();
+
+  // The run opens with a vote on the first floor; everyone votes for the first stop.
+  const vote = (hostMessages.filter((m) => m.type === "runUpdate").at(-1) as { view: { window: string } }).view.window;
+  host.submitLocalRun({ type: "vote", node: 0 }, vote);
+  for (const c of clients) c.sendRunChoice({ type: "vote", node: 0 }, vote);
   await flush();
 
   // Play until round 2 begins. What to play comes from the view alone.

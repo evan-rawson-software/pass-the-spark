@@ -95,6 +95,44 @@ export type RunEvent =
   | { type: "actStart"; act: string }
   | { type: "runEnd"; result: "won" | "lost" };
 
+// Names the decision the run is waiting on, so a choice made for an earlier one can be told apart
+// from one made for the current decision. It changes whenever the phase or the party's position does.
+export function getRunWindow(run: RunState): string {
+  const at = run.position ? `${run.position.floor}.${run.position.index}` : "start";
+  return `${run.actIndex}:${at}:${run.phase}`;
+}
+
+// The events that belong to the run itself, as opposed to the battle's own.
+export type RunOnlyEvent = Exclude<RunEvent, GameEvent>;
+
+const RUN_ONLY: Record<RunOnlyEvent["type"], true> = {
+  vote: true,
+  routeChosen: true,
+  battleStart: true,
+  coins: true,
+  rest: true,
+  upgrade: true,
+  rewardOffers: true,
+  rewardChosen: true,
+  traderStock: true,
+  bought: true,
+  removed: true,
+  traderDone: true,
+  actStart: true,
+  runEnd: true,
+};
+
+// Splits a step's events into the battle's events and the run's own, keeping the order within each.
+export function splitRunEvents(events: RunEvent[]): { battle: GameEvent[]; run: RunOnlyEvent[] } {
+  const battle: GameEvent[] = [];
+  const run: RunOnlyEvent[] = [];
+  for (const e of events) {
+    if (e.type in RUN_ONLY) run.push(e as RunOnlyEvent);
+    else battle.push(e as GameEvent);
+  }
+  return { battle, run };
+}
+
 export interface RunStepResult {
   run: RunState;
   events: RunEvent[];

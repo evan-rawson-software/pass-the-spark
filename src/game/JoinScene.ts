@@ -7,10 +7,10 @@ import { createPeerTransport } from "../net/peerTransport";
 import { REFUSED_BUILD } from "../net/protocol";
 import type { HostMessage } from "../net/protocol";
 import { getRoomToken, hasRoomToken, ROOM_CODE_LENGTH } from "../net/room";
-import { content } from "./devBattle";
 import { debugPanel } from "./DebugPanel";
 import { watchLink } from "./linkBanner";
 import { relay } from "./relay";
+import { openRunScreen, startOnlineRun } from "./runSession";
 import { button, drawBackground, label, saveName, savedName, textInput } from "./ui";
 
 // Joining a room (#33): code and name, then the seat list as the host changes it.
@@ -31,7 +31,7 @@ export class JoinScene extends Phaser.Scene {
 
   private roomCode = "";
 
-  // With `resume`, the player is already in the room (a battle just ended): show its lobby again.
+  // With `resume`, the player is already in the room (a run just ended): show its lobby again.
   create(data: { resume?: { client: Client; roomCode: string } } = {}): void {
     debugPanel.setEnabled(false); // the debug panel is the host's alone
     this.client = null;
@@ -123,6 +123,9 @@ export class JoinScene extends Phaser.Scene {
 
   private onMessage(m: HostMessage, code: string): void {
     if (m.type === "refused") {
+      // This screen shows the reason itself; the link banner is for refusals after the game started.
+      relay.refused = null;
+      relay.onLink?.(relay.link);
       this.client?.close();
       this.client = null;
       if (m.reason === REFUSED_BUILD) this.showRefresh(m.reason);
@@ -130,14 +133,15 @@ export class JoinScene extends Phaser.Scene {
     } else if (m.type === "lobby") {
       this.lobby = m;
       this.showLobby();
-    } else if (m.type === "update") {
+    } else if (m.type === "runUpdate") {
+      // The run started (or this page was reloaded in the middle of one): hand over to its screens.
+      // A battle opens when its first view arrives, just after this.
       this.started = true;
       relay.lobby = null;
-      const names: Record<string, string> = {};
-      (this.lobby?.players ?? relay.roster?.players ?? []).forEach((p) => (names[p.seat] = p.name));
-      this.scene.start("combat", {
-        online: { client: this.client, seat: this.client?.seat ?? "", view: m.view, names, roomCode: this.roomCode },
-      });
+      startOnlineRun({ client: this.client ?? undefined, seat: this.client?.seat ?? "", roomCode: this.roomCode }, m.view);
+      if (m.view.phase !== "battle") openRunScreen(this);
+    } else if (m.type === "update") {
+      if (this.started) openRunScreen(this);
     }
   }
 
@@ -156,9 +160,6 @@ export class JoinScene extends Phaser.Scene {
       const you = p.seat === this.client?.seat;
       this.keep(label(this, 100, 290 + i * 90, `${i + 1}.  ${p.name}${you ? "  (you)" : ""}${p.away ? "  (away)" : ""}`, 36));
     });
-    const enemy = content.enemies.find((e) => e.id === lobby.enemyId);
-    this.keep(label(this, 1150, 200, "Enemy", 34, { bold: true }));
-    this.keep(label(this, 1150, 290, enemy ? `${enemy.name}  (${enemy.tier})` : lobby.enemyId, 36));
     this.keep(label(this, 960, 900, "Waiting for the host to start...", 36, { origin: 0.5, color: "#9fd1b8" }));
     this.keep(button(this, 60, 1000, "Leave", () => this.scene.start("menu")));
   }

@@ -1,4 +1,4 @@
-import type { BattleState } from "../engine/battle";
+import type { RunState } from "../engine/run";
 
 // Room codes and the host's peer id. Not part of the engine, so Math.random and crypto are fine here.
 
@@ -59,13 +59,13 @@ export function hasRoomToken(code: string, storage?: TokenStorage): boolean {
   }
 }
 
-// What the host keeps in localStorage so it can resume after a reload: the seats and the battle.
+// What the host keeps in localStorage so it can resume after a reload: the seats and the run
+// (which holds the battle in progress, if any). The run is null while the room is in the lobby.
 export interface SavedRoom {
   roomCode: string;
   buildId: string;
-  enemyId: string;
   members: { seat: string; name: string; token: string | null }[]; // in seat order; the host's own seat has no token
-  state: BattleState | null;
+  run: RunState | null;
 }
 
 const hostedKey = (code: string) => "pass-the-spark-hosted-" + code;
