@@ -27,7 +27,7 @@ export class ActStartScene extends Phaser.Scene {
     const run = currentRun();
     const pending = myPending(run);
     const total = run.content.run.acts.length;
-    drawBackground(this);
+    drawBackground(this, "act_transition");
     drawPartyHud(this, run);
     drawRunHeader(this, `Act ${run.actIndex} of ${total} complete`, null, "");
     label(this, 960, 260, `Act ${run.actIndex + 1} of ${total}`, 96, { bold: true, origin: 0.5, color: "#ffe14d" });

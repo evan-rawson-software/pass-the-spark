@@ -5,13 +5,13 @@
     "forWin": 100
   },
   "levels": [
-    { "experience": 150, "unlock": "lookout" },
-    { "experience": 350, "unlock": "advancedSparks" },
-    { "experience": 600, "unlock": "echo" },
-    { "experience": 900, "unlock": "twoSpark" },
-    { "experience": 1300, "unlock": "ignoresBlock" },
-    { "experience": 1800, "unlock": "spectrum" },
-    { "experience": 2400, "unlock": "mimic" },
-    { "experience": 3200, "unlock": "anyIntake" }
+    { "experience": 150, "unlock": "lookout", "name": "Lookout", "description": "Dominoes that reveal some of an enemy's hidden dominoes." },
+    { "experience": 350, "unlock": "advancedSparks", "name": "Advanced sparks", "description": "Storm and Void sparks in the dominoes you are offered." },
+    { "experience": 600, "unlock": "echo", "name": "Echo", "description": "Dominoes that make the next domino trigger twice." },
+    { "experience": 900, "unlock": "twoSpark", "name": "Two-spark outputs", "description": "Dominoes that pass on two sparks at once." },
+    { "experience": 1300, "unlock": "ignoresBlock", "name": "Ignores block", "description": "Damage that goes straight through block." },
+    { "experience": 1800, "unlock": "spectrum", "name": "Spectrum", "description": "Effects that grow with the different sparks in the chain." },
+    { "experience": 2400, "unlock": "mimic", "name": "Mimic", "description": "Dominoes that repeat the previous domino's effect." },
+    { "experience": 3200, "unlock": "anyIntake", "name": "Any intake", "description": "Dominoes that can take any spark." }
   ]
 }

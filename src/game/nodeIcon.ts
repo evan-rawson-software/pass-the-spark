@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { RunNodeType } from "../engine/run";
+import { artImage } from "./art";
 
 // The stop icons (fight, elite, rest, trader, event, boss), shared by the map and the combat screen.
 
@@ -11,8 +12,11 @@ export const NODE_STYLE: Record<RunNodeType, { color: number; name: string }> = 
   event: { color: 0x4a5a9a, name: "Event" },
   boss: { color: 0x8f1f2f, name: "Boss" },
 };
+
 // A simple icon for each stop type, drawn with shapes, centred on (x, y).
-export function drawNodeIcon(g: Phaser.GameObjects.Graphics, type: RunNodeType, x: number, y: number, r: number): void {
+// With art (map/<type>) the image goes on top of the stop's disc, in g's container if it has one.
+export function drawNodeIcon(g: Phaser.GameObjects.Graphics, type: RunNodeType, x: number, y: number, r: number, hidden = false): void {
+  if (artImage(g.scene, `map/${hidden ? "hidden" : type}`, x, y, r * 2, r * 2, g.parentContainer)) return;
   const white = 0xf4ecd8;
   g.fillStyle(white, 1);
   g.lineStyle(Math.max(2, r * 0.14), white, 1);

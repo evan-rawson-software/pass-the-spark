@@ -63,7 +63,7 @@ export class MapScene extends Phaser.Scene {
     const run = currentRun();
     this.run = run;
     const pending = myPending(run);
-    drawBackground(this);
+    drawBackground(this, "map");
     drawPartyHud(this, run);
     const next = (run.position?.floor ?? 0) + 1;
     const toBoss = next > run.map.floors.length;
@@ -132,6 +132,7 @@ export class MapScene extends Phaser.Scene {
         const here = run.position?.floor === floor && run.position.index === node.index;
         const isLit = floor === doneFloor + 1 && options.includes(node.index);
         const g = this.add.graphics();
+        const holder = this.add.container(0, 0, [g]); // the stop's art, if any, joins its disc here
         if (isLit) {
           g.lineStyle(8, GOLD, 1);
           g.strokeCircle(x, y, NODE_R + 8);
@@ -142,14 +143,14 @@ export class MapScene extends Phaser.Scene {
         g.fillCircle(x, y, NODE_R);
         g.lineStyle(3, 0xf4ecd8, 1);
         g.strokeCircle(x, y, NODE_R);
-        drawNodeIcon(g, shown, x, y, NODE_R);
+        drawNodeIcon(g, shown, x, y, NODE_R, run.hiddenFloor === floor);
         if (here) this.drawPartyMarker(x, y);
         // Stops that are neither next nor the current one fade back.
-        if (!isLit && !here) g.setAlpha(floor <= doneFloor ? 0.35 : 0.65);
+        if (!isLit && !here) holder.setAlpha(floor <= doneFloor ? 0.35 : 0.65);
         if (isLit && voter !== null) {
           const hit = this.add.circle(x, y, NODE_R + 8, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
           hit.on("pointerdown", () => this.castVote(voter, node.index));
-          this.tweens.add({ targets: g, alpha: 0.7, duration: 600, yoyo: true, repeat: -1 });
+          this.tweens.add({ targets: holder, alpha: 0.7, duration: 600, yoyo: true, repeat: -1 });
         }
       });
     });

@@ -51,7 +51,7 @@ export class RestScene extends Phaser.Scene {
     const run = currentRun();
     const pending = myPending(run);
     const online = isOnlineRun();
-    drawBackground(this);
+    drawBackground(this, "rest");
     drawPartyHud(this, run);
     const upgrade = this.mode === "upgrade" && pending !== null;
     drawRunHeader(this, upgrade ? "Upgrade" : "Rest site", online ? null : (pending?.player ?? null), upgrade ? "Pick a domino, then a side." : "Rest to heal the party, or upgrade a domino.");
