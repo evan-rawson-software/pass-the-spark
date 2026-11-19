@@ -8,8 +8,8 @@ function kindName(kind: string): string {
 }
 
 export function passiveText(boss: Enemy | undefined): string {
-  const names = (boss?.passives ?? []).map((p) => kindName(p.kind)).join(", ");
-  return names ? `Passive: ${names}` : "No passive";
+  const texts = (boss?.passives ?? []).map((p) => p.text ?? kindName(p.kind)).join(" ");
+  return texts ? `Passive: ${texts}` : "No passive";
 }
 
 export function bossTip(boss: Enemy | undefined): TipLine[] {
@@ -19,6 +19,9 @@ export function bossTip(boss: Enemy | undefined): TipLine[] {
     { text: `Health ${boss.maxHealth}`, style: "dim" },
   ];
   if (boss.passives.length === 0) lines.push({ text: "No passive" });
-  for (const p of boss.passives) lines.push({ text: kindName(p.kind), style: "head" });
+  for (const p of boss.passives) {
+    lines.push({ text: kindName(p.kind), style: "head" });
+    if (p.text) lines.push({ text: p.text });
+  }
   return lines;
 }

@@ -243,12 +243,15 @@ export class MapScene extends Phaser.Scene {
     drawNodeIcon(g, "boss", CENTER_X, BOSS_Y, r);
     if (run.position?.floor === run.map.floors.length + 1) this.drawPartyMarker(CENTER_X, BOSS_Y);
     // Above the boss, where no connection runs.
-    const name = label(this, CENTER_X, 24, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 0.5 });
-    const passives = label(this, CENTER_X, 52, passiveText(boss), 22, { color: "#ffe14d", origin: 0.5 });
+    const name = label(this, CENTER_X, 20, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 0.5 });
+    const passives = label(this, CENTER_X, 58, passiveText(boss), 18, { color: "#ffe14d", origin: 0.5 }).setAlign("center").setWordWrapWidth(900);
     const tip = new Tooltip(this);
     const lines = bossTip(boss);
     const hit = this.add.circle(CENTER_X, BOSS_Y, r, 0, 0);
-    for (const target of [name, passives, hit]) tip.attachLines(target, lines);
+    for (const target of [name, passives, hit]) {
+      target.setDepth(10); // above the vote targets, so the whole boss hovers
+      tip.attachLines(target, lines);
+    }
   }
 
   // Coins per player (with their marker colour), what each marker means, and a legend of stop types.

@@ -38,7 +38,7 @@ export class ActStartScene extends Phaser.Scene {
     const boss = content.enemies.find((e) => e.id === run.map.bossId);
     label(this, 960, 600, "This act's boss", 30, { origin: 0.5, color: "#9fd1b8" });
     const name = label(this, 960, 660, boss?.name ?? run.map.bossId, 56, { bold: true, origin: 0.5 });
-    const passives = label(this, 960, 720, passiveText(boss), 32, { origin: 0.5, color: "#ffe14d" });
+    const passives = label(this, 960, 740, passiveText(boss), 32, { origin: 0.5, color: "#ffe14d" }).setAlign("center").setWordWrapWidth(1300);
     const tip = new Tooltip(this);
     for (const target of [name, passives]) tip.attachLines(target, bossTip(boss));
 

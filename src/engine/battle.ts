@@ -5,7 +5,8 @@ import { shuffle } from "./rng";
 import { validateDominoes } from "./validate";
 import type { GameEvent } from "./events";
 import type { BattleView } from "./view";
-import type { Config, DeckList, Domino, Effect, Enemy, Passive, Spark } from "./types";
+import { answerStrengthBonus, blockBonus, extraDraws, extraEchoTriggers, extraLap, extraReveals, extraSpectrum, handLimitOf, lensBonus, mirrorStrength } from "./battleCharms";
+import type { Charm, Config, DeckList, Domino, Effect, Enemy, Passive, Spark } from "./types";
 
 // The enemy's seat id in seatOrder.
 export const ENEMY_SEAT = "enemy";
@@ -18,6 +19,7 @@ export interface Content {
 export interface PlayerSetup {
   id: string;
   deck: DeckList;
+  charms?: string[]; // charm ids the player holds (from the run); none by default
 }
 
 export interface PlayerState {
@@ -25,6 +27,7 @@ export interface PlayerState {
   deck: string[]; // domino ids, next draw first
   hand: string[];
   discard: string[];
+  charms: string[]; // charm ids the player holds for this battle (definitions are in BattleState.charmDefs)
 }
 
 export interface EnemyState {
@@ -76,6 +79,7 @@ export interface Blessing {
 export interface BattleState {
   config: Config;
   dominoes: Domino[];
+  charmDefs: Charm[]; // the charm data the players' charm ids refer to
   rng: number;
   seatOrder: string[];
   round: number;
@@ -111,6 +115,8 @@ export interface BattleSetup {
   startingLead?: string;
   enemyId: string;
   seed: number;
+  // Charm data, needed when any player holds charms. Defaults to none.
+  charms?: Charm[];
   // Run-unique domino definitions (instances, generated or upgraded dominoes) used by the decks,
   // in addition to content.dominoes. Their ids must not clash with any other domino id.
   extraDominoes?: Domino[];
@@ -155,7 +161,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     if (!p || p.deck.length === 0) throw new Error("player needs a deck: " + id);
     const s = shuffle(rng, p.deck);
     rng = s.state;
-    players.push({ id, deck: s.value, hand: [], discard: [] });
+    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice() });
   }
   const es = shuffle(rng, enemyDef.deck);
   rng = es.state;
@@ -163,6 +169,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
   const state: BattleState = {
     config,
     dominoes: [...content.dominoes, ...extra],
+    charmDefs: setup.charms ?? [],
     rng,
     seatOrder,
     round: 0,
@@ -325,7 +332,7 @@ export function previewPlay(input: BattleState | BattleView, playerId: string, d
       effect: first === null ? null : { effect: first.effect, side: first.side },
       triggers,
       value: first === null ? 0 : first.value,
-      spectrumBonus: first !== null && first.effect.spectrum ? spectrumBonus(state.chain.history) : 0,
+      spectrumBonus: first !== null && first.effect.spectrum ? spectrumBonus(state.chain.history) + extraSpectrum(state, playerId) : 0,
       lookoutReveals: reveals,
       auditorDamage,
     };
@@ -408,8 +415,7 @@ function startRound(state: BattleState, events: GameEvent[]): void {
       const e = state.enemy;
       draw(state, e, e.drawPerRound, e.handLimit, events, seat, e);
     } else {
-      const { playerDrawPerRound, playerHandLimit } = state.config;
-      draw(state, getPlayer(state, seat), playerDrawPerRound, playerHandLimit, events, seat);
+      draw(state, getPlayer(state, seat), state.config.playerDrawPerRound + extraDraws(state, seat), handLimitOf(state, seat), events, seat);
     }
   }
   const seats = playerSeats(state.seatOrder);
@@ -507,6 +513,7 @@ function advance(state: BattleState, events: GameEvent[]): void {
       state.chain.lap += 1;
       events.push({ type: "lapUp", lap: state.chain.lap });
       glutton(state, events);
+      hoarder(state, events);
     }
     if (state.seat === ENEMY_SEAT) {
       react(state, events);
@@ -546,7 +553,7 @@ function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean,
   // The Auditor: a player answers the same spark as the previous history entry.
   const repeated = byPlayer && chain.history[chain.history.length - 1] === answered;
   // Only the spark the answer used counts; Echo repeats and the opener add nothing here.
-  chain.strength += state.blessing && state.blessing.spark === answered ? state.blessing.strength : 1;
+  chain.strength += (state.blessing && state.blessing.spark === answered ? state.blessing.strength : 1) + answerStrengthBonus(state, byPlayer ? state.seat : null);
   chain.history.push(answered);
   chain.sparks = d.output.slice();
   const seat = byPlayer ? state.seat : ENEMY_SEAT;
@@ -577,6 +584,13 @@ function glutton(state: BattleState, events: GameEvent[]): void {
   events.push({ type: "glutton", heal: enemy.health - before });
 }
 
+// Hoarder passive: gains block equal to the current strength when lap goes up.
+function hoarder(state: BattleState, events: GameEvent[]): void {
+  if (!state.enemy.passives.some((p) => p.kind === "hoarder")) return;
+  events.push({ type: "hoarder", block: state.chain.strength });
+  resolve(state, { kind: "block" }, state.chain.strength, "enemy", events);
+}
+
 // Resolve a played domino's effect (a Mimic becomes the effect it copies), record it
 // as the chain's last effect, and trigger it once plus any pending Echo triggers.
 function playEffect(state: BattleState, d: Domino, seat: string, side: Side, scaleLap: boolean, events: GameEvent[]): void {
@@ -594,7 +608,7 @@ function playEffect(state: BattleState, d: Domino, seat: string, side: Side, sca
   const triggers = Math.min(1 + chain.echo, state.config.triggerCap);
   chain.echo = 0;
   // An upgraded Mimic resolves what it copied at extra strength; chain strength is unaffected.
-  const bonus = effect.kind === "mimic" ? (effect.strengthBonus ?? 0) : 0;
+  const bonus = effect.kind === "mimic" ? (effect.strengthBonus ?? 0) + (side === "party" && seat !== ENEMY_SEAT ? mirrorStrength(state, seat) : 0) : 0;
   for (let i = 0; i < triggers; i++) {
     trigger(state, resolved.effect, resolved.side, scaleLap, events, seat, d.id, i, bonus);
     if (state.phase === "over") return;
@@ -615,6 +629,7 @@ function trigger(
 ): void {
   const chain = state.chain;
   const strengthNow = chain.strength + strengthBonus;
+  const owner = side === "party" && seat !== ENEMY_SEAT ? seat : null; // whose charms apply
   if (effect.kind === "amplify") {
     const amount = effect.base ?? 0;
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: amount });
@@ -622,16 +637,21 @@ function trigger(
     events.push({ type: "amplify", amount, strength: chain.strength });
   } else if (effect.kind === "echo") {
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: 0 });
-    chain.echo += 1 + (effect.extraTriggers ?? 0);
+    chain.echo += 1 + (effect.extraTriggers ?? 0) + extraEchoTriggers(state, owner);
     events.push({ type: "echoPending", count: chain.echo });
   } else if (effect.kind === "lookout") {
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: 0 });
-    if (side === "party") lookout(state, Math.ceil(strengthNow / 2) + (effect.extraReveals ?? 0), events);
+    if (side === "party") lookout(state, Math.ceil(strengthNow / 2) + (effect.extraReveals ?? 0) + extraReveals(state, owner), events);
   } else {
     let strength = strengthNow;
-    if (effect.spectrum) strength += spectrumBonus(chain.history);
+    if (effect.spectrum) strength += spectrumBonus(chain.history) + extraSpectrum(state, owner);
     let value = (effect.base ?? 0) * strength;
-    if (scaleLap) value *= chain.lap;
+    if (scaleLap) value *= chain.lap + extraLap(state, owner);
+    // Flat charm bonuses come last: the lens of the spark that set this domino off, and Bulwark.
+    if (owner !== null) {
+      value += lensBonus(state, owner, chain.history[chain.history.length - 1]);
+      if (effect.kind === "block") value += blockBonus(state, owner);
+    }
     events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value });
     resolve(state, effect, value, side, events);
   }
@@ -680,7 +700,10 @@ function endBattle(state: BattleState, result: "won" | "lost", events: GameEvent
 }
 
 function endRound(state: BattleState, events: GameEvent[]): void {
-  // Leftovers go off at strength 1, left to right, and stay in hand.
+  // Leftovers go off at strength 1 (the Smolder: the chain's final strength, at least 1), left to right, and stay in hand.
+  const smolder = state.enemy.passives.some((p) => p.kind === "smolder");
+  const leftoverStrength = smolder ? Math.max(1, state.chain.strength) : 1;
+  if (smolder && state.enemy.hand.length > 0) events.push({ type: "smolder", strength: leftoverStrength });
   const hand = state.enemy.hand.slice();
   for (let i = 0; i < hand.length; i++) {
     const id = hand[i];
@@ -693,7 +716,7 @@ function endRound(state: BattleState, events: GameEvent[]): void {
     // A leftover Reflect repeats the chain's last domino (the opener if nothing followed it).
     const effect = d.effect.kind === "reflect" ? state.chain.last?.effect : d.effect;
     if (effect === undefined) continue;
-    let value = effect.base ?? 0;
+    let value = (effect.base ?? 0) * leftoverStrength;
     if (state.config.enemyReactionsScaleWithLap) value *= state.chain.lap;
     events.push({ type: "trigger", seat: ENEMY_SEAT, domino: id, index: 0, effect, side: "enemy", value });
     resolve(state, effect, value, "enemy", events);

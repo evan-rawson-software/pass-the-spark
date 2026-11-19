@@ -1,0 +1,32 @@
+// Checks for data/charms.json. Same style as validate-run.ts.
+
+import type { Charm } from "./types";
+
+const FILE = "data/charms.json";
+
+function fail(id: string, problem: string): never {
+  throw new Error(`${FILE}: ${id}: ${problem}`);
+}
+
+export function validateCharms(data: unknown): Charm[] {
+  if (!Array.isArray(data)) fail("(file)", "must be a list of charms");
+  const seen: string[] = [];
+  data.forEach((item: unknown, index: number) => {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) fail(`#${index}`, "must be an object");
+    const charm = item as Record<string, unknown>;
+    if (typeof charm.id !== "string" || charm.id === "") fail(`#${index}`, `"id" must be a non-empty string`);
+    const id = charm.id;
+    if (seen.includes(id)) fail(id, "duplicate id");
+    seen.push(id);
+    for (const field of ["name", "description"]) {
+      if (typeof charm[field] !== "string" || charm[field] === "") fail(id, `"${field}" must be a non-empty string`);
+    }
+    if (charm.pool !== "normal" && charm.pool !== "rare") fail(id, `"pool" must be "normal" or "rare"`);
+    const numbers = charm.numbers;
+    if (typeof numbers !== "object" || numbers === null || Array.isArray(numbers)) fail(id, `"numbers" must be an object`);
+    for (const [key, value] of Object.entries(numbers)) {
+      if (typeof value !== "number" || !Number.isFinite(value) || value < 0) fail(id, `numbers.${key} must be a number, 0 or more`);
+    }
+  });
+  return data as Charm[];
+}
