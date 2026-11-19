@@ -1,0 +1,78 @@
+[
+  {
+    "id": "ogre",
+    "name": "Ogre",
+    "tier": "basic",
+    "maxHealth": 100,
+    "drawPerRound": 3,
+    "handLimit": 5,
+    "deck": [
+      "ogre_bellow_a",
+      "ogre_bellow_b",
+      "ogre_gulp_a",
+      "ogre_gulp_b",
+      "ogre_stomp_a",
+      "ogre_stomp_b"
+    ],
+    "passives": []
+  },
+  {
+    "id": "brute",
+    "name": "Brute",
+    "tier": "elite",
+    "maxHealth": 200,
+    "drawPerRound": 4,
+    "handLimit": 6,
+    "deck": [
+      "elite_slash",
+      "elite_cleave",
+      "elite_guard",
+      "elite_mend",
+      "elite_reflect",
+      "elite_slam"
+    ],
+    "passives": []
+  },
+  {
+    "id": "auditor",
+    "name": "The Auditor",
+    "tier": "boss",
+    "maxHealth": 400,
+    "drawPerRound": 5,
+    "handLimit": 7,
+    "deck": [
+      "auditor_strike",
+      "auditor_sweep",
+      "auditor_bulwark",
+      "auditor_tally",
+      "auditor_audit",
+      "auditor_crush"
+    ],
+    "passives": [
+      {
+        "kind": "auditor"
+      }
+    ]
+  },
+  {
+    "id": "glutton",
+    "name": "The Glutton",
+    "tier": "boss",
+    "maxHealth": 400,
+    "drawPerRound": 5,
+    "handLimit": 7,
+    "deck": [
+      "glutton_bite",
+      "glutton_gnash",
+      "glutton_feast",
+      "glutton_chomp",
+      "glutton_gorge",
+      "glutton_maul"
+    ],
+    "passives": [
+      {
+        "kind": "glutton"
+      }
+    ]
+  }
+]

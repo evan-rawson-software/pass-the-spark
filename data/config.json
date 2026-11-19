@@ -1,0 +1,11 @@
+{
+  "partyMaxHealth": 60,
+  "playerDrawPerRound": 3,
+  "playerHandLimit": 10,
+  "triggerCap": 100,
+  "enemyReactionsScaleWithLap": false,
+  "auditorDamage": {
+    "rule": "strength"
+  },
+  "gluttonHeal": 5
+}
