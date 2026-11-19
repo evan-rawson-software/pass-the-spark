@@ -32,6 +32,9 @@ export interface EnemyState {
   deck: string[];
   hand: string[]; // oldest on the left
   discard: string[];
+  drawPerRound: number;
+  handLimit: number;
+  faceUp: string[]; // played or discarded since the last reshuffle, for the UI
 }
 
 export interface PartyState {
@@ -128,6 +131,9 @@ export function createBattle(setup: BattleSetup): BattleState {
       deck: es.value,
       hand: [],
       discard: [],
+      drawPerRound: enemyDef.drawPerRound,
+      handLimit: enemyDef.handLimit,
+      faceUp: [],
     },
     result: null,
     nextLead: null,
@@ -221,17 +227,13 @@ function legalAnswers(state: BattleState, player: PlayerState) {
 function startRound(state: BattleState): void {
   state.round += 1;
   state.chain = { strength: 0, lap: 1, sparks: [], history: [] };
-  for (const p of state.players) {
-    for (let i = 0; i < state.config.playerDrawPerRound; i++) {
-      if (p.hand.length >= state.config.playerHandLimit) break;
-      if (p.deck.length === 0) {
-        const s = shuffle(state.rng, p.discard);
-        state.rng = s.state;
-        p.deck = s.value;
-        p.discard = [];
-      }
-      if (p.deck.length === 0) break;
-      p.hand.push(p.deck.shift() as string);
+  for (const seat of state.seatOrder) {
+    if (seat === ENEMY_SEAT) {
+      const e = state.enemy;
+      draw(state, e, e.drawPerRound, e.handLimit, e);
+    } else {
+      const { playerDrawPerRound, playerHandLimit } = state.config;
+      draw(state, getPlayer(state, seat), playerDrawPerRound, playerHandLimit);
     }
   }
   const seats = playerSeats(state.seatOrder);
@@ -246,6 +248,35 @@ function startRound(state: BattleState): void {
     }
   }
   endRound(state);
+}
+
+// Draw up to `count` dominoes. At the hand limit a player stops; the enemy
+// (which passes `enemy`) first discards its oldest domino to make room.
+// An empty deck is reshuffled from the discard pile, which clears the enemy's face-up list.
+function draw(
+  state: BattleState,
+  p: { deck: string[]; hand: string[]; discard: string[] },
+  count: number,
+  limit: number,
+  enemy?: EnemyState,
+): void {
+  for (let i = 0; i < count; i++) {
+    if (p.hand.length >= limit) {
+      if (!enemy) break;
+      const old = p.hand.shift() as string;
+      p.discard.push(old);
+      enemy.faceUp.push(old);
+    }
+    if (p.deck.length === 0) {
+      const s = shuffle(state.rng, p.discard);
+      state.rng = s.state;
+      p.deck = s.value;
+      p.discard = [];
+      if (enemy) enemy.faceUp = [];
+    }
+    if (p.deck.length === 0) break;
+    p.hand.push(p.deck.shift() as string);
+  }
 }
 
 // Pass the spark on until a player must choose, or the chain ends.
@@ -277,6 +308,7 @@ function react(state: BattleState): void {
     if (sparks.length > 0) {
       enemy.hand.splice(i, 1);
       enemy.discard.push(d.id);
+      enemy.faceUp.push(d.id);
       play(state, d, sparks[0], false);
       return;
     }
@@ -327,7 +359,14 @@ function endBattle(state: BattleState, result: "won" | "lost"): void {
 }
 
 function endRound(state: BattleState): void {
-  // Enemy leftovers go off here, before block resets (#6).
+  // Leftovers go off at strength 1, left to right, and stay in hand.
+  for (const id of state.enemy.hand.slice()) {
+    const d = getDomino(state, id);
+    let value = d.effect.base ?? 0;
+    if (state.config.enemyReactionsScaleWithLap) value *= state.chain.lap;
+    resolve(state, d, value, false);
+    if (state.phase === "over") return;
+  }
   state.party.block = 0;
   state.enemy.block = 0;
   state.lead = nextPlayerAfterLead(state);
