@@ -11,7 +11,7 @@ const TIERS = ["basic", "elite", "boss"];
 const RARITIES = ["common", "uncommon", "rare"];
 const BATTLE_TYPES = ["fight", "elite", "boss"];
 const POOL_KINDS = ["damage", "block", "amplify", "echo", "lookout", "mimic"]; // never heal or reflect
-const PASSIVE_KINDS = ["auditor", "glutton"];
+const PASSIVE_KINDS = ["auditor", "glutton", "longNight", "warden"];
 
 function fail(file: string, id: string, problem: string): never {
   throw new Error(`${file}: ${id}: ${problem}`);
@@ -118,6 +118,12 @@ export function validateEnemies(data: unknown, dominoes: Domino[]): Enemy[] {
       }
       // Parameters are optional overrides of Config; check them when present.
       if (passive.kind === "auditor" && passive.damage !== undefined) checkAuditorDamage(file, id, passive.damage);
+      if (passive.kind === "warden") {
+        const sparks = passive.sparks;
+        if (!Array.isArray(sparks) || sparks.length === 0 || sparks.some((x) => typeof x !== "string" || !SPARKS.includes(x))) {
+          fail(file, id, `warden "sparks" must be a non-empty list of sparks`);
+        }
+      }
       if (passive.kind === "glutton" && passive.heal !== undefined && (!isNumber(passive.heal) || (passive.heal as number) <= 0)) {
         fail(file, id, `glutton "heal" must be a positive number`);
       }

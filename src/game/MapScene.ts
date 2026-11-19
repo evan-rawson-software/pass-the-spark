@@ -1,3 +1,4 @@
+import { passiveName } from "./passives";
 import Phaser from "phaser";
 import { applyRunChoice } from "../engine/run";
 import type { RunEvent, RunNodeType, RunState } from "../engine/run";
@@ -239,7 +240,7 @@ export class MapScene extends Phaser.Scene {
     g.strokeCircle(CENTER_X, BOSS_Y, r);
     drawNodeIcon(g, "boss", CENTER_X, BOSS_Y, r);
     if (run.position?.floor === run.map.floors.length + 1) this.drawPartyMarker(CENTER_X, BOSS_Y);
-    const passives = (boss?.passives ?? []).map((p) => p.kind.charAt(0).toUpperCase() + p.kind.slice(1)).join(", ");
+    const passives = (boss?.passives ?? []).map(passiveName).join(", ");
     // Above the boss, where no connection runs.
     label(this, CENTER_X, 24, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 0.5 });
     label(this, CENTER_X, 52, passives ? `Passive: ${passives}` : "No passive", 22, { color: "#ffe14d", origin: 0.5 });

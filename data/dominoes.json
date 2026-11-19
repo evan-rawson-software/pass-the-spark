@@ -1790,8 +1790,8 @@
     }
   },
   {
-    "id": "boss_act3_a",
-    "name": "Strike",
+    "id": "long_night_a",
+    "name": "Dusk",
     "intake": [
       "Ember"
     ],
@@ -1800,12 +1800,12 @@
     ],
     "effect": {
       "kind": "damage",
-      "base": 9
+      "base": 8
     }
   },
   {
-    "id": "boss_act3_b",
-    "name": "Slash",
+    "id": "long_night_b",
+    "name": "Gloom",
     "intake": [
       "Tide"
     ],
@@ -1818,8 +1818,8 @@
     }
   },
   {
-    "id": "boss_act3_c",
-    "name": "Ward",
+    "id": "long_night_c",
+    "name": "Shroud",
     "intake": [
       "Gale"
     ],
@@ -1832,8 +1832,8 @@
     }
   },
   {
-    "id": "boss_act3_d",
-    "name": "Crush",
+    "id": "long_night_d",
+    "name": "Eclipse",
     "intake": [
       "Gale"
     ],
@@ -1846,8 +1846,8 @@
     }
   },
   {
-    "id": "boss_act3_e",
-    "name": "Lash",
+    "id": "long_night_e",
+    "name": "Creep",
     "intake": [
       "Ember"
     ],
@@ -1860,8 +1860,92 @@
     }
   },
   {
-    "id": "boss_act3_f",
-    "name": "Rend",
+    "id": "long_night_f",
+    "name": "Hush",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 8
+    }
+  },
+  {
+    "id": "warden_of_locks_a",
+    "name": "Bar",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 9
+    }
+  },
+  {
+    "id": "warden_of_locks_b",
+    "name": "Bolt",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 9
+    }
+  },
+  {
+    "id": "warden_of_locks_c",
+    "name": "Latch",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 11
+    }
+  },
+  {
+    "id": "warden_of_locks_d",
+    "name": "Shackle",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 11
+    }
+  },
+  {
+    "id": "warden_of_locks_e",
+    "name": "Clamp",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 8
+    }
+  },
+  {
+    "id": "warden_of_locks_f",
+    "name": "Seal",
     "intake": [
       "Tide"
     ],

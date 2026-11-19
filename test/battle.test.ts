@@ -267,3 +267,19 @@ test("blessed spark: answers and enemy reactions made with it add 2 strength, ot
   // p2 answers Ember (+2), the enemy reacts to Ember (+2), p1 answers the enemy's Tide (+1).
   expect(plays).toEqual(["p2:Ember:2", "enemy:Ember:4", "p1:Tide:5"]);
 });
+
+test("the Warden's locked spark can't be answered by a domino with that intake or by an 'any' domino", () => {
+  const open = setup(["kindle"], ["jab", "wildcard"]);
+  open.enemy.passives = [{ kind: "warden", sparks: ["Ember", "Tide", "Gale"] }];
+  // Unlocked, both answer the opener's Ember.
+  const free = opener(open, "kindle");
+  expect(getPendingChoice(free)).toMatchObject({ type: "answer", options: [{ domino: "jab" }, { domino: "wildcard" }] });
+
+  // Locked: neither is legal, so the chain and the round end; the next round locks a spark again.
+  const locked: BattleState = { ...JSON.parse(JSON.stringify(open)), locked: "Ember" };
+  const r = step(locked, { type: "opener", domino: "kindle" });
+  expect(r.events.some((e) => e.type === "chainEnd")).toBe(true);
+  expect(r.state.round).toBe(2);
+  expect(r.events.filter((e) => e.type === "sparkLocked")).toHaveLength(1);
+  expect(getView(r.state, "p1").locked).toBe(r.state.locked);
+});

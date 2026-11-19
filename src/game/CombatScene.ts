@@ -18,6 +18,7 @@ import type { DominoState } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
+import { passiveName } from "./passives";
 import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
 import { describeEvent, eventDelay, newLogMemory } from "./eventLog";
@@ -508,6 +509,14 @@ export class CombatScene extends Phaser.Scene {
       g.fillRoundedRect(x - 16, y - 22, 32, 44, 4);
       g.lineStyle(3, 0x2a2a2a, 1);
       for (let i = 0; i < 4; i++) g.lineBetween(x - 10, y - 12 + i * 9, x + 10, y - 12 + i * 9);
+    } else if (p.kind === "longNight") {
+      // A crescent moon.
+      g.fillStyle(0xf4ecd8, 1);
+      g.fillCircle(x - 2, y, 20);
+      g.fillStyle(0x0d2a20, 1);
+      g.fillCircle(x + 8, y - 5, 17);
+    } else if (p.kind === "warden") {
+      this.drawPadlock(g, x, y, 1.1);
     } else {
       // A mouth with teeth.
       g.fillStyle(0x7a1f2b, 1);
@@ -517,8 +526,19 @@ export class CombatScene extends Phaser.Scene {
         g.fillTriangle(x - 18 + i * 9, y - 8, x - 10 + i * 9, y - 8, x - 14 + i * 9, y + 2);
       }
     }
-    const name = p.kind.charAt(0).toUpperCase() + p.kind.slice(1);
+    const name = passiveName(p);
     this.label(layer, x - 44, y, name, 24, "#ffe14d", 1, true);
+  }
+
+  // A padlock centred on x, y (about 30 wide at scale 1).
+  private drawPadlock(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
+    g.lineStyle(5 * scale, 0xd8d8d8, 1);
+    g.strokeEllipse(x, y - 9 * scale, 16 * scale, 20 * scale);
+    g.fillStyle(0xe0b341, 1);
+    g.fillRoundedRect(x - 14 * scale, y - 4 * scale, 28 * scale, 22 * scale, 4 * scale);
+    g.fillStyle(0x2a2a2a, 1);
+    g.fillCircle(x, y + 5 * scale, 3 * scale);
+    g.fillRect(x - 1.5 * scale, y + 6 * scale, 3 * scale, 7 * scale);
   }
 
   // ---- HUD (band under the enemy) ----
@@ -552,7 +572,15 @@ export class CombatScene extends Phaser.Scene {
     view.chain.sparks.forEach((s, i) => {
       if (s === view.blessing?.spark) drawBlessedGlow(sg, s, 1430 + i * 56, y - 6, 22);
       drawSparkGlyph(sg, s, 1430 + i * 56, y - 6, 22);
+      if (s === view.locked) this.drawPadlock(sg, 1430 + i * 56 + 10, y + 6, 0.7);
     });
+    // The Warden's locked spark: players can't answer it this round.
+    if (view.locked) {
+      const ly = view.blessing ? y + 76 : y + 40;
+      drawSparkGlyph(sg, view.locked, 1342, ly, 12);
+      this.drawPadlock(sg, 1346, ly + 2, 0.6);
+      this.label(layer, 1372, ly, `${view.locked} locked`, 20, "#ff8a8a", 0, true);
+    }
     // The Spark Shrine's blessing, for the whole act's boss fight.
     if (view.blessing) {
       drawBlessedGlow(sg, view.blessing.spark, 1342, y + 40, 12);

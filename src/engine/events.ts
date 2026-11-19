@@ -27,6 +27,7 @@ export type GameEvent =
   | { type: "reveal"; positions: number[] } // positions in the enemy's hand
   | { type: "auditor"; damage: number }
   | { type: "glutton"; heal: number } // the amount actually healed
+  | { type: "sparkLocked"; spark: Spark } // the Warden locks a spark at round start
   // A reveal event precedes this when the domino was not already revealed.
   | { type: "leftover"; domino: string; position: number }
   | { type: "blockReset" }

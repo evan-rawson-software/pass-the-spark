@@ -44,7 +44,9 @@ export type AuditorDamage =
 // Parameters are optional overrides of the defaults in Config.
 export type Passive =
   | { kind: "auditor"; damage?: AuditorDamage }
-  | { kind: "glutton"; heal?: number };
+  | { kind: "glutton"; heal?: number }
+  | { kind: "longNight" } // its reactions and leftovers scale with lap
+  | { kind: "warden"; sparks: Spark[] }; // each round one of these sparks is locked against players
 
 export interface Enemy {
   id: string;
