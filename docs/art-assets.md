@@ -76,7 +76,7 @@ For the cascade effects in M10 (#188). Every one has a code-drawn fallback, so m
 | `shard` | One broken fragment, for shattering shields and enemy deaths. |
 | `ring` | A thin shockwave ring with a soft edge, for impacts. |
 
-Use the icon style words with "glowing magical energy effect" in the subject, and drop the "thick black outline" wording for these.
+Use the icon style words with "glowing magical energy effect" in the subject, but drop "thick bold black outline" and change "isolated on a plain flat pure white background" to "isolated on a plain flat pure black background".
 
 ### Traits and markers: `ui/<id>.png`, 128×128, transparent
 `ignores_block` (arrow through a shield), `locked` (padlock), `blessed` (halo or sun), `coin`, `health` (heart), `charm_normal` (round frame), `charm_rare` (gold diamond frame). The HUD block shield is drawn in code, not generated. `spectrum` and `no_lap` are no longer used after M9.
