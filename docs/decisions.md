@@ -389,3 +389,28 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - **Balance:** #126 tuned the old rules before the hold landed. Re-tuning comes after the redesign. The Godot port waits.
 - **Cascade feel (M10):** after M9, a milestone of more combat effects and animations, so a chain going off feels amazing. The Godot port moves to M11.
 - **Branch:** M9 work goes to an integration branch, `cascade`, with each issue's PR targeting it. `main` (and GitHub Pages) keeps the current game playable until `cascade` is playable end to end, then it merges.
+
+## 2026-11-20: Milestone 10 (cascade feel)
+Rulings F1–F10, all as recommended. M10 builds on the basic spectacle from #187.
+- **F1 Scope:** visual and sound only. No new dominoes, rules or numbers. New domino content is a separate step after the playtest.
+- **F2 Timing:** starts after the M9 playtest, so it polishes what felt flat in real play. The re-tune can run alongside it.
+- **F3 Effects travel to their target:**
+  - damage caps fire a bolt or slash that flies to the enemy and hits;
+  - block caps send shields to the party's block counter, which grows as each lands;
+  - coin caps send coins to their owner's coin count.
+- **F4 Enemy reactions:**
+  - a flinch on every hit, a stagger on big hits;
+  - a health bar that drains with a delayed "ghost" bar;
+  - a dramatic death on the killing blow (shatter or dissolve, with a brief freeze-frame);
+  - a lunge when it carries out its intent, with the party's side shaking as it takes the hit.
+- **F5 Build-up:**
+  - a running counter that pumps with each cap;
+  - pitch rising with each cascade step;
+  - the tree's glow growing;
+  - short callout words at heat thresholds (for example "Blaze!", "Inferno!"), with wording and thresholds in data.
+- **F6 Camera:** on big boards, zoom out to frame the whole tree, then push in on the biggest cap as it goes off. Small boards keep the camera still.
+- **F7 Comfort and pacing:** the menu gets a screen-shake toggle and a reduced-flashing toggle. A click skips the cascade to its result, on your own screen only (never the host's). Playback speed stays.
+- **F8 Art:** particles and effects are drawn in code. Optional textures from the art session come through the manifest, with code fallbacks. Tuning values live in data, so the Godot port can match them.
+- **F9 Music:** not in M10. Sound effects are in scope.
+- **F10 Seat colours:** each player gets a seat colour (in data). Their dominoes glow in it as the charge passes through, so everyone sees their part in a big chain.
+- **Branch:** M10 PRs target `main` if `cascade` has merged by then, otherwise `cascade`.
