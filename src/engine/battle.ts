@@ -6,7 +6,7 @@ import { shuffle } from "./rng";
 import { validateDominoes } from "./validate";
 import type { GameEvent } from "./events";
 import type { BattleView, OpenEndView } from "./view";
-import { extraDraws, handLimitOf } from "./battleCharms";
+import { capBonus, capExtraTriggers, extraDraws, handLimitOf, junctionRunnerBlock, outputsOf, throughNode } from "./battleCharms";
 import type { CapEffect, Charm, Config, DeckList, Domino, Enemy, Spark } from "./types";
 
 export interface Content {
@@ -28,6 +28,12 @@ const TEST_INTENTS: Intent[] = [{ attack: [8], block: 0 }];
 // The intent for the round that is starting: the enemy's list in order, repeating (a fixed cycle).
 function chooseIntent(enemy: EnemyState, round: number): Intent {
   return JSON.parse(JSON.stringify(enemy.intents[(round - 1) % enemy.intents.length]));
+}
+
+// The intents of the `count` rounds after the current one (Spyglass shows them to its holder).
+// #182's intent source has to answer this too.
+export function upcomingIntents(state: Pick<BattleState, "enemy" | "round">, count: number): Intent[] {
+  return Array.from({ length: count }, (_, i) => chooseIntent(state.enemy, state.round + 1 + i));
 }
 
 export interface PlayerSetup {
@@ -241,7 +247,7 @@ export function makeStarterInstances(
 
 // What the read-only functions need. A BattleState or a player's BattleView both fit, so a client
 // can work out what it may play from the view it was sent.
-export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "board" | "config">;
+export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "board" | "config" | "charmDefs">;
 
 export function getPendingChoice(state: PendingInput): PendingChoice | null {
   if (state.phase === "over") return null;
@@ -253,7 +259,7 @@ export function getPendingChoice(state: PendingInput): PendingChoice | null {
     if (opener) {
       if (d.kind !== "cap") plays.push({ domino: id, ends: [] });
     } else {
-      const ends = legalEnds(state, d);
+      const ends = legalEnds(state, d, player.id);
       if (ends.length > 0) plays.push({ domino: id, ends });
     }
   }
@@ -306,19 +312,24 @@ interface NodeFlow {
   out: number; // charge after the node's own amplifier
   echo: number; // extra triggers added by Echo amplifiers on the path, this node included
   sparks: Spark[]; // the different sparks the path was attached to, the opener not counting, this node included
+  intake: Spark | null; // the spark of the end the node is attached to (null for the opener)
+  bonus: number; // caps: flat bonus per trigger from charms
+  extra: number; // caps: extra triggers from charms
+  charms: string[]; // the charms of the node's owner that changed this node, for `charm` events
 }
 
-// A cap's value per trigger: ceil(base x charge). Flat bonuses (charms, #184) are added on top.
-function capValue(effect: CapEffect, charge: number): number {
-  return Math.ceil(effect.base * charge);
+// A cap's value per trigger: ceil(base x charge), plus the flat bonus from charms.
+function capValue(effect: CapEffect, charge: number, bonus: number): number {
+  return Math.ceil(effect.base * charge) + bonus;
 }
 
-function capTriggers(config: Config, echo: number): number {
-  return Math.min(1 + echo, config.triggerCap);
+function capTriggers(config: Config, flow: NodeFlow): number {
+  return Math.min(1 + flow.echo + flow.extra, config.triggerCap);
 }
 
 // Nodes are in creation order and a parent is always created first, so one pass is enough.
-function computeFlows(state: Pick<BattleState, "board" | "dominoes">): NodeFlow[] {
+// Charms of each node's owner are included; caps then get their charm bonuses in cascade order.
+function computeFlows(state: Pick<BattleState, "board" | "dominoes" | "players" | "charmDefs">): NodeFlow[] {
   const { nodes, ends } = state.board;
   const flows: NodeFlow[] = [];
   for (const node of nodes) {
@@ -333,33 +344,45 @@ function computeFlows(state: Pick<BattleState, "board" | "dominoes">): NodeFlow[
       echo = parent.echo;
       sparks = parent.sparks.includes(end.spark) ? parent.sparks : [...parent.sparks, end.spark];
     }
-    let out = charge;
-    if (d.kind === "amplifier" && d.amp) {
-      if (d.amp.op === "add") out = charge + d.amp.value;
-      else if (d.amp.op === "mul") out = charge * d.amp.value;
-      else if (d.amp.op === "echo") echo += d.amp.value;
-      else out = charge + d.amp.value * sparks.length;
-    }
-    flows.push({ charge, out, echo, sparks });
+    const through = throughNode(state, node.owner, d, charge, sparks.length, node.end === null);
+    const intake = node.end === null ? null : ends[node.end].spark;
+    flows.push({ charge, out: through.out, echo: echo + through.echo, sparks, intake, bonus: 0, extra: 0, charms: through.charms });
+  }
+  const firstDone: string[] = [];
+  for (const node of cascadeOrder(nodes)) {
+    const d = getDomino(state, node.domino);
+    if (d.kind !== "cap" || !d.effect) continue;
+    const flow = flows[node.id];
+    const bonus = capBonus(state, node.owner, d.effect.kind, flow.intake as Spark);
+    const triggers = capExtraTriggers(state, node.owner, flow.intake as Spark, !firstDone.includes(node.owner));
+    firstDone.push(node.owner);
+    flow.bonus = bonus.bonus;
+    flow.extra = triggers.extra;
+    flow.charms = [...bonus.charms, ...triggers.charms];
   }
   return flows;
 }
+
+// The order the cascade goes off in: by depth from the opener, then in creation order.
+function cascadeOrder(nodes: BoardNode[]): BoardNode[] {
+  return nodes.slice().sort((a, b) => a.depth - b.depth || a.id - b.id);
+}
+
+// A cap that is never played, used to ask what a cap placed on an open end would get.
+const PROBE: Domino = { id: "#probe", name: "", kind: "cap", intake: "any", output: [], effect: { kind: "block", base: 0 } };
 
 function openEnds(state: Pick<BattleState, "board">): BoardEnd[] {
   return state.board.ends.filter((e) => !state.board.nodes.some((n) => n.end === e.id));
 }
 
-// The open ends with the charge reaching each and the triggers a cap placed there would get.
-export function getOpenEnds(state: Pick<BattleState, "board" | "dominoes" | "config">): OpenEndView[] {
-  const flows = computeFlows(state);
-  return openEnds(state).map((e) => ({
-    end: e.id,
-    node: e.node,
-    index: e.index,
-    spark: e.spark,
-    charge: flows[e.node].out,
-    triggers: capTriggers(state.config, flows[e.node].echo),
-  }));
+// The open ends with the charge reaching each and the triggers a cap placed there by `player` would get.
+export function getOpenEnds(state: Pick<BattleState, "board" | "dominoes" | "config" | "players" | "charmDefs">, player: string): OpenEndView[] {
+  return openEnds(state).map((e) => {
+    const board: Board = JSON.parse(JSON.stringify(state.board));
+    addToBoard(board, player, PROBE, e.id, []);
+    const flow = computeFlows({ ...state, board, dominoes: [...state.dominoes, PROBE] }).pop() as NodeFlow;
+    return { end: e.id, node: e.node, index: e.index, spark: e.spark, charge: flow.charge, triggers: capTriggers(state.config, flow) };
+  });
 }
 
 // What playing a domino on an end would do: the charge it passes on (amplifier, junction; for a
@@ -378,13 +401,13 @@ export function previewPlay(input: PendingInput, playerId: string, dominoId: str
   if (!player || !player.hand.includes(dominoId)) return null;
   const d = getDomino(input, dominoId);
   const opener = input.board.nodes.length === 0;
-  if (opener ? end !== undefined || d.kind === "cap" : end === undefined || !legalEnds(input, d).includes(end)) return null;
+  if (opener ? end !== undefined || d.kind === "cap" : end === undefined || !legalEnds(input, d, playerId).includes(end)) return null;
   const board: Board = JSON.parse(JSON.stringify(input.board));
-  addToBoard(board, playerId, d, end ?? null);
-  const flow = computeFlows({ board, dominoes: input.dominoes }).pop() as NodeFlow;
+  addToBoard(board, playerId, d, end ?? null, outputsOf(input, playerId, d));
+  const flow = computeFlows({ board, dominoes: input.dominoes, players: input.players, charmDefs: input.charmDefs }).pop() as NodeFlow;
   if (d.kind !== "cap" || !d.effect) return { charge: flow.out, value: 0, triggers: 0, total: 0 };
-  const value = capValue(d.effect, flow.charge);
-  const triggers = capTriggers(input.config, flow.echo);
+  const value = capValue(d.effect, flow.charge, flow.bonus);
+  const triggers = capTriggers(input.config, flow);
   return { charge: flow.charge, value, triggers, total: value * triggers };
 }
 
@@ -410,10 +433,10 @@ export function previewCascade(input: BattleState | BattleView): CascadePreview 
 
 // ---- internals (all mutate the working copy) ----
 
-function legalEnds(state: PendingInput, d: Domino): number[] {
+function legalEnds(state: PendingInput, d: Domino, owner: string): number[] {
   const open = openEnds(state);
-  // A junction replaces one open end with two.
-  if (d.kind === "junction" && open.length + 1 > state.config.openEndLimit) return [];
+  // A junction replaces one open end with its outputs (two, or three with Hall of Mirrors).
+  if (d.kind === "junction" && open.length - 1 + outputsOf(state, owner, d).length > state.config.openEndLimit) return [];
   return open.filter((e) => d.intake === "any" || d.intake.includes(e.spark)).map((e) => e.id);
 }
 
@@ -421,7 +444,7 @@ function capCount(state: Pick<BattleState, "board" | "dominoes">): number {
   return state.board.nodes.filter((n) => getDomino(state, n.domino).kind === "cap").length;
 }
 
-function addToBoard(board: Board, owner: string, d: Domino, end: number | null): void {
+function addToBoard(board: Board, owner: string, d: Domino, end: number | null, outputs: Spark[]): void {
   const node: BoardNode = {
     id: board.nodes.length,
     domino: d.id,
@@ -430,11 +453,12 @@ function addToBoard(board: Board, owner: string, d: Domino, end: number | null):
     depth: end === null ? 0 : board.nodes[board.ends[end].node].depth + 1,
   };
   board.nodes.push(node);
-  d.output.forEach((spark, index) => board.ends.push({ id: board.ends.length, node: node.id, index, spark }));
+  outputs.forEach((spark, index) => board.ends.push({ id: board.ends.length, node: node.id, index, spark }));
 }
 
 function addNode(state: BattleState, owner: string, d: Domino, end: number | null, events: GameEvent[]): void {
-  addToBoard(state.board, owner, d, end);
+  const outputs = outputsOf(state, owner, d);
+  addToBoard(state.board, owner, d, end, outputs);
   const node = state.board.nodes[state.board.nodes.length - 1];
   const flow = computeFlows(state).pop() as NodeFlow;
   events.push({
@@ -446,6 +470,7 @@ function addNode(state: BattleState, owner: string, d: Domino, end: number | nul
     depth: node.depth,
     charge: d.kind === "cap" ? flow.charge : flow.out,
   });
+  if (outputs.length > d.output.length) events.push({ type: "charm", player: owner, charm: "hall_of_mirrors" });
 }
 
 function nextSeat(state: BattleState): void {
@@ -479,13 +504,22 @@ function fireCascade(state: BattleState, events: GameEvent[]): void {
   const lastDepth = Math.max(...nodes.map((n) => n.depth));
   for (let depth = 0; depth <= lastDepth; depth++) {
     events.push({ type: "cascadeStep", depth });
-    for (const node of nodes) {
+    for (const node of cascadeOrder(nodes)) {
       if (node.depth !== depth) continue;
       const d = getDomino(state, node.domino);
       const flow = flows[node.id];
       events.push({ type: "nodeLit", node: node.id, domino: d.id, owner: node.owner, charge: d.kind === "cap" ? flow.charge : flow.out });
+      for (const charm of flow.charms) events.push({ type: "charm", player: node.owner, charm });
+      if (d.kind === "junction") {
+        const block = junctionRunnerBlock(state, node.owner);
+        if (block > 0) {
+          state.party.block += block;
+          events.push({ type: "charm", player: node.owner, charm: "junction_runner" });
+          events.push({ type: "block", side: "party", amount: block });
+        }
+      }
       if (d.kind === "cap" && d.effect) {
-        fireCap(state, node, d.effect, capValue(d.effect, flow.charge), capTriggers(state.config, flow.echo), events);
+        fireCap(state, node, d.effect, capValue(d.effect, flow.charge, flow.bonus), capTriggers(state.config, flow), events);
         if (isOver(state)) return;
       }
     }

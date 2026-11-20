@@ -24,6 +24,7 @@ export type GameEvent =
   | { type: "damage"; side: "party" | "enemy"; amount: number; blocked: number }
   | { type: "block"; side: "party" | "enemy"; amount: number }
   | { type: "coinsGained"; player: string; amount: number }
+  | { type: "charm"; player: string; charm: string } // a charm changed the node just lit (or, for Hall of Mirrors, the junction just played); the screen can flash its icon
   | { type: "fizzle"; end: number; spark: Spark; charge: number } // an open end the cascade left uncapped
   | { type: "enemyAction"; intent: Intent } // followed by the enemy's block and damage events
   | { type: "blockReset"; side: "party" | "enemy" }

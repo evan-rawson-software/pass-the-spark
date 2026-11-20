@@ -3,7 +3,7 @@
     "id": "ember_lens",
     "name": "Ember Lens",
     "pool": "normal",
-    "description": "Your effects set off by Ember are worth +2.",
+    "description": "Your caps set off by Ember are worth +2.",
     "numbers": {
       "bonus": 2
     }
@@ -12,7 +12,7 @@
     "id": "tide_lens",
     "name": "Tide Lens",
     "pool": "normal",
-    "description": "Your effects set off by Tide are worth +2.",
+    "description": "Your caps set off by Tide are worth +2.",
     "numbers": {
       "bonus": 2
     }
@@ -21,7 +21,7 @@
     "id": "gale_lens",
     "name": "Gale Lens",
     "pool": "normal",
-    "description": "Your effects set off by Gale are worth +2.",
+    "description": "Your caps set off by Gale are worth +2.",
     "numbers": {
       "bonus": 2
     }
@@ -48,25 +48,25 @@
     "id": "spark_starter",
     "name": "Spark Starter",
     "pool": "normal",
-    "description": "When you play the opener, its effect triggers at strength 1.",
+    "description": "Your opener adds +1 charge.",
     "numbers": {
-      "strength": 1
+      "charge": 1
     }
   },
   {
     "id": "spyglass",
     "name": "Spyglass",
     "pool": "normal",
-    "description": "Your Lookouts reveal 1 extra domino.",
+    "description": "You see the enemy's intents 2 rounds ahead.",
     "numbers": {
-      "reveals": 1
+      "rounds": 2
     }
   },
   {
     "id": "bulwark",
     "name": "Bulwark",
     "pool": "normal",
-    "description": "Your block effects are worth +2.",
+    "description": "Your block caps are worth +2.",
     "numbers": {
       "bonus": 2
     }
@@ -75,16 +75,16 @@
     "id": "resonance",
     "name": "Resonance",
     "pool": "normal",
-    "description": "Your Echoes add 1 extra trigger.",
+    "description": "Your Echo amplifiers add 1 more repeat.",
     "numbers": {
-      "triggers": 1
+      "repeats": 1
     }
   },
   {
-    "id": "lap_runner",
-    "name": "Lap Runner",
+    "id": "junction_runner",
+    "name": "Junction Runner",
     "pool": "normal",
-    "description": "When your answer completes a lap, the party gains 3 block.",
+    "description": "When your junction lights up in the cascade, the party gains 3 block.",
     "numbers": {
       "block": 3
     }
@@ -111,7 +111,7 @@
     "id": "prism",
     "name": "Prism",
     "pool": "rare",
-    "description": "Your Spectrum effects count 1 extra distinct spark.",
+    "description": "Your Spectrum amplifiers count 1 extra spark.",
     "numbers": {
       "sparks": 1
     }
@@ -120,46 +120,49 @@
     "id": "overcharge",
     "name": "Overcharge",
     "pool": "rare",
-    "description": "Your effects count the lap as 1 higher.",
+    "description": "Your Double amplifiers multiply by 3 instead of 2.",
     "numbers": {
-      "laps": 1
+      "multiplier": 3
     }
   },
   {
     "id": "first_echo",
     "name": "First Echo",
     "pool": "rare",
-    "description": "The first domino you play each round triggers twice.",
+    "description": "Your first cap to go off each round goes off twice.",
     "numbers": {
-      "triggers": 2
+      "extraTriggers": 1
     }
   },
   {
     "id": "keystone",
     "name": "Keystone",
     "pool": "rare",
-    "description": "Your answers add 2 strength instead of 1.",
+    "description": "Your amplifiers add +1 more charge, after their own change.",
     "numbers": {
-      "strength": 2
+      "charge": 1
     }
   },
   {
     "id": "hall_of_mirrors",
     "name": "Hall of Mirrors",
     "pool": "rare",
-    "description": "Your Mimics copy at +2 strength.",
+    "description": "Your junctions open 3 ends instead of 2; the third repeats the first output spark.",
     "numbers": {
-      "strength": 2
+      "extraEnds": 1
     }
   },
   {
     "id": "lightning_rod",
     "name": "Lightning Rod",
     "pool": "rare",
-    "description": "Your dominoes set off by Storm or Void trigger twice.",
-    "sparks": ["Storm", "Void"],
+    "description": "Your caps set off by Storm or Void go off twice.",
+    "sparks": [
+      "Storm",
+      "Void"
+    ],
     "numbers": {
-      "triggers": 2
+      "extraTriggers": 1
     }
   }
 ]
