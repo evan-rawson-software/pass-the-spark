@@ -379,3 +379,11 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - The designer is redesigning the core combat rules: the chain becomes a branching tree that goes off all at once in a cascade when it ends. A design doc and a new milestone will follow.
 - The Godot port (M9) is on hold until then.
 - No further combat-screen layout work; the combat board will be rebuilt.
+
+## 2026-11-20: Combat redesign (branching cascade)
+
+- **The combat rules are replaced** by `docs/design-branching-cascade.md` (approved). Read it first. It supersedes the earlier combat rulings in this file and in the brief wherever they conflict. That includes: chain rules (strength per answer, laps, the opener's limits), the enemy's dominoes, hands, reactions and leftovers, Lookout, Mimic, Reflect, the hidden enemy hand, and the boss passives as written for M4 and M6.
+- **Deliberate reversals** of the brief's "decided against" list: finishers (caps), an option to end the chain (setting it off), and enemy intents outside dominoes.
+- **Still in force:** the run, map, events, rewards, coins, Trader, rest sites, progression, online play, single player, the screens' general rules, and everything else not about how a battle plays. Where the design doc changes one of those (charms, events, upgrades, generation, unlocks), the doc wins.
+- **Order of work:** engine and sim prototype first, with no screens; then a playable board screen and a playtest; then spectacle, content and re-tuning; then the Godot port.
+- **On hold:** the balance tuning in #126 (it was for the old rules) and the Godot port.
