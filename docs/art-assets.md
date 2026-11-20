@@ -64,6 +64,20 @@ The branching cascade redesign (M9, `docs/design-branching-cascade.md`) changed 
 ### Effects: drawn in code
 **Not generated.** All effect icons are drawn in code in one consistent style, by designer choice. Don't add any `effects/` files to the manifest. Under the branching cascade (M9) they are: caps `damage`, `block`, `coins`; amplifiers `boost`, `double`, `echo`, `spectrum`; and `junction`.
 
+### Effects textures: `fx/<id>.png`, 256×256, transparent (optional)
+For the cascade effects in M10 (#188). Every one has a code-drawn fallback, so make only the ones that clearly look better than code. The game tints them in code, so draw each **white to light grey on a plain flat black background**, then turn brightness into transparency (black becomes fully transparent, white fully opaque) instead of colour-keying. Soft edges are welcome here, unlike the icons.
+
+| Id | What |
+| --- | --- |
+| `glow` | A soft round glow, brightest in the middle, fading to nothing at the edge. |
+| `spark` | A small four-pointed star particle with a soft halo. |
+| `slash` | A curved blade streak, sharp at one end, trailing off at the other. |
+| `bolt` | A short jagged energy bolt, horizontal. |
+| `shard` | One broken fragment, for shattering shields and enemy deaths. |
+| `ring` | A thin shockwave ring with a soft edge, for impacts. |
+
+Use the icon style words with "glowing magical energy effect" in the subject, but drop "thick bold black outline" and change "isolated on a plain flat pure white background" to "isolated on a plain flat pure black background".
+
 ### Traits and markers: `ui/<id>.png`, 128×128, transparent
 `ignores_block` (arrow through a shield), `locked` (padlock), `blessed` (halo or sun), `coin`, `health` (heart), `charm_normal` (round frame), `charm_rare` (gold diamond frame). The HUD block shield is drawn in code, not generated. `spectrum` and `no_lap` are no longer used after M9.
 
