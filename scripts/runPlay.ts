@@ -10,7 +10,7 @@ import { getUpgradeOptions } from "../src/engine/upgrades";
 import { personalUnavailable } from "../src/engine/events/personal";
 import type { EventPick } from "../src/engine/events/personal";
 import { dominoUnavailable, repaintChoices } from "../src/engine/events/deckEvents";
-import { upgradeChoices, wellStage } from "../src/engine/events/wishingWell";
+import { upgradeChoices, wellSparks, wellStage } from "../src/engine/events/wishingWell";
 import { loadContent } from "../src/engine/content";
 import { botChoice } from "./bot";
 import type { Domino, Rarity, Spark } from "../src/engine/types";
@@ -71,14 +71,16 @@ function personalChoice(run: RunState, player: string, pick: Picker): RunChoice 
     const c = pick.one(repaintChoices(run, player, id));
     eventPick = { dominoes: [id], half: c.half, slot: c.slot, spark: c.spark };
   } else if (o.action === "weld") {
-    const first = pick.one(deck);
-    eventPick = { dominoes: [first, pick.one(deck.filter((id) => id !== first))] };
+    const kindOf = (id: string) => run.dominoes.find((d) => d.id === id)!.kind;
+    const pairs = deck.filter((id) => kindOf(id) !== "cap" && deck.some((x) => x !== id && kindOf(x) === kindOf(id)));
+    const first = pick.one(pairs);
+    eventPick = { dominoes: [first, pick.one(deck.filter((id) => id !== first && kindOf(id) === kindOf(first)))] };
   } else {
     // The Wishing Well: each stage is another choice of the same option.
     const stage = wellStage(run, player);
     const well = run.event!.wells?.[player];
     if (stage === "turn") return { type: "event", option };
-    if (stage === "spark") eventPick = { dominoes: [], spark: pick.one(well!.domino.output) };
+    if (stage === "spark") eventPick = { dominoes: [], spark: pick.one(wellSparks(run, well!.domino)) };
     else if (stage === "remove") eventPick = { dominoes: [pick.one(deck)] };
     else if (stage === "upgrade") {
       const id = dominoPick((d) => upgradeChoices(run, player, d).length > 0);

@@ -1,451 +1,57 @@
 {
-  "sparkGroups": {
-    "basic": [
-      "Ember",
-      "Tide",
-      "Gale"
-    ],
-    "advanced": [
-      "Storm",
-      "Void"
-    ]
-  },
   "offerSize": 3,
+  "sparkGroups": {
+    "basic": ["Ember", "Tide", "Gale"],
+    "advanced": ["Storm", "Void"]
+  },
   "rarities": {
     "common": {
-      "intakes": [
-        [
-          "Ember"
-        ],
-        [
-          "Tide"
-        ],
-        [
-          "Gale"
-        ]
+      "kindWeights": { "amplifier": 4, "junction": 0, "cap": 6 },
+      "intakes": [["Ember"], ["Tide"], ["Gale"]],
+      "outputs": ["Ember", "Tide", "Gale"],
+      "advancedOutputShare": 0,
+      "ignoresBlock": 0,
+      "amplifiers": [
+        { "names": ["Boost", "Surge"], "amp": { "op": "add", "value": 1 } }
       ],
-      "traits": {
-        "spectrum": 0,
-        "ignoresBlock": 0
-      },
-      "effects": [
-        {
-          "kind": "damage",
-          "names": [
-            "Strike",
-            "Jab",
-            "Slash"
-          ],
-          "base": [
-            2,
-            4
-          ],
-          "traits": [
-            "spectrum",
-            "ignoresBlock"
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ]
-          ]
-        },
-        {
-          "kind": "block",
-          "names": [
-            "Ward",
-            "Guard",
-            "Shield"
-          ],
-          "base": [
-            3,
-            5
-          ],
-          "traits": [
-            "spectrum"
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ]
-          ]
-        }
-      ],
-      "advancedOutputShare": 0
+      "junctions": [],
+      "caps": [
+        { "names": ["Strike", "Jab", "Slash"], "kind": "damage", "base": [2, 4] },
+        { "names": ["Guard", "Ward", "Shield"], "kind": "block", "base": [3, 5] }
+      ]
     },
     "uncommon": {
-      "intakes": [
-        [
-          "Ember"
-        ],
-        [
-          "Tide"
-        ],
-        [
-          "Gale"
-        ]
+      "kindWeights": { "amplifier": 3, "junction": 3, "cap": 4 },
+      "intakes": [["Ember"], ["Tide"], ["Gale"]],
+      "outputs": ["Ember", "Tide", "Gale"],
+      "advancedOutputShare": 0.3,
+      "ignoresBlock": 0.15,
+      "amplifiers": [
+        { "names": ["Boost", "Swell"], "amp": { "op": "add", "value": 2 }, "unlock": "boostTwo" },
+        { "names": ["Echo", "Ripple"], "amp": { "op": "echo", "value": 1 }, "unlock": "echo" }
       ],
-      "traits": {
-        "spectrum": 0.15,
-        "ignoresBlock": 0.15
-      },
-      "effects": [
-        {
-          "kind": "damage",
-          "names": [
-            "Strike",
-            "Cut",
-            "Blow"
-          ],
-          "base": [
-            4,
-            6
-          ],
-          "traits": [
-            "spectrum",
-            "ignoresBlock"
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ],
-            [
-              "Ember",
-              "Tide"
-            ],
-            [
-              "Tide",
-              "Gale"
-            ],
-            [
-              "Gale",
-              "Ember"
-            ]
-          ]
-        },
-        {
-          "kind": "block",
-          "names": [
-            "Ward",
-            "Bulwark",
-            "Barrier"
-          ],
-          "base": [
-            5,
-            8
-          ],
-          "traits": [
-            "spectrum"
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ],
-            [
-              "Ember",
-              "Tide"
-            ],
-            [
-              "Tide",
-              "Gale"
-            ],
-            [
-              "Gale",
-              "Ember"
-            ]
-          ]
-        },
-        {
-          "kind": "amplify",
-          "names": [
-            "Surge",
-            "Swell"
-          ],
-          "base": [
-            1,
-            2
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ],
-            [
-              "Ember",
-              "Tide"
-            ],
-            [
-              "Tide",
-              "Gale"
-            ],
-            [
-              "Gale",
-              "Ember"
-            ]
-          ]
-        },
-        {
-          "kind": "echo",
-          "names": [
-            "Echo",
-            "Ripple"
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ],
-            [
-              "Ember",
-              "Tide"
-            ],
-            [
-              "Tide",
-              "Gale"
-            ],
-            [
-              "Gale",
-              "Ember"
-            ]
-          ]
-        },
-        {
-          "kind": "lookout",
-          "names": [
-            "Scout",
-            "Watch"
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ],
-            [
-              "Ember",
-              "Tide"
-            ],
-            [
-              "Tide",
-              "Gale"
-            ],
-            [
-              "Gale",
-              "Ember"
-            ]
-          ]
-        }
-      ],
-      "advancedOutputShare": 0.3
+      "junctions": ["Junction", "Fork", "Split"],
+      "caps": [
+        { "names": ["Strike", "Cut", "Blow"], "kind": "damage", "base": [4, 6] },
+        { "names": ["Guard", "Bulwark", "Barrier"], "kind": "block", "base": [5, 8] },
+        { "names": ["Purse", "Tithe"], "kind": "coins", "base": [1, 2], "unlock": "coinCaps" }
+      ]
     },
     "rare": {
-      "intakes": [
-        [
-          "Storm"
-        ],
-        [
-          "Void"
-        ],
-        "any"
+      "kindWeights": { "amplifier": 4, "junction": 0, "cap": 6 },
+      "intakes": [["Storm"], ["Void"], "any"],
+      "outputs": ["Ember", "Tide", "Gale"],
+      "advancedOutputShare": 0,
+      "ignoresBlock": 0.25,
+      "amplifiers": [
+        { "names": ["Double", "Crescendo"], "amp": { "op": "mul", "value": 2 }, "unlock": "double" },
+        { "names": ["Prism", "Spectrum"], "amp": { "op": "spectrum", "value": 1 }, "unlock": "spectrum" }
       ],
-      "traits": {
-        "spectrum": 0.25,
-        "ignoresBlock": 0.25
-      },
-      "effects": [
-        {
-          "kind": "damage",
-          "names": [
-            "Strike",
-            "Rend",
-            "Smite"
-          ],
-          "base": [
-            6,
-            9
-          ],
-          "traits": [
-            "spectrum",
-            "ignoresBlock"
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ],
-            [
-              "Ember",
-              "Tide"
-            ],
-            [
-              "Tide",
-              "Gale"
-            ],
-            [
-              "Gale",
-              "Ember"
-            ]
-          ]
-        },
-        {
-          "kind": "block",
-          "names": [
-            "Ward",
-            "Aegis",
-            "Bastion"
-          ],
-          "base": [
-            8,
-            12
-          ],
-          "traits": [
-            "spectrum"
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ],
-            [
-              "Ember",
-              "Tide"
-            ],
-            [
-              "Tide",
-              "Gale"
-            ],
-            [
-              "Gale",
-              "Ember"
-            ]
-          ]
-        },
-        {
-          "kind": "amplify",
-          "names": [
-            "Surge",
-            "Crescendo"
-          ],
-          "base": [
-            2,
-            3
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ]
-          ]
-        },
-        {
-          "kind": "echo",
-          "names": [
-            "Echo",
-            "Reverb"
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ]
-          ]
-        },
-        {
-          "kind": "lookout",
-          "names": [
-            "Scout",
-            "Oracle"
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ]
-          ]
-        },
-        {
-          "kind": "mimic",
-          "names": [
-            "Mirror",
-            "Mimic"
-          ],
-          "outputs": [
-            [
-              "Ember"
-            ],
-            [
-              "Tide"
-            ],
-            [
-              "Gale"
-            ]
-          ]
-        }
-      ],
-      "advancedOutputShare": 0
+      "junctions": [],
+      "caps": [
+        { "names": ["Smite", "Rend"], "kind": "damage", "base": [6, 9] },
+        { "names": ["Aegis", "Bastion"], "kind": "block", "base": [8, 12] }
+      ]
     }
   }
 }

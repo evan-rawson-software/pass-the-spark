@@ -52,9 +52,10 @@ export function validateRun(data: unknown, enemies: Enemy[]): RunData {
   checkWhole("(file)", data.actStartHealPercent, "actStartHealPercent", 0);
   checkWhole("(file)", data.restHeal, "restHeal", 1);
   if (!isObject(data.upgrade)) fail("(file)", `"upgrade" must be an object`);
-  for (const field of ["numberedPercent", "amplify", "echoTriggers", "lookoutReveals", "mimicStrength"]) {
+  for (const field of ["capPercent", "boostAdd", "echoRepeats", "spectrumAdd"]) {
     checkWhole("(file)", data.upgrade[field], `upgrade.${field}`, 1);
   }
+  if (typeof data.upgrade.doubleValue !== "number" || !(data.upgrade.doubleValue > 1)) fail("(file)", `"upgrade.doubleValue" must be a number above 1`);
   const trader = data.trader;
   if (!isObject(trader)) fail("(file)", `"trader" must be an object`);
   checkWhole("trader", trader.stockSize, "stockSize", 1);

@@ -127,3 +127,21 @@ test("a full round of passes sets the chain off: uncapped ends fizzle, and with 
   expect(empty.state.party.health).toBe(90 - 16);
   expect(empty.state.round).toBe(3);
 });
+
+test("Spark Shrine: a domino attached to the blessed spark adds charge after its own change; the opener does not count", () => {
+  const blessed = (spark: "Ember" | "Tide") => {
+    const s = setup([["boost_ember", "strike_ember"], ["junction_ember"], []]);
+    s.blessing = { spark, strength: 1 };
+    return s;
+  };
+  // Blessed Ember: the opener's intake is ignored (charge 2), the junction attached to Ember adds 1 (3 into both branches),
+  // and a cap attached to Ember goes off at the boosted charge (3 x 3 = 9 instead of 6).
+  let s = play(blessed("Ember"), "boost_ember");
+  expect(getView(s, "a").openEnds[0]).toMatchObject({ spark: "Ember", charge: 2 });
+  expect(previewPlay(s, "a", "strike_ember", 0)).toMatchObject({ charge: 3, value: 9 });
+  s = play(s, "junction_ember", 0);
+  expect(getView(s, "a").openEnds).toMatchObject([{ charge: 3 }, { charge: 3 }]);
+  // Blessed Tide: nothing here is attached to Tide, so the numbers are the plain ones.
+  s = play(blessed("Tide"), "boost_ember");
+  expect(previewPlay(s, "a", "strike_ember", 0)).toMatchObject({ charge: 2, value: 6 });
+});

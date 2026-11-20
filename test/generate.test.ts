@@ -9,6 +9,7 @@ test("generated dominoes pass validation and respect the pool rules", () => {
   const basic = ["Ember", "Tide", "Gale"];
   const advanced = ["Storm", "Void"];
   let uncommonAdvancedOutputs = 0;
+  const kinds = new Set<string>();
   let state = 12345;
   let index = 0;
   for (const rarity of ["common", "uncommon", "rare"] as Rarity[]) {
@@ -18,31 +19,33 @@ test("generated dominoes pass validation and respect the pool rules", () => {
       const d = r.value;
       expect(() => validateDominoes([d], "generated")).not.toThrow();
       expect(d.rarity).toBe(rarity);
+      kinds.add(`${rarity} ${d.kind}`);
       if (d.intake !== "any") expect(d.intake.length).toBe(1);
-      expect(["heal", "reflect"]).not.toContain(d.effect.kind);
       if (rarity === "rare") {
         expect(d.intake === "any" || advanced.includes(d.intake[0])).toBe(true);
         expect(d.output.every((s) => basic.includes(s))).toBe(true);
+        expect(d.kind).not.toBe("junction");
       } else {
         expect(basic).toContain((d.intake as string[])[0]);
-        expect(d.effect.kind).not.toBe("mimic");
       }
-      if (rarity === "common") expect(d.output.every((s) => basic.includes(s))).toBe(true);
+      if (rarity === "common") {
+        expect(d.output.every((s) => basic.includes(s))).toBe(true);
+        expect(d.kind).not.toBe("junction");
+        expect(d.amp ?? d.effect).toSatisfy((x: { op?: string; kind?: string; ignoresBlock?: boolean }) => x.op === "add" || ["damage", "block"].includes(x.kind as string));
+        expect(d.effect?.ignoresBlock ?? false).toBe(false);
+      }
       if (rarity === "uncommon") {
         expect(d.output.every((s) => basic.includes(s) || advanced.includes(s))).toBe(true);
         if (d.output.some((s) => advanced.includes(s))) uncommonAdvancedOutputs++;
       }
-      if (rarity === "common") {
-        expect(d.output.length).toBe(1);
-        expect(d.effect.spectrum ?? false).toBe(false);
-        expect(d.effect.ignoresBlock ?? false).toBe(false);
-      }
+      if (d.kind === "junction") expect(d.output[0]).not.toBe(d.output[1]);
     }
   }
   expect(uncommonAdvancedOutputs).toBeGreaterThan(0);
+  expect([...kinds].sort()).toEqual(["common amplifier", "common cap", "rare amplifier", "rare cap", "uncommon amplifier", "uncommon cap", "uncommon junction"]);
 });
 
-test("a player with no unlocks is never offered a locked effect, shape or spark", () => {
+test("a player with no unlocks is never offered a locked amplifier, cap, trait or spark", () => {
   const { pools, progression } = loadContent();
   const everything = progression.levels.map((l) => l.unlock);
   const basic = ["Ember", "Tide", "Gale"];
@@ -52,13 +55,13 @@ test("a player with no unlocks is never offered a locked effect, shape or spark"
       const r = generateDomino(state, rarity, pools, i, []);
       state = r.state;
       const d = r.value;
-      expect(["damage", "block", "amplify"]).toContain(d.effect.kind);
-      expect(d.output.length).toBe(1);
-      expect(d.effect.spectrum ?? false).toBe(false);
-      expect(d.effect.ignoresBlock ?? false).toBe(false);
+      if (d.amp) expect(d.amp).toEqual({ op: "add", value: 1 }); // Boost +1 only
+      if (d.effect) expect(["damage", "block"]).toContain(d.effect.kind);
+      expect(d.effect?.ignoresBlock ?? false).toBe(false);
       expect(d.intake !== "any" && d.intake.every((s) => basic.includes(s))).toBe(true);
       expect(d.output.every((s) => basic.includes(s))).toBe(true);
       expect(d.rarity).toBe(rarity === "rare" ? "uncommon" : rarity); // a rare slot falls back to uncommon
+      if (d.rarity === "uncommon") expect(d.kind).not.toBe("amplifier"); // Boost +2 and Echo are locked
     }
   }
   // With everything unlocked the draw is exactly the same as with no gating.

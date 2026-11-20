@@ -92,21 +92,30 @@ export type DeckList = string[];
 // Generated dominoes (data/domino-pools.json).
 export type Rarity = "common" | "uncommon" | "rare";
 export type BattleType = "fight" | "elite" | "boss";
-export type Trait = "spectrum" | "ignoresBlock";
 
-// One possible right side. Value is drawn whole from [min, max]; the output list is drawn from outputs.
-export interface PoolEffect {
-  kind: "damage" | "block" | "amplify" | "echo" | "lookout" | "mimic"; // old kinds, until #185 reworks the pools
-  names: string[]; // word after the spark in the name, e.g. "Strike" -> "Tide Strike"
-  base?: [number, number]; // damage, block, amplify only
-  traits?: Trait[]; // traits this effect may roll
-  outputs: Spark[][];
+// One amplifier a rarity can roll. unlock: the unlock id (data/progression.json) a player needs; none means always available.
+export interface PoolAmp {
+  names: string[]; // word after the spark in the name, e.g. "Boost" -> "Tide Boost"
+  amp: Amp;
+  unlock?: string;
+}
+
+// One cap a rarity can roll. The base is drawn whole from [min, max].
+export interface PoolCap {
+  names: string[];
+  kind: CapEffectKind;
+  base: [number, number];
+  unlock?: string;
 }
 
 export interface RarityPool {
+  kindWeights: Record<DominoKind, number>; // chance weights for the kind; a kind with weight 0 is never rolled
   intakes: (Spark[] | "any")[]; // each entry is one intake; lists hold exactly one spark
-  effects: PoolEffect[];
-  traits: { spectrum: number; ignoresBlock: number }; // chance 0..1 per trait
+  outputs: Spark[]; // single basic sparks an amplifier or junction can output
+  amplifiers: PoolAmp[];
+  junctions: string[]; // name words for junctions
+  caps: PoolCap[];
+  ignoresBlock: number; // chance 0..1 that a damage cap ignores block (once unlocked)
   // Chance 0..1 that each output spark is swapped for a random advanced spark. Uncommon only; 0 elsewhere.
   advancedOutputShare: number;
 }
@@ -149,11 +158,11 @@ export interface ActData {
 
 // How much a right-side upgrade adds. All amounts are whole numbers, 1 or more.
 export interface UpgradeData {
-  numberedPercent: number; // damage, block and heal: base grows by this percent, rounded up
-  amplify: number; // added to Amplify's base
-  echoTriggers: number; // added to Echo's extraTriggers
-  lookoutReveals: number; // added to Lookout's extraReveals
-  mimicStrength: number; // added to Mimic's strengthBonus
+  capPercent: number; // caps: base grows by this percent, rounded up
+  boostAdd: number; // added to an add amplifier's value (Boost)
+  doubleValue: number; // a mul amplifier (Double) becomes x this
+  echoRepeats: number; // added to an echo amplifier's value
+  spectrumAdd: number; // added to a spectrum amplifier's value
 }
 
 export interface RunData {

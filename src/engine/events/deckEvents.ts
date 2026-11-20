@@ -1,8 +1,8 @@
 // The three events that change dominoes in a deck: the Tinker's Bench (flip or repaint), the Mirror
 // Pond (copy) and the Twin Forge (weld). Pure previews plus the handlers that apply them; the shared
 // personal-event machinery is in personal.ts. Numbers (repaint cost, minimum deck) come from data.
-// Upgrade marks and traits live on the domino, so a flip or repaint keeps them, a copy has them too,
-// and a weld takes the first domino's (intake, effect, upgrade marks, traits).
+// Upgrade marks live on the domino, so a flip or repaint keeps them, a copy has them too, and a weld
+// takes the first domino's (kind, intake, amplifier, upgrade marks) and the second's outputs.
 
 import type { RunState } from "../run";
 import type { Domino, Rarity, Spark } from "../types";
@@ -52,7 +52,7 @@ function allowedOnHalf(run: RunState, rarity: Rarity | undefined, half: "intake"
   if (half === "intake") {
     for (const intake of pool.intakes) if (intake !== "any") add(intake[0]);
   } else {
-    for (const e of pool.effects) for (const out of e.outputs) out.forEach(add);
+    pool.outputs.forEach(add);
     if (pool.advancedOutputShare > 0) run.content.pools.sparkGroups.advanced.forEach(add);
   }
   return sparks;
@@ -79,10 +79,20 @@ export function repaintChoices(run: RunState, player: string, id: string): Repai
 }
 
 function flipReason(d: Domino): string | null {
+  if (d.kind !== "amplifier") return "Only amplifiers can be flipped";
   if (d.intake === "any") return "Takes any spark";
   if (d.intake.length !== 1) return "Takes two sparks";
-  if (d.output.length !== 1) return "Gives off two sparks";
   return null;
+}
+
+function weldReason(d: Domino): string | null {
+  return d.kind === "cap" ? "Caps can't be welded" : null;
+}
+
+// Whether the player's deck holds two amplifiers or two junctions, the only dominoes that can be welded.
+export function canWeld(run: RunState, player: string): boolean {
+  const kinds = run.decks[player].map((id) => find(run, player, id).kind);
+  return kinds.filter((k) => k === "amplifier").length >= 2 || kinds.filter((k) => k === "junction").length >= 2;
 }
 
 function higher(a: Rarity | undefined, b: Rarity | undefined): Rarity | undefined {
@@ -90,23 +100,17 @@ function higher(a: Rarity | undefined, b: Rarity | undefined): Rarity | undefine
   return RANK[a ?? "common"] >= RANK[b ?? "common"] ? (a ?? "common") : (b ?? "common");
 }
 
-// A name from the effect and the output spark, like the generated ones ("Tide Strike"). The word is
-// picked from the pools by the two ids, so the preview and the result agree without the RNG.
-function weldName(run: RunState, first: Domino, second: Domino, output: Spark): string {
-  const names: string[] = [];
-  for (const r of ["common", "uncommon", "rare"] as Rarity[]) {
-    for (const e of run.content.pools.rarities[r].effects) if (e.kind === first.effect.kind) for (const n of e.names) if (!names.includes(n)) names.push(n);
-  }
-  let sum = 0;
-  for (const ch of first.id + second.id) sum += ch.charCodeAt(0);
-  const word = names.length > 0 ? names[sum % names.length] : first.effect.kind[0].toUpperCase() + first.effect.kind.slice(1);
-  return `${output} ${word}${first.upgraded?.length ? "+" : ""}`;
+// A name like the generated ones ("Tide Boost"): the first domino's word with the weld's intake spark.
+function weldName(first: Domino, intake: Domino["intake"]): string {
+  const word = first.name.replace(/^\S+ /, "").replace(/\+$/, "");
+  return `${intake === "any" ? "Any" : intake[0]} ${word}${first.upgraded?.length ? "+" : ""}`;
 }
 
 // Why this domino can't be picked for the action, or null.
 export function dominoUnavailable(run: RunState, player: string, action: PersonalAction, id: string): string | null {
   if (action === "flip") return flipReason(find(run, player, id));
   if (action === "repaint") return repaintChoices(run, player, id).length === 0 ? "No spark on it can be repainted" : null;
+  if (action === "weld") return weldReason(find(run, player, id));
   return null;
 }
 
@@ -139,12 +143,13 @@ export function previewDeckAction(run: RunState, player: string, action: Persona
     if (ids.length !== 2 || ids[0] === ids[1]) throw new Error("pick two different dominoes");
     const first = find(run, player, ids[0]);
     const second = find(run, player, ids[1]);
+    if (weldReason(first) !== null || first.kind !== second.kind) throw new Error("only two amplifiers or two junctions can be welded");
     const after = copyOf(first);
     after.output = second.output.slice();
     after.rarity = higher(first.rarity, second.rarity);
     if (after.rarity === undefined) delete after.rarity;
     after.id = `weld#${run.nextIndex}`;
-    after.name = weldName(run, first, second, after.output[0]);
+    after.name = weldName(first, after.intake);
     return { before: [first, second], after };
   }
   throw new Error(`${action} is not a deck action`);
@@ -190,7 +195,8 @@ export const deckEventHandlers: Record<"tinkers_bench" | "mirror_pond" | "twin_f
     actions: () => [{ action: "weld", cost: 0 }],
     unavailable(run, player) {
       const min = run.content.events.find((e) => e.id === "twin_forge")?.numbers.minDeckSize ?? 0;
-      return run.decks[player].length >= min ? null : `Needs a deck of at least ${min} dominoes`;
+      if (run.decks[player].length < min) return `Needs a deck of at least ${min} dominoes`;
+      return canWeld(run, player) ? null : "Needs two amplifiers or two junctions";
     },
     apply: applyDeckAction,
   },
