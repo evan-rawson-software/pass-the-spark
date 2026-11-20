@@ -4,439 +4,1021 @@
     "name": "Ogre",
     "tier": "basic",
     "maxHealth": 100,
-    "drawPerRound": 3,
-    "handLimit": 5,
-    "deck": [
-      "ogre_bellow_a",
-      "ogre_bellow_b",
-      "ogre_gulp_a",
-      "ogre_gulp_b",
-      "ogre_stomp_a",
-      "ogre_stomp_b"
+    "passives": [],
+    "intents": [
+      {
+        "id": "stomp",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 8
+          }
+        ]
+      },
+      {
+        "id": "bellow",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 8
+          }
+        ]
+      },
+      {
+        "id": "smash",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 16
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "stomp",
+        "bellow",
+        "smash"
+      ]
+    }
   },
   {
     "id": "goblin",
     "name": "Placeholder Goblin",
     "tier": "basic",
     "maxHealth": 60,
-    "drawPerRound": 3,
-    "handLimit": 5,
-    "deck": [
-      "goblin_stab",
-      "goblin_slice",
-      "goblin_dodge",
-      "goblin_jab",
-      "goblin_nick",
-      "goblin_scurry"
+    "passives": [],
+    "intents": [
+      {
+        "id": "stab",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 6
+          }
+        ]
+      },
+      {
+        "id": "jab",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 3,
+            "hits": 2
+          }
+        ]
+      },
+      {
+        "id": "dodge",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 6
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "weighted",
+      "weights": {
+        "stab": 3,
+        "jab": 2,
+        "dodge": 1
+      },
+      "maxRepeat": 2
+    }
   },
   {
     "id": "slime",
     "name": "Placeholder Slime",
     "tier": "basic",
     "maxHealth": 90,
-    "drawPerRound": 3,
-    "handLimit": 5,
-    "deck": [
-      "slime_ooze",
-      "slime_glob",
-      "slime_splat",
-      "slime_sponge",
-      "slime_slurp",
-      "slime_slap"
+    "passives": [],
+    "intents": [
+      {
+        "id": "slap",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 6
+          }
+        ]
+      },
+      {
+        "id": "ooze",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 10
+          }
+        ]
+      },
+      {
+        "id": "glob",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 9
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "slap",
+        "ooze",
+        "glob"
+      ]
+    }
   },
   {
     "id": "wisp",
     "name": "Placeholder Wisp",
     "tier": "basic",
     "maxHealth": 50,
-    "drawPerRound": 3,
-    "handLimit": 5,
-    "deck": [
-      "wisp_zap",
-      "wisp_flit",
-      "wisp_spark",
-      "wisp_flicker",
-      "wisp_glow",
-      "wisp_dart"
+    "passives": [],
+    "intents": [
+      {
+        "id": "zap",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 5,
+            "hits": 2
+          }
+        ]
+      },
+      {
+        "id": "flicker",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 5
+          }
+        ]
+      },
+      {
+        "id": "glow",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 6
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "weighted",
+      "weights": {
+        "zap": 2,
+        "flicker": 2,
+        "glow": 1
+      },
+      "maxRepeat": 2
+    }
   },
   {
     "id": "brute",
     "name": "Brute",
     "tier": "elite",
     "maxHealth": 180,
-    "drawPerRound": 4,
-    "handLimit": 6,
-    "deck": [
-      "elite_slash",
-      "elite_cleave",
-      "elite_guard",
-      "elite_mend",
-      "elite_reflect",
-      "elite_slam",
-      "elite_slash",
-      "elite_slam"
+    "passives": [],
+    "intents": [
+      {
+        "id": "slash",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 12
+          }
+        ]
+      },
+      {
+        "id": "guard",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 12
+          },
+          {
+            "kind": "attack",
+            "value": 6
+          }
+        ]
+      },
+      {
+        "id": "slam",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 22
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "slash",
+        "guard",
+        "slam"
+      ]
+    }
   },
   {
     "id": "warden",
     "name": "Placeholder Warden",
     "tier": "elite",
     "maxHealth": 200,
-    "drawPerRound": 4,
-    "handLimit": 6,
-    "deck": [
-      "warden_strike",
-      "warden_bash",
-      "warden_shield",
-      "warden_rally",
-      "warden_sweep",
-      "warden_counter",
-      "warden_strike",
-      "warden_bash"
+    "passives": [],
+    "intents": [
+      {
+        "id": "strike",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 9,
+            "hits": 2
+          }
+        ]
+      },
+      {
+        "id": "shield",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 16
+          }
+        ]
+      },
+      {
+        "id": "bash",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 8
+          },
+          {
+            "kind": "attack",
+            "value": 14
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "strike",
+        "shield",
+        "bash"
+      ]
+    }
   },
   {
     "id": "auditor",
     "name": "The Auditor",
     "tier": "boss",
     "maxHealth": 200,
-    "drawPerRound": 5,
-    "handLimit": 7,
-    "deck": [
-      "auditor_strike",
-      "auditor_sweep",
-      "auditor_bulwark",
-      "auditor_tally",
-      "auditor_audit",
-      "auditor_crush",
-      "auditor_strike",
-      "auditor_sweep",
-      "auditor_crush",
-      "auditor_audit"
-    ],
     "passives": [
       {
         "kind": "auditor",
         "name": "Auditor",
-        "text": "Charges the party when a player answers with the same spark as the previous one."
+        "text": "When a cap goes off with the same spark as the cap before it, the party takes damage.",
+        "damage": 6
       }
-    ]
+    ],
+    "intents": [
+      {
+        "id": "tally",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 8,
+            "hits": 2
+          }
+        ]
+      },
+      {
+        "id": "bulwark",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 14
+          },
+          {
+            "kind": "attack",
+            "value": 8
+          }
+        ]
+      },
+      {
+        "id": "audit",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 24
+          }
+        ]
+      }
+    ],
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "tally",
+        "bulwark",
+        "audit"
+      ]
+    }
   },
   {
     "id": "glutton",
     "name": "The Glutton",
     "tier": "boss",
     "maxHealth": 200,
-    "drawPerRound": 5,
-    "handLimit": 7,
-    "deck": [
-      "glutton_bite",
-      "glutton_gnash",
-      "glutton_feast",
-      "glutton_chomp",
-      "glutton_gorge",
-      "glutton_maul",
-      "glutton_bite",
-      "glutton_gnash",
-      "glutton_maul",
-      "glutton_chomp"
-    ],
     "passives": [
       {
         "kind": "glutton",
         "name": "Glutton",
-        "text": "Heals whenever the lap goes up."
+        "text": "Heals at the end of every round.",
+        "heal": 8
       }
-    ]
+    ],
+    "intents": [
+      {
+        "id": "bite",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 10
+          }
+        ]
+      },
+      {
+        "id": "gnash",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 6,
+            "hits": 3
+          }
+        ]
+      },
+      {
+        "id": "feast",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 12
+          },
+          {
+            "kind": "attack",
+            "value": 12
+          }
+        ]
+      }
+    ],
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "bite",
+        "gnash",
+        "feast"
+      ]
+    }
   },
   {
     "id": "bandit",
     "name": "Placeholder Bandit",
     "tier": "basic",
     "maxHealth": 60,
-    "drawPerRound": 3,
-    "handLimit": 5,
-    "deck": [
-      "bandit_a",
-      "bandit_b",
-      "bandit_c",
-      "bandit_d",
-      "bandit_e",
-      "bandit_f"
+    "passives": [],
+    "intents": [
+      {
+        "id": "slash",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 9
+          }
+        ]
+      },
+      {
+        "id": "ambush",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 14
+          }
+        ]
+      },
+      {
+        "id": "retreat",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 10
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "slash",
+        "ambush",
+        "retreat"
+      ]
+    }
   },
   {
     "id": "golem",
     "name": "Placeholder Golem",
     "tier": "basic",
     "maxHealth": 75,
-    "drawPerRound": 3,
-    "handLimit": 5,
-    "deck": [
-      "golem_a",
-      "golem_b",
-      "golem_c",
-      "golem_d",
-      "golem_e",
-      "golem_f"
+    "passives": [],
+    "intents": [
+      {
+        "id": "harden",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 16
+          }
+        ]
+      },
+      {
+        "id": "pound",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 13
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "harden",
+        "pound",
+        "pound"
+      ]
+    }
   },
   {
     "id": "harpy",
     "name": "Placeholder Harpy",
     "tier": "basic",
     "maxHealth": 50,
-    "drawPerRound": 3,
-    "handLimit": 5,
-    "deck": [
-      "harpy_a",
-      "harpy_b",
-      "harpy_c",
-      "harpy_d",
-      "harpy_e",
-      "harpy_f"
+    "passives": [],
+    "intents": [
+      {
+        "id": "peck",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 5,
+            "hits": 3
+          }
+        ]
+      },
+      {
+        "id": "dive",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 13
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "peck",
+        "dive"
+      ]
+    }
   },
   {
     "id": "ravager",
     "name": "Placeholder Ravager",
     "tier": "elite",
     "maxHealth": 165,
-    "drawPerRound": 4,
-    "handLimit": 6,
-    "deck": [
-      "ravager_a",
-      "ravager_b",
-      "ravager_c",
-      "ravager_d",
-      "ravager_e",
-      "ravager_f",
-      "ravager_a",
-      "ravager_c"
+    "passives": [],
+    "intents": [
+      {
+        "id": "rend",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 8,
+            "hits": 2
+          }
+        ]
+      },
+      {
+        "id": "rampage",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 26
+          }
+        ]
+      },
+      {
+        "id": "brace",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 14
+          },
+          {
+            "kind": "attack",
+            "value": 8
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "rend",
+        "brace",
+        "rampage"
+      ]
+    }
   },
   {
     "id": "sentinel",
     "name": "Placeholder Sentinel",
     "tier": "elite",
     "maxHealth": 180,
-    "drawPerRound": 4,
-    "handLimit": 6,
-    "deck": [
-      "sentinel_a",
-      "sentinel_b",
-      "sentinel_c",
-      "sentinel_d",
-      "sentinel_e",
-      "sentinel_f",
-      "sentinel_a",
-      "sentinel_c"
+    "passives": [],
+    "intents": [
+      {
+        "id": "watch",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 20
+          }
+        ]
+      },
+      {
+        "id": "thrust",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 14
+          },
+          {
+            "kind": "block",
+            "value": 6
+          }
+        ]
+      },
+      {
+        "id": "sweep",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 10,
+            "hits": 2
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "watch",
+        "thrust",
+        "sweep"
+      ]
+    }
   },
   {
     "id": "hoarder",
     "name": "The Hoarder",
     "tier": "boss",
     "maxHealth": 270,
-    "drawPerRound": 5,
-    "handLimit": 7,
-    "deck": [
-      "hoarder_a",
-      "hoarder_b",
-      "hoarder_c",
-      "hoarder_d",
-      "hoarder_e",
-      "hoarder_f",
-      "hoarder_a",
-      "hoarder_c",
-      "hoarder_e",
-      "hoarder_a"
-    ],
     "passives": [
       {
         "kind": "hoarder",
         "name": "Hoarder",
-        "text": "Gains block equal to the current strength whenever the lap goes up."
+        "text": "When the cascade starts, gains block for every domino on the board.",
+        "multiplier": 3
       }
-    ]
+    ],
+    "intents": [
+      {
+        "id": "grab",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 10,
+            "hits": 2
+          }
+        ]
+      },
+      {
+        "id": "stash",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 16
+          },
+          {
+            "kind": "attack",
+            "value": 10
+          }
+        ]
+      },
+      {
+        "id": "plunder",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 28
+          }
+        ]
+      }
+    ],
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "grab",
+        "stash",
+        "plunder"
+      ]
+    }
   },
   {
     "id": "smolder",
     "name": "The Smolder",
     "tier": "boss",
     "maxHealth": 230,
-    "drawPerRound": 5,
-    "handLimit": 7,
-    "deck": [
-      "smolder_a",
-      "smolder_b",
-      "smolder_c",
-      "smolder_d",
-      "smolder_e",
-      "smolder_f",
-      "smolder_a",
-      "smolder_c",
-      "smolder_e",
-      "smolder_a"
-    ],
     "passives": [
       {
         "kind": "smolder",
         "name": "Smolder",
-        "text": "At round end, its leftovers go off at the chain's final strength (at least 1) instead of strength 1."
+        "text": "Its attacks grow every round.",
+        "growth": 2
       }
-    ]
+    ],
+    "intents": [
+      {
+        "id": "singe",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 8
+          }
+        ]
+      },
+      {
+        "id": "flare",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 5,
+            "hits": 3
+          }
+        ]
+      },
+      {
+        "id": "scorch",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 10
+          },
+          {
+            "kind": "attack",
+            "value": 10
+          }
+        ]
+      }
+    ],
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "singe",
+        "flare",
+        "scorch"
+      ]
+    }
   },
   {
     "id": "wraith",
     "name": "Placeholder Wraith",
     "tier": "basic",
     "maxHealth": 70,
-    "drawPerRound": 3,
-    "handLimit": 5,
-    "deck": [
-      "wraith_a",
-      "wraith_b",
-      "wraith_c",
-      "wraith_d",
-      "wraith_e",
-      "wraith_f"
+    "passives": [],
+    "intents": [
+      {
+        "id": "drain",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 10
+          }
+        ]
+      },
+      {
+        "id": "haze",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 12
+          }
+        ]
+      },
+      {
+        "id": "chill",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 16
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "drain",
+        "haze",
+        "chill"
+      ]
+    }
   },
   {
     "id": "colossus",
     "name": "Placeholder Colossus",
     "tier": "basic",
     "maxHealth": 90,
-    "drawPerRound": 3,
-    "handLimit": 5,
-    "deck": [
-      "colossus_a",
-      "colossus_b",
-      "colossus_c",
-      "colossus_d",
-      "colossus_e",
-      "colossus_f"
+    "passives": [],
+    "intents": [
+      {
+        "id": "brace",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 18
+          }
+        ]
+      },
+      {
+        "id": "slam",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 18
+          }
+        ]
+      },
+      {
+        "id": "crush",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 11
+          },
+          {
+            "kind": "block",
+            "value": 8
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "brace",
+        "slam",
+        "crush"
+      ]
+    }
   },
   {
     "id": "stormling",
     "name": "Placeholder Stormling",
     "tier": "basic",
     "maxHealth": 60,
-    "drawPerRound": 3,
-    "handLimit": 5,
-    "deck": [
-      "stormling_a",
-      "stormling_b",
-      "stormling_c",
-      "stormling_d",
-      "stormling_e",
-      "stormling_f"
+    "passives": [],
+    "intents": [
+      {
+        "id": "zap",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 5,
+            "hits": 3
+          }
+        ]
+      },
+      {
+        "id": "gust",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 12
+          }
+        ]
+      },
+      {
+        "id": "static",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 10
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "weighted",
+      "weights": {
+        "zap": 2,
+        "gust": 2,
+        "static": 1
+      },
+      "maxRepeat": 2
+    }
   },
   {
     "id": "tyrant",
     "name": "Placeholder Tyrant",
     "tier": "elite",
     "maxHealth": 210,
-    "drawPerRound": 4,
-    "handLimit": 6,
-    "deck": [
-      "tyrant_a",
-      "tyrant_b",
-      "tyrant_c",
-      "tyrant_d",
-      "tyrant_e",
-      "tyrant_f",
-      "tyrant_a",
-      "tyrant_c"
+    "passives": [],
+    "intents": [
+      {
+        "id": "decree",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 12,
+            "hits": 2
+          }
+        ]
+      },
+      {
+        "id": "bulwark",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 16
+          },
+          {
+            "kind": "attack",
+            "value": 10
+          }
+        ]
+      },
+      {
+        "id": "crush",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 30
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "decree",
+        "bulwark",
+        "crush"
+      ]
+    }
   },
   {
     "id": "warlord",
     "name": "Placeholder Warlord",
     "tier": "elite",
     "maxHealth": 225,
-    "drawPerRound": 4,
-    "handLimit": 6,
-    "deck": [
-      "warlord_a",
-      "warlord_b",
-      "warlord_c",
-      "warlord_d",
-      "warlord_e",
-      "warlord_f",
-      "warlord_a",
-      "warlord_c"
+    "passives": [],
+    "intents": [
+      {
+        "id": "charge",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 16
+          }
+        ]
+      },
+      {
+        "id": "rally",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 14
+          },
+          {
+            "kind": "attack",
+            "value": 8
+          }
+        ]
+      },
+      {
+        "id": "volley",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 7,
+            "hits": 3
+          }
+        ]
+      },
+      {
+        "id": "slaughter",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 26
+          }
+        ]
+      }
     ],
-    "passives": []
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "charge",
+        "rally",
+        "volley",
+        "slaughter"
+      ]
+    }
   },
   {
     "id": "long_night",
     "name": "The Long Night",
     "tier": "boss",
     "maxHealth": 240,
-    "drawPerRound": 5,
-    "handLimit": 7,
-    "deck": [
-      "long_night_a",
-      "long_night_b",
-      "long_night_c",
-      "long_night_d",
-      "long_night_e",
-      "long_night_f",
-      "long_night_a",
-      "long_night_c",
-      "long_night_e",
-      "long_night_a"
-    ],
     "passives": [
       {
         "kind": "longNight",
         "name": "Long Night",
-        "text": "Its reactions and leftovers are multiplied by the lap."
+        "text": "Its attack grows for every cap the party sets off.",
+        "growth": 1
       }
-    ]
+    ],
+    "intents": [
+      {
+        "id": "creep",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 9
+          }
+        ]
+      },
+      {
+        "id": "shroud",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 16
+          },
+          {
+            "kind": "attack",
+            "value": 8
+          }
+        ]
+      },
+      {
+        "id": "dusk",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 14,
+            "hits": 2
+          }
+        ]
+      }
+    ],
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "creep",
+        "shroud",
+        "dusk"
+      ]
+    }
   },
   {
     "id": "warden_of_locks",
     "name": "The Warden of Locks",
     "tier": "boss",
     "maxHealth": 265,
-    "drawPerRound": 5,
-    "handLimit": 7,
-    "deck": [
-      "warden_of_locks_a",
-      "warden_of_locks_b",
-      "warden_of_locks_c",
-      "warden_of_locks_d",
-      "warden_of_locks_e",
-      "warden_of_locks_f",
-      "warden_of_locks_a",
-      "warden_of_locks_c",
-      "warden_of_locks_e",
-      "warden_of_locks_a"
-    ],
     "passives": [
       {
         "kind": "warden",
@@ -446,8 +1028,50 @@
           "Tide",
           "Gale"
         ],
-        "text": "Each round one spark is locked: players cannot answer it."
+        "text": "Each round one spark is locked: players cannot attach to its open ends."
       }
-    ]
+    ],
+    "intents": [
+      {
+        "id": "bind",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 10,
+            "hits": 2
+          }
+        ]
+      },
+      {
+        "id": "fortify",
+        "actions": [
+          {
+            "kind": "block",
+            "value": 18
+          },
+          {
+            "kind": "attack",
+            "value": 8
+          }
+        ]
+      },
+      {
+        "id": "lockdown",
+        "actions": [
+          {
+            "kind": "attack",
+            "value": 28
+          }
+        ]
+      }
+    ],
+    "pattern": {
+      "type": "cycle",
+      "order": [
+        "bind",
+        "fortify",
+        "lockdown"
+      ]
+    }
   }
 ]

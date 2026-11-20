@@ -2,7 +2,7 @@
 // Error naming the file, the item id and the problem. Plain code on purpose,
 // so it is easy to rewrite in GDScript.
 
-import type { Config, DeckList, Domino, Enemy, EnemyDomino, Pools } from "./types";
+import type { Config, DeckList, Domino, Enemy, Pools } from "./types";
 
 const SPARKS = ["Ember", "Tide", "Gale", "Storm", "Void", "Rot"];
 const DOMINO_KINDS = ["amplifier", "junction", "cap"];
@@ -14,6 +14,8 @@ const RARITIES = ["common", "uncommon", "rare"];
 const BATTLE_TYPES = ["fight", "elite", "boss"];
 const POOL_KINDS = ["damage", "block", "amplify", "echo", "lookout", "mimic"]; // never heal or reflect
 const PASSIVE_KINDS = ["auditor", "glutton", "hoarder", "smolder", "longNight", "warden"];
+const PASSIVE_AMOUNTS: Record<string, string> = { auditor: "damage", glutton: "heal", hoarder: "multiplier", smolder: "growth", longNight: "growth" };
+const BASIC_SPARKS = ["Ember", "Tide", "Gale"];
 
 function fail(file: string, id: string, problem: string): never {
   throw new Error(`${file}: ${id}: ${problem}`);
@@ -39,15 +41,6 @@ function checkSparkList(file: string, id: string, field: string, list: unknown):
   if (!Array.isArray(list) || list.length === 0) fail(file, id, `"${field}" must be a non-empty list of sparks`);
   for (const spark of list as unknown[]) {
     if (typeof spark !== "string" || !SPARKS.includes(spark)) fail(file, id, `"${field}" has unknown spark ${JSON.stringify(spark)}`);
-  }
-}
-
-function checkAuditorDamage(file: string, id: string, damage: unknown): void {
-  if (!isObject(damage)) fail(file, id, `auditor damage must be an object`);
-  if (damage.rule === "flat") {
-    checkPositive(file, id, damage, "amount");
-  } else if (damage.rule !== "strength") {
-    fail(file, id, `auditor damage "rule" must be "strength" or "flat"`);
   }
 }
 
@@ -101,34 +94,9 @@ export function validateDominoes(data: unknown, file = "data/dominoes.json"): Do
   return data as Domino[];
 }
 
-// Temporary check for the old-shape enemy dominoes. #182 deletes it with data/enemy-dominoes.json.
-export function validateEnemyDominoes(data: unknown): EnemyDomino[] {
-  const file = "data/enemy-dominoes.json";
-  if (!Array.isArray(data)) fail(file, "(file)", "must be a list of dominoes");
-  const seen: string[] = [];
-  data.forEach((item: unknown, index: number) => {
-    if (!isObject(item)) fail(file, `#${index}`, "must be an object");
-    if (typeof item.id !== "string" || item.id === "") fail(file, `#${index}`, `"id" must be a non-empty string`);
-    const id = item.id;
-    if (seen.includes(id)) fail(file, id, "duplicate id");
-    seen.push(id);
-    checkString(file, id, item, "name");
-    checkSparkList(file, id, "intake", item.intake);
-    checkSparkList(file, id, "output", item.output);
-    const effect = item.effect;
-    if (!isObject(effect)) fail(file, id, `"effect" must be an object`);
-    if (typeof effect.kind !== "string" || !["damage", "block", "heal", "reflect"].includes(effect.kind)) {
-      fail(file, id, `unknown effect kind ${JSON.stringify(effect.kind)}`);
-    }
-    if (effect.kind !== "reflect" && !isNumber(effect.base)) fail(file, id, `effect "${effect.kind}" needs a numeric "base"`);
-  });
-  return data as EnemyDomino[];
-}
-
-export function validateEnemies(data: unknown, dominoes: EnemyDomino[]): Enemy[] {
+export function validateEnemies(data: unknown): Enemy[] {
   const file = "data/enemies.json";
   if (!Array.isArray(data)) fail(file, "(file)", "must be a list of enemies");
-  const dominoIds = dominoes.map((d) => d.id);
   const seen: string[] = [];
   data.forEach((item: unknown, index: number) => {
     if (!isObject(item)) fail(file, `#${index}`, "must be an object");
@@ -139,14 +107,8 @@ export function validateEnemies(data: unknown, dominoes: EnemyDomino[]): Enemy[]
     checkString(file, id, item, "name");
     if (typeof item.tier !== "string" || !TIERS.includes(item.tier)) fail(file, id, `unknown tier ${JSON.stringify(item.tier)}`);
     checkPositive(file, id, item, "maxHealth");
-    checkPositive(file, id, item, "drawPerRound");
-    checkPositive(file, id, item, "handLimit");
-    if (!Array.isArray(item.deck) || item.deck.length === 0) fail(file, id, `"deck" must be a non-empty list of domino ids`);
-    for (const dominoId of item.deck as unknown[]) {
-      if (typeof dominoId !== "string" || !dominoIds.includes(dominoId)) {
-        fail(file, id, `deck has unknown domino id ${JSON.stringify(dominoId)}`);
-      }
-    }
+    const intentIds = checkIntents(file, id, item.intents);
+    checkPattern(file, id, item.pattern, intentIds);
     if (!Array.isArray(item.passives)) fail(file, id, `"passives" must be a list`);
     for (const passive of item.passives as unknown[]) {
       if (!isObject(passive) || typeof passive.kind !== "string" || !PASSIVE_KINDS.includes(passive.kind)) {
@@ -154,35 +116,75 @@ export function validateEnemies(data: unknown, dominoes: EnemyDomino[]): Enemy[]
       }
       if (typeof passive.name !== "string" || passive.name === "") fail(file, id, `passive "name" must be a non-empty string`);
       if (passive.text !== undefined && typeof passive.text !== "string") fail(file, id, `passive "text" must be a string`);
-      // Parameters are optional overrides of Config; check them when present.
-      if (passive.kind === "auditor" && passive.damage !== undefined) checkAuditorDamage(file, id, passive.damage);
+      const amount = PASSIVE_AMOUNTS[passive.kind];
+      if (amount !== undefined) checkWhole(file, id, passive, amount);
       if (passive.kind === "warden") {
         const sparks = passive.sparks;
-        if (!Array.isArray(sparks) || sparks.length === 0 || sparks.some((x) => typeof x !== "string" || !SPARKS.includes(x))) {
-          fail(file, id, `warden "sparks" must be a non-empty list of sparks`);
+        if (!Array.isArray(sparks) || sparks.length === 0 || sparks.some((x) => typeof x !== "string" || !BASIC_SPARKS.includes(x))) {
+          fail(file, id, `warden "sparks" must be a non-empty list of basic sparks (Ember, Tide, Gale)`);
         }
-      }
-      if (passive.kind === "glutton" && passive.heal !== undefined && (!isNumber(passive.heal) || (passive.heal as number) <= 0)) {
-        fail(file, id, `glutton "heal" must be a positive number`);
       }
     }
   });
   return data as Enemy[];
 }
 
+function checkWhole(file: string, id: string, obj: Record<string, unknown>, field: string): void {
+  if (!Number.isInteger(obj[field]) || (obj[field] as number) < 1) fail(file, id, `"${field}" must be a whole number, 1 or more`);
+}
+
+// Returns the intent ids.
+function checkIntents(file: string, id: string, intents: unknown): string[] {
+  if (!Array.isArray(intents) || intents.length === 0) fail(file, id, `"intents" must be a non-empty list`);
+  const ids: string[] = [];
+  for (const intent of intents as unknown[]) {
+    if (!isObject(intent) || typeof intent.id !== "string" || intent.id === "") fail(file, id, `an intent needs a non-empty "id"`);
+    const iid = `${id} intent ${intent.id}`;
+    if (ids.includes(intent.id)) fail(file, id, `duplicate intent id ${intent.id}`);
+    ids.push(intent.id);
+    if (!Array.isArray(intent.actions) || intent.actions.length === 0) fail(file, iid, `"actions" must be a non-empty list`);
+    for (const action of intent.actions as unknown[]) {
+      if (!isObject(action) || (action.kind !== "attack" && action.kind !== "block")) {
+        fail(file, iid, `action kind must be "attack" or "block": ${JSON.stringify(action)}`);
+      }
+      checkWhole(file, iid, action, "value");
+      if (action.kind === "attack" && action.hits !== undefined) checkWhole(file, iid, action, "hits");
+      if (action.kind === "block" && action.hits !== undefined) fail(file, iid, `a block action has no "hits"`);
+    }
+  }
+  return ids;
+}
+
+function checkPattern(file: string, id: string, pattern: unknown, intentIds: string[]): void {
+  if (!isObject(pattern)) fail(file, id, `"pattern" must be an object`);
+  if (pattern.type === "cycle") {
+    const order = pattern.order;
+    if (!Array.isArray(order) || order.length === 0) fail(file, id, `cycle "order" must be a non-empty list of intent ids`);
+    for (const x of order as unknown[]) if (typeof x !== "string" || !intentIds.includes(x)) fail(file, id, `cycle order has unknown intent ${JSON.stringify(x)}`);
+  } else if (pattern.type === "weighted") {
+    const weights = pattern.weights;
+    if (!isObject(weights) || Object.keys(weights).length < 2) fail(file, id, `weighted "weights" must list at least 2 intents`);
+    for (const key of Object.keys(weights)) {
+      if (!intentIds.includes(key)) fail(file, id, `weights has unknown intent ${JSON.stringify(key)}`);
+      if (!isNumber(weights[key]) || (weights[key] as number) <= 0) fail(file, id, `weight of ${key} must be a number above 0`);
+    }
+    if (pattern.maxRepeat !== undefined) checkWhole(file, id, pattern, "maxRepeat");
+  } else {
+    fail(file, id, `pattern type must be "cycle" or "weighted"`);
+  }
+}
+
 export function validateConfig(data: unknown): Config {
   const file = "data/config.json";
   const id = "(config)";
   if (!isObject(data)) fail(file, id, "must be an object");
-  for (const field of ["partyMaxHealth", "playerDrawPerRound", "playerFirstDraw", "playerHandLimit", "triggerCap", "openEndLimit", "gluttonHeal"]) {
+  for (const field of ["partyMaxHealth", "playerDrawPerRound", "playerFirstDraw", "playerHandLimit", "triggerCap", "openEndLimit"]) {
     checkPositive(file, id, data, field);
   }
-  if (typeof data.enemyReactionsScaleWithLap !== "boolean") fail(file, id, `"enemyReactionsScaleWithLap" must be true or false`);
   const pct = data.enemyHealthPercentByPartySize;
   if (!Array.isArray(pct) || pct.length !== 4 || !pct.every((p) => typeof p === "number" && Number.isInteger(p) && p > 0)) {
     fail(file, id, `"enemyHealthPercentByPartySize" must be 4 whole numbers above 0 (party sizes 1 to 4)`);
   }
-  checkAuditorDamage(file, id, data.auditorDamage);
   return data as unknown as Config;
 }
 

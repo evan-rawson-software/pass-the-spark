@@ -2,32 +2,17 @@
 // The party builds a tree of dominoes, sets it off in one cascade, then the enemy carries out its intent.
 // step never changes its input: it works on a JSON copy.
 
-import { shuffle } from "./rng";
+import { nextInt, shuffle } from "./rng";
 import { validateDominoes } from "./validate";
 import type { GameEvent } from "./events";
 import type { BattleView, OpenEndView } from "./view";
 import { extraDraws, handLimitOf } from "./battleCharms";
-import type { CapEffect, Charm, Config, DeckList, Domino, Enemy, Spark } from "./types";
+import { chooseIntentId, passiveOf } from "./enemy";
+import type { CapEffect, Charm, Config, DeckList, Domino, Enemy, Intent, Passive, Pattern, Spark } from "./types";
 
 export interface Content {
   dominoes: Domino[];
   enemies: Enemy[];
-}
-
-// What the enemy does after the cascade: gains `block` first, then makes each hit in `attack` in turn
-// (every hit is absorbed by the party's block until it runs out).
-export interface Intent {
-  attack: number[];
-  block: number;
-}
-
-// Test intents, used until #182 reads intents and patterns from the enemy's data.
-// This and chooseIntent are the only places #182 has to replace.
-const TEST_INTENTS: Intent[] = [{ attack: [8], block: 0 }];
-
-// The intent for the round that is starting: the enemy's list in order, repeating (a fixed cycle).
-function chooseIntent(enemy: EnemyState, round: number): Intent {
-  return JSON.parse(JSON.stringify(enemy.intents[(round - 1) % enemy.intents.length]));
 }
 
 export interface PlayerSetup {
@@ -50,7 +35,12 @@ export interface EnemyState {
   health: number;
   maxHealth: number;
   block: number; // gained from an intent; absorbs damage in the next cascade, then resets
-  intents: Intent[]; // the cycle chooseIntent reads
+  // Copied from the enemy's data, with the state the pattern needs.
+  intents: Intent[];
+  pattern: Pattern;
+  passives: Passive[];
+  lastIntent: string | null;
+  repeats: number;
 }
 
 export interface PartyState {
@@ -94,7 +84,8 @@ export interface BattleState {
   phase: "build" | "over";
   board: Board;
   passes: number; // players who have passed in a row
-  intent: Intent; // what the enemy will do after this round's cascade
+  intent: Intent; // what the enemy will do after this round's cascade (passive growth is added once known)
+  locked: Spark | null; // the Warden's lock this round: players cannot attach to open ends of this spark
   party: PartyState;
   players: PlayerState[]; // in seat order
   enemy: EnemyState;
@@ -138,8 +129,6 @@ export interface BattleSetup {
   partyHealth?: number;
   // The party's blessed spark, for a battle inside a run. Defaults to none.
   blessing?: { spark: Spark; strength: number } | null;
-  // The enemy's intents in order, repeating. Test hook until #182 puts intents in enemy data.
-  intents?: Intent[];
 }
 
 export interface StepResult {
@@ -199,7 +188,8 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     phase: "build",
     board: { nodes: [], ends: [] },
     passes: 0,
-    intent: { attack: [], block: 0 },
+    intent: { id: "", actions: [] },
+    locked: null,
     party: { health: partyHealth, maxHealth: config.partyMaxHealth, block: 0 },
     players,
     enemy: {
@@ -207,7 +197,11 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
       health: enemyHealth,
       maxHealth: enemyHealth,
       block: 0,
-      intents: JSON.parse(JSON.stringify(setup.intents ?? TEST_INTENTS)),
+      intents: JSON.parse(JSON.stringify(enemyDef.intents)),
+      pattern: JSON.parse(JSON.stringify(enemyDef.pattern)),
+      passives: JSON.parse(JSON.stringify(enemyDef.passives)),
+      lastIntent: null,
+      repeats: 0,
     },
     result: null,
     nextLead: null,
@@ -241,7 +235,7 @@ export function makeStarterInstances(
 
 // What the read-only functions need. A BattleState or a player's BattleView both fit, so a client
 // can work out what it may play from the view it was sent.
-export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "board" | "config">;
+export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "board" | "config" | "locked">;
 
 export function getPendingChoice(state: PendingInput): PendingChoice | null {
   if (state.phase === "over") return null;
@@ -414,7 +408,7 @@ function legalEnds(state: PendingInput, d: Domino): number[] {
   const open = openEnds(state);
   // A junction replaces one open end with two.
   if (d.kind === "junction" && open.length + 1 > state.config.openEndLimit) return [];
-  return open.filter((e) => d.intake === "any" || d.intake.includes(e.spark)).map((e) => e.id);
+  return open.filter((e) => e.spark !== state.locked && (d.intake === "any" || d.intake.includes(e.spark))).map((e) => e.id);
 }
 
 function capCount(state: Pick<BattleState, "board" | "dominoes">): number {
@@ -460,8 +454,9 @@ function setOff(state: BattleState, reason: "capped" | "passes", events: GameEve
 
 // The cascade, then the enemy's action, then the round end.
 function endCascadePhase(state: BattleState, events: GameEvent[]): void {
-  fireCascade(state, events);
+  const capsFired = fireCascade(state, events);
   if (isOver(state)) return;
+  longNightGrowth(state, capsFired, events);
   // Enemy block from its last intent has had its cascade (even a round where nothing fired).
   state.enemy.block = 0;
   events.push({ type: "blockReset", side: "enemy" });
@@ -472,8 +467,18 @@ function endCascadePhase(state: BattleState, events: GameEvent[]): void {
 
 // Steps by depth from the opener; within a step, nodes in creation order. Open ends fizzle at the end.
 // With no cap on the board nothing fires. Stops the moment the enemy is at 0 health.
-function fireCascade(state: BattleState, events: GameEvent[]): void {
-  if (capCount(state) === 0) return;
+// Returns how many different caps went off (a cap that goes off several times counts once).
+function fireCascade(state: BattleState, events: GameEvent[]): number {
+  if (capCount(state) === 0) return 0;
+  const hoarder = passiveOf(state.enemy, "hoarder");
+  if (hoarder && state.board.nodes.length > 0) {
+    const amount = state.board.nodes.length * hoarder.multiplier;
+    state.enemy.block += amount;
+    events.push({ type: "passive", passive: "hoarder", amount });
+    events.push({ type: "block", side: "enemy", amount });
+  }
+  let capsFired = 0;
+  let lastSpark: Spark | null = null; // the intake spark of the cap trigger just before (Auditor)
   const flows = computeFlows(state);
   const { nodes } = state.board;
   const lastDepth = Math.max(...nodes.map((n) => n.depth));
@@ -485,17 +490,29 @@ function fireCascade(state: BattleState, events: GameEvent[]): void {
       const flow = flows[node.id];
       events.push({ type: "nodeLit", node: node.id, domino: d.id, owner: node.owner, charge: d.kind === "cap" ? flow.charge : flow.out });
       if (d.kind === "cap" && d.effect) {
-        fireCap(state, node, d.effect, capValue(d.effect, flow.charge), capTriggers(state.config, flow.echo), events);
-        if (isOver(state)) return;
+        capsFired += 1;
+        const spark = state.board.ends[node.end as number].spark;
+        const triggers = capTriggers(state.config, flow.echo);
+        const firstRepeats = lastSpark === spark;
+        lastSpark = spark;
+        fireCap(state, node, d.effect, capValue(d.effect, flow.charge), triggers, firstRepeats, events);
+        if (isOver(state)) return capsFired;
       }
     }
   }
   for (const e of openEnds(state)) events.push({ type: "fizzle", end: e.id, spark: e.spark, charge: flows[e.node].out });
+  return capsFired;
 }
 
-function fireCap(state: BattleState, node: BoardNode, effect: CapEffect, value: number, triggers: number, events: GameEvent[]): void {
+// Each trigger counts as a cap going off for the Auditor: the first repeats the spark of the cap before
+// it only if firstRepeats, and every extra (Echo) trigger repeats the cap's own spark.
+function fireCap(state: BattleState, node: BoardNode, effect: CapEffect, value: number, triggers: number, firstRepeats: boolean, events: GameEvent[]): void {
   events.push({ type: "capFired", node: node.id, domino: node.domino, owner: node.owner, effect: effect.kind, value, triggers });
   for (let i = 0; i < triggers; i++) {
+    if (i > 0 || firstRepeats) {
+      auditorStrike(state, events);
+      if (isOver(state)) return;
+    }
     if (effect.kind === "damage") {
       const blocked = effect.ignoresBlock ? 0 : Math.min(state.enemy.block, value);
       state.enemy.block -= blocked;
@@ -516,21 +533,48 @@ function fireCap(state: BattleState, node: BoardNode, effect: CapEffect, value: 
   }
 }
 
+// Auditor: the party takes damage (block absorbs it).
+function auditorStrike(state: BattleState, events: GameEvent[]): void {
+  const auditor = passiveOf(state.enemy, "auditor");
+  if (!auditor) return;
+  events.push({ type: "passive", passive: "auditor", amount: auditor.damage });
+  hitParty(state, auditor.damage, events);
+}
+
+// Long Night: this round's attack grows for each cap set off.
+function longNightGrowth(state: BattleState, capsFired: number, events: GameEvent[]): void {
+  const longNight = passiveOf(state.enemy, "longNight");
+  if (!longNight || capsFired === 0) return;
+  const amount = longNight.growth * capsFired;
+  addToAttacks(state.intent, amount);
+  events.push({ type: "passive", passive: "longNight", amount });
+}
+
+function addToAttacks(intent: Intent, amount: number): void {
+  for (const action of intent.actions) if (action.kind === "attack") action.value += amount;
+}
+
+function hitParty(state: BattleState, hit: number, events: GameEvent[]): void {
+  const { party } = state;
+  const blocked = Math.min(party.block, hit);
+  party.block -= blocked;
+  party.health -= hit - blocked;
+  events.push({ type: "damage", side: "party", amount: hit - blocked, blocked });
+  if (party.health <= 0) endBattle(state, "lost", events);
+}
+
 function enemyAct(state: BattleState, events: GameEvent[]): void {
-  const { intent, party, enemy } = state;
+  const { intent, enemy } = state;
   events.push({ type: "enemyAction", intent: JSON.parse(JSON.stringify(intent)) });
-  if (intent.block > 0) {
-    enemy.block += intent.block;
-    events.push({ type: "block", side: "enemy", amount: intent.block });
-  }
-  for (const hit of intent.attack) {
-    const blocked = Math.min(party.block, hit);
-    party.block -= blocked;
-    party.health -= hit - blocked;
-    events.push({ type: "damage", side: "party", amount: hit - blocked, blocked });
-    if (party.health <= 0) {
-      endBattle(state, "lost", events);
-      return;
+  for (const action of intent.actions) {
+    if (action.kind === "block") {
+      enemy.block += action.value;
+      events.push({ type: "block", side: "enemy", amount: action.value });
+      continue;
+    }
+    for (let i = 0; i < (action.hits ?? 1); i++) {
+      hitParty(state, action.value, events);
+      if (isOver(state)) return;
     }
   }
 }
@@ -551,6 +595,12 @@ function endRound(state: BattleState, events: GameEvent[]): void {
   state.party.block = 0;
   events.push({ type: "blockReset", side: "party" });
   for (const node of state.board.nodes) getPlayer(state, node.owner).discard.push(node.domino);
+  const glutton = passiveOf(state.enemy, "glutton");
+  if (glutton) {
+    const amount = Math.min(glutton.heal, state.enemy.maxHealth - state.enemy.health);
+    state.enemy.health += amount;
+    if (amount > 0) events.push({ type: "passive", passive: "glutton", amount });
+  }
   state.lead = nextPlayerAfterLead(state);
   startRound(state, events);
 }
@@ -561,11 +611,34 @@ function startRound(state: BattleState, events: GameEvent[]): void {
   state.board = { nodes: [], ends: [] };
   state.passes = 0;
   state.seat = state.lead;
-  state.intent = chooseIntent(state.enemy, state.round);
+  startPassives(state, events);
   events.push({ type: "roundStart", round: state.round, lead: state.lead });
   events.push({ type: "intent", intent: JSON.parse(JSON.stringify(state.intent)) });
   for (const p of state.players) {
     draw(state, p, (state.round === 1 ? state.config.playerFirstDraw : state.config.playerDrawPerRound) + extraDraws(state, p.id), handLimitOf(state, p.id), events);
+  }
+}
+
+// The enemy's intent for the round, then the passives that act at round start (Smolder, Warden).
+function startPassives(state: BattleState, events: GameEvent[]): void {
+  const { enemy } = state;
+  const chosen = chooseIntentId(enemy, state.round, state.rng);
+  state.rng = chosen.rng;
+  enemy.repeats = chosen.id === enemy.lastIntent ? enemy.repeats + 1 : 1;
+  enemy.lastIntent = chosen.id;
+  state.intent = JSON.parse(JSON.stringify(enemy.intents.find((i) => i.id === chosen.id)));
+  const smolder = passiveOf(enemy, "smolder");
+  if (smolder && state.round > 1) {
+    const amount = smolder.growth * (state.round - 1);
+    addToAttacks(state.intent, amount);
+    events.push({ type: "passive", passive: "smolder", amount });
+  }
+  const warden = passiveOf(enemy, "warden");
+  if (warden) {
+    const pick = nextInt(state.rng, warden.sparks.length);
+    state.rng = pick.state;
+    state.locked = warden.sparks[pick.value];
+    events.push({ type: "passive", passive: "warden", spark: state.locked });
   }
 }
 

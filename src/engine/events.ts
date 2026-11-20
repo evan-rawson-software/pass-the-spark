@@ -2,8 +2,7 @@
 // Raw events (from step / createBattleWithEvents) are the full truth. Use getEventsView
 // to filter them for one player.
 
-import type { CapEffectKind, Spark } from "./types";
-import type { Intent } from "./battle";
+import type { CapEffectKind, Intent, Spark } from "./types";
 
 export type GameEvent =
   | { type: "roundStart"; round: number; lead: string }
@@ -26,6 +25,9 @@ export type GameEvent =
   | { type: "coinsGained"; player: string; amount: number }
   | { type: "fizzle"; end: number; spark: Spark; charge: number } // an open end the cascade left uncapped
   | { type: "enemyAction"; intent: Intent } // followed by the enemy's block and damage events
+  // A boss passive acted. amount: auditor = damage dealt to the party (a damage event follows), glutton = health healed,
+  // hoarder = block gained (a block event follows), smolder and longNight = added to each attack hit. warden: spark is locked.
+  | { type: "passive"; passive: "auditor" | "glutton" | "hoarder" | "smolder" | "longNight" | "warden"; amount?: number; spark?: Spark }
   | { type: "blockReset"; side: "party" | "enemy" }
   | { type: "battleEnd"; result: "won" | "lost" };
 
