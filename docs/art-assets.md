@@ -54,17 +54,19 @@ Scenes almost always get a painted artist signature in a bottom corner, and anyt
 
 ## The list
 
+The branching cascade redesign (M9, `docs/design-branching-cascade.md`) changed some of this list. If `charms/lap_runner.png` already exists, rename it to `charms/junction_runner.png` (and its manifest entry) once #184 lands.
+
 ### Sparks: `sparks/<Spark>.png`, 256×256, transparent
 `Ember`, `Tide`, `Gale`, `Storm`, `Void`, `Rot`. A glowing glyph in the spark's colour and shape. These sit on domino halves, so keep them simple.
 
 ### Effects: drawn in code
-**Not generated.** All effect icons (`damage`, `block`, `heal`, `amplify`, `echo`, `lookout`, `mimic`, `reflect`) are drawn in code in one consistent style, by designer choice. Don't add any `effects/` files to the manifest. One clear symbol each (for example a blade, a shield, a heart, a rising arrow, ripples, an eye, a mirror mask, a reversing mirror).
+**Not generated.** All effect icons are drawn in code in one consistent style, by designer choice. Don't add any `effects/` files to the manifest. Under the branching cascade (M9) they are: caps `damage`, `block`, `coins`; amplifiers `boost`, `double`, `echo`, `spectrum`; and `junction`.
 
 ### Traits and markers: `ui/<id>.png`, 128×128, transparent
-`spectrum` (rainbow prism), `ignores_block` (arrow through a shield), `no_lap` (crossed-out loop), `locked` (padlock), `blessed` (halo or sun), `coin`, `health` (heart), `charm_normal` (round frame), `charm_rare` (gold diamond frame). The HUD block shield is drawn in code, not generated.
+`ignores_block` (arrow through a shield), `locked` (padlock), `blessed` (halo or sun), `coin`, `health` (heart), `charm_normal` (round frame), `charm_rare` (gold diamond frame). The HUD block shield is drawn in code, not generated. `spectrum` and `no_lap` are no longer used after M9.
 
 ### Domino tiles: `tiles/<id>.png`, 480×240, transparent
-`starter`, `common`, `uncommon`, `rare`, `enemy`, `hidden` (face-down back). A completely blank face with no divider lines: the game draws its own intake, effect and output columns, the sparks, effect icons and numbers on top. Keep the face light so dark numbers stay readable. Rarity can show in the frame (plain, silver, gold); enemy tiles look darker or menacing.
+`starter`, `common`, `uncommon`, `rare`, `hidden` (face-down back). `enemy` is no longer used after M9: enemies don't play dominoes. A completely blank face with no divider lines: the game draws its own intake, effect and output columns, the sparks, effect icons and numbers on top. Keep the face light so dark numbers stay readable. Rarity can show in the frame (plain, silver, gold). The same tile is used for amplifiers, junctions and caps; the game draws the difference.
 
 ### Enemies: `enemies/<id>.png`, 768×768, transparent
 Portrait, head and shoulders or full body, facing slightly toward the viewer.
@@ -82,16 +84,16 @@ Portrait, head and shoulders or full body, facing slightly toward the viewer.
 | `colossus` | normal | Huge armoured giant |
 | `stormling` | normal | Small creature crackling with yellow lightning |
 | `brute` | elite | Hulking, scarred |
-| `warden` | elite | Armoured guard, a mirror shield (it Reflects) |
+| `warden` | elite | Armoured guard with a great shield |
 | `ravager` | elite | Feral, clawed |
 | `sentinel` | elite | Tall armoured watcher |
 | `tyrant` | elite | Crowned warlord on a throne |
 | `warlord` | elite | Battle-hardened commander |
 | `auditor` | boss | A ledger-keeper with quills and scales; punishes repeated sparks |
-| `glutton` | boss | Enormous, always eating; heals when the lap goes up |
+| `glutton` | boss | Enormous, always eating; heals every round |
 | `hoarder` | boss | Hunched on a pile of shields and treasure; gains block |
 | `smolder` | boss | A smouldering coal beast, embers leaking from cracks |
-| `long_night` | boss | A moon-faced shadow; grows stronger each lap |
+| `long_night` | boss | A moon-faced shadow; hits harder the bigger the party's cascade |
 | `warden_of_locks` | boss | A jailer covered in padlocks and chains |
 
 Most normal enemy and elite names are placeholders. Keep the ids, and design freely.
@@ -100,9 +102,9 @@ Most normal enemy and elite names are placeholders. Keep the ids, and design fre
 `toll_bridge`, `tinkers_bench`, `wishing_well`, `sleeping_giant`, `spark_shrine`, `lost_courier`, `mirror_pond`, `twin_forge`. Scene illustrations, shown on the left of the event screen. The game crops to fit, so keep the subject centred.
 
 ### Charms: `charms/<id>.png`, 256×256, transparent
-Normal: `ember_lens`, `tide_lens`, `gale_lens`, `deep_pockets`, `early_riser`, `spark_starter`, `spyglass`, `bulwark`, `resonance`, `lap_runner`, `coin_purse`, `haggler`.
+Normal: `ember_lens`, `tide_lens`, `gale_lens`, `deep_pockets`, `early_riser`, `spark_starter`, `spyglass`, `bulwark`, `resonance`, `junction_runner`, `coin_purse`, `haggler`.
 Rare: `prism`, `overcharge`, `first_echo`, `keystone`, `hall_of_mirrors`, `lightning_rod`.
-One trinket each (a lens in the spark's colour, a deep pouch, a rooster or sunrise, a striking flint, a spyglass, a tower shield, a tuning fork, running boots, a coin purse, a merchant's scale; rare: a prism, a crackling battery or crystal, a double bell, an arch keystone, a mirror maze, a lightning rod). Rare charms look more precious, with gold and a glow.
+One trinket each (a lens in the spark's colour, a deep pouch, a rooster or sunrise, a striking flint, a spyglass, a tower shield, a tuning fork, a forked signpost, a coin purse, a merchant's scale; rare: a prism, a crackling battery or crystal, a double bell, an arch keystone, a mirror maze, a lightning rod). Rare charms look more precious, with gold and a glow.
 
 ### Map stops: `map/<type>.png`, 192×192, transparent
 `fight` (crossed swords), `elite` (horned skull), `boss` (crown), `rest` (campfire), `trader` (merchant's tent), `event` (question-mark sign or mystery door), `hidden` (fog or cloud).
