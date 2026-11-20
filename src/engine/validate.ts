@@ -2,10 +2,12 @@
 // Error naming the file, the item id and the problem. Plain code on purpose,
 // so it is easy to rewrite in GDScript.
 
-import type { Config, DeckList, Domino, Enemy, Pools } from "./types";
+import type { Config, DeckList, Domino, Enemy, EnemyDomino, Pools } from "./types";
 
 const SPARKS = ["Ember", "Tide", "Gale", "Storm", "Void", "Rot"];
-const EFFECT_KINDS = ["damage", "block", "heal", "amplify", "echo", "mimic", "reflect", "lookout"];
+const DOMINO_KINDS = ["amplifier", "junction", "cap"];
+const AMP_OPS = ["add", "mul", "echo", "spectrum"];
+const CAP_EFFECT_KINDS = ["damage", "block", "coins"];
 const KINDS_WITH_BASE = ["damage", "block", "heal", "amplify"];
 const TIERS = ["basic", "elite", "boss"];
 const RARITIES = ["common", "uncommon", "rare"];
@@ -60,36 +62,70 @@ export function validateDominoes(data: unknown, file = "data/dominoes.json"): Do
     if (seen.includes(id)) fail(file, id, "duplicate id");
     seen.push(id);
     checkString(file, id, item, "name");
+    const kind = item.kind;
+    if (typeof kind !== "string" || !DOMINO_KINDS.includes(kind)) fail(file, id, `unknown kind ${JSON.stringify(kind)}`);
     if (item.intake !== "any") checkSparkList(file, id, "intake", item.intake);
-    checkSparkList(file, id, "output", item.output);
-    const effect = item.effect;
-    if (!isObject(effect)) fail(file, id, `"effect" must be an object`);
-    if (typeof effect.kind !== "string" || !EFFECT_KINDS.includes(effect.kind)) {
-      fail(file, id, `unknown effect kind ${JSON.stringify(effect.kind)}`);
+    if (!Array.isArray(item.output)) fail(file, id, `"output" must be a list of sparks`);
+    const outputCount = kind === "amplifier" ? 1 : kind === "junction" ? 2 : 0;
+    if (item.output.length !== outputCount) fail(file, id, `a ${kind} needs exactly ${outputCount} output spark(s)`);
+    if (outputCount > 0) checkSparkList(file, id, "output", item.output);
+    if (kind === "amplifier") {
+      const amp = item.amp;
+      if (!isObject(amp)) fail(file, id, `an amplifier needs "amp": { op, value }`);
+      if (typeof amp.op !== "string" || !AMP_OPS.includes(amp.op)) fail(file, id, `unknown amp op ${JSON.stringify(amp.op)}`);
+      checkPositive(file, id, amp, "value");
+    } else if (item.amp !== undefined) {
+      fail(file, id, `only amplifiers have "amp"`);
     }
-    if (KINDS_WITH_BASE.includes(effect.kind)) {
-      if (!isNumber(effect.base)) fail(file, id, `effect "${effect.kind}" needs a numeric "base"`);
-    } else if (effect.base !== undefined) {
-      fail(file, id, `effect "${effect.kind}" must not have a "base"`);
-    }
-    // Upgrade parameters: whole numbers of 0 or more, each only on its own effect kind.
-    for (const [field, kind] of [["extraTriggers", "echo"], ["extraReveals", "lookout"], ["strengthBonus", "mimic"]]) {
-      const n = effect[field];
-      if (n === undefined) continue;
-      if (effect.kind !== kind) fail(file, id, `effect "${field}" is only for "${kind}"`);
-      if (!Number.isInteger(n) || (n as number) < 0) fail(file, id, `effect "${field}" must be a whole number, 0 or more`);
+    if (kind === "cap") {
+      const effect = item.effect;
+      if (!isObject(effect)) fail(file, id, `a cap needs "effect": { kind, base }`);
+      if (typeof effect.kind !== "string" || !CAP_EFFECT_KINDS.includes(effect.kind)) {
+        fail(file, id, `unknown effect kind ${JSON.stringify(effect.kind)}`);
+      }
+      checkPositive(file, id, effect, "base");
+      if (effect.ignoresBlock !== undefined) {
+        if (typeof effect.ignoresBlock !== "boolean") fail(file, id, `effect "ignoresBlock" must be true or false`);
+        if (effect.kind !== "damage") fail(file, id, `effect "ignoresBlock" is for damage only`);
+      }
+      for (const field of Object.keys(effect)) {
+        if (!["kind", "base", "ignoresBlock"].includes(field)) fail(file, id, `unknown effect field "${field}"`);
+      }
+    } else if (item.effect !== undefined) {
+      fail(file, id, `only caps have "effect"`);
     }
     if (item.rarity !== undefined && (typeof item.rarity !== "string" || !RARITIES.includes(item.rarity))) {
       fail(file, id, `unknown rarity ${JSON.stringify(item.rarity)}`);
-    }
-    for (const flag of ["spectrum", "ignoresBlock"]) {
-      if (effect[flag] !== undefined && typeof effect[flag] !== "boolean") fail(file, id, `effect "${flag}" must be true or false`);
     }
   });
   return data as Domino[];
 }
 
-export function validateEnemies(data: unknown, dominoes: Domino[]): Enemy[] {
+// Temporary check for the old-shape enemy dominoes. #182 deletes it with data/enemy-dominoes.json.
+export function validateEnemyDominoes(data: unknown): EnemyDomino[] {
+  const file = "data/enemy-dominoes.json";
+  if (!Array.isArray(data)) fail(file, "(file)", "must be a list of dominoes");
+  const seen: string[] = [];
+  data.forEach((item: unknown, index: number) => {
+    if (!isObject(item)) fail(file, `#${index}`, "must be an object");
+    if (typeof item.id !== "string" || item.id === "") fail(file, `#${index}`, `"id" must be a non-empty string`);
+    const id = item.id;
+    if (seen.includes(id)) fail(file, id, "duplicate id");
+    seen.push(id);
+    checkString(file, id, item, "name");
+    checkSparkList(file, id, "intake", item.intake);
+    checkSparkList(file, id, "output", item.output);
+    const effect = item.effect;
+    if (!isObject(effect)) fail(file, id, `"effect" must be an object`);
+    if (typeof effect.kind !== "string" || !["damage", "block", "heal", "reflect"].includes(effect.kind)) {
+      fail(file, id, `unknown effect kind ${JSON.stringify(effect.kind)}`);
+    }
+    if (effect.kind !== "reflect" && !isNumber(effect.base)) fail(file, id, `effect "${effect.kind}" needs a numeric "base"`);
+  });
+  return data as EnemyDomino[];
+}
+
+export function validateEnemies(data: unknown, dominoes: EnemyDomino[]): Enemy[] {
   const file = "data/enemies.json";
   if (!Array.isArray(data)) fail(file, "(file)", "must be a list of enemies");
   const dominoIds = dominoes.map((d) => d.id);

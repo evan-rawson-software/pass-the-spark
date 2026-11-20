@@ -1,0 +1,1849 @@
+[
+  {
+    "id": "ogre_bellow_a",
+    "name": "Bellow",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "ogre_bellow_b",
+    "name": "Bellow",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "ogre_gulp_a",
+    "name": "Gulp",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 3
+    }
+  },
+  {
+    "id": "ogre_gulp_b",
+    "name": "Gulp",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 3
+    }
+  },
+  {
+    "id": "ogre_stomp_a",
+    "name": "Stomp",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "ogre_stomp_b",
+    "name": "Stomp",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "elite_slash",
+    "name": "Slash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "elite_cleave",
+    "name": "Cleave",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "elite_guard",
+    "name": "Guard",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 5
+    }
+  },
+  {
+    "id": "elite_mend",
+    "name": "Mend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 4
+    }
+  },
+  {
+    "id": "elite_reflect",
+    "name": "Reflect",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "reflect"
+    }
+  },
+  {
+    "id": "elite_slam",
+    "name": "Slam",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "auditor_strike",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "auditor_sweep",
+    "name": "Sweep",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "auditor_bulwark",
+    "name": "Bulwark",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 5
+    }
+  },
+  {
+    "id": "auditor_tally",
+    "name": "Tally",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "auditor_audit",
+    "name": "Audit",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "auditor_crush",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "glutton_bite",
+    "name": "Bite",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "glutton_gnash",
+    "name": "Gnash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "glutton_feast",
+    "name": "Feast",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 4
+    }
+  },
+  {
+    "id": "glutton_chomp",
+    "name": "Chomp",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "glutton_gorge",
+    "name": "Gorge",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 4
+    }
+  },
+  {
+    "id": "glutton_maul",
+    "name": "Maul",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "goblin_stab",
+    "name": "Stab",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "goblin_slice",
+    "name": "Slice",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 2
+    }
+  },
+  {
+    "id": "goblin_dodge",
+    "name": "Dodge",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 2
+    }
+  },
+  {
+    "id": "goblin_jab",
+    "name": "Jab",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 2
+    }
+  },
+  {
+    "id": "goblin_nick",
+    "name": "Nick",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 2
+    }
+  },
+  {
+    "id": "goblin_scurry",
+    "name": "Scurry",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 1
+    }
+  },
+  {
+    "id": "slime_ooze",
+    "name": "Ooze",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 3
+    }
+  },
+  {
+    "id": "slime_glob",
+    "name": "Glob",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 1
+    }
+  },
+  {
+    "id": "slime_splat",
+    "name": "Splat",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 1
+    }
+  },
+  {
+    "id": "slime_sponge",
+    "name": "Sponge",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 2
+    }
+  },
+  {
+    "id": "slime_slurp",
+    "name": "Slurp",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 1
+    }
+  },
+  {
+    "id": "slime_slap",
+    "name": "Slap",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 2
+    }
+  },
+  {
+    "id": "wisp_zap",
+    "name": "Zap",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "wisp_flit",
+    "name": "Flit",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 1
+    }
+  },
+  {
+    "id": "wisp_spark",
+    "name": "Spark",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "wisp_flicker",
+    "name": "Flicker",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 1
+    }
+  },
+  {
+    "id": "wisp_glow",
+    "name": "Glow",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 1
+    }
+  },
+  {
+    "id": "wisp_dart",
+    "name": "Dart",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 2
+    }
+  },
+  {
+    "id": "warden_strike",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "warden_bash",
+    "name": "Bash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "warden_shield",
+    "name": "Shield",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 6
+    }
+  },
+  {
+    "id": "warden_rally",
+    "name": "Rally",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "heal",
+      "base": 4
+    }
+  },
+  {
+    "id": "warden_sweep",
+    "name": "Sweep",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "warden_counter",
+    "name": "Counter",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 4
+    }
+  },
+  {
+    "id": "bandit_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "bandit_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "bandit_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 4
+    }
+  },
+  {
+    "id": "bandit_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "bandit_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "bandit_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "golem_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "golem_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "golem_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 4
+    }
+  },
+  {
+    "id": "golem_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "golem_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "golem_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "harpy_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "harpy_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "harpy_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 4
+    }
+  },
+  {
+    "id": "harpy_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "harpy_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "harpy_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "ravager_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "ravager_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "ravager_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 5
+    }
+  },
+  {
+    "id": "ravager_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "ravager_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "ravager_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "sentinel_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "sentinel_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "sentinel_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 5
+    }
+  },
+  {
+    "id": "sentinel_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "sentinel_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "sentinel_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "hoarder_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "hoarder_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "hoarder_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 4
+    }
+  },
+  {
+    "id": "hoarder_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "hoarder_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "hoarder_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "smolder_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 2
+    }
+  },
+  {
+    "id": "smolder_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 2
+    }
+  },
+  {
+    "id": "smolder_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 3
+    }
+  },
+  {
+    "id": "smolder_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "smolder_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 2
+    }
+  },
+  {
+    "id": "smolder_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 2
+    }
+  },
+  {
+    "id": "wraith_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "wraith_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "wraith_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 4
+    }
+  },
+  {
+    "id": "wraith_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "wraith_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "wraith_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "colossus_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "colossus_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "colossus_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 4
+    }
+  },
+  {
+    "id": "colossus_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "colossus_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "colossus_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "stormling_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "stormling_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "stormling_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 5
+    }
+  },
+  {
+    "id": "stormling_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "stormling_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "stormling_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "tyrant_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "tyrant_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "tyrant_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 5
+    }
+  },
+  {
+    "id": "tyrant_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "tyrant_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "tyrant_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "warlord_a",
+    "name": "Strike",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "warlord_b",
+    "name": "Slash",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "warlord_c",
+    "name": "Ward",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 5
+    }
+  },
+  {
+    "id": "warlord_d",
+    "name": "Crush",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 5
+    }
+  },
+  {
+    "id": "warlord_e",
+    "name": "Lash",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "warlord_f",
+    "name": "Rend",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "long_night_a",
+    "name": "Dusk",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "long_night_b",
+    "name": "Gloom",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "long_night_c",
+    "name": "Shroud",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 4
+    }
+  },
+  {
+    "id": "long_night_d",
+    "name": "Eclipse",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "long_night_e",
+    "name": "Creep",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "long_night_f",
+    "name": "Hush",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "warden_of_locks_a",
+    "name": "Bar",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "warden_of_locks_b",
+    "name": "Bolt",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "warden_of_locks_c",
+    "name": "Latch",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "block",
+      "base": 4
+    }
+  },
+  {
+    "id": "warden_of_locks_d",
+    "name": "Shackle",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 4
+    }
+  },
+  {
+    "id": "warden_of_locks_e",
+    "name": "Clamp",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Gale"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  },
+  {
+    "id": "warden_of_locks_f",
+    "name": "Seal",
+    "intake": [
+      "Tide"
+    ],
+    "output": [
+      "Ember"
+    ],
+    "effect": {
+      "kind": "damage",
+      "base": 3
+    }
+  }
+]

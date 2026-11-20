@@ -2,35 +2,46 @@
 
 export type Spark = "Ember" | "Tide" | "Gale" | "Storm" | "Void" | "Rot";
 
-export type EffectKind =
-  | "damage"
-  | "block"
-  | "heal"
-  | "amplify"
-  | "echo"
-  | "mimic"
-  | "reflect"
-  | "lookout";
+// The three kinds of domino. Amplifiers and junctions have no effect of their own; caps end a branch and carry the effect.
+export type DominoKind = "amplifier" | "junction" | "cap";
 
-export interface Effect {
-  kind: EffectKind;
-  base?: number; // damage, block, heal, amplify only
-  spectrum?: boolean;
-  ignoresBlock?: boolean;
-  // Upgrade parameters. Each is optional and defaults to 0, which keeps the base behaviour.
-  extraTriggers?: number; // echo only: extra pending triggers each time it triggers
-  extraReveals?: number; // lookout only: extra dominoes revealed
-  strengthBonus?: number; // mimic only: added to the strength the copied effect resolves at
+export type AmpOp = "add" | "mul" | "echo" | "spectrum";
+
+// What an amplifier does to the charge passing through it.
+// add: charge + value. mul: charge x value. echo: caps further along go off `value` extra times. spectrum: charge + value per different spark on the path.
+export interface Amp {
+  op: AmpOp;
+  value: number;
+}
+
+export type CapEffectKind = "damage" | "block" | "coins";
+
+// A cap's effect goes off at base x charge.
+export interface CapEffect {
+  kind: CapEffectKind;
+  base: number;
+  ignoresBlock?: boolean; // damage only
 }
 
 export interface Domino {
   id: string;
   name: string;
+  kind: DominoKind;
   intake: Spark[] | "any";
-  output: Spark[]; // one or more
-  effect: Effect;
+  output: Spark[]; // amplifier: exactly 1; junction: exactly 2; cap: none
+  amp?: Amp; // amplifiers only
+  effect?: CapEffect; // caps only
   rarity?: Rarity; // generated dominoes only
   upgraded?: UpgradeSide[]; // sides already upgraded at a rest site (run instances only)
+}
+
+// Enemy dominoes in the old shape, in data/enemy-dominoes.json. Temporary: #182 replaces them with intents and deletes this type.
+export interface EnemyDomino {
+  id: string;
+  name: string;
+  intake: Spark[];
+  output: Spark[];
+  effect: { kind: "damage" | "block" | "heal" | "reflect"; base?: number };
 }
 
 export type UpgradeSide = "left" | "right";
@@ -84,7 +95,7 @@ export type Trait = "spectrum" | "ignoresBlock";
 
 // One possible right side. Value is drawn whole from [min, max]; the output list is drawn from outputs.
 export interface PoolEffect {
-  kind: EffectKind;
+  kind: "damage" | "block" | "amplify" | "echo" | "lookout" | "mimic"; // old kinds, until #185 reworks the pools
   names: string[]; // word after the spark in the name, e.g. "Strike" -> "Tide Strike"
   base?: [number, number]; // damage, block, amplify only
   traits?: Trait[]; // traits this effect may roll
