@@ -22,7 +22,8 @@ behaviour is pinned down by test cases that the Godot version must also pass.
 7. **Balance pass:** numbers tuned from sims and playtests, plus playtest fixes. Done.
 8. **Progression and polish:** experience bar and unlocks, chain spectacle, audio, art. Done.
 9. **Branching cascade (current):** the combat redesign in `docs/design-branching-cascade.md`. Work goes to the `cascade` branch until it's playable end to end.
-10. **Godot port:** engine and screens rebuilt in Godot, Steam lobbies.
+10. **Cascade feel:** more effects and animations in combat, so a chain going off feels amazing.
+11. **Godot port:** engine and screens rebuilt in Godot, Steam lobbies.
 
 Each milestone's issues are in the GitHub milestone with the same "M" number in its title.
 

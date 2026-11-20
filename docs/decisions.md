@@ -387,4 +387,5 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - **Still in force:** the run, map, events, rewards, coins, Trader, rest sites, progression, online play, single player, the screens' general rules, and everything else not about how a battle plays. Where the design doc changes one of those (charms, events, upgrades, generation, unlocks), the doc wins.
 - **Order of work:** engine and sim prototype first, with no screens; then a playable board screen and a playtest; then spectacle, content and re-tuning; then the Godot port.
 - **Balance:** #126 tuned the old rules before the hold landed. Re-tuning comes after the redesign. The Godot port waits.
+- **Cascade feel (M10):** after M9, a milestone of more combat effects and animations, so a chain going off feels amazing. The Godot port moves to M11.
 - **Branch:** M9 work goes to an integration branch, `cascade`, with each issue's PR targeting it. `main` (and GitHub Pages) keeps the current game playable until `cascade` is playable end to end, then it merges.
