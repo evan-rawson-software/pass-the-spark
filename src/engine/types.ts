@@ -78,6 +78,7 @@ export interface Config {
   playerFirstDraw: number; // drawn in round 1 instead of playerDrawPerRound
   playerHandLimit: number;
   triggerCap: number;
+  openEndLimit: number; // at most this many open ends on the board at once
   enemyReactionsScaleWithLap: boolean;
   auditorDamage: AuditorDamage;
   gluttonHeal: number;

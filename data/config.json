@@ -4,6 +4,7 @@
   "playerFirstDraw": 5,
   "playerHandLimit": 10,
   "triggerCap": 100,
+  "openEndLimit": 4,
   "enemyReactionsScaleWithLap": false,
   "auditorDamage": {
     "rule": "strength"
