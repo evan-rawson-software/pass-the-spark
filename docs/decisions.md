@@ -373,3 +373,9 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 
 ### Sound
 - Free CC0 sound effects (for example Kenney's packs): clacks, ticks, hits, lightning, UI clicks. No music yet. Master and effects volume sliders and a mute, saved per browser. Licences recorded in the repo.
+
+## 2026-11-20: Combat redesign coming; Godot port on hold
+
+- The designer is redesigning the core combat rules: the chain becomes a branching tree that goes off all at once in a cascade when it ends. A design doc and a new milestone will follow.
+- The Godot port (M9) is on hold until then.
+- No further combat-screen layout work; the combat board will be rebuilt.
