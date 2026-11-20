@@ -1,38 +1,32 @@
-// Per-player views: the battle state with the enemy's hidden information removed.
+// Per-player views: the battle state, plus the open ends with their charge.
 
-import type { BattleState, EnemyState } from "./battle";
+import type { BattleState } from "./battle";
+import { getOpenEnds } from "./battle";
 import { getRunWindow } from "./run";
 import type { RunState } from "./run";
+import type { Spark } from "./types";
 
-// A hand slot as the players see it: a revealed domino, or only a position.
-export type HandSlot = { revealed: true; domino: string } | { revealed: false };
-
-export interface EnemyView extends Omit<EnemyState, "deck" | "hand" | "revealed"> {
-  deckList: string[]; // every domino in the enemy's deck, sorted (order hidden)
-  deckCount: number; // how many are left to draw (public, like the players' deck sizes)
-  hand: HandSlot[];
+// An open end of the board. charge is what reaches it; triggers is how many times a cap placed there would go off.
+export interface OpenEndView {
+  end: number;
+  node: number;
+  index: number;
+  spark: Spark;
+  charge: number;
+  triggers: number;
 }
 
-export interface BattleView extends Omit<BattleState, "rng" | "enemy"> {
-  enemy: EnemyView;
+export interface BattleView extends Omit<BattleState, "rng"> {
+  openEnds: OpenEndView[];
 }
 
-// Player hands are open, so the view is the same for every player.
+// Nothing in a battle is hidden (hands and intents are open), so the view is the same for every player.
 // Returns a copy; the input is not changed.
 export function getView(state: BattleState, playerId: string): BattleView {
   if (!state.players.some((p) => p.id === playerId)) throw new Error("no such player " + playerId);
   const copy: BattleState = JSON.parse(JSON.stringify(state));
-  const { rng, enemy, ...rest } = copy;
-  const { deck, hand, revealed, ...enemyRest } = enemy;
-  return {
-    ...rest,
-    enemy: {
-      ...enemyRest,
-      deckList: deck.concat(hand, enemy.discard).sort(),
-      deckCount: deck.length,
-      hand: hand.map((id, i): HandSlot => (revealed[i] ? { revealed: true, domino: id } : { revealed: false })),
-    },
-  };
+  const { rng, ...rest } = copy;
+  return { ...rest, openEnds: getOpenEnds(copy) };
 }
 
 // The run as a player sees it. Everything in a run is open information (maps, decks, coins, offers,

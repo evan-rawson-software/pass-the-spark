@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { getPendingChoice } from "../src/engine/battle";
-import type { Choice } from "../src/engine/battle";
+import type { Choice, PendingChoice } from "../src/engine/battle";
 import { loadContent } from "../src/engine/content";
 import { getView } from "../src/engine/view";
 import type { BattleView } from "../src/engine/view";
@@ -12,6 +12,12 @@ import { createMemoryNetwork } from "../src/net/memoryTransport";
 import type { HostMessage } from "../src/net/protocol";
 import { generateRoomCode } from "../src/net/room";
 import type { SavedRoom } from "../src/net/room";
+
+// The first legal play, or a pass when there is none.
+function firstPlay(pending: PendingChoice): Choice {
+  const play = pending.plays[0];
+  return play ? { type: "play", domino: play.domino, end: play.ends[0] } : { type: "pass" };
+}
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -68,10 +74,7 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
     const seat = hostView.seat;
     const pending = getPendingChoice(hostView);
     if (!pending) break;
-    const choice: Choice =
-      pending.type === "opener"
-        ? { type: "opener", domino: pending.dominoes[0] }
-        : { type: "answer", domino: pending.options[0].domino, spark: pending.options[0].sparks[0] };
+    const choice = firstPlay(pending);
 
     if (!outOfTurnChecked) {
       // Someone else tries to play on this seat's turn.
@@ -134,10 +137,7 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
     const view = (hostMessages.filter((m) => m.type === "update").at(-1) as { view: BattleView }).view;
     const pending = getPendingChoice(view);
     if (!pending) break;
-    const choice: Choice =
-      pending.type === "opener"
-        ? { type: "opener", domino: pending.dominoes[0] }
-        : { type: "answer", domino: pending.options[0].domino, spark: pending.options[0].sparks[0] };
+    const choice = firstPlay(pending);
     if (view.seat === "p1") host2.submitLocal(choice);
     else rejoined.find((c) => c.seat === view.seat)!.sendChoice(choice);
     await flush();

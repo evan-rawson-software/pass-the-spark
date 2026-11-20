@@ -2,46 +2,35 @@
 // Raw events (from step / createBattleWithEvents) are the full truth. Use getEventsView
 // to filter them for one player.
 
-import type { Effect, Spark } from "./types";
-import type { Side } from "./battle";
+import type { CapEffectKind, Spark } from "./types";
+import type { Intent } from "./battle";
 
 export type GameEvent =
   | { type: "roundStart"; round: number; lead: string }
-  | { type: "draw"; seat: string; count: number; dominoes?: string[] } // dominoes: players only
-  | { type: "enemyDiscard"; domino: string }
-  | { type: "reshuffle"; seat: string } // the seat's discard pile became its deck, mid-draw
-  | { type: "opener"; player: string; domino: string; sparks: Spark[] }
-  | { type: "pass"; from: string; to: string; sparks: Spark[] }
-  | { type: "lapUp"; lap: number }
-  | { type: "play"; seat: string; domino: string; answeredSpark: Spark; strength: number; lap: number }
-  | { type: "enemyNoReaction"; sparks: Spark[] }
-  // effect is the resolved effect (a Mimic or Reflect shows what it copied); side is whose effect it is.
-  // value is the number for damage, block, heal and amplify, otherwise 0.
-  | { type: "trigger"; seat: string; domino: string; index: number; effect: Effect; side: Side; value: number }
-  // side is the side that is hit (damage) or gains (block, heal). amount is what reached
-  // health (damage), was added (block) or was actually healed (heal). blocked is what block absorbed.
-  | { type: "damage"; side: Side; amount: number; blocked: number }
-  | { type: "block"; side: Side; amount: number; blocked: number }
-  | { type: "heal"; side: Side; amount: number; blocked: number }
-  | { type: "amplify"; amount: number; strength: number }
-  // A charm's extra trigger or bonus; the screen can flash its icon.
-  | { type: "charm"; player: string; charm: string }
-  | { type: "echoPending"; count: number }
-  | { type: "reveal"; positions: number[] } // positions in the enemy's hand
-  | { type: "auditor"; damage: number }
-  | { type: "hoarder"; block: number } // block gained as the lap goes up
-  | { type: "smolder"; strength: number } // the strength its leftovers go off at
-  | { type: "glutton"; heal: number } // the amount actually healed
-  | { type: "sparkLocked"; spark: Spark } // the Warden locks a spark at round start
-  // A reveal event precedes this when the domino was not already revealed.
-  | { type: "leftover"; domino: string; position: number }
-  | { type: "blockReset" }
-  | { type: "chainEnd"; reason: "cannotAnswer" }
+  | { type: "intent"; intent: Intent } // what the enemy will do after this round's cascade
+  | { type: "draw"; player: string; count: number; dominoes: string[] }
+  | { type: "reshuffle"; player: string } // the player's discard pile became their deck, mid-draw
+  // node and end index the board; end is null for the opener. charge is the charge after an amplifier or junction,
+  // or the charge reaching a cap.
+  | { type: "play"; player: string; domino: string; node: number; end: number | null; depth: number; charge: number }
+  | { type: "pass"; player: string }
+  // The chain goes off: by a player's choice, because every end is capped, or because everyone passed in a row.
+  | { type: "setOff"; reason: "player" | "capped" | "passes"; player?: string }
+  | { type: "cascadeStep"; depth: number }
+  | { type: "nodeLit"; node: number; domino: string; owner: string; charge: number }
+  // A cap goes off: value per trigger, then one damage, block or coins event for each trigger.
+  | { type: "capFired"; node: number; domino: string; owner: string; effect: CapEffectKind; value: number; triggers: number }
+  // side is the side that is hit. amount reached its health; blocked is what block absorbed.
+  | { type: "damage"; side: "party" | "enemy"; amount: number; blocked: number }
+  | { type: "block"; side: "party" | "enemy"; amount: number }
+  | { type: "coinsGained"; player: string; amount: number }
+  | { type: "fizzle"; end: number; spark: Spark; charge: number } // an open end the cascade left uncapped
+  | { type: "enemyAction"; intent: Intent } // followed by the enemy's block and damage events
+  | { type: "blockReset"; side: "party" | "enemy" }
   | { type: "battleEnd"; result: "won" | "lost" };
 
-// The events as one player may see them. Player hands are open and enemy draws never list
-// dominoes, so the raw events already show nothing hidden: an enemy domino is named only when
-// it is played, discarded or leftover (going off at round end reveals it). Returns a copy.
+// The events as one player may see them. Everything is open information (hands, intents), so the
+// raw events already show nothing hidden. Returns a copy.
 export function getEventsView(events: GameEvent[], playerId: string): GameEvent[] {
   if (playerId === "") throw new Error("playerId needed");
   return JSON.parse(JSON.stringify(events)) as GameEvent[];
