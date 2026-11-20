@@ -1,10 +1,12 @@
 // Per-player views: the battle state, plus the open ends with their charge.
 
 import type { BattleState } from "./battle";
-import { getOpenEnds } from "./battle";
+import { getOpenEnds, upcomingIntents } from "./battle";
+import type { EnemyState, Intent } from "./battle";
 import { getRunWindow } from "./run";
 import type { RunState } from "./run";
 import type { Spark } from "./types";
+import { spyglassRounds } from "./battleCharms";
 
 // An open end of the board. charge is what reaches it; triggers is how many times a cap placed there would go off.
 export interface OpenEndView {
@@ -16,17 +18,23 @@ export interface OpenEndView {
   triggers: number;
 }
 
-export interface BattleView extends Omit<BattleState, "rng"> {
+// enemy leaves out the intent list, so only Spyglass shows more than this round's intent.
+// openEnds and upcomingIntents are for the player the view is for.
+export type BattleView = Omit<BattleState, "rng" | "enemy"> & {
+  enemy: Omit<EnemyState, "intents">;
   openEnds: OpenEndView[];
-}
+  upcomingIntents: Intent[]; // the intents of the next rounds: empty unless this player holds Spyglass
+};
 
-// Nothing in a battle is hidden (hands and intents are open), so the view is the same for every player.
+// Hands and this round's intent are open to everyone. The open ends show what a cap this player
+// places would get (their charms count), and Spyglass shows its holder the next intents.
 // Returns a copy; the input is not changed.
 export function getView(state: BattleState, playerId: string): BattleView {
   if (!state.players.some((p) => p.id === playerId)) throw new Error("no such player " + playerId);
   const copy: BattleState = JSON.parse(JSON.stringify(state));
-  const { rng, ...rest } = copy;
-  return { ...rest, openEnds: getOpenEnds(copy) };
+  const { rng, enemy, ...rest } = copy;
+  const { intents, ...enemyView } = enemy;
+  return { ...rest, enemy: enemyView, openEnds: getOpenEnds(copy, playerId), upcomingIntents: upcomingIntents(copy, spyglassRounds(copy, playerId)) };
 }
 
 // The run as a player sees it. Everything in a run is open information (maps, decks, coins, offers,

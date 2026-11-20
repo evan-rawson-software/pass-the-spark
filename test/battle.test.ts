@@ -127,3 +127,43 @@ test("a full round of passes sets the chain off: uncapped ends fizzle, and with 
   expect(empty.state.party.health).toBe(90 - 16);
   expect(empty.state.round).toBe(3);
 });
+
+test("charms: Keystone adds after a Double's own change, Hall of Mirrors opens a third end, Tide Lens adds to a cap", () => {
+  const doubleEmber: Domino = { id: "double_ember", name: "Ember Double", kind: "amplifier", intake: ["Ember"], output: ["Ember"], amp: { op: "mul", value: 2 } };
+  let s = createBattle({
+    config: content.config,
+    content: { dominoes: [...dominoes, doubleEmber], enemies: content.enemies },
+    players: [
+      { id: "a", deck: content.starterDeck, charms: ["keystone", "hall_of_mirrors"] },
+      { id: "b", deck: content.starterDeck, charms: ["tide_lens"] },
+      { id: "c", deck: content.starterDeck },
+    ],
+    seatOrder: ["a", "b", "c"],
+    enemyId: "ogre",
+    seed: 1,
+    charms: content.charms,
+    intents: [{ attack: [12], block: 0 }],
+  });
+  [["double_ember", "junction_ember", "guard_gale"], ["strike_tide"], ["guard_tide"]].forEach((hand, i) => (s.players[i].hand = hand));
+
+  s = play(s, "double_ember"); // 1 x 2 = 2, then Keystone +1 = 3
+  expect(getView(s, "b").openEnds).toMatchObject([{ end: 0, spark: "Ember", charge: 3 }]);
+  s = applyChoice(applyChoice(s, { type: "pass" }), { type: "pass" });
+  const junction = step(s, { type: "play", domino: "junction_ember", end: 0 }); // Hall of Mirrors: Tide, Gale and a second Tide
+  s = junction.state;
+  expect(junction.events.map((e) => e.type)).toEqual(["play", "charm"]);
+  expect(getView(s, "b").openEnds).toMatchObject([
+    { end: 1, spark: "Tide", charge: 3 },
+    { end: 2, spark: "Gale", charge: 3 },
+    { end: 3, spark: "Tide", charge: 3 },
+  ]);
+  expect(previewPlay(s, "b", "strike_tide", 1)).toMatchObject({ value: 11, total: 11 }); // 3 x 3 + 2 from Tide Lens
+  s = play(s, "strike_tide", 1);
+  s = play(s, "guard_tide", 3);
+  const last = step(s, { type: "play", domino: "guard_gale", end: 2 });
+
+  const charms = last.events.filter((e) => e.type === "charm").map((e) => (e as { player: string; charm: string }).player + ":" + (e as { charm: string }).charm);
+  expect(charms).toEqual(["a:keystone", "b:tide_lens"]);
+  expect(last.state.enemy.health).toBe(100 - 11);
+  expect(last.state.party.health).toBe(90); // 27 block absorbed the attack of 12
+});
