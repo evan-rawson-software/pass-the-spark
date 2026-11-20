@@ -386,4 +386,5 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - **Deliberate reversals** of the brief's "decided against" list: finishers (caps), an option to end the chain (setting it off), and enemy intents outside dominoes.
 - **Still in force:** the run, map, events, rewards, coins, Trader, rest sites, progression, online play, single player, the screens' general rules, and everything else not about how a battle plays. Where the design doc changes one of those (charms, events, upgrades, generation, unlocks), the doc wins.
 - **Order of work:** engine and sim prototype first, with no screens; then a playable board screen and a playtest; then spectacle, content and re-tuning; then the Godot port.
-- **On hold:** the balance tuning in #126 (it was for the old rules) and the Godot port.
+- **Balance:** #126 tuned the old rules before the hold landed. Re-tuning comes after the redesign. The Godot port waits.
+- **Branch:** M9 work goes to an integration branch, `cascade`, with each issue's PR targeting it. `main` (and GitHub Pages) keeps the current game playable until `cascade` is playable end to end, then it merges.
