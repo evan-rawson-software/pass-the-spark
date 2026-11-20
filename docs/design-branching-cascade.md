@@ -41,7 +41,7 @@ Every domino still has an intake (the spark it attaches to) and the right side s
   - Double: ×2 charge (rare);
   - Echo: every cap further along this path goes off twice;
   - Spectrum: + the number of different sparks on the path so far.
-- **Junction variants:** a plain split to start with. **Open J1:** should junctions also give their branches a type, such as Fire (damage ×1.5) or Ward (caps also give block)? Rec: not in the first version. Get the basic tree working and playtested, then add branch types as content.
+- **Junction variants:** a plain split to start with. **Decided (J1):** no branch types in the first version. Junctions that give their branches a type (such as Fire, damage ×1.5, or Ward, caps also give block) may come later as content, after the plain tree has been playtested.
 
 ## The board and charge
 
@@ -62,7 +62,7 @@ The chain also goes off by itself when:
 - every end is capped; or
 - every player passes in a row (one full round of passes).
 
-**Open T1:** should passing be allowed when you have a legal play? Rec: yes. Holding a key cap for a better end is a real decision, and passing costs your turn.
+**Decided (T1):** passing is allowed even when you have a legal play. Holding a key cap for a better end is a real decision, and passing costs your turn.
 
 ## The cascade
 
@@ -82,7 +82,7 @@ The chain also goes off by itself when:
 
 ## Hidden information
 
-Nothing is hidden any more: intents are shown and hands are open. The brief's worry that one player could "call every play" grows. **Open H1:** keep teammates' hands open, or show only your own hand (plus a count of teammates' dominoes and pings to point things out)? Rec: keep them open for the first playtest and judge then. Building together out loud is part of the fun, and hiding hands makes the tree hard to plan.
+Nothing is hidden any more: intents are shown and hands are open. The brief's worry that one player could "call every play" grows. **Decided (H1):** teammates' hands stay open for the first playtest; judge then. Building together out loud is part of the fun, and hiding hands makes the tree hard to plan.
 
 ## Worked example
 
@@ -156,7 +156,7 @@ The boss redesigns need designer approval; these are only starting points.
 - 2 Strike caps (damage 3);
 - 2 Guard caps (block 3).
 
-**Open S1:** is this mix right? It aims for every hand to usually hold at least one of each kind.
+**Decided (S1):** this mix, aiming for every hand to usually hold at least one of each kind. Numbers in data.
 
 ## What gets rebuilt
 
@@ -172,7 +172,7 @@ The boss redesigns need designer approval; these are only starting points.
 
 ## Build order
 
-1. **Approve this document** and answer the open questions: J1, T1, H1, M1, S1.
+1. **Approve this document.** J1, T1, H1 and S1 are decided; M1 (the mapping) is open.
 2. **Engine and sim prototype:** the rules engine, sims and bot, with no screens. Report how many turns offer real choices, chain and branch sizes, and battle lengths.
 3. **A playable board screen** with a basic cascade animation, then a playtest.
 4. **The spectacle:** the cascade gets the full heat treatment.
