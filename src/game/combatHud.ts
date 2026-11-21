@@ -94,13 +94,12 @@ export function drawFooter(ctx: CombatCtx, layer: Layer, round: number): void {
 
 export interface ActionState {
   mine: boolean; // it is your turn and you may act
-  canSetOff: boolean;
+  passFires: boolean; // the engine's view.passFires: this pass completes the round and fires the cascade
   onPass: () => void;
-  onSetOff: () => void;
 }
 
-// A big Set off with a smaller Pass above it (the seat tabs say whose turn it is). When it is not
-// your turn, the buttons go.
+// The big Pass button (the seat tabs say whose turn it is); it reads "Pass and fire" when the pass fires
+// the cascade. When it is not your turn, the button goes.
 export function drawActions(ctx: CombatCtx, layer: Layer, a: ActionState): void {
   const A = D.actions;
   if (!a.mine) return;
@@ -109,24 +108,10 @@ export function drawActions(ctx: CombatCtx, layer: Layer, a: ActionState): void 
   const P = A.pass;
   g.fillStyle(hexColour(P.fill), 1);
   g.fillRoundedRect(P.x, P.y, P.w, P.h, P.h / 2);
-  g.lineStyle(2, hexColour(P.stroke), P.strokeAlpha);
+  g.lineStyle(P.strokeWidth, hexColour(P.stroke), 1);
   g.strokeRoundedRect(P.x, P.y, P.w, P.h, P.h / 2);
-  ctx.label(layer, P.x + P.w / 2, P.y + P.h / 2, "Pass", P.size, P.colour, 0.5, true);
+  ctx.label(layer, P.x + P.w / 2, P.y + P.h / 2, a.passFires ? P.fireText : P.text, a.passFires ? P.fireSize : P.size, P.colour, 0.5, true);
   const pz = s.add.zone(P.x + P.w / 2, P.y + P.h / 2, P.w, P.h).setInteractive({ useHandCursor: true });
   pz.on("pointerdown", a.onPass);
   layer.add(pz);
-
-  const S = A.setOff;
-  g.fillStyle(hexColour(a.canSetOff ? S.fill : S.offFill), a.canSetOff ? 1 : 0.7);
-  g.fillRoundedRect(S.x, S.y, S.w, S.h, S.h / 2);
-  if (a.canSetOff) {
-    g.lineStyle(S.strokeWidth, hexColour(S.stroke), 1);
-    g.strokeRoundedRect(S.x, S.y, S.w, S.h, S.h / 2);
-  }
-  ctx.label(layer, S.x + S.w / 2, S.y + S.h / 2, "Set off", S.size, a.canSetOff ? S.colour : S.offColour, 0.5, true);
-  if (a.canSetOff) {
-    const sz = s.add.zone(S.x + S.w / 2, S.y + S.h / 2, S.w, S.h).setInteractive({ useHandCursor: true });
-    sz.on("pointerdown", a.onSetOff);
-    layer.add(sz);
-  }
 }

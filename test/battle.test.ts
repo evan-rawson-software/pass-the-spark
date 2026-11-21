@@ -113,11 +113,10 @@ test("echo and spectrum on a branching tree: echo doubles the caps further along
 
 test("a full round of passes sets the chain off: uncapped ends fizzle, and with no cap nothing fires", () => {
   let s = setup([["boost_ember"], ["junction_ember"], ["strike_tide"]], 8);
-  expect(() => step(s, { type: "setOff" })).toThrow(); // no cap on the board yet
   s = play(s, "boost_ember");
   s = play(s, "junction_ember", 0); // ends 1 (Tide) and 2 (Gale)
   s = play(s, "strike_tide", 1); // the Gale end stays open
-  expect(getPendingChoice(s)).toMatchObject({ player: "a", canSetOff: true });
+  expect(getPendingChoice(s)).toMatchObject({ player: "a" });
 
   const pass: Choice = { type: "pass" };
   s = applyChoice(s, pass);
@@ -140,6 +139,24 @@ test("a full round of passes sets the chain off: uncapped ends fizzle, and with 
   expect(empty.state.round).toBe(3);
 });
 
+test("three players: two passes do not fire the cascade and the third does (passFires says so); a setOff choice is rejected", () => {
+  let s = setup([["boost_ember"], ["strike_tide"], ["guard_gale"]]);
+  s = play(s, "boost_ember"); // a: open end 0 (Ember)
+  expect(() => step(s, { type: "setOff" } as unknown as Choice)).toThrow(); // there is no manual set off
+  expect(getView(s, "b").passFires).toBe(false);
+
+  s = applyChoice(s, { type: "pass" }); // b
+  expect(getView(s, "c").passFires).toBe(false);
+  s = applyChoice(s, { type: "pass" }); // c
+  expect(s.round).toBe(1);
+  expect(getView(s, "a").passFires).toBe(true); // a's pass would be the third in a row
+
+  const last = step(s, { type: "pass" });
+  expect(last.events.find((e) => e.type === "setOff")).toEqual({ type: "setOff", reason: "passes" });
+  expect(last.state.round).toBe(2);
+  expect(getView(last.state, "a").passFires).toBe(false);
+});
+
 test("the Warden's lock blocks an attachment, and the Auditor fires when a cap repeats the spark before it", () => {
   const passives: Enemy["passives"] = [
     { kind: "warden", sparks: ["Ember"], name: "Warden", short: "x" },
@@ -152,12 +169,14 @@ test("the Warden's lock blocks an attachment, and the Auditor fires when a cap r
   s = play(s, "guard_gale", 1); // c: caps the first Gale end
   s = play(s, "guard_gale", 2); // a: caps the second Gale end
 
-  // b has a cap for the Ember end, but the lock makes it the only open end and it is unusable. b can still set off.
+  // b has a cap for the Ember end, but the lock makes it the only open end and it is unusable. b can only pass.
   expect(getView(s, "b").locked).toBe("Ember");
-  expect(getPendingChoice(s)).toEqual({ player: "b", opener: false, plays: [], canSetOff: true });
+  expect(getPendingChoice(s)).toEqual({ player: "b", opener: false, plays: [] });
   expect(() => play(s, "strike_ember", 3)).toThrow();
 
-  const last = step(s, { type: "setOff" });
+  s = applyChoice(s, { type: "pass" }); // b
+  s = applyChoice(s, { type: "pass" }); // c
+  const last = step(s, { type: "pass" }); // a: the round of passes sets the chain off
   // Both guards take the Gale spark. The second repeats the first, so the Auditor hits for 7 and the 3 block from the first guard absorbs part of it.
   expect(last.events.filter((e) => e.type === "passive" || e.type === "capFired" || (e.type === "damage" && e.side === "party"))).toMatchObject([
     { type: "capFired", owner: "c" },

@@ -40,8 +40,8 @@ function play(start: RunState, stop: (run: RunState) => boolean): { run: RunStat
       r = applyRunChoice(run, owed.player, { type: "event", option: 0 });
     } else {
       const p = owed.pending;
-      const first = p.plays[0]; // the first legal play, else set off or pass
-      const choice: Choice = first ? { type: "play", domino: first.domino, end: first.ends[0] } : { type: p.canSetOff ? "setOff" : "pass" };
+      const first = p.plays[0]; // the first legal play, else pass
+      const choice: Choice = first ? { type: "play", domino: first.domino, end: first.ends[0] } : { type: "pass" };
       r = applyRunChoice(run, owed.player, { type: "battle", choice });
     }
     run = r.run;

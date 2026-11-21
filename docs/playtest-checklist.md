@@ -38,16 +38,16 @@ Things automated tests don't cover. Run through what you can at a playtest and n
 The board is a tree: the opener is the root, every domino adds branches, and caps end them.
 - [ ] The opener goes in the opener slot; after that a domino can only go on an open end whose spark it accepts. Open ends show their spark and the charge arriving there.
 - [ ] Hover or pick a domino: legal ends light up and the preview (charge, and for a cap its value and how many times it goes off) matches what happens in the cascade.
-- [ ] Pass skips your turn this round. When everyone passes in a row, or every end is capped, the cascade goes off by itself. Set off ends it early and is only offered with a cap on the board.
+- [ ] Pass skips your turn this round. When everyone passes in a row, or every end is capped, the cascade goes off by itself. There is no manual set off: the pass that completes the round reads "Pass and fire".
 - [ ] A junction splits the path into two ends (three with Hall of Mirrors); a junction is refused when it would take the board over the open-end limit.
-- [ ] "If set off now" (damage, block, coins) follows the board as you build and matches what the cascade then does.
+- [ ] "If it fires now" (damage, block, coins) follows the board as you build and matches what the cascade then does.
 - [ ] Ends left without a cap fizzle: they dim and sputter, and their charge does nothing.
 - [ ] The enemy's intent shows above the board and plays out after the cascade, against the block the party just gained; later intents show under it (two ahead with Spyglass).
 - [ ] Block: the party's block from caps protects against the intent that follows and resets at round end; the enemy's block absorbs the next cascade's damage and then resets.
 - [ ] Win in the middle of a cascade: it stops the moment the enemy is at 0 health and the battle ends.
 
 ### Cascade spectacle
-- [ ] Building: the tree glows brighter and warmer as dominoes and charge pile up, a low hum rises with each play, and the "if set off now" numbers tick up instead of jumping.
+- [ ] Building: the tree glows brighter and warmer as dominoes and charge pile up, a low hum rises with each play, and the "if it fires now" numbers tick up instead of jumping.
 - [ ] A small tree (3 to 4 dominoes) gives a short, clean cascade: charge runs out from the opener step by step, caps pop their numbers, then a quick tally and the enemy's turn.
 - [ ] A large tree with junctions: each junction splits the glow into both branches at once, amplifiers flare (bigger for bigger changes), Echo and Spectrum have their own flare, and the branches fire together.
 - [ ] Big caps shake the screen; only the very biggest add lightning between dominoes and a brief slow motion. Damage numbers stack up above the enemy's health.

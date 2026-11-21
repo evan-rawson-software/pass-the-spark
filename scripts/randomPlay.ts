@@ -20,14 +20,14 @@ export interface CascadeStats {
   damage: number; // damage that reached the enemy's health
   damageCaps: number; // damage caps that went off
   blockCaps: number; // block caps that went off
-  ended: "capped" | "player" | "passes"; // every end capped, a player set it off, or everyone passed
+  ended: "capped" | "passes"; // every end capped, or everyone passed
 }
 
 export interface BattleStats {
   result: "won" | "lost" | null; // null: stopped at the step cap
   rounds: number;
   turns: number; // player turns taken
-  turnsWithChoice: number; // turns with more than one distinct legal choice (plays, pass and set off together)
+  turnsWithChoice: number; // turns with more than one distinct legal choice (plays and pass together)
   turnsWithPlays: number; // turns with more than one distinct play (domino x end)
   choices: number; // distinct legal choices summed over all turns
   playOptions: number; // distinct plays summed over all turns
@@ -62,9 +62,8 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
   while (state.phase !== "over" && stats.steps < maxSteps) {
     const pending = getPendingChoice(state);
     if (pending === null) break;
-    // Every distinct legal choice: each domino on each end (the opener has no end), pass, and set off.
+    // Every distinct legal choice: each domino on each end (the opener has no end), and pass.
     const options: Choice[] = [{ type: "pass" }];
-    if (pending.canSetOff) options.push({ type: "setOff" });
     let plays = 0;
     for (const o of pending.plays) {
       if (pending.opener) {
@@ -104,7 +103,7 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
       else if (e.type === "damage" && e.side === "enemy") cascade.damage += e.amount;
       else if (e.type === "capFired" && e.effect === "damage") cascade.damageCaps += 1;
       else if (e.type === "capFired" && e.effect === "block") cascade.blockCaps += 1;
-      else if (e.type === "setOff") cascade.ended = e.reason === "player" ? "player" : e.reason === "passes" ? "passes" : "capped";
+      else if (e.type === "setOff") cascade.ended = e.reason;
     }
     if (result.events.some((e) => e.type === "setOff")) {
       stats.cascades.push(cascade);

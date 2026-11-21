@@ -121,13 +121,11 @@ export interface PendingChoice {
   player: string;
   opener: boolean; // the board is empty: play an amplifier or junction without an end
   plays: PlayOption[];
-  canSetOff: boolean; // at least one cap is on the board
 }
 
 export type Choice =
   | { type: "play"; domino: string; end?: number } // end is omitted for the opener
-  | { type: "pass" }
-  | { type: "setOff" };
+  | { type: "pass" };
 
 export interface BattleSetup {
   config: Config;
@@ -270,11 +268,16 @@ export function getPendingChoice(state: PendingInput): PendingChoice | null {
       if (ends.length > 0) plays.push({ domino: id, ends });
     }
   }
-  return { player: player.id, opener, plays, canSetOff: capCount(state) > 0 };
+  return { player: player.id, opener, plays };
 }
 
 export function applyChoice(input: BattleState, choice: Choice): BattleState {
   return step(input, choice).state;
+}
+
+// True when the seat to act passing now would complete the round of passes, so the cascade fires.
+export function passFires(state: Pick<BattleState, "phase" | "passes" | "seatOrder">): boolean {
+  return state.phase !== "over" && state.passes + 1 >= state.seatOrder.length;
 }
 
 // Apply a choice. Returns the new state and the events in the order they happened.
@@ -301,10 +304,6 @@ export function step(input: BattleState, choice: Choice): StepResult {
     state.passes += 1;
     if (state.passes >= state.seatOrder.length) setOff(state, "passes", events);
     else nextSeat(state);
-  } else if (choice.type === "setOff") {
-    if (!pending.canSetOff) throw new Error("no cap on the board");
-    events.push({ type: "setOff", reason: "player", player: player.id });
-    endCascadePhase(state, events);
   } else {
     throw new Error("unknown choice");
   }
@@ -588,13 +587,9 @@ function nextSeat(state: BattleState): void {
 }
 
 // The board is complete: every end capped, or a full round of passes.
+// The cascade, then the enemy's action, then the round end.
 function setOff(state: BattleState, reason: "capped" | "passes", events: GameEvent[]): void {
   events.push({ type: "setOff", reason });
-  endCascadePhase(state, events);
-}
-
-// The cascade, then the enemy's action, then the round end.
-function endCascadePhase(state: BattleState, events: GameEvent[]): void {
   const capsFired = fireCascade(state, events);
   if (isOver(state)) return;
   longNightGrowth(state, capsFired, events);

@@ -7,11 +7,11 @@
 //   win      share of battles won
 //   rounds   average rounds per battle
 //   >1 opt   share of player turns with more than one distinct legal choice. A choice is a play
-//            (one domino on one end; the opener has no end), pass, or set off. Pass is always legal, so
+//            (one domino on one end; the opener has no end), or pass. Pass is always legal, so
 //            this is the share of turns where something besides passing was possible.
 //   >1 play  share of player turns with more than one distinct play (domino x end), the closer
 //            comparison with the old "more than one option" figure (about 30% of answer decisions in #123)
-//   opts     average distinct legal choices per player turn (plays + pass + set off)
+//   opts     average distinct legal choices per player turn (plays + pass)
 //   plays    average distinct plays (domino x end) per player turn
 //   board    average dominoes on the board per cascade
 //   junc     average junctions (branch points) per cascade
@@ -20,7 +20,7 @@
 //   dmg      average damage reaching the enemy's health per cascade (after its block)
 //
 // After each table: the spread of damage per cascade (0 / 1-5 / 6-10 / 11+), damage caps against block
-// caps that went off, and how cascades started (every end capped / a player set off / everyone passed).
+// caps that went off, and how cascades started (every end capped / everyone passed).
 
 import { enemies, playRandomBattle } from "./randomPlay";
 import type { BattleStats, Player } from "./randomPlay";
@@ -51,7 +51,7 @@ interface Totals {
 }
 const empty = (): Totals => ({
   wins: 0, rounds: 0, turns: 0, withChoice: 0, withPlays: 0, choices: 0, playOptions: 0, cascades: 0, nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0,
-  buckets: [0, 0, 0, 0], damageCaps: 0, blockCaps: 0, ended: { capped: 0, player: 0, passes: 0 },
+  buckets: [0, 0, 0, 0], damageCaps: 0, blockCaps: 0, ended: { capped: 0, passes: 0 },
 });
 
 function add(t: Totals, r: BattleStats): void {
@@ -106,7 +106,7 @@ function behaviour(label: string, t: Record<Player, Totals>): void {
   for (const player of players) {
     const x = t[player];
     const b = x.buckets.map((n) => pct(n, x.cascades).padStart(6));
-    const e = [x.ended.capped, x.ended.player, x.ended.passes].map((n) => pct(n, x.cascades).padStart(6));
+    const e = [x.ended.capped, x.ended.passes].map((n) => pct(n, x.cascades).padStart(6));
     console.log(
       (player === "random" ? label : "").padEnd(10) + player.padEnd(8) + b.join(" ") + " |" + String(x.damageCaps).padStart(8) + String(x.blockCaps).padStart(8) + " |" + e.join(" "),
     );
@@ -115,7 +115,7 @@ function behaviour(label: string, t: Record<Player, Totals>): void {
 
 console.log(`${battles} battles per enemy and party size, base seed ${baseSeed}`);
 console.log("opts/plays count distinct legal choices per player turn; see the column notes at the top of scripts/sim.ts.");
-console.log("'>1 opt' counts pass and set off as choices; '>1 play' counts only plays (domino x end).");
+console.log("'>1 opt' counts pass as a choice; '>1 play' counts only plays (domino x end).");
 console.log("Board, junc, caps, fizz and dmg are per cascade, averaged over all cascades of the battles.");
 
 for (const partySize of [2, 3, 4]) {
@@ -149,7 +149,7 @@ for (const partySize of [2, 3, 4]) {
   console.log("");
   console.log(`HOW CASCADES WENT (${partySize} players): share of cascades by damage dealt | caps that went off | how the cascade started`);
   console.log(
-    "".padEnd(18) + ["0", "1-5", "6-10", "11+"].map((h) => h.padStart(6)).join(" ") + " |" + "dmg caps".padStart(8) + "blk caps".padStart(8) + " |" + ["capped", "set off", "passes"].map((h) => h.padStart(6)).join(" "),
+    "".padEnd(18) + ["0", "1-5", "6-10", "11+"].map((h) => h.padStart(6)).join(" ") + " |" + "dmg caps".padStart(8) + "blk caps".padStart(8) + " |" + ["capped", "passes"].map((h) => h.padStart(6)).join(" "),
   );
   for (const [tier, t] of byTier) behaviour(tier, t);
   behaviour("all", all);
