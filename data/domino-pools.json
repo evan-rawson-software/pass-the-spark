@@ -32,7 +32,7 @@
       ],
       "junctions": ["Junction", "Fork", "Split"],
       "caps": [
-        { "names": ["Strike", "Cut", "Blow"], "kind": "damage", "base": [4, 6] },
+        { "names": ["Strike", "Cut", "Blow"], "kind": "damage", "base": [8, 10] },
         { "names": ["Guard", "Bulwark", "Barrier"], "kind": "block", "base": [5, 8] }
       ]
     },
@@ -48,7 +48,7 @@
       ],
       "junctions": [],
       "caps": [
-        { "names": ["Smite", "Rend"], "kind": "damage", "base": [6, 9] },
+        { "names": ["Smite", "Rend"], "kind": "damage", "base": [11, 14] },
         { "names": ["Aegis", "Bastion"], "kind": "block", "base": [8, 12] }
       ]
     }

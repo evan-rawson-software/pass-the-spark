@@ -21,11 +21,11 @@
       "elitePool": ["brute", "warden"],
       "battleCoins": { "fight": 10, "elite": 25, "boss": 50 },
       "rewardOdds": {
-        "fight": { "common": 70, "uncommon": 27, "rare": 3 },
-        "elite": { "common": 30, "uncommon": 50, "rare": 20 },
+        "fight": { "common": 0, "uncommon": 97, "rare": 3 },
+        "elite": { "common": 0, "uncommon": 80, "rare": 20 },
         "boss": { "common": 0, "uncommon": 0, "rare": 100 }
       },
-      "traderOdds": { "common": 60, "uncommon": 33, "rare": 7 },
+      "traderOdds": { "common": 0, "uncommon": 93, "rare": 7 },
       "map": {
         "floors": 10,
         "nodesPerFloor": { "min": 3, "max": 4 },
@@ -54,11 +54,11 @@
       "elitePool": ["ravager", "sentinel"],
       "battleCoins": { "fight": 15, "elite": 35, "boss": 75 },
       "rewardOdds": {
-        "fight": { "common": 55, "uncommon": 38, "rare": 7 },
-        "elite": { "common": 20, "uncommon": 50, "rare": 30 },
+        "fight": { "common": 0, "uncommon": 93, "rare": 7 },
+        "elite": { "common": 0, "uncommon": 70, "rare": 30 },
         "boss": { "common": 0, "uncommon": 0, "rare": 100 }
       },
-      "traderOdds": { "common": 45, "uncommon": 42, "rare": 13 },
+      "traderOdds": { "common": 0, "uncommon": 87, "rare": 13 },
       "map": {
         "floors": 10,
         "nodesPerFloor": { "min": 3, "max": 4 },
@@ -87,11 +87,11 @@
       "elitePool": ["tyrant", "warlord"],
       "battleCoins": { "fight": 20, "elite": 45, "boss": 100 },
       "rewardOdds": {
-        "fight": { "common": 40, "uncommon": 45, "rare": 15 },
-        "elite": { "common": 10, "uncommon": 45, "rare": 45 },
+        "fight": { "common": 0, "uncommon": 85, "rare": 15 },
+        "elite": { "common": 0, "uncommon": 55, "rare": 45 },
         "boss": { "common": 0, "uncommon": 0, "rare": 100 }
       },
-      "traderOdds": { "common": 30, "uncommon": 45, "rare": 25 },
+      "traderOdds": { "common": 0, "uncommon": 75, "rare": 25 },
       "map": {
         "floors": 10,
         "nodesPerFloor": { "min": 3, "max": 4 },

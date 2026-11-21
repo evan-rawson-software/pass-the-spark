@@ -93,7 +93,7 @@
     "output": [],
     "effect": {
       "kind": "damage",
-      "base": 3
+      "base": 7
     }
   },
   {
@@ -106,7 +106,7 @@
     "output": [],
     "effect": {
       "kind": "damage",
-      "base": 3
+      "base": 7
     }
   },
   {
@@ -145,7 +145,7 @@
     "output": [],
     "effect": {
       "kind": "damage",
-      "base": 10
+      "base": 8
     }
   },
   {
@@ -158,7 +158,7 @@
     "output": [],
     "effect": {
       "kind": "damage",
-      "base": 10
+      "base": 8
     }
   }
 ]
