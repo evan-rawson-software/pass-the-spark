@@ -60,7 +60,15 @@ interface Data {
     holdMs: number[]; sparkles: number[]; killMultiplier: number; size: number; fallMs: number; spreadMs: number; coinEvery: number; colours: string[];
     shatter: { shards: number; size: number; spread: number; ms: number };
   };
-  skip: { factor: number };
+  skip: { factor: number; sparkleFactor: number };
+  look: {
+    hitsBump: number; arrivalShake: { tier0: number; tierFactor: number; ms: number }; blockPlaceholderDx: number;
+    popup: { startScale: number; popMs: number; lineGap: number }; fadeOutMs: number; ring: { startScale: number; reducedAlpha: number };
+    puff: { startScale: number; endScale: number }; capBurstGrow: number; trailEndScale: number; haloAlpha2: number;
+    tremble: { base: number; perTier: number }; numberFadeFraction: { halo: number; hits: number }; chipDx: number;
+    fanfareSpawn: { top: number; spread: number; sizeMin: number; sizeMax: number; fallMin: number; fallMax: number };
+    flame: { topFraction: number; shrink: number }; block: { shieldWidth: number; textX: number; dyFactor: number };
+  };
 }
 const D = presentation.comboHype as unknown as Data;
 
@@ -79,7 +87,7 @@ export interface HypeHost {
 }
 
 // A cap's spark on its way: the amounts of its damage or block events join it as they arrive.
-interface Hit { kind: Kind; amount: number; events: number; triggers: number; landed: boolean; cancel?: () => void }
+interface Hit { kind: Kind; amount: number; triggers: number; landed: boolean; counted: boolean; cancel?: () => void }
 
 const colourOf = (tier: number): number => hexColour(D.tiers.colours[tier]);
 const between = (a: number, b: number): number => Phaser.Math.FloatBetween(a, b);
@@ -183,7 +191,7 @@ export class ComboHype {
     if (!this.on) return undefined;
     this.caps++;
     const kind: Kind = ev.effect;
-    const hit: Hit = { kind, amount: 0, events: 0, triggers: ev.triggers, landed: false };
+    const hit: Hit = { kind, amount: 0, triggers: ev.triggers, landed: false, counted: false };
     this.open[kind] = hit;
     if (this.quick) {
       hit.landed = true;
@@ -220,10 +228,12 @@ export class ComboHype {
   // there never was one: the Junction Runner's block).
   private count(kind: Kind, amount: number): void {
     const hit = this.open[kind];
-    if (hit && !hit.landed) {
-      hit.amount += amount;
-      hit.events++;
-    } else this.add(kind, amount, 1);
+    if (hit && !hit.landed) hit.amount += amount;
+    else {
+      // One hit per cap, however many times it triggers (a skipped cascade counts the same way).
+      this.add(kind, amount, hit?.counted ? 0 : 1);
+      if (hit) hit.counted = true;
+    }
   }
 
   // Everything in the air has landed.
@@ -384,8 +394,8 @@ export class ComboHype {
     let bw = 0;
     if (this.blockBox && this.blockText?.active) {
       const s = this.blockSize();
-      bw = s * 0.85 + this.blockText.width;
-      this.blockText.setX(s * 0.55);
+      bw = s * D.look.block.shieldWidth + this.blockText.width;
+      this.blockText.setX(s * D.look.block.textX);
       this.drawShield(this.blockBox.first as Phaser.GameObjects.Graphics, s);
     }
     const gap = dw > 0 && bw > 0 ? D.number.block.gap : 0;
@@ -393,10 +403,10 @@ export class ComboHype {
     const A = combatLayoutData.board;
     this.fit = Math.min(1, (A.w * D.layout.maxWidthFraction) / Math.max(1, total));
     if (this.dmgBox) this.dmgBox.setX(-total / 2 + dw / 2);
-    if (this.blockBox) this.blockBox.setX(total / 2 - bw + 0).setY(dw > 0 ? size * 0.08 : 0);
+    if (this.blockBox) this.blockBox.setX(total / 2 - bw + 0).setY(dw > 0 ? size * D.look.block.dyFactor : 0);
     if (this.hitsText?.active && this.dmgBox) this.hitsText.setPosition(this.dmgBox.x, size * D.number.hits.dyFactor + D.number.hits.dy);
     const hh = size * D.number.halo.heightFactor;
-    this.haloParts.forEach((h, i) => h.setScale((total + D.number.halo.padX) / 100, hh / 100).setAlpha(i === 0 ? 1 : 0.7));
+    this.haloParts.forEach((h, i) => h.setScale((total + D.number.halo.padX) / 100, hh / 100).setAlpha(i === 0 ? 1 : D.look.haloAlpha2));
   }
 
   private drawShield(g: Phaser.GameObjects.Graphics, s: number): void {
@@ -490,7 +500,7 @@ export class ComboHype {
     this.scene.tweens.add({ targets: box, scale: 1, duration: scaleTime(P.ms), ease: "Back.easeOut" });
     if (kind === "damage" && this.hitsText?.active) {
       this.scene.tweens.killTweensOf(this.hitsText);
-      this.hitsText.setScale(1.3);
+      this.hitsText.setScale(D.look.hitsBump);
       this.tweenTargets.push(this.hitsText);
       this.scene.tweens.add({ targets: this.hitsText, scale: 1, duration: scaleTime(P.ms), ease: "Back.easeOut" });
     }
@@ -499,7 +509,7 @@ export class ComboHype {
     const colour = kind === "damage" ? colourOf(this.tier) : hexColour(D.number.block.colour);
     this.ring(at, colour, A.ringSize, A.ringMs);
     if (!reducedFlashing()) this.puff("spark", at, A.sparkSize, colour, A.ringMs);
-    this.shakeBy(this.tier === 0 ? 0.002 : D.tierJump.shakeIntensity[this.tier] * 0.4, 120);
+    this.shakeBy(this.tier === 0 ? D.look.arrivalShake.tier0 : D.tierJump.shakeIntensity[this.tier] * D.look.arrivalShake.tierFactor, D.look.arrivalShake.ms);
   }
 
   // ---- tiers ----
@@ -580,7 +590,7 @@ export class ComboHype {
     const F = D.lethal.flame;
     const size = F.size * between(0.6, 1.1) * (D.number.sizes[this.tier] / D.number.sizes[0]) ** 0.5;
     const x = (this.dmgBox?.x ?? 0) + between(-t.width / 2, t.width / 2);
-    const y = -t.height * 0.42;
+    const y = -t.height * D.look.flame.topFraction;
     const o = fxObject(this.scene, "flame", x, y, size, hexColour(F.colour), g) as Obj;
     o.setScale(o.scaleX * (Math.random() < 0.5 ? -1 : 1), o.scaleY);
     if (!reducedFlashing()) o.setBlendMode(Phaser.BlendModes.ADD);
@@ -588,7 +598,7 @@ export class ComboHype {
     o.setAlpha(reducedFlashing() ? F.reducedAlpha : F.alpha);
     this.flames.add(o);
     this.scene.tweens.add({
-      targets: o, y: y - F.rise * between(0.7, 1), alpha: 0, scaleY: o.scaleY * 0.5, scaleX: o.scaleX * 0.5,
+      targets: o, y: y - F.rise * between(0.7, 1), alpha: 0, scaleY: o.scaleY * D.look.flame.shrink, scaleX: o.scaleX * D.look.flame.shrink,
       duration: scaleTime(F.lifeMs * between(0.7, 1)), ease: "Cubic.easeOut",
       onComplete: () => { this.flames.delete(o); o.destroy(); },
     });
@@ -625,7 +635,8 @@ export class ComboHype {
       this.flights.delete(hit);
       if (token !== this.token) return;
       hit.landed = true;
-      this.add(hit.kind, hit.amount, hit.events);
+      hit.counted = true;
+      this.add(hit.kind, hit.amount, 1);
       this.wake();
     };
     hit.cancel = finish;
@@ -654,14 +665,14 @@ export class ComboHype {
   // Where the block number will appear when there is none yet: beside the damage number.
   private blockPlace(): Pt {
     const c = this.centre();
-    return { x: c.x + (this.dmgBox ? 200 : 0), y: c.y };
+    return { x: c.x + (this.dmgBox ? D.look.blockPlaceholderDx : 0), y: c.y };
   }
 
   private trail(at: Pt, colour: number): void {
     const o = fxFallback(this.scene, "glow", at.x, at.y, D.flight.trailSize, colour, this.root);
     this.track(o);
     if (!reducedFlashing()) o.setBlendMode(Phaser.BlendModes.ADD);
-    this.scene.tweens.add({ targets: o, alpha: 0, scale: 0.3, duration: scaleTime(D.flight.trailMs), onComplete: () => o.destroy() });
+    this.scene.tweens.add({ targets: o, alpha: 0, scale: D.look.trailEndScale, duration: scaleTime(D.flight.trailMs), onComplete: () => o.destroy() });
   }
 
   // ---- small effects ----
@@ -673,13 +684,13 @@ export class ComboHype {
     const o = fxObject(this.scene, "spark", at.x, at.y, B.size, colour) as Obj;
     o.setDepth(98);
     if (!reducedFlashing()) o.setBlendMode(Phaser.BlendModes.ADD);
-    this.scene.tweens.add({ targets: o, scale: o.scaleX * 1.8, alpha: 0, duration: scaleTime(B.ms), ease: "Cubic.easeOut", onComplete: () => o.destroy() });
+    this.scene.tweens.add({ targets: o, scale: o.scaleX * D.look.capBurstGrow, alpha: 0, duration: scaleTime(B.ms), ease: "Cubic.easeOut", onComplete: () => o.destroy() });
   }
 
   private ring(at: Pt, colour: number, size: number, ms: number): void {
     const r = fxFallback(this.scene, "ring", at.x, at.y, size, colour, this.root);
     this.track(r);
-    r.setScale(0.3).setAlpha(reducedFlashing() ? 0.5 : 1);
+    r.setScale(D.look.ring.startScale).setAlpha(reducedFlashing() ? D.look.ring.reducedAlpha : 1);
     this.scene.tweens.add({ targets: r, scale: 1, alpha: 0, duration: scaleTime(ms), ease: "Cubic.easeOut", onComplete: () => r.destroy() });
   }
 
@@ -688,8 +699,8 @@ export class ComboHype {
     const o = fxObject(this.scene, id, at.x, at.y, size, colour, this.root) as Obj;
     this.track(o);
     if (!reducedFlashing()) o.setBlendMode(Phaser.BlendModes.ADD);
-    o.setScale(o.scaleX * 0.4, o.scaleY * 0.4);
-    this.scene.tweens.add({ targets: o, scaleX: o.scaleX * 2.6, scaleY: o.scaleY * 2.6, alpha: 0, duration: scaleTime(ms), ease: "Cubic.easeOut", onComplete: () => o.destroy() });
+    o.setScale(o.scaleX * D.look.puff.startScale, o.scaleY * D.look.puff.startScale);
+    this.scene.tweens.add({ targets: o, scaleX: o.scaleX * D.look.puff.endScale, scaleY: o.scaleY * D.look.puff.endScale, alpha: 0, duration: scaleTime(ms), ease: "Cubic.easeOut", onComplete: () => o.destroy() });
   }
 
   private flash(colour: number, alpha: number, ms: number): void {
@@ -787,7 +798,7 @@ export class ComboHype {
     const o = { v: 1 };
     this.tweenTargets.push(o);
     this.scene.tweens.add({ targets: o, v: S.swell, duration: scaleTime(ms), ease: "Quad.easeIn", onUpdate: () => (this.swell = o.v) });
-    this.tremble = shakeEnabled() && !this.quick ? S.tremble * (0.5 + tier * 0.25) : 0;
+    this.tremble = shakeEnabled() && !this.quick ? S.tremble * (D.look.tremble.base + tier * D.look.tremble.perTier) : 0;
     await this.wait(ms);
     this.tremble = 0;
   }
@@ -800,14 +811,14 @@ export class ComboHype {
     if (!box || !g?.active) return Promise.resolve();
     const chip = this.host.refs().shields.get("party");
     const dest = to ?? ((): Pt => {
-      const p = chip ? this.toScreen({ x: chip.x + 40, y: chip.y }) : this.centre();
+      const p = chip ? this.toScreen({ x: chip.x + D.look.chipDx, y: chip.y }) : this.centre();
       return p;
     });
     const from = this.numberAt(kind === "damage" ? "damage" : "block");
     const S = D.slam;
     // The rest of the look (halo, hit count, flames) fades as the number leaves.
-    this.haloParts.forEach((h) => this.scene.tweens.add({ targets: h, alpha: 0, duration: scaleTime(ms * 0.8) }));
-    if (kind === "damage") if (this.hitsText) this.scene.tweens.add({ targets: this.hitsText, alpha: 0, duration: scaleTime(ms * 0.5) });
+    this.haloParts.forEach((h) => this.scene.tweens.add({ targets: h, alpha: 0, duration: scaleTime(ms * D.look.numberFadeFraction.halo) }));
+    if (kind === "damage") if (this.hitsText) this.scene.tweens.add({ targets: this.hitsText, alpha: 0, duration: scaleTime(ms * D.look.numberFadeFraction.hits) });
     const gs = g.scaleX;
     return new Promise((resolve) => {
       this.tweenTargets.push(box);
@@ -835,11 +846,11 @@ export class ComboHype {
     if (health > 0) lines.push({ text: `-${health}`, size: P.size, colour: D.tiers.colours[Math.max(1, tier)] });
     if (blocked > 0) lines.push({ text: `${blocked} blocked`, size: P.blockedSize, colour: P.blockedColour });
     lines.forEach((l, i) => {
-      const t = this.scene.add.text(at.x, at.y + i * (P.size * 0.7), l.text, this.style(l.size, l.colour, 8)).setOrigin(0.5);
+      const t = this.scene.add.text(at.x, at.y + i * (P.size * D.look.popup.lineGap), l.text, this.style(l.size, l.colour, 8)).setOrigin(0.5);
       this.root.add(t);
       this.track(t);
-      t.setScale(0.5);
-      this.scene.tweens.add({ targets: t, scale: 1, duration: scaleTime(160), ease: "Back.easeOut" });
+      t.setScale(D.look.popup.startScale);
+      this.scene.tweens.add({ targets: t, scale: 1, duration: scaleTime(D.look.popup.popMs), ease: "Back.easeOut" });
       this.scene.tweens.add({ targets: t, y: t.y - P.dy, alpha: 0, delay: scaleTime(P.ms * 0.4), duration: scaleTime(P.ms * 0.6), onComplete: () => t.destroy() });
     });
   }
@@ -849,22 +860,23 @@ export class ComboHype {
   // A shower of gold sparkles over the board, with coin sounds for some. On a kill the enemy shatters.
   private async fanfare(tier: number, killed: boolean, at: Pt, q: number): Promise<void> {
     const F = D.fanfare;
+    const L = D.look.fanfareSpawn;
     playSound(killed ? "combo:fanfareLethal" : `combo:fanfare${tier}`);
     const A = combatLayoutData.board;
-    const n = Math.round(F.sparkles[tier] * (killed ? F.killMultiplier : 1) * (q < 1 ? 0.5 : 1));
+    const n = Math.round(F.sparkles[tier] * (killed ? F.killMultiplier : 1) * (q < 1 ? D.skip.sparkleFactor : 1));
     for (let i = 0; i < n; i++) {
       const delay = Math.random() * F.spreadMs;
       const x = A.x + Math.random() * A.w;
-      const y0 = A.y - 30 + Math.random() * 80;
+      const y0 = A.y + L.top + Math.random() * L.spread;
       const colour = hexColour(F.colours[i % F.colours.length]);
-      const size = F.size * between(0.5, 1.2);
+      const size = F.size * between(L.sizeMin, L.sizeMax);
       this.scene.time.delayedCall(scaleTime(delay), () => {
         const o = fxObject(this.scene, "sparkle", x, y0, size, colour, this.root) as Obj;
         this.track(o);
         if (!reducedFlashing()) o.setBlendMode(Phaser.BlendModes.ADD);
         o.setRotation(between(-0.5, 0.5));
         if (i % F.coinEvery === 0) playSound("combo:coin", 1 + Phaser.Math.Between(0, 7));
-        this.scene.tweens.add({ targets: o, y: y0 + A.h * between(0.45, 0.95), rotation: o.rotation + between(-2, 2), duration: scaleTime(F.fallMs * between(0.7, 1)), ease: "Quad.easeIn" });
+        this.scene.tweens.add({ targets: o, y: y0 + A.h * between(L.fallMin, L.fallMax), rotation: o.rotation + between(-2, 2), duration: scaleTime(F.fallMs * between(0.7, 1)), ease: "Quad.easeIn" });
         this.scene.tweens.add({ targets: o, alpha: { from: 1, to: 0 }, scale: { from: o.scaleX, to: o.scaleX * 0.4 }, delay: scaleTime(F.fallMs * 0.5), duration: scaleTime(F.fallMs * 0.5), onComplete: () => o.destroy() });
       });
     }
@@ -895,7 +907,7 @@ export class ComboHype {
     this.stopFire();
     if (g?.active) {
       this.tweenTargets.push(g);
-      this.scene.tweens.add({ targets: g, alpha: 0, duration: scaleTime(300) });
+      this.scene.tweens.add({ targets: g, alpha: 0, duration: scaleTime(D.look.fadeOutMs) });
     }
     this.scene.tweens.killTweensOf(this.tint);
     this.scene.tweens.add({ targets: this.tint, alpha: 0, duration: scaleTime(D.tierJump.tintMs) });

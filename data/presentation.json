@@ -139,7 +139,25 @@
       "colours": ["#ffe14d", "#fff2b0", "#ffb02e"],
       "shatter": { "shards": 18, "size": 90, "spread": 320, "ms": 800 }
     },
-    "skip": { "factor": 0.4 }
+    "skip": { "factor": 0.4, "sparkleFactor": 0.5 },
+    "look": {
+      "hitsBump": 1.3,
+      "arrivalShake": { "tier0": 0.002, "tierFactor": 0.4, "ms": 120 },
+      "blockPlaceholderDx": 200,
+      "popup": { "startScale": 0.5, "popMs": 160, "lineGap": 0.7 },
+      "fadeOutMs": 300,
+      "ring": { "startScale": 0.3, "reducedAlpha": 0.5 },
+      "puff": { "startScale": 0.4, "endScale": 2.6 },
+      "capBurstGrow": 1.8,
+      "trailEndScale": 0.3,
+      "haloAlpha2": 0.7,
+      "tremble": { "base": 0.5, "perTier": 0.25 },
+      "numberFadeFraction": { "halo": 0.8, "hits": 0.5 },
+      "chipDx": 40,
+      "fanfareSpawn": { "top": -30, "spread": 80, "sizeMin": 0.5, "sizeMax": 1.2, "fallMin": 0.45, "fallMax": 0.95 },
+      "flame": { "topFraction": 0.42, "shrink": 0.5 },
+      "block": { "shieldWidth": 0.85, "textX": 0.55, "dyFactor": 0.08 }
+    }
   },
   "speedControl": {
     "comment": "Combat playback speed button and its list (#220), read by src/game/speedControl.ts. Px on the 1920x1080 table. Where the button sits comes from combatLayout.footer (#231); the list opens upward, gap above it, and opens downward instead if it would leave the screen.",

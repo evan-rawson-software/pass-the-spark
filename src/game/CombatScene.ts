@@ -653,8 +653,8 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- the board (middle) ----
 
-  // The fuse board (fuseBoard.ts): small dominoes joined by fuses, in the area from data. The top strip
-  // of the area is kept free for the cascade counter and callouts (#191).
+  // The fuse board (fuseBoard.ts): small dominoes joined by fuses, in the area from data. The combo
+  // number (comboHype.ts) sits over the middle of it during a cascade.
   private drawBoard(layer: Layer, view: BattleView, active: string, pending: PendingChoice | null): void {
     this.slotBoxes.clear();
     const selected = this.selected !== null ? pending?.plays.find((o) => o.domino === this.selected) : undefined;
@@ -990,7 +990,7 @@ export class CombatScene extends Phaser.Scene {
     this.anim.clearShots(); // every shot in the air ends before the fast-forward starts
     this.tweens.timeScale = SKIP_SPEED;
     this.time.timeScale = SKIP_SPEED;
-    this.anim.buildup.clear(); // the camera goes back at once and the counter goes
+    this.anim.buildup.clear(); // the camera goes back at once
     this.board?.stopBurns(); // every fuse burnt all the way
     this.fan?.snap();
   }
