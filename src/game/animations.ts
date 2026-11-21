@@ -11,6 +11,7 @@ import { amplify, boardGlow, centre, charm, echo, floatText, flow, heatColor, he
 import type { Tally } from "./spectacle";
 import { Projectiles, seatGlow } from "./projectiles";
 import { seatColour } from "./seatColours";
+import type { FuseBoard } from "./fuseBoard";
 
 // The cascade playback, driven only by engine events and the numbers in them (#186, #187): charge
 // flows outward step by step, amplifiers flare, junctions split the glow, caps go off with their
@@ -25,7 +26,8 @@ export const SKIP_SPEED = 1000;
 const DW = 240; // a domino at scale 1
 const DH = 120;
 
-export interface Pos { x: number; y: number; k: number }
+// A domino or end as drawn: its centre and scale. w and h are its real size at scale 1 (a cap is narrower than the old cell, a junction taller); angle is a fanned hand domino's tilt.
+export interface Pos { x: number; y: number; k: number; w?: number; h?: number; angle?: number }
 interface Box { x: number; y: number; w: number; h: number }
 type Container = Phaser.GameObjects.Container;
 type Text = Phaser.GameObjects.Text;
@@ -46,6 +48,7 @@ export interface Refs {
   hand: Map<string, Pos>; // the active hand, by domino id
   nodes: Map<number, { c: Container; pos: Pos }>; // board nodes, by node id
   slots: Map<number, Pos>; // open ends, by end id
+  board?: FuseBoard; // the fuse board as drawn: fuses burn along it, its bounds frame the camera
   handSlots: Map<string, { c: Container; pos: Pos }[]>; // every player's hand, by seat and position (draw animation, #153)
   decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck stack
   bars: Map<string, BarRef>; // "enemy" | "party"
@@ -101,7 +104,9 @@ function flash(scene: Phaser.Scene, b: Box, color = 0xffffff): void {
 }
 
 function boxOf(p: Pos): Box {
-  return { x: p.x - (DW * p.k) / 2, y: p.y - (DH * p.k) / 2, w: DW * p.k, h: DH * p.k };
+  const w = (p.w ?? DW) * p.k;
+  const h = (p.h ?? DH) * p.k;
+  return { x: p.x - w / 2, y: p.y - h / 2, w, h };
 }
 
 const CAP_COLOR = { damage: "#ff6a5f", block: "#9cc4ff" };
@@ -265,9 +270,9 @@ export class Animator {
         playSound("hum", ev.node + 1);
         const node = refs.nodes.get(ev.node);
         if (node && from) {
-          node.c.setPosition(from.x, from.y).setScale(from.k);
-          refs.layer?.bringToTop(node.c);
-          scene.tweens.add({ targets: node.c, x: node.pos.x, y: node.pos.y, scale: node.pos.k, duration: scaleTime(350), ease: "Cubic.easeOut" });
+          node.c.setPosition(from.x, from.y).setScale(from.k).setAngle(from.angle ?? 0);
+          node.c.parentContainer?.bringToTop(node.c);
+          scene.tweens.add({ targets: node.c, x: node.pos.x, y: node.pos.y, scale: node.pos.k, angle: 0, duration: scaleTime(350), ease: "Cubic.easeOut" });
         }
         break;
       }
@@ -299,9 +304,9 @@ export class Animator {
           const at = centre(boxOf(node.pos));
           this.buildup.cap(ev.value, at);
           this.fx.cap(ev, shown, at);
-          seatGlow(scene, at, DW * node.pos.k, seatColour(shown.seatOrder, ev.owner), true);
+          seatGlow(scene, at, boxOf(node.pos).w, seatColour(shown.seatOrder, ev.owner), true);
           const text = ev.triggers > 1 ? `${ev.value}×${ev.triggers}` : String(ev.value);
-          floatText(scene, node.pos.x, node.pos.y, text, CAP_COLOR[ev.effect], Math.max(30, Math.round(60 * node.pos.k + 18 + this.tier * 6)), 1000);
+          floatText(scene, at.x, at.y, text, CAP_COLOR[ev.effect], Math.max(30, Math.round(60 * node.pos.k + 18 + this.tier * 6)), 1000);
           if (ev.value >= P.lightning.minCap && !reducedFlashing()) {
             const ends = this.lit
               .filter((id) => id !== ev.node)
@@ -434,7 +439,7 @@ export class Animator {
     const at = centre(box);
     flash(scene, box, color);
     seatGlow(scene, at, box.w, seatColour(shown.seatOrder, ev.owner));
-    floatText(scene, node.pos.x, node.pos.y - (DH * node.pos.k) / 2 - 8, String(ev.charge), "#ffe14d", Math.max(22, Math.round(40 * node.pos.k + 14)), 700);
+    floatText(scene, at.x, box.y - 8, String(ev.charge), "#ffe14d", Math.max(22, Math.round(40 * node.pos.k + 14)), 700);
 
     // What it did to the charge: compare with the charge its parent was lit with.
     const board = shown.board;
@@ -455,16 +460,12 @@ export class Animator {
       playSound("junction", pitch);
     }
 
-    // Charge flows out along each branch, all at once.
-    const from = node.pos;
+    // Charge flows out along each branch's fuse, all at once, and the fuse burns behind it.
     for (const e of board.ends.filter((x) => x.node === ev.node)) {
-      const child = board.nodes.find((n) => n.end === e.id);
-      const to = child ? refs.nodes.get(child.id)?.pos : refs.slots.get(e.id);
-      if (!to) continue;
-      const x0 = from.x + (DW * from.k) / 2;
-      const x1 = to.x - (child ? (DW * to.k) / 2 : Math.max(34, DH * to.k) / 2);
-      const xm = (x0 + x1) / 2;
-      flow(scene, [{ x: x0, y: from.y }, { x: xm, y: from.y }, { x: xm, y: to.y }, { x: x1, y: to.y }], color, 10 + 8 * from.k, this.tier);
+      const fuse = refs.board?.fuseRefs().get(e.id);
+      if (!fuse) continue;
+      refs.board?.burn(e.id, color, scaleTime(P.step.pulseMs));
+      flow(scene, fuse.pts, color, 10 + 8 * node.pos.k, this.tier);
     }
   }
 
