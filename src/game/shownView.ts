@@ -32,7 +32,7 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
       // The finished board goes to its owners' discard piles.
       for (const node of v.board.nodes) v.players.find((p) => p.id === node.owner)?.discard.push(node.domino);
       v.round = ev.round;
-      v.board = { nodes: [], ends: [], nextNode: 0, nextEnd: 0 };
+      v.board = { nodes: [], ends: [], nextNode: v.board.nextNode, nextEnd: v.board.nextEnd };
       v.locked = null;
       v.enemy.staggered = false;
       for (const p of v.players) p.ready = false;

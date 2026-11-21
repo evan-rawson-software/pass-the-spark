@@ -814,7 +814,8 @@ export function scaledIntent(state: Pick<BattleState, "config" | "players">, int
 // are counted from the board, so the empty board gives every player theirs back; every Ready clears.
 function startRound(state: BattleState, events: GameEvent[]): void {
   state.round += 1;
-  state.board = { nodes: [], ends: [], nextNode: 0, nextEnd: 0 };
+  // The counters run on for the whole battle, so an id from an earlier round never matches anything on the new board.
+  state.board = { nodes: [], ends: [], nextNode: state.board.nextNode, nextEnd: state.board.nextEnd };
   startPassives(state, events);
   events.push({ type: "roundStart", round: state.round });
   events.push({ type: "intent", intent: scaledIntent(state, state.intent) });

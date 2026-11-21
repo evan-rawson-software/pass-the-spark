@@ -167,7 +167,8 @@ export function planTree(full: BattleView, rng: number): Placement[] {
         for (const option of pending.plays) {
           const copies = player.hand.filter((id) => id === option.domino).length;
           for (const end of pending.opener ? [null] : option.ends) {
-            const way = `${option.domino}|${end}|${charms}`;
+            // The tie-break hashes the end's position on the board, not its id, so it does not depend on how far the id counters have run.
+            const way = `${option.domino}|${end === null ? end : tree.view.board.ends.findIndex((e) => e.id === end)}|${charms}`;
             const held = ways.get(way);
             if (!held || copies > held.copies || (copies === held.copies && tieOf(player.id + way) < tieOf(held.owner + way))) ways.set(way, { owner: player.id, end, copies });
           }

@@ -208,6 +208,15 @@ test("ids are stable: after a take-back, a choice built on the old view for a go
   // The re-opened end keeps its id and takes a new play; the open-end count follows.
   s = play(s, "c", "guard_gale", 1);
   expect(getView(s, "a").openEnds.map((e) => e.end)).toEqual([6, 7]);
+
+  // The counters run on for the whole battle: after the round passes, a stale choice carrying a round-1 end id
+  // (end 0 here) can't match the new board's first end, which would have had id 0 if the ids restarted.
+  s = fire(s).state;
+  expect(s.round).toBe(2);
+  s.players[0].hand = ["boost_ember", "strike_ember"];
+  s = play(s, "a", "boost_ember");
+  expect(s.board.ends.map((e) => e.id)).toEqual([8]);
+  expect(() => play(s, "a", "strike_ember", 0)).toThrow(/illegal end/);
 });
 
 test("echo and spectrum on a branching tree: echo doubles the caps further along its path, spectrum counts the sparks on its path", () => {
@@ -258,7 +267,8 @@ test("Ready fires uncapped ends as fizzles, and an empty board can fire: nothing
   let bare = empty.state;
   bare.players[0].hand = ["boost_ember"];
   bare.players[1].hand = ["junction_ember"];
-  bare = play(play(bare, "a", "boost_ember"), "b", "junction_ember", 0);
+  bare = play(bare, "a", "boost_ember");
+  bare = play(bare, "b", "junction_ember", bare.board.ends[0].id); // ids run on across rounds
   expect(previewSetOff(getView(bare, "a"))).toMatchObject({ canSetOff: true, damage: 4, comboTotal: 4 });
   const capless = fire(bare);
   expect(capless.events.filter((e) => e.type === "fizzle")).toHaveLength(2);
