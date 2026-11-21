@@ -132,64 +132,7 @@ export function stackedNumber(scene: Phaser.Scene, pile: Phaser.GameObjects.Text
 
 // ---- per-effect animations (reused from M8, redrawn for the cascade) ----
 
-export type EffectKind = "damage" | "block" | "coins" | "amplify" | "echo" | "spectrum" | "charm";
-
-// A red shot flies to the target and bursts into a jagged star with a slash.
-export function damage(scene: Phaser.Scene, from: Point, to?: Point): void {
-  const shot = dot(scene, from, 14, 0xff3b2f);
-  const burst = (at: Point) => {
-    const g = scene.add.graphics().setDepth(DEPTH).setPosition(at.x, at.y);
-    g.fillStyle(0xff3b2f, 0.9);
-    g.beginPath();
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      const r = i % 2 === 0 ? 46 : 18;
-      if (i === 0) g.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-      else g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-    }
-    g.closePath();
-    g.fillPath();
-    const slash = artImage(scene, "fx/slash", at.x, at.y, 130, 130);
-    if (slash) slash.setTint(0xffffff).setDepth(DEPTH + 1);
-    else {
-      g.lineStyle(7, 0xffffff, 1);
-      g.lineBetween(-50, -34, 50, 34);
-      g.lineBetween(-50, 34, 50, -34);
-    }
-    const targets = slash ? [g, slash] : [g];
-    scene.tweens.add({ targets, scale: { from: 0.4, to: 1.3 }, alpha: { from: 1, to: 0 }, duration: scaleTime(P.effects.ms), ease: "Cubic.easeOut", onComplete: () => targets.forEach((o) => o.destroy()) });
-  };
-  if (!to) { shot.destroy(); return burst(from); }
-  scene.tweens.add({ targets: shot, x: to.x, y: to.y, duration: scaleTime(P.effects.travelMs), ease: "Cubic.easeIn", onComplete: () => { shot.destroy(); burst(to); } });
-}
-
-// A blue shield shape pops up where the block lands.
-export function block(scene: Phaser.Scene, from: Point, to?: Point): void {
-  const at = to ?? from;
-  const g = scene.add.graphics().setDepth(DEPTH).setPosition(at.x, at.y).setAlpha(0);
-  g.fillStyle(0x4a6fa5, 0.85);
-  g.lineStyle(6, 0xdbe6f5, 1);
-  g.beginPath();
-  [[-34, -38], [34, -38], [34, 4], [0, 44], [-34, 4]].forEach(([x, y], i) => (i === 0 ? g.moveTo(x, y) : g.lineTo(x, y)));
-  g.closePath();
-  g.fillPath();
-  g.strokePath();
-  scene.tweens.add({
-    targets: g, alpha: { from: 1, to: 0 }, scale: { from: 0.3, to: 1.4 }, duration: scaleTime(P.effects.ms + 150), ease: "Back.easeOut",
-    onStart: () => g.setAlpha(1), onComplete: done(g),
-  });
-}
-
-// Gold discs pop up from the cap.
-export function coins(scene: Phaser.Scene, at: Point): void {
-  for (let i = 0; i < 5; i++) {
-    const c = scene.add.circle(at.x + (i - 2) * 22, at.y + 10, 11, 0xffd23f).setStrokeStyle(3, 0x9a6a00).setDepth(DEPTH).setAlpha(0);
-    scene.tweens.add({
-      targets: c, y: at.y - 70 - (i % 2) * 20, alpha: { from: 1, to: 0 }, delay: scaleTime(i * 50), duration: scaleTime(P.effects.ms + 200), ease: "Cubic.easeOut",
-      onStart: () => c.setAlpha(1), onComplete: done(c),
-    });
-  }
-}
+export type EffectKind = "amplify" | "echo" | "spectrum" | "charm";
 
 // Orange chevrons rise from an amplifier: the charge just got stronger. `size` grows with the change.
 export function amplify(scene: Phaser.Scene, at: Point, size: number): void {

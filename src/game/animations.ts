@@ -3,9 +3,11 @@ import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
 import { scaleTime } from "./playbackSpeed";
 import { reducedFlashing } from "./comfort";
+import { seatColour } from "./seatColours";
 import { playSound } from "./sound";
-import { amplify, block, boardGlow, centre, charm, coins, damage, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
-import type { Point, Tally } from "./spectacle";
+import { amplify, boardGlow, centre, charm, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
+import type { Tally } from "./spectacle";
+import { Projectiles, seatGlow } from "./projectiles";
 
 // The cascade playback, driven only by engine events and the numbers in them (#186, #187): charge
 // flows outward step by step, amplifiers flare, junctions split the glow, caps go off with their
@@ -46,10 +48,11 @@ export interface Refs {
   shields: Map<string, { text: Text; x: number; y: number }>;
   intent?: Box; // the enemy's intent card
   charms: Map<string, { x: number; y: number }>; // "seat:charm" -> the charm icon under its name plate (#108)
+  plates: Map<string, { x: number; y: number }>; // seat -> its name plate, where coins land (#189)
 }
 
 export function newRefs(): Refs {
-  return { hand: new Map(), nodes: new Map(), slots: new Map(), handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map() };
+  return { hand: new Map(), nodes: new Map(), slots: new Map(), handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map(), plates: new Map() };
 }
 
 export function paintBar(b: BarRef, value: number): void {
@@ -94,6 +97,9 @@ function boxOf(p: Pos): Box {
 
 const CAP_COLOR = { damage: "#ff6a5f", block: "#9cc4ff", coins: "#ffd23f" };
 const CAP_SOUND = { damage: "effect:damage", block: "effect:block", coins: "coins" };
+// Events that belong to the step already under way: what is still flying keeps flying. Any other
+// event waits for it to land first.
+const IN_STEP: GameEvent["type"][] = ["nodeLit", "capFired", "damage", "block", "coinsGained", "charm", "fizzle", "passive"];
 
 // ---- the animator ----
 
@@ -125,9 +131,11 @@ export class Animator {
   private inCascade = false;
   private tally: Tally = { damage: 0, block: 0, coins: 0 };
   private pile: Phaser.GameObjects.Text[] = []; // stacked numbers still on screen
+  private fx: Projectiles;
   skipping = false; // the player skipped the cascade: slow motion is off and the fast-forward stays on
 
   constructor(private scene: Phaser.Scene) {
+    this.fx = new Projectiles(scene, () => this.refs);
     scene.tweens.timeScale = 1; // a restarted scene never inherits slow motion or a skip
     scene.time.timeScale = 1;
   }
@@ -149,6 +157,9 @@ export class Animator {
   // the animation wants the table held (the tally, slow motion); most events resolve at once.
   async run(ev: GameEvent, shown: BattleView, apply: () => void): Promise<void> {
     const scene = this.scene;
+    // Shots in the air land before the next step starts, and before an enemy's death plays.
+    const kills = ev.type === "damage" && ev.side === "enemy" && shown.enemy.health - ev.amount <= 0;
+    if (kills || !IN_STEP.includes(ev.type)) await this.fx.landed();
     // The cascade is over when the enemy's block resets (or the battle ends): tally it first.
     if (this.inCascade && (ev.type === "blockReset" || ev.type === "battleEnd")) {
       this.inCascade = false;
@@ -205,12 +216,8 @@ export class Animator {
         playSound(CAP_SOUND[ev.effect], 1 + this.tier * 3);
         if (node) {
           const at = centre(boxOf(node.pos));
-          const target = this.targetOf(ev.effect, refs);
-          for (let i = 0; i < Math.min(ev.triggers, 4); i++) {
-            const go = () => (ev.effect === "damage" ? damage(scene, at, target) : ev.effect === "block" ? block(scene, at, target) : coins(scene, at));
-            if (i === 0) go();
-            else scene.time.delayedCall(scaleTime(i * 110), go);
-          }
+          this.fx.cap(ev, shown, at);
+          seatGlow(scene, at, DW * node.pos.k, seatColour(shown.seatOrder, ev.owner), true);
           const text = ev.triggers > 1 ? `${ev.value}×${ev.triggers}` : String(ev.value);
           floatText(scene, node.pos.x, node.pos.y, text, CAP_COLOR[ev.effect], Math.max(30, Math.round(60 * node.pos.k + 18 + this.tier * 6)), 1000);
           if (ev.value >= P.lightning.minCap && !reducedFlashing()) {
@@ -277,7 +284,7 @@ export class Animator {
       }
       case "coinsGained":
         if (this.inCascade) this.tally.coins += ev.amount;
-        floatText(scene, 960, 600, `${ev.player}: +${ev.amount} coins`, "#ffd23f", 40, 1000);
+        if (!refs.plates.has(ev.player)) floatText(scene, 960, 600, `${ev.player}: +${ev.amount} coins`, "#ffd23f", 40, 1000); // otherwise the coins land on the plate
         break;
       case "passive": {
         const bar = refs.bars.get(ev.passive === "auditor" ? "party" : "enemy");
@@ -299,19 +306,6 @@ export class Animator {
     if (slow) await this.slowMotion();
   }
 
-  // Where a cap's effect lands: the enemy's bar, or the party's block counter. Coins stay at the cap.
-  private targetOf(effect: "damage" | "block" | "coins", refs: Refs): Point | undefined {
-    if (effect === "damage") {
-      const bar = refs.bars.get("enemy");
-      return bar ? { x: bar.x + bar.w / 2, y: bar.y + bar.h / 2 } : undefined;
-    }
-    if (effect === "block") {
-      const sh = refs.shields.get("party");
-      return sh ? { x: sh.x + 30, y: sh.y } : undefined;
-    }
-    return undefined;
-  }
-
   // A domino lights: it flashes in the heat colour with its charge, an amplifier flares (bigger for
   // a bigger change), a junction splits the glow, and charge flows out along each branch at once.
   private nodeLit(ev: Extract<GameEvent, { type: "nodeLit" }>, shown: BattleView): void {
@@ -326,6 +320,7 @@ export class Animator {
     const box = boxOf(node.pos);
     const at = centre(box);
     flash(scene, box, color);
+    seatGlow(scene, at, box.w, seatColour(shown.seatOrder, ev.owner));
     floatText(scene, node.pos.x, node.pos.y - (DH * node.pos.k) / 2 - 8, String(ev.charge), "#ffe14d", Math.max(22, Math.round(40 * node.pos.k + 14)), 700);
 
     // What it did to the charge: compare with the charge its parent was lit with.

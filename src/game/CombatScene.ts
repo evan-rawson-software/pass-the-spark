@@ -568,6 +568,7 @@ export class CombatScene extends Phaser.Scene {
     }
     layer.add(g);
     layer.bringToTop(t);
+    if (deckSeat !== undefined) this.anim.refs.plates.set(deckSeat, { x: cx, y: cy }); // where this seat's coins land
     if (deckSeat !== undefined) this.deckZone(layer, cx, cy, w, h, deckSeat);
   }
 
