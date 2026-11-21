@@ -61,9 +61,7 @@ export function throughNode(state: CharmInput, owner: string, d: Domino, charge:
     if (amp.op === "add") {
       result.out = charge + amp.value;
     } else if (amp.op === "mul") {
-      let factor = amp.value;
-      if (number(state, owner, "overcharge", "multiplier") > factor) factor = use("overcharge", number(state, owner, "overcharge", "multiplier"));
-      result.out = charge * factor;
+      result.out = charge * (amp.value + use("overcharge", number(state, owner, "overcharge", "multiplierAdd")));
     } else if (amp.op === "echo") {
       result.echo = amp.value + use("resonance", number(state, owner, "resonance", "repeats"));
     } else {
