@@ -12,7 +12,7 @@ const players = ["a", "b", "c"];
 // Weaker enemies, so the plain "first legal move" play below wins its battles.
 function easyContent() {
   const content = loadContent();
-  for (const e of content.enemies) if (e.tier === "basic") e.maxHealth = 200;
+  for (const e of content.enemies) if (e.tier === "basic") e.maxHealth = 30;
   return content;
 }
 
@@ -67,7 +67,7 @@ test("two battles: health carries over, seats rotate and the lead carries over; 
   const carriedLead = afterFirst.lead;
 
   const second = play(afterFirst, (r) => r.battle !== null).run;
-  expect(second.battle!.seatOrder).toEqual(["b", "c", "a", "enemy"]); // one seat on, enemy still last
+  expect(second.battle!.seatOrder).toEqual(["b", "c", "a"]); // one seat on
   expect(second.battle!.lead).toBe(carriedLead); // the rotation didn't change who leads
   expect(second.battle!.party.health).toBe(afterFirst.health); // health carried over
   expect(second.battle!.round).toBe(1);

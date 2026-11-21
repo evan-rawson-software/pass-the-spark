@@ -1,6 +1,7 @@
 // npm run sim [battlesPerEnemy] [seed]
-// Plays random and bot battles (2 players) against each enemy in data/ and prints, per enemy, random
-// and bot side by side.
+// Plays random and bot battles against each enemy in data/ with 3 players and again with 4 (runs are
+// 3-4 players and enemy health scales with party size). Prints, per enemy, random and bot side by
+// side, then how cascades went.
 //
 // Columns:
 //   win      share of battles won
@@ -17,6 +18,9 @@
 //   caps     average caps per cascade
 //   fizz     average ends left uncapped (fizzled) per cascade
 //   dmg      average damage reaching the enemy's health per cascade (after its block)
+//
+// After each table: the spread of damage per cascade (0 / 1-5 / 6-10 / 11+), damage caps against block
+// caps that went off, and how cascades started (every end capped / a player set off / everyone passed).
 
 import { enemies, playRandomBattle } from "./randomPlay";
 import type { BattleStats, Player } from "./randomPlay";
@@ -40,8 +44,15 @@ interface Totals {
   caps: number;
   fizzled: number;
   damage: number;
+  buckets: number[]; // cascades dealing 0, 1-5, 6-10, 11+ damage
+  damageCaps: number;
+  blockCaps: number;
+  ended: Record<string, number>;
 }
-const empty = (): Totals => ({ wins: 0, rounds: 0, turns: 0, withChoice: 0, withPlays: 0, choices: 0, playOptions: 0, cascades: 0, nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0 });
+const empty = (): Totals => ({
+  wins: 0, rounds: 0, turns: 0, withChoice: 0, withPlays: 0, choices: 0, playOptions: 0, cascades: 0, nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0,
+  buckets: [0, 0, 0, 0], damageCaps: 0, blockCaps: 0, ended: { capped: 0, player: 0, passes: 0 },
+});
 
 function add(t: Totals, r: BattleStats): void {
   if (r.result === "won") t.wins += 1;
@@ -58,6 +69,10 @@ function add(t: Totals, r: BattleStats): void {
     t.caps += c.caps;
     t.fizzled += c.fizzled;
     t.damage += c.damage;
+    t.buckets[c.damage === 0 ? 0 : c.damage <= 5 ? 1 : c.damage <= 10 ? 2 : 3] += 1;
+    t.damageCaps += c.damageCaps;
+    t.blockCaps += c.blockCaps;
+    t.ended[c.ended] += 1;
   }
 }
 
@@ -74,33 +89,8 @@ function cells(t: Totals): string[] {
 const header = ["win", "rounds", ">1 opt", ">1 play", "opts", "plays", "board", "junc", "caps", "fizz", "dmg"];
 const widths = header.map((h) => Math.max(h.length, 7));
 const row = (label: string, who: string, values: string[]) =>
-  label.padEnd(16) + who.padEnd(7) + values.map((v, i) => v.padStart(widths[i] + 1)).join("");
-
-console.log(`${battles} battles per enemy, 2 players, base seed ${baseSeed}`);
-console.log("opts/plays count distinct legal choices per player turn; see the column notes at the top of scripts/sim.ts.");
-console.log("'>1 opt' counts pass and set off as choices; '>1 play' counts only plays (domino x end).");
-console.log("Board, junc, caps, fizz and dmg are per cascade, averaged over all cascades of the battles.");
-console.log("");
-console.log("".padEnd(23) + header.map((h, i) => h.padStart(widths[i] + 1)).join(""));
-
+  label.padEnd(24) + who.padEnd(7) + values.map((v, i) => v.padStart(widths[i] + 1)).join("");
 const players: Player[] = ["random", "bot"];
-const byTier = new Map<string, Record<Player, Totals>>();
-const all: Record<Player, Totals> = { random: empty(), bot: empty() };
-for (const enemy of enemies) {
-  const tier = byTier.get(enemy.tier) ?? { random: empty(), bot: empty() };
-  byTier.set(enemy.tier, tier);
-  const per: Record<Player, Totals> = { random: empty(), bot: empty() };
-  for (const player of players) {
-    for (let i = 0; i < battles; i++) {
-      const r = playRandomBattle(enemy.id, baseSeed + i, maxSteps, player);
-      add(per[player], r);
-      add(tier[player], r);
-      add(all[player], r);
-    }
-  }
-  console.log(row(`${enemy.id} (${enemy.tier})`, "random", cells(per.random)));
-  console.log(row("", "bot", cells(per.bot)));
-}
 
 // Totals are over battles, so the win rate of a group divides by its battle count.
 function group(label: string, t: Record<Player, Totals>, count: number): void {
@@ -111,9 +101,56 @@ function group(label: string, t: Record<Player, Totals>, count: number): void {
     console.log(row(player === "random" ? label : "", player, c));
   }
 }
-console.log("");
-console.log("BY TIER");
-for (const [tier, t] of byTier) group(tier, t, enemies.filter((e) => e.tier === tier).length);
-console.log("");
-console.log("ALL ENEMIES");
-group("all", all, enemies.length);
+
+function behaviour(label: string, t: Record<Player, Totals>): void {
+  for (const player of players) {
+    const x = t[player];
+    const b = x.buckets.map((n) => pct(n, x.cascades).padStart(6));
+    const e = [x.ended.capped, x.ended.player, x.ended.passes].map((n) => pct(n, x.cascades).padStart(6));
+    console.log(
+      (player === "random" ? label : "").padEnd(10) + player.padEnd(8) + b.join(" ") + " |" + String(x.damageCaps).padStart(8) + String(x.blockCaps).padStart(8) + " |" + e.join(" "),
+    );
+  }
+}
+
+console.log(`${battles} battles per enemy and party size, base seed ${baseSeed}`);
+console.log("opts/plays count distinct legal choices per player turn; see the column notes at the top of scripts/sim.ts.");
+console.log("'>1 opt' counts pass and set off as choices; '>1 play' counts only plays (domino x end).");
+console.log("Board, junc, caps, fizz and dmg are per cascade, averaged over all cascades of the battles.");
+
+for (const partySize of [3, 4]) {
+  console.log("");
+  console.log(`===== ${partySize} PLAYERS =====`);
+  console.log("".padEnd(31) + header.map((h, i) => h.padStart(widths[i] + 1)).join(""));
+  const byTier = new Map<string, Record<Player, Totals>>();
+  const all: Record<Player, Totals> = { random: empty(), bot: empty() };
+  for (const enemy of enemies) {
+    const tier = byTier.get(enemy.tier) ?? { random: empty(), bot: empty() };
+    byTier.set(enemy.tier, tier);
+    const per: Record<Player, Totals> = { random: empty(), bot: empty() };
+    for (const player of players) {
+      for (let i = 0; i < battles; i++) {
+        const r = playRandomBattle(enemy.id, baseSeed + i, maxSteps, player, partySize);
+        add(per[player], r);
+        add(tier[player], r);
+        add(all[player], r);
+      }
+    }
+    console.log(row(`${enemy.id} (${enemy.tier})`, "random", cells(per.random)));
+    console.log(row("", "bot", cells(per.bot)));
+  }
+  console.log("");
+  console.log("BY TIER");
+  for (const [tier, t] of byTier) group(tier, t, enemies.filter((e) => e.tier === tier).length);
+  console.log("");
+  console.log("ALL ENEMIES");
+  group("all", all, enemies.length);
+
+  console.log("");
+  console.log(`HOW CASCADES WENT (${partySize} players): share of cascades by damage dealt | caps that went off | how the cascade started`);
+  console.log(
+    "".padEnd(18) + ["0", "1-5", "6-10", "11+"].map((h) => h.padStart(6)).join(" ") + " |" + "dmg caps".padStart(8) + "blk caps".padStart(8) + " |" + ["capped", "set off", "passes"].map((h) => h.padStart(6)).join(" "),
+  );
+  for (const [tier, t] of byTier) behaviour(tier, t);
+  behaviour("all", all);
+}

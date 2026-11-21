@@ -18,6 +18,9 @@ export interface CascadeStats {
   caps: number; // caps among them
   fizzled: number; // ends left uncapped
   damage: number; // damage that reached the enemy's health
+  damageCaps: number; // damage caps that went off
+  blockCaps: number; // block caps that went off
+  ended: "capped" | "player" | "passes"; // every end capped, a player set it off, or everyone passed
 }
 
 export interface BattleStats {
@@ -33,15 +36,13 @@ export interface BattleStats {
   final: BattleState;
 }
 
-export function newBattle(enemyId: string, seed: number): BattleState {
+export function newBattle(enemyId: string, seed: number, partySize: number): BattleState {
+  const ids = Array.from({ length: partySize }, (_, i) => "p" + (i + 1));
   return createBattle({
     config,
     content: { dominoes, enemies },
-    players: [
-      { id: "p1", deck: starterDeck },
-      { id: "p2", deck: starterDeck },
-    ],
-    seatOrder: ["p1", "p2"],
+    players: ids.map((id) => ({ id, deck: starterDeck })),
+    seatOrder: ids,
     enemyId,
     seed,
   });
@@ -50,13 +51,13 @@ export function newBattle(enemyId: string, seed: number): BattleState {
 export type Player = "random" | "bot";
 
 // Plays one battle with random legal choices, or with the bot. Stops after maxSteps choices.
-export function playRandomBattle(enemyId: string, seed: number, maxSteps: number, player: Player = "random"): BattleStats {
-  let state = newBattle(enemyId, seed);
+export function playRandomBattle(enemyId: string, seed: number, maxSteps: number, player: Player = "random", partySize = 2): BattleStats {
+  let state = newBattle(enemyId, seed, partySize);
   let pick = seed; // the picker's own RNG state
   const stats: BattleStats = {
     result: null, rounds: 0, turns: 0, turnsWithChoice: 0, turnsWithPlays: 0, choices: 0, playOptions: 0, cascades: [], steps: 0, final: state,
   };
-  const fresh = (): CascadeStats => ({ nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0 });
+  const fresh = (): CascadeStats => ({ nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0, damageCaps: 0, blockCaps: 0, ended: "capped" });
   let cascade = fresh();
   while (state.phase !== "over" && stats.steps < maxSteps) {
     const pending = getPendingChoice(state);
@@ -101,6 +102,9 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
         if (kind === "cap") cascade.caps += 1;
       } else if (e.type === "fizzle") cascade.fizzled += 1;
       else if (e.type === "damage" && e.side === "enemy") cascade.damage += e.amount;
+      else if (e.type === "capFired" && e.effect === "damage") cascade.damageCaps += 1;
+      else if (e.type === "capFired" && e.effect === "block") cascade.blockCaps += 1;
+      else if (e.type === "setOff") cascade.ended = e.reason === "player" ? "player" : e.reason === "passes" ? "passes" : "capped";
     }
     if (result.events.some((e) => e.type === "setOff")) {
       stats.cascades.push(cascade);

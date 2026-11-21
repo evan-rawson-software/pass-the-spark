@@ -1,29 +1,45 @@
 // The co-op bot: a yardstick, not a strong player. It scores every legal choice (a play on each
 // end, pass, set off) from what a seat can see: getPendingChoice for legality, previewPlay and
-// the view's openEnds for what a play does, previewCascade for what setting off would do. It never
-// reads hidden state. Tooling only, not engine rules. Ties are broken with the caller's seeded RNG
-// state, which is passed in and returned.
+// the view's openEnds for what a play does, previewCascade for what setting off would do, and the
+// view's intent and party block for how much block is worth. It never reads hidden state.
+// Tooling only, not engine rules. Ties are broken with the caller's seeded RNG state, which is
+// passed in and returned.
 //
-// Score of a choice (higher is better):
-//   cap:        the damage/block/coins it adds (its total), plus the charge it catches, so a
-//               strongly charged end is worth capping before it fizzles
-//   amplifier:  the charge it adds to its path, plus a little for the charge it carries on
-//   junction:   a small bonus for a new branch, plus the charge it adds on both branches
+// Scores are in "points of damage". Higher is better.
+//   amplifier:  the extra charge it adds to its path, times a base cap value we still expect to land
+//               (we expect a cap to land if we hold one, so the charge is not wasted)
+//   junction:   a new path to cap, valued like a cap landing at the charge it carries
+//   cap:        damage is worth its value; block is worth its value up to what the intent will still
+//               deal after block already in place (surplus block is worth little); coins are worth a little.
+//               Capping a strongly charged end earns a bonus per point of charge above 1, on top of its value
+//               The cap on the last open end sets the chain off, so it is scored like setting off
 //   pass:       a small cost (it gives the turn away)
-//   set off:    lethal now wins; otherwise minus the charge on ends that would fizzle
+//   set off:    lethal wins; otherwise what the cascade is worth, minus a fizzle penalty for the charge
+//               on every end it would leave uncapped
 
 import { getPendingChoice, previewCascade, previewPlay } from "../src/engine/battle";
 import type { Choice } from "../src/engine/battle";
 import { nextInt } from "../src/engine/rng";
 import type { BattleView } from "../src/engine/view";
+import type { CapEffectKind } from "../src/engine/types";
 
-const CAP_CHARGE_WEIGHT = 1; // per point of charge a cap catches
-const CHARGE_WEIGHT = 2; // per point of charge an amplifier or junction adds, per branch
+const BASE_CAP_VALUE = 3; // what a cap we expect to land is worth per point of charge
+const EXPECTED_CAPS = 2; // at most this many caps in hand count toward the value of building charge
+const CHARGED_END_BONUS = 1; // per point of charge above 1 on an end a cap goes on
+const SURPLUS_BLOCK_WEIGHT = 0.25; // block beyond what the intent will deal
+const COIN_WEIGHT = 0.5;
 const CARRY_WEIGHT = 0.1; // per point of charge an amplifier or junction passes on
-const BRANCH_BONUS = 3; // a junction's new branch
 const PASS_COST = 0.5;
-const FIZZLE_WEIGHT = 1; // per point of charge on an end set off would leave uncapped
+const FIZZLE_WEIGHT = 0.5; // per point of charge on an end set off would leave uncapped, times the base cap value
+const SET_OFF_SHARE = 0.5; // how much of the cascade's worth setting off counts for
 const LETHAL = 1000;
+
+// What the enemy's intent will deal to the party, before block.
+function incomingAttack(view: BattleView): number {
+  let total = 0;
+  for (const a of view.intent.actions) if (a.kind === "attack") total += a.value * (a.hits ?? 1);
+  return total;
+}
 
 // The choice `seat` makes in this view, and the new tie-break RNG state. The seat must be the
 // one the battle is waiting on.
@@ -31,29 +47,46 @@ export function botChoice(view: BattleView, seat: string, rng: number): { choice
   const pending = getPendingChoice(view);
   if (pending === null || pending.player !== seat) throw new Error("not this seat's turn");
 
+  const cascade = previewCascade(view);
+  // Block the party can still use: what the intent deals, less block already in place or already on the board.
+  const blockNeeded = Math.max(0, incomingAttack(view) - view.party.block - cascade.block);
+  const worth = cascade.damage + Math.min(cascade.block, Math.max(0, incomingAttack(view) - view.party.block));
+  const hand = view.players.find((p) => p.id === seat)!.hand;
+  const capsInHand = hand.filter((id) => view.dominoes.find((d) => d.id === id)?.kind === "cap").length;
+  const expected = Math.min(capsInHand, EXPECTED_CAPS); // caps we can still put on the paths we build
+
   const scored: { choice: Choice; score: number }[] = [{ choice: { type: "pass" }, score: -PASS_COST }];
 
   if (pending.canSetOff) {
-    const cascade = previewCascade(view);
     const lethal = cascade.damage >= view.enemy.health;
-    const fizzling = view.openEnds.reduce((sum, e) => sum + e.charge, 0);
-    scored.push({ choice: { type: "setOff" }, score: lethal ? LETHAL : -FIZZLE_WEIGHT * fizzling });
+    const fizzled = view.openEnds.reduce((sum, e) => sum + e.charge, 0);
+    scored.push({ choice: { type: "setOff" }, score: lethal ? LETHAL : SET_OFF_SHARE * worth - FIZZLE_WEIGHT * BASE_CAP_VALUE * fizzled });
   }
 
   for (const option of pending.plays) {
+    const domino = view.dominoes.find((d) => d.id === option.domino)!;
     for (const end of pending.opener ? [undefined] : option.ends) {
       const pv = previewPlay(view, seat, option.domino, end);
       if (!pv) continue;
-      const open = end === undefined ? undefined : view.openEnds.find((e) => e.end === end);
-      const before = open ? open.charge : 1;
+      const before = end === undefined ? 1 : view.openEnds.find((e) => e.end === end)!.charge;
       let score: number;
-      const kind = view.dominoes.find((d) => d.id === option.domino)?.kind;
-      if (kind === "cap") {
-        score = pv.total + CAP_CHARGE_WEIGHT * pv.charge; // a cap
+      if (domino.kind === "cap") {
+        const kind: CapEffectKind = domino.effect!.kind;
+        let value = pv.total;
+        if (kind === "block") value = Math.min(pv.total, blockNeeded) + SURPLUS_BLOCK_WEIGHT * Math.max(0, pv.total - blockNeeded);
+        else if (kind === "coins") value = COIN_WEIGHT * pv.total;
+        score = value + CHARGED_END_BONUS * (pv.charge - 1);
+        if (view.openEnds.length === 1) {
+          // The last open end: this cap sets the chain off, so it counts like setting off (lethal wins).
+          const lethal = kind === "damage" && cascade.damage + pv.total >= view.enemy.health;
+          score = lethal ? LETHAL : SET_OFF_SHARE * (worth + score);
+        }
       } else {
-        const isJunction = kind === "junction";
-        const fed = isJunction ? 2 : 1; // paths the charge feeds
-        score = CHARGE_WEIGHT * (pv.charge - before) * fed + CARRY_WEIGHT * pv.charge * fed + (isJunction ? BRANCH_BONUS : 0);
+        const paths = domino.kind === "junction" ? 2 : 1;
+        // An amplifier is worth its extra charge on a path we can still cap; a junction opens a new path to cap.
+        const built = BASE_CAP_VALUE * (pv.charge - before) * paths * expected;
+        const branch = domino.kind === "junction" && capsInHand > 1 ? BASE_CAP_VALUE * pv.charge : 0;
+        score = built + branch + CARRY_WEIGHT * pv.charge * paths;
       }
       scored.push({ choice: { type: "play", domino: option.domino, end }, score });
     }
