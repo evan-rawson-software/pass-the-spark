@@ -77,9 +77,10 @@ export class SpeedControl {
     this.box.add([z, hint]);
     if (!this.open) return;
 
-    // The list opens upward from the button; if it would leave the screen it shifts down.
+    // The list opens upward from the button; if it would leave the screen it opens downward instead.
     const h = SPEEDS.length * D.itemH;
-    const listTop = Math.max(0, top - D.gap - h);
+    const up = top - D.gap - h;
+    const listTop = up >= 0 ? up : top + D.buttonH + D.gap;
     const lg = s.add.graphics();
     lg.fillStyle(0x0d2a20, 0.98);
     lg.fillRoundedRect(left, listTop, D.buttonW, h, 14);

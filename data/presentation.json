@@ -118,30 +118,30 @@
     "seatGlow": { "sizeFactor": 1.5, "ms": 520, "alpha": 0.9, "capFactor": 2.4, "capMs": 700, "reducedAlpha": 0.3, "reducedMs": 800 }
   },
   "speedControl": {
-    "comment": "Combat playback speed button and its list (#220), read by src/game/speedControl.ts. Px on the 1920x1080 table. The button sits with its right edge at right; the list opens upward, gap above it, and is moved down if it would leave the screen.",
-    "right": 1875, "y": 960, "buttonW": 112, "buttonH": 40, "itemH": 44, "gap": 8, "fontSize": 24, "depth": 650
+    "comment": "Combat playback speed button and its list (#220), read by src/game/speedControl.ts. Px on the 1920x1080 table. The button sits with its right edge at right; the list opens upward, gap above it, and opens downward instead if it would leave the screen (#228: the button sits in the top-right cluster).",
+    "right": 1810, "y": 56, "buttonW": 80, "buttonH": 40, "itemH": 44, "gap": 8, "fontSize": 22, "depth": 650
   },
   "setOffPreview": {
     "comment": "Set-off preview on the health bars (#222), read by src/game/setOffPreview.ts. Px on the 1920x1080 table. The ghost is the part of a bar the set-off would take; it pulses between alphaLow and alphaHigh every pulseMs (steady at alphaHigh under reduced flashing). spots say where the bars, shields and Set off button are drawn (x, y top-left, w, h; shields centred with size s). Label offsets are from the bar's right edge, the shield or the safe mark. Skull and crack numbers are fractions of the skull radius or the shield size.",
     "spots": {
-      "enemyBar": { "x": 60, "y": 112, "w": 400, "h": 40 },
-      "enemyShield": { "x": 80, "y": 208, "s": 40 },
-      "partyBar": { "x": 1565, "y": 68, "w": 190, "h": 34 },
-      "partyShield": { "x": 1777, "y": 85, "s": 34 },
-      "setOffButton": { "x": 1380, "y": 763, "w": 150, "h": 44 }
+      "enemyBar": { "x": 830, "y": 318, "w": 600, "h": 34 },
+      "enemyShield": { "x": 764, "y": 332, "s": 40 },
+      "partyBar": { "x": 830, "y": 806, "w": 600, "h": 34 },
+      "partyShield": { "x": 1530, "y": 823, "s": 36 },
+      "setOffButton": { "x": 1610, "y": 942, "w": 300, "h": 96 }
     },
     "ghost": { "colour": "#ffffff", "alphaLow": 0.35, "alphaHigh": 0.85, "pulseMs": 700, "minWidth": 2 },
     "text": { "strokeThickness": 5, "strokeColour": "#101010" },
-    "loss": { "colour": "#ff9a94", "fontSize": 26, "enemyDy": -16, "partyDy": 18 },
-    "gain": { "colour": "#8fd0ff", "fontSize": 26, "enemyShieldDx": 70, "partyDy": -20 },
-    "safe": { "colour": "#8fe3a8", "tickColour": "#10301c", "fontSize": 22, "iconDx": 12, "textDx": 30, "dy": 18, "half": 10, "top": 11, "shoulder": 2, "tip": 12, "tickWidth": 3 },
+    "loss": { "colour": "#ff9a94", "fontSize": 28, "dx": 16, "dy": 0 },
+    "gain": { "colour": "#8fd0ff", "fontSize": 26, "enemyShieldDx": -112, "partyDy": -20 },
+    "safe": { "colour": "#8fe3a8", "tickColour": "#10301c", "fontSize": 22, "iconDx": 12, "textDx": 30, "dy": -18, "half": 10, "top": 11, "shoulder": 2, "tip": 12, "tickWidth": 3 },
     "skull": { "size": 17, "colour": "#f4ecd8", "dx": 0.6, "outline": 4, "outlineColour": "#101010", "outlineAlpha": 0.85, "head": 0.8, "headDy": -0.15, "jawHalf": 0.4, "jawTop": 0.35, "jawH": 0.5, "eyeDx": 0.3, "eyeR": 0.22 },
     "crack": { "colour": "#10203a", "width": 3, "points": [[-0.1, -0.5], [0.12, -0.1], [-0.12, 0.15], [0.05, 0.55]] },
     "setOffGlow": { "colour": "#ffe14d", "alphaLow": 0.25, "alphaHigh": 0.9, "pulseMs": 600, "width": 7, "pad": 5 }
   },
   "enemyReactions": {
     "comment": "Enemy reactions (#190), read by src/game/enemyReactions.ts. Times are ms at 1x (scaled by playback speed), distances px on the 1920x1080 table. A hit of at least staggerMin damage staggers instead of flinching. The ghost bar waits delayMs after the last hit, then drains to the real value at perPointMs per point (between minMs and maxMs), so a run of hits shares one drain. Shield cracks show at each crack fraction of the block worn down.",
-    "body": { "x": 1410, "y": 165, "size": 250 },
+    "body": { "x": 1130, "y": 160, "size": 300 },
     "flinch": { "dx": 14, "dy": -8, "ms": 90, "flashAlpha": 0.45, "flashColour": "#ffffff" },
     "stagger": { "staggerMin": 12, "dx": 34, "dy": -20, "ms": 160, "rotation": 0.07, "wobbles": 3, "flashColour": "#ff6a5f" },
     "ghost": { "colour": "#ffffff", "alpha": 0.55, "delayMs": 600, "perPointMs": 14, "minMs": 350, "maxMs": 1800 },
@@ -156,5 +156,58 @@
       "normal": { "ms": 700, "shards": 12, "shardSize": 42, "spread": 220, "ringSize": 420, "shakeIntensity": 0.008, "colour": "#ffe9c8" },
       "boss": { "ms": 1400, "shards": 28, "shardSize": 64, "spread": 380, "ringSize": 760, "shakeIntensity": 0.016, "colour": "#ffb066" }
     }
+  },
+  "combatLayout": {
+    "comment": "Combat screen layout (#228, L1-L8), read by the combat screen files (CombatScene.ts, enemyUnit.ts, turnRail.ts, combatHud.ts). Px on the 1920x1080 table; boxes are x, y top-left with w, h. Colours are #rrggbb. The enemy's body position and size are in enemyReactions.body; the bars' places for the set-off preview are in setOffPreview.spots (keep both in step with the bars below).",
+    "background": {
+      "dim": { "colour": "#0a0f0c", "alpha": 0.45 },
+      "vignette": { "cx": 0.5, "cy": 0.55, "radius": 0.7, "clearUntil": 0.55, "edgeAlpha": 0.65 }
+    },
+    "panel": { "fill": "#082210", "fillAlpha": 0.78, "stroke": "#3c5c4b", "strokeWidth": 2 },
+    "utilities": {
+      "pill": { "x": 1562, "y": 20, "w": 356, "h": 72, "r": 36 },
+      "round": { "x": 1600, "y": 56, "size": 26, "colour": "#b8c4b4" }
+    },
+    "rail": {
+      "panel": { "x": 24, "y": 24, "w": 330, "h": 1032, "r": 22 },
+      "header": { "text": "TURN ORDER", "x": 48, "y": 62, "size": 20, "spacing": 3, "colour": "#b8c4b4" },
+      "rowsTop": 96, "rowX": 34, "rowW": 310, "rowR": 16, "gap": 14, "handRowH": 222, "youRowH": 150,
+      "row": { "fill": "#0f2a1f", "stroke": "#2f5040", "strokeWidth": 2, "turnFill": "#1d4a37", "turnStroke": "#ffd54a", "turnStrokeWidth": 3, "edge": 10 },
+      "name": { "x": 60, "y": 28, "size": 28, "colour": "#f3ead6", "maxW": 140 },
+      "tags": { "x": 60, "y": 62, "h": 24, "size": 15, "gap": 6, "padX": 12, "lead": "#ffb347", "you": "#ffd54a", "next": "#8fe3a5", "pass": "#ff9a94", "away": "#9aa3b2" },
+      "charm": { "size": 30, "right": 330, "areaW": 120, "step": 38, "fill": "#2b2140" },
+      "hand": { "x": 56, "w": 278, "top": 80, "bottom": 46, "minScale": 0.2, "maxScale": 0.36, "scaleStep": 0.02, "gapX": 2, "gapY": 3 },
+      "footer": { "y": 18, "size": 18, "colour": "#b8c4b4", "deckX": 150, "discardX": 204 },
+      "youText": { "x": 60, "y": 86, "size": 18, "colour": "#b8c4b4", "lineGap": 20, "line1": "Your hand is below" },
+      "next": { "glow": "#ffe36b", "glowWidth": 14, "glowAlpha": 0.55, "dimAlpha": 0.45 },
+      "zoom": { "scale": 0.9, "gapX": 16 }
+    },
+    "enemy": {
+      "shadow": { "x": 1130, "y": 292, "rx": 170, "ry": 22, "alpha": 0.35 },
+      "name": { "right": 910, "y": 66, "size": 40, "maxW": 520, "colour": "#ffffff" },
+      "tier": { "x": 945, "y": 78, "r": 20, "stroke": "#ffd54a" },
+      "chip": { "x": 610, "y": 116, "w": 330, "h": 44, "gap": 8, "size": 20, "fill": "#2b2140", "stroke": "#e9d9a8", "textColour": "#f3ead6", "iconR": 17 },
+      "bubble": { "x": 1305, "y": 70, "w": 250, "h": 110, "r": 26, "fill": "#3a1414", "stroke": "#ff6a5f", "strokeWidth": 3, "tail": { "fromY": 96, "tipX": 1258, "tipY": 108, "toY": 124 } },
+      "action": { "icon": 1.2, "numberSize": 60, "hitsSize": 36, "hitsColour": "#ffb3aa", "gap": 10, "pad": 22 },
+      "label": { "y": 200, "size": 17, "spacing": 2, "colour": "#ffb3aa" },
+      "roundChip": { "x": 1305, "y": 224, "w": 250, "h": 46, "gap": 10, "size": 20 },
+      "later": { "x": 1575, "y": 126, "size": 18, "scale": 0.4, "colour": "#9fd1b8" },
+      "bar": { "x": 830, "y": 318, "w": 600, "h": 34, "fontSize": 24 },
+      "shield": { "x": 764, "y": 332, "s": 40 }
+    },
+    "party": {
+      "label": { "right": 814, "y": 823, "size": 20, "spacing": 3, "colour": "#9fd1b8" },
+      "bar": { "x": 830, "y": 806, "w": 600, "h": 34, "fontSize": 24 },
+      "shield": { "x": 1530, "y": 823, "s": 36 }
+    },
+    "board": { "x": 380, "y": 368, "w": 1520, "h": 424 },
+    "hand": { "x": 640, "y": 874, "w": 760, "h": 196, "hint": { "y": 858, "size": 22, "colour": "#cfe9dc" }, "deck": { "x": 560, "y": 964, "discardY": 1012, "size": 20, "colour": "#cfe9dc" } },
+    "actions": {
+      "turn": { "x": 1760, "y": 846, "size": 26, "colour": "#ffd54a", "otherColour": "#b8c4b4" },
+      "pass": { "x": 1610, "y": 866, "w": 300, "h": 60, "fill": "#163a2c", "stroke": "#f3ead6", "strokeAlpha": 0.6, "size": 28, "colour": "#f3ead6" },
+      "setOff": { "x": 1610, "y": 942, "w": 300, "h": 96, "fill": "#ffd54a", "stroke": "#22201c", "strokeWidth": 3, "size": 40, "colour": "#22201c", "offFill": "#163a2c", "offColour": "#5f8f7a" }
+    },
+    "pause": { "y": 392 },
+    "skipHint": { "x": 1130, "y": 780 }
   }
 }

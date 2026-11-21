@@ -44,7 +44,7 @@ export class SetOffPreviewUi {
       const from = e.w * (p.enemyHealth / enemy.maxHealth);
       const to = e.w * (enemy.health / enemy.maxHealth);
       this.ghost(into, e.x + from, e.y, Math.max(to - from, D.ghost.minWidth), e.h);
-      text(e.x + e.w, e.y + D.loss.enemyDy, `−${p.damage}`, D.loss.colour, D.loss.fontSize, 1);
+      text(e.x + e.w + D.loss.dx, e.y + e.h / 2 + D.loss.dy, `−${p.damage}`, D.loss.colour, D.loss.fontSize, 0);
     }
     if (p.canSetOff && p.enemyBlockUsed > 0) {
       const sh = spots.enemyShield;
@@ -61,10 +61,10 @@ export class SetOffPreviewUi {
       const from = b.w * (p.partyHealth / view.party.maxHealth);
       const to = b.w * (view.party.health / view.party.maxHealth);
       this.ghost(into, b.x + from, b.y, Math.max(to - from, D.ghost.minWidth), b.h);
-      text(b.x + b.w, b.y + b.h + 18, `−${p.partyDamage}`, D.loss.colour, D.loss.fontSize, 1);
+      text(b.x + b.w + D.loss.dx, b.y + b.h / 2 + D.loss.dy, `−${p.partyDamage}`, D.loss.colour, D.loss.fontSize, 0);
     } else if (!p.lethal && view.intent.actions.some((a) => a.kind === "attack")) {
-      this.safe(g, b.x + D.safe.iconDx, b.y + b.h + D.safe.dy);
-      text(b.x + D.safe.textDx, b.y + b.h + D.safe.dy, "safe", D.safe.colour, D.safe.fontSize, 0);
+      this.safe(g, b.x + D.safe.iconDx, b.y + D.safe.dy);
+      text(b.x + D.safe.textDx, b.y + D.safe.dy, "safe", D.safe.colour, D.safe.fontSize, 0);
     }
 
     if (glowSetOff) {

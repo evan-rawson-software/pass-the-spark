@@ -56,12 +56,12 @@ export type Pattern =
 
 // Boss passives. Amounts live here, in data.
 export type Passive =
-  | { kind: "auditor"; damage: number; name: string; text?: string } // party damage per repeated cap spark
-  | { kind: "glutton"; heal: number; name: string; text?: string } // health healed at the end of every round
-  | { kind: "hoarder"; multiplier: number; name: string; text?: string } // block per domino on the board
-  | { kind: "smolder"; growth: number; name: string; text?: string } // added to each attack hit per round passed
-  | { kind: "longNight"; growth: number; name: string; text?: string } // added to each attack hit per cap set off
-  | { kind: "warden"; sparks: Spark[]; name: string; text?: string }; // each round one of these sparks is locked against players
+  | { kind: "auditor"; damage: number; name: string; short: string; text?: string } // party damage per repeated cap spark
+  | { kind: "glutton"; heal: number; name: string; short: string; text?: string } // health healed at the end of every round
+  | { kind: "hoarder"; multiplier: number; name: string; short: string; text?: string } // block per domino on the board
+  | { kind: "smolder"; growth: number; name: string; short: string; text?: string } // added to each attack hit per round passed
+  | { kind: "longNight"; growth: number; name: string; short: string; text?: string } // added to each attack hit per cap set off
+  | { kind: "warden"; sparks: Spark[]; name: string; short: string; text?: string }; // each round one of these sparks is locked against players
 
 export interface Enemy {
   id: string;
