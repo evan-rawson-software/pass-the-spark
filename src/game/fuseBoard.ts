@@ -158,7 +158,7 @@ export function layoutTree(board: Board, dominoes: Domino[]): TreeLayout {
     const h = sizeOf(kind).h * s;
     let x = 0;
     if (n.end !== null) {
-      const p = out.tiles.get(board.ends[n.end].node)!;
+      const p = out.tiles.get(board.ends.find((e) => e.id === n.end)!.node)!;
       x = left.get(p.id)! + p.w + D.gap;
     }
     left.set(n.id, x);
@@ -232,8 +232,7 @@ export function chargesInto(view: BattleView, player: string): Map<number, numbe
   const out = new Map<number, number>();
   for (const n of view.board.nodes) {
     if (n.end === null) continue;
-    const cut = view.board.ends.findIndex((e) => e.node >= n.id);
-    const before = { ...view, board: { nodes: view.board.nodes.slice(0, n.id), ends: view.board.ends.slice(0, cut < 0 ? undefined : cut) } };
+    const before = { ...view, board: { ...view.board, nodes: view.board.nodes.filter((x) => x.id < n.id), ends: view.board.ends.filter((e) => e.node < n.id) } };
     const o = getOpenEnds(before, player).find((x) => x.end === n.end);
     if (o) out.set(n.end, o.charge);
   }
@@ -443,11 +442,12 @@ export class FuseBoard {
     this.box = { x: ox, y: oy, w: (lay.x1 - lay.x0) * f, h: (lay.y1 - lay.y0) * f };
     const lit = input.lit ?? new Set<number>();
     const fizzled = input.fizzled ?? new Set<number>();
-    const sparkOf = (end: number) => board.ends[end].spark;
+    const endOf = (id: number) => board.ends.find((e) => e.id === id)!;
+    const sparkOf = (end: number) => endOf(end).spark;
 
     // Fuses first, under the dominoes: from each output to whatever hangs on it.
     for (const fz of lay.fuses) {
-      const e = board.ends[fz.end];
+      const e = endOf(fz.end);
       const pts = fz.pts.map((p) => ({ x: this.X(p.x), y: this.Y(p.y) }));
       this.fuses.set(e.id, drawFuse(this.scene, this.root, pts, f, SPARK_STYLE[sparkOf(e.id)].color, { dim: fizzled.has(e.id), glow: input.glow, burnt: lit.has(e.node), hot: input.hot }));
     }
@@ -464,7 +464,7 @@ export class FuseBoard {
     input.capTotals?.forEach((total, id) => {
       const t = this.tiles.get(id);
       if (!t) return;
-      const d = input.dominoes.find((q) => q.id === board.nodes[id].domino)!;
+      const d = input.dominoes.find((q) => q.id === board.nodes.find((x) => x.id === id)!.domino)!;
       const w = t.pos.w * k, h = t.pos.h * k;
       capNumber(this.scene, this.root, t.pos.x + w / 2 - D.capNumber.dx * f, t.pos.y - h / 2, f, String(total), d.effect?.kind === "block" ? L.colours.cap.block : L.colours.cap.damage);
     });

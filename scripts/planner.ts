@@ -65,27 +65,28 @@ function shape(view: BattleView): string {
   const below = new Map<number, number>(); // end id -> node attached to it
   for (const n of nodes) if (n.end !== null) below.set(n.end, n.id);
   const text = (id: number): string => {
-    const n = nodes[id];
+    const n = nodes.find((x) => x.id === id)!;
     const kids = ends.filter((e) => e.node === id).map((e) => (below.has(e.id) ? text(below.get(e.id)!) : "-"));
     return `${n.domino}@${n.owner}(${kids.join(",")})`;
   };
-  return nodes.length === 0 ? "" : text(0);
+  return nodes.length === 0 ? "" : text(nodes[0].id); // the opener is the first node
 }
 
 // The view after `owner` plays `domino` on `end`. Only the board and that hand change. The board
 // bookkeeping mirrors the engine's own (a node, then one end per output, outputs as the engine's
 // outputsOf says so Hall of Mirrors counts).
 function extend(view: BattleView, owner: string, domino: Domino, end: number | null): BattleView {
-  const { nodes, ends } = view.board;
-  const node = { id: nodes.length, domino: domino.id, owner, end, depth: end === null ? 0 : nodes[ends[end].node].depth + 1 };
-  const outputs = outputsOf(view, owner, domino).map((spark, index) => ({ id: ends.length + index, node: node.id, index, spark }));
+  const { nodes, ends, nextNode, nextEnd } = view.board;
+  const parent = end === null ? null : nodes.find((n) => n.id === ends.find((e) => e.id === end)!.node)!;
+  const node = { id: nextNode, domino: domino.id, owner, end, depth: parent === null ? 0 : parent.depth + 1 };
+  const outputs = outputsOf(view, owner, domino).map((spark, index) => ({ id: nextEnd + index, node: node.id, index, spark }));
   const players = view.players.map((p) => {
     if (p.id !== owner) return p;
     const hand = p.hand.slice();
     hand.splice(hand.indexOf(domino.id), 1);
     return { ...p, hand };
   });
-  return { ...view, board: { nodes: [...nodes, node], ends: [...ends, ...outputs] }, players };
+  return { ...view, board: { nodes: [...nodes, node], ends: [...ends, ...outputs], nextNode: nextNode + 1, nextEnd: nextEnd + outputs.length }, players };
 }
 
 // An estimate of what the open ends can still earn from the caps left in hands: the highest-charge
@@ -136,8 +137,8 @@ function slim(view: BattleView): BattleView {
 // adding nothing is best.
 export function planTree(full: BattleView, rng: number): Placement[] {
   const view = slim(full);
-  const baseEnds = view.board.ends.length;
-  const baseNodes = view.board.nodes.length;
+  const baseEnd = view.board.nextEnd; // ids from here on are the plan's own
+  const baseNode = view.board.nextNode;
   const dominoOf = new Map(view.dominoes.map((d) => [d.id, d]));
   const tieOf = (key: string) => nextUint32(((fnv(key) ^ rng) >>> 0) || 1).value;
 
@@ -178,11 +179,11 @@ export function planTree(full: BattleView, rng: number): Placement[] {
         const key = shape(v);
         if (children.has(key)) continue;
         const placement: Placement = { domino: domino.id, owner };
-        if (end !== null && end < baseEnds) placement.end = end;
+        if (end !== null && end < baseEnd) placement.end = end;
         else if (end !== null) {
-          // An output of a node this plan added: node ids run from baseNodes in plan order.
-          const hung = tree.view.board.ends[end];
-          placement.parent = hung.node - baseNodes;
+          // An output of a node this plan added: node ids run from baseNode in plan order.
+          const hung = tree.view.board.ends.find((e) => e.id === end)!;
+          placement.parent = hung.node - baseNode;
           placement.output = hung.index;
         }
         children.set(key, evaluate(v, [...tree.plan, placement]));
@@ -213,19 +214,19 @@ function endNow(view: BattleView, p: Placement, matched: Map<number, number>): n
 // What a plan was made from, so a later turn can tell whether it still stands: the round, health,
 // block, intent and charms, the board up to where the plan started, and every hand with the
 // dominoes already played from the plan put back.
-function basis(view: BattleView, rng: number, baseNodes: number, matched: Map<number, number>, plan: Placement[]): string {
+function basis(view: BattleView, rng: number, baseNode: number, matched: Map<number, number>, plan: Placement[]): string {
   const hands = view.players.map((p) => ({ id: p.id, charms: p.charms, hand: p.hand.slice() }));
-  for (const [i, node] of matched) hands.find((h) => h.id === plan[i].owner)!.hand.push(view.board.nodes[node].domino);
+  for (const [i, node] of matched) hands.find((h) => h.id === plan[i].owner)!.hand.push(view.board.nodes.find((n) => n.id === node)!.domino);
   for (const h of hands) h.hand.sort();
   const { round, intent, locked, blessing, party } = view;
-  return JSON.stringify([rng, round, intent, locked, blessing, party, view.enemy.health, view.enemy.block, view.board.nodes.slice(0, baseNodes), hands]);
+  return JSON.stringify([rng, round, intent, locked, blessing, party, view.enemy.health, view.enemy.block, view.board.nodes.filter((n) => n.id < baseNode), hands]);
 }
 
 // The bot's memory for one battle (or one run): the plan it made, and what it was made from. Reusing
 // the plan while the board only grows the way the plan said keeps the search to about once a round.
 interface Memory {
   plan: Placement[];
-  baseNodes: number;
+  baseNode: number; // the board's next node id when the plan was made
   basis: string;
 }
 
@@ -233,7 +234,7 @@ interface Memory {
 // else or the plan was made from something other than what the table sees now.
 function matchPlan(view: BattleView, rng: number, memory: Memory): Map<number, number> | null {
   const matched = new Map<number, number>();
-  for (const node of view.board.nodes.slice(memory.baseNodes)) {
+  for (const node of view.board.nodes.filter((n) => n.id >= memory.baseNode)) {
     const i = memory.plan.findIndex((p, k) => {
       if (matched.has(k) || p.domino !== node.domino || p.owner !== node.owner) return false;
       const opener = p.parent === undefined && p.end === undefined; // only the opener has no end
@@ -242,7 +243,7 @@ function matchPlan(view: BattleView, rng: number, memory: Memory): Map<number, n
     if (i < 0) return null;
     matched.set(i, node.id);
   }
-  return basis(view, rng, memory.baseNodes, matched, memory.plan) === memory.basis ? matched : null;
+  return basis(view, rng, memory.baseNode, matched, memory.plan) === memory.basis ? matched : null;
 }
 
 // Makes the bot for one battle or run. botChoice(view, seat, rng) re-plans (or reuses the plan the
@@ -260,7 +261,7 @@ export function createPlannerBot(): (view: BattleView, seat: string, rng: number
     if (!memory || !matched) {
       const plan = planTree(view, rng);
       matched = new Map();
-      memory = { plan, baseNodes: view.board.nodes.length, basis: basis(view, rng, view.board.nodes.length, matched, plan) };
+      memory = { plan, baseNode: view.board.nextNode, basis: basis(view, rng, view.board.nextNode, matched, plan) };
     }
     const ready: Choice = { type: "ready", player: seat, ready: true };
     const next = memory.plan.findIndex((_, i) => !matched.has(i));

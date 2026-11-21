@@ -177,10 +177,37 @@ test("take-backs refund the placement; refused for a node with a child, a teamma
 
   // The opener goes the same way; the board is empty and the next placement is an opener again.
   s = takeBack(s, "a", 0);
-  expect(s.board).toEqual({ nodes: [], ends: [] });
+  expect(s.board).toMatchObject({ nodes: [], ends: [] });
   expect(getPlayerChoices(s, "a")).toMatchObject({ opener: true, placementsLeft: 1 });
   s = play(s, "b", "junction_ember");
   expect(s.board.nodes).toMatchObject([{ owner: "b", domino: "junction_ember", end: null, depth: 0 }]);
+});
+
+test("ids are stable: after a take-back, a choice built on the old view for a gone end or node is refused and changes nothing", () => {
+  let s = setup([["junction_ember", "junction_tide", "strike_ember"], ["junction_gale", "strike_ember"], ["junction_gale", "guard_gale"]]);
+  s = play(s, "a", "junction_ember"); // node 0: end 0 Tide, end 1 Gale
+  s = play(s, "a", "junction_tide", 0); // node 1: end 2 Gale, end 3 Ember
+  s = play(s, "b", "junction_gale", 1); // node 2: end 4 Ember, end 5 Tide
+  s = play(s, "b", "strike_ember", 3); // node 3
+  s = play(s, "c", "junction_gale", 2); // node 4: end 6 Ember, end 7 Tide
+  expect(getView(s, "a").openEnds.map((e) => e.end)).toEqual([4, 5, 6, 7]);
+
+  // b takes node 2 back. It had ends 4 and 5; nothing else is renumbered, and the end it hung from (1) is open again.
+  s = takeBack(s, "b", 2);
+  expect(s.board.nodes.map((n) => n.id)).toEqual([0, 1, 3, 4]);
+  expect(getView(s, "a").openEnds.map((e) => [e.end, e.spark])).toEqual([[1, "Gale"], [6, "Ember"], [7, "Tide"]]);
+
+  // a's choice was built before the take-back: strike_ember on end 4, which was legal then. With index ids,
+  // end 4 would now be c's Ember end and the play would land there. Now it is refused and nothing changes.
+  const before = JSON.stringify(s);
+  expect(() => play(s, "a", "strike_ember", 4)).toThrow(/illegal end/);
+  // The same goes for b taking node 2 back twice: with index ids that would remove b's other leaf, node 3.
+  expect(() => takeBack(s, "b", 2)).toThrow(/can't take that node back/);
+  expect(JSON.stringify(s)).toBe(before);
+
+  // The re-opened end keeps its id and takes a new play; the open-end count follows.
+  s = play(s, "c", "guard_gale", 1);
+  expect(getView(s, "a").openEnds.map((e) => e.end)).toEqual([6, 7]);
 });
 
 test("echo and spectrum on a branching tree: echo doubles the caps further along its path, spectrum counts the sparks on its path", () => {

@@ -72,10 +72,11 @@ export interface PartyState {
 }
 
 // A domino on the board. end is the end it is attached to (null for the opener); depth counts steps from the opener.
-// Nodes are stored in creation order, which is placement order (a take-back removes a node and the rest close up),
-// and a node is always created after the node it hangs from.
+// Nodes are stored in creation order, which is placement order, and a node is always created after the node it
+// hangs from. Ids are stable: a node keeps its id when another is taken back, so ids rise in creation order
+// but can have gaps. Always look a node up by id, never by position.
 export interface BoardNode {
-  id: number; // index in board.nodes
+  id: number; // from board.nextNode; never reused
   domino: string;
   owner: string;
   end: number | null;
@@ -84,7 +85,7 @@ export interface BoardNode {
 
 // An output of a node. It is open when no node is attached to it.
 export interface BoardEnd {
-  id: number; // index in board.ends
+  id: number; // from board.nextEnd; never reused
   node: number;
   index: number; // which of the node's outputs
   spark: Spark;
@@ -93,6 +94,10 @@ export interface BoardEnd {
 export interface Board {
   nodes: BoardNode[];
   ends: BoardEnd[];
+  // The ids the next node and the next end get. They only rise, so an id a take-back freed is never reused and a
+  // choice built on an older view can't land on something else. Missing in older saves: max id + 1 then.
+  nextNode: number;
+  nextEnd: number;
 }
 
 export interface BattleState {
@@ -203,7 +208,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     seatOrder,
     round: 0,
     phase: "build",
-    board: { nodes: [], ends: [] },
+    board: { nodes: [], ends: [], nextNode: 0, nextEnd: 0 },
     intent: { id: "", actions: [] },
     locked: null,
     party: { health: partyHealth, maxHealth: config.partyMaxHealth, block: 0 },
@@ -316,7 +321,7 @@ export function step(input: BattleState, choice: Choice): StepResult {
     addNode(state, player.id, getDomino(state, choice.domino), choice.end ?? null, events);
   } else if (choice.type === "takeBack") {
     if (!legal.takeBacks.includes(choice.node)) throw new Error("can't take that node back");
-    const node = state.board.nodes[choice.node];
+    const node = getNode(state.board, choice.node);
     player.hand.push(node.domino);
     removeFromBoard(state.board, node.id);
     events.push({ type: "takeBack", player: player.id, domino: node.domino, node: node.id });
@@ -351,35 +356,35 @@ function capTriggers(config: Config, flow: NodeFlow): number {
 
 // Nodes are in creation order and a parent is always created first, so one pass is enough.
 // Charms of each node's owner are included; caps then get their charm bonuses in cascade order.
-function computeFlows(state: Pick<BattleState, "board" | "dominoes" | "players" | "charmDefs" | "blessing">): NodeFlow[] {
-  const { nodes, ends } = state.board;
-  const flows: NodeFlow[] = [];
+function computeFlows(state: Pick<BattleState, "board" | "dominoes" | "players" | "charmDefs" | "blessing">): Map<number, NodeFlow> {
+  const { nodes } = state.board;
+  const flows = new Map<number, NodeFlow>(); // by node id, in creation order
   for (const node of nodes) {
     const d = getDomino(state, node.domino);
     let charge = 1;
     let echo = 0;
     let sparks: Spark[] = [];
     if (node.end !== null) {
-      const end = ends[node.end];
-      const parent = flows[end.node];
+      const end = getEnd(state.board, node.end);
+      const parent = flows.get(end.node) as NodeFlow;
       charge = parent.out;
       echo = parent.echo;
       sparks = parent.sparks.includes(end.spark) ? parent.sparks : [...parent.sparks, end.spark];
     }
     const through = throughNode(state, node.owner, d, charge, sparks.length, node.end === null);
-    const intake = node.end === null ? null : ends[node.end].spark;
+    const intake = node.end === null ? null : getEnd(state.board, node.end).spark;
     // Spark Shrine: a domino attached to the blessed spark adds charge after its own change (and after charms). A cap goes off at the boosted charge.
     if (intake !== null && state.blessing && intake === state.blessing.spark) {
       if (d.kind === "cap") charge += state.blessing.strength;
       else through.out += state.blessing.strength;
     }
-    flows.push({ charge, out: through.out, echo: echo + through.echo, sparks, intake, bonus: 0, extra: 0, charms: through.charms });
+    flows.set(node.id, { charge, out: through.out, echo: echo + through.echo, sparks, intake, bonus: 0, extra: 0, charms: through.charms });
   }
   const firstDone: string[] = [];
   for (const node of cascadeOrder(nodes)) {
     const d = getDomino(state, node.domino);
     if (d.kind !== "cap" || !d.effect) continue;
-    const flow = flows[node.id];
+    const flow = flows.get(node.id) as NodeFlow;
     const bonus = capBonus(state, node.owner, d.effect.kind, flow.intake as Spark);
     const triggers = capExtraTriggers(state, node.owner, flow.intake as Spark, !firstDone.includes(node.owner));
     firstDone.push(node.owner);
@@ -390,13 +395,21 @@ function computeFlows(state: Pick<BattleState, "board" | "dominoes" | "players" 
   return flows;
 }
 
-// The order the cascade goes off in: by depth from the opener, then in creation order.
+// The order the cascade goes off in: by depth from the opener, then in creation order (ids rise in creation order).
 function cascadeOrder(nodes: BoardNode[]): BoardNode[] {
   return nodes.slice().sort((a, b) => a.depth - b.depth || a.id - b.id);
 }
 
 // A cap that is never played, used to ask what a cap placed on an open end would get.
 const PROBE: Domino = { id: "#probe", name: "", kind: "cap", intake: "any", output: [], effect: { kind: "block", base: 0 } };
+
+function getNode(board: Board, id: number): BoardNode {
+  return board.nodes.find((n) => n.id === id) as BoardNode;
+}
+
+function getEnd(board: Board, id: number): BoardEnd {
+  return board.ends.find((e) => e.id === id) as BoardEnd;
+}
 
 function openEnds(state: Pick<BattleState, "board">): BoardEnd[] {
   return state.board.ends.filter((e) => !state.board.nodes.some((n) => n.end === e.id));
@@ -406,8 +419,8 @@ function openEnds(state: Pick<BattleState, "board">): BoardEnd[] {
 export function getOpenEnds(state: Pick<BattleState, "board" | "dominoes" | "config" | "players" | "charmDefs" | "blessing">, player: string): OpenEndView[] {
   return openEnds(state).map((e) => {
     const board: Board = JSON.parse(JSON.stringify(state.board));
-    addToBoard(board, player, PROBE, e.id, []);
-    const flow = computeFlows({ ...state, board, dominoes: [...state.dominoes, PROBE] }).pop() as NodeFlow;
+    const probe = addToBoard(board, player, PROBE, e.id, []);
+    const flow = computeFlows({ ...state, board, dominoes: [...state.dominoes, PROBE] }).get(probe.id) as NodeFlow;
     return { end: e.id, node: e.node, index: e.index, spark: e.spark, charge: flow.charge, triggers: capTriggers(state.config, flow) };
   });
 }
@@ -430,8 +443,8 @@ export function previewPlay(input: PendingInput, playerId: string, dominoId: str
   const opener = input.board.nodes.length === 0;
   if (opener ? end !== undefined || d.kind === "cap" : end === undefined || !legalEnds(input, d, playerId).includes(end)) return null;
   const board: Board = JSON.parse(JSON.stringify(input.board));
-  addToBoard(board, playerId, d, end ?? null, outputsOf(input, playerId, d));
-  const flow = computeFlows({ board, dominoes: input.dominoes, players: input.players, charmDefs: input.charmDefs, blessing: input.blessing }).pop() as NodeFlow;
+  const node = addToBoard(board, playerId, d, end ?? null, outputsOf(input, playerId, d));
+  const flow = computeFlows({ board, dominoes: input.dominoes, players: input.players, charmDefs: input.charmDefs, blessing: input.blessing }).get(node.id) as NodeFlow;
   if (d.kind !== "cap" || !d.effect) return { charge: flow.out, value: 0, triggers: 0, total: 0 };
   const value = capValue(d.effect, flow.charge, flow.bonus);
   const triggers = capTriggers(input.config, flow);
@@ -553,16 +566,19 @@ function legalEnds(state: PendingInput, d: Domino, owner: string): number[] {
   return open.filter((e) => e.spark !== state.locked && (d.intake === "any" || d.intake.includes(e.spark))).map((e) => e.id);
 }
 
-function addToBoard(board: Board, owner: string, d: Domino, end: number | null, outputs: Spark[]): void {
+function addToBoard(board: Board, owner: string, d: Domino, end: number | null, outputs: Spark[]): BoardNode {
+  board.nextNode ??= Math.max(-1, ...board.nodes.map((n) => n.id)) + 1;
+  board.nextEnd ??= Math.max(-1, ...board.ends.map((e) => e.id)) + 1;
   const node: BoardNode = {
-    id: board.nodes.length,
+    id: board.nextNode++,
     domino: d.id,
     owner,
     end,
-    depth: end === null ? 0 : board.nodes[board.ends[end].node].depth + 1,
+    depth: end === null ? 0 : getNode(board, getEnd(board, end).node).depth + 1,
   };
   board.nodes.push(node);
-  outputs.forEach((spark, index) => board.ends.push({ id: board.ends.length, node: node.id, index, spark }));
+  outputs.forEach((spark, index) => board.ends.push({ id: board.nextEnd++, node: node.id, index, spark }));
+  return node;
 }
 
 // A node nothing hangs from: none of its outputs has a node attached.
@@ -571,29 +587,17 @@ function isLeaf(board: Board, nodeId: number): boolean {
   return !board.nodes.some((n) => n.end !== null && mine.includes(n.end));
 }
 
-// Takes a leaf node off the board with its (open) outputs. Ids are indexes, so the nodes and ends after
-// it close up and every reference is renumbered; the order of the rest, which is placement order, is kept.
+// Takes a leaf node off the board with its (open) outputs. Nothing else changes or is renumbered: the end it hung
+// from keeps its id and is open again, and the counters are not rewound.
 export function removeFromBoard(board: Board, nodeId: number): void {
-  const nodes = board.nodes.filter((n) => n.id !== nodeId);
-  const ends = board.ends.filter((e) => e.node !== nodeId);
-  const endIndex = new Map(ends.map((e, i) => [e.id, i]));
-  nodes.forEach((n, i) => {
-    n.id = i;
-    n.end = n.end === null ? null : (endIndex.get(n.end) as number);
-  });
-  ends.forEach((e, i) => {
-    e.id = i;
-    if (e.node > nodeId) e.node -= 1;
-  });
-  board.nodes = nodes;
-  board.ends = ends;
+  board.nodes = board.nodes.filter((n) => n.id !== nodeId);
+  board.ends = board.ends.filter((e) => e.node !== nodeId);
 }
 
 function addNode(state: BattleState, owner: string, d: Domino, end: number | null, events: GameEvent[]): void {
   const outputs = outputsOf(state, owner, d);
-  addToBoard(state.board, owner, d, end, outputs);
-  const node = state.board.nodes[state.board.nodes.length - 1];
-  const flow = computeFlows(state).pop() as NodeFlow;
+  const node = addToBoard(state.board, owner, d, end, outputs);
+  const flow = computeFlows(state).get(node.id) as NodeFlow;
   events.push({
     type: "play",
     player: owner,
@@ -651,7 +655,7 @@ function fireCascade(state: BattleState, events: GameEvent[]): Tally {
     for (const node of cascadeOrder(nodes)) {
       if (node.depth !== depth) continue;
       const d = getDomino(state, node.domino);
-      const flow = flows[node.id];
+      const flow = flows.get(node.id) as NodeFlow;
       const capValueNow = d.kind === "cap" && d.effect ? capValue(d.effect, flow.charge, flow.bonus) : 0;
       const hit = d.kind !== "cap" ? flow.out : d.effect?.kind === "damage" ? capValueNow : 0;
       events.push({ type: "nodeLit", node: node.id, domino: d.id, owner: node.owner, charge: d.kind === "cap" ? flow.charge : flow.out, hit });
@@ -669,7 +673,7 @@ function fireCascade(state: BattleState, events: GameEvent[]): Tally {
         if (isOver(state)) return tally;
       } else if (d.effect) {
         tally.caps += 1;
-        const spark = state.board.ends[node.end as number].spark;
+        const spark = getEnd(state.board, node.end as number).spark;
         const firstRepeats = lastSpark === spark;
         lastSpark = spark;
         fireCap(state, node, d.effect, capValueNow, capTriggers(state.config, flow), firstRepeats, tally, events);
@@ -677,7 +681,7 @@ function fireCascade(state: BattleState, events: GameEvent[]): Tally {
       }
     }
   }
-  for (const e of openEnds(state)) events.push({ type: "fizzle", end: e.id, spark: e.spark, charge: flows[e.node].out });
+  for (const e of openEnds(state)) events.push({ type: "fizzle", end: e.id, spark: e.spark, charge: (flows.get(e.node) as NodeFlow).out });
   return tally;
 }
 
@@ -810,7 +814,7 @@ export function scaledIntent(state: Pick<BattleState, "config" | "players">, int
 // are counted from the board, so the empty board gives every player theirs back; every Ready clears.
 function startRound(state: BattleState, events: GameEvent[]): void {
   state.round += 1;
-  state.board = { nodes: [], ends: [] };
+  state.board = { nodes: [], ends: [], nextNode: 0, nextEnd: 0 };
   startPassives(state, events);
   events.push({ type: "roundStart", round: state.round });
   events.push({ type: "intent", intent: scaledIntent(state, state.intent) });

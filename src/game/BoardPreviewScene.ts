@@ -90,7 +90,7 @@ export class BoardPreviewScene extends Phaser.Scene {
       this.time.delayedCall(300, () => {
         for (const e of view.board.ends) {
           if (!view.board.nodes.some((n) => n.end === e.id)) continue;
-          this.time.delayedCall(view.board.nodes[e.node].depth * 700, () => board.burn(e.id, 0xfff2a0, 1400));
+          this.time.delayedCall(view.board.nodes.find((n) => n.id === e.node)!.depth * 700, () => board.burn(e.id, 0xfff2a0, 1400));
         }
       });
     }

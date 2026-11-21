@@ -550,7 +550,7 @@ export class CombatScene extends Phaser.Scene {
     const out: TipPreview[] = [];
     for (const end of targets) {
       const preview = previewPlay(this.view, front, id, end);
-      if (preview) out.push({ where: end === undefined ? "Opener" : `${this.view.board.ends[end].spark} end`, preview });
+      if (preview) out.push({ where: end === undefined ? "Opener" : `${this.view.board.ends.find((e) => e.id === end)!.spark} end`, preview });
     }
     return out;
   }
@@ -787,7 +787,7 @@ export class CombatScene extends Phaser.Scene {
     // Pressing the domino itself may start a drag to the hand.
     tile.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (this.locked || this.waiting || this.drag) return;
-      this.drag = { id: this.view.board.nodes[node].domino, x: pointer.worldX, y: pointer.worldY, node };
+      this.drag = { id: this.view.board.nodes.find((n) => n.id === node)!.domino, x: pointer.worldX, y: pointer.worldY, node };
     });
   }
 
