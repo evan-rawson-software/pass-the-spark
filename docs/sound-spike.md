@@ -77,15 +77,28 @@ jsfxr 1.4.1 from npm, run headless. Every sound was designed by hand rather than
 | Commercial licence | The free tier is non-commercial and needs attribution. Paid plans grant commercial rights. |
 | Works in Godot | Yes (download as .mp3 or .wav, convert to .ogg). |
 
-## Recommendation (provisional, until the designer picks)
-
-Use **a mix, led by tuned synthesis**:
-
-1. **jsfxr-style layered synthesis for every pitched or musical cue:** `combo:hit`, `combo:block`, coin, tier stingers and fanfares. These cues are played on the game's scale and climb with the combo. Only synthesis puts them exactly in tune, keeps them short and punchy when pitched up, and makes the tier and fanfare variants consistent and cheap.
-2. **CC0 library layers for weight:** slams, the lethal slam, shield breaks and enemy deaths. Layer a real impact or explosion under a synth body. The best library slams here already do this, and a real recording adds weight that a noise generator lacks.
-3. **Local AI (Stable Audio Open) as a later experiment**, only for textures such as whooshes, charge-ups and ambience. Do it if the designer wants a less retro sound and is willing to accept the model's licence.
-4. **Don't buy ElevenLabs** unless an untested comparison later shows it clearly wins (S2). Nothing heard here needs it.
-
 ## Designer's picks
 
-_To be filled in after listening in the picker._
+Picked by ear in the picker. All four are jsfxr:
+
+| Cue | Pick | Made from |
+| --- | --- | --- |
+| `combo:hit` | `jsfxr/combo-hit_2` | A narrow square that snaps down a fifth onto C6, a sine thump and a noise click, compressed |
+| `combo:tier3` | `jsfxr/combo-tier3_1` | Seven square notes running up the pentatonic scale, the last held with vibrato, over a rising noise whoosh, with reverb |
+| `combo:slam` | `jsfxr/combo-slam_3` | A noise "bomb" with a flanger sweep and closing low-pass, a sine drop from 90 to 30 Hz, a bright snap, compressed, with a long reverb |
+| `combo:fanfareLethal` | `jsfxr/combo-fanfareLethal_2` | Three saw chord stabs, then a held C major chord with an octave layer and vibrato, sparkles, high shelf, compressed, with reverb |
+
+The jsfxr version beat both the CC0 library and the current clip on every cue, including the slam, where a library recording seemed the likelier winner.
+
+## Recommendation
+
+Make the game's sounds with **jsfxr-style layered synthesis**: several hand-designed jsfxr layers per sound, then EQ, compression, saturation and reverb, matched to one loudness. That's the recipe in `sound-spike/tools/build.py`.
+
+- **It won every cue**, from the tuned hit to the big slam and the fanfare.
+- **It stays in tune and holds up when pitched**, so the climbing hit, block and coin cues and the tier stingers can all share the game's scale and key.
+- **It's cheap to vary:** tiers 1–4, fanfares 0–3 and the lethal versions are each a parameter change to an existing recipe.
+- **No strings attached:** jsfxr is public domain, there's no cost, and the .ogg files carry over to Godot.
+
+Keep CC0 library recordings as an optional extra layer for a sound that needs real-world texture. None of the four cues here needed one. Leave Stable Audio Open and ElevenLabs untested unless a later sound can't be made this way, and don't buy anything (S2).
+
+**Follow-up (S3):** one issue to remake all the game's sounds with this recipe. Start from the four picks above, and make the other cues (block, coin, tiers 1, 2 and 4, lethal, charge, lethal slam, fanfares 0–3 and the UI sounds) in the same style.
