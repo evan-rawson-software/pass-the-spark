@@ -7,10 +7,8 @@ Each pack's own License.txt says CC0. Files keep their original names. Only the 
 
 - `impact/impactGeneric_light_000.ogg` (5827 bytes): CC0
 - `impact/impactMetal_heavy_000.ogg` (6110 bytes): CC0
-- `impact/impactMetal_light_000.ogg` (7651 bytes): CC0
 - `impact/impactPlate_heavy_000.ogg` (10032 bytes): CC0
 - `impact/impactPlate_light_000.ogg` (10474 bytes): CC0
-- `impact/impactWood_light_000.ogg` (6343 bytes): CC0
 - `impact/impactWood_medium_000.ogg` (6575 bytes): CC0
 
 ## Interface Sounds 1.0: https://kenney.nl/assets/interface-sounds
@@ -20,13 +18,10 @@ Each pack's own License.txt says CC0. Files keep their original names. Only the 
 - `interface/confirmation_001.ogg` (8968 bytes): CC0
 - `interface/confirmation_002.ogg` (14169 bytes): CC0
 - `interface/drop_001.ogg` (5859 bytes): CC0
-- `interface/glass_001.ogg` (6103 bytes): CC0
 - `interface/glass_002.ogg` (4917 bytes): CC0
 - `interface/maximize_001.ogg` (12111 bytes): CC0
 - `interface/open_001.ogg` (9834 bytes): CC0
-- `interface/question_001.ogg` (11700 bytes): CC0
 - `interface/scratch_001.ogg` (8989 bytes): CC0
-- `interface/select_001.ogg` (5468 bytes): CC0
 - `interface/switch_001.ogg` (6753 bytes): CC0
 - `interface/tick_001.ogg` (4497 bytes): CC0
 
