@@ -9,7 +9,12 @@ import math
 
 from PIL import Image, ImageDraw
 
-W, H = 48, 64
+W, H = 48, 64  # the wizard frame
+AREA = [W, H]  # the frame size being drawn: shapes, paint and sheets use it; area() changes it
+
+
+def area(w, h):
+    AREA[:] = [w, h]
 LIGHT = (0.3, -0.85, 0.55)  # mostly from above, a little from the front: still right when mirrored
 
 
@@ -24,10 +29,13 @@ def rgbhex(c):
 # ---------- masks ----------
 
 def _mask(draw):
-    im = Image.new("L", (W, H), 0)
+    im = Image.new("L", tuple(AREA), 0)
     draw(ImageDraw.Draw(im))
+    box = im.getbbox()
+    if not box:
+        return set()
     px = im.load()
-    return {(x, y) for y in range(H) for x in range(W) if px[x, y]}
+    return {(x, y) for y in range(box[1], box[3]) for x in range(box[0], box[2]) if px[x, y]}
 
 
 def ell(cx, cy, rx, ry):
@@ -122,8 +130,33 @@ def over(*layers):
 def paint(layer, pts, col):
     for x, y in pts:
         p = (int(round(x)), int(round(y)))
-        if 0 <= p[0] < W and 0 <= p[1] < H:
+        if 0 <= p[0] < AREA[0] and 0 <= p[1] < AREA[1]:
             layer[p] = col
+
+
+def line(layer, x0, y0, x1, y1, col):
+    n = max(1, int(round(max(abs(x1 - x0), abs(y1 - y0)))))
+    paint(layer, [(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n) for i in range(n + 1)], col)
+
+
+def outline(layer, col):
+    """The layer with a one-pixel outline in col round everything in it."""
+    out = dict(layer)
+    for x, y in layer:
+        for q in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if q not in layer:
+                out[q] = col
+    return clip(out)
+
+
+def halo(layer, col, parity=0, of=None):
+    """A dithered glow next to the pixels of of (default: the layer): every other free neighbour, in col."""
+    out = dict(layer)
+    for x, y in (of if of is not None else layer):
+        for q in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if q not in layer and (q[0] + q[1]) % 2 == parity:
+                out[q] = col
+    return clip(out)
 
 
 def recolour(layer, m, col):
@@ -134,13 +167,14 @@ def recolour(layer, m, col):
 
 
 def clip(layer):
-    return {p: c for p, c in layer.items() if 0 <= p[0] < W and 0 <= p[1] < H}
+    return {p: c for p, c in layer.items() if 0 <= p[0] < AREA[0] and 0 <= p[1] < AREA[1]}
 
 
 # ---------- sheets ----------
 
 def sheet(rows_of_frames, cols):
-    """A sheet: one row per animation, one column per frame, each frame W x H."""
+    """A sheet: one row per animation, one column per frame, each frame the size of AREA."""
+    W, H = AREA
     im = Image.new("RGBA", (cols * W, len(rows_of_frames) * H), (0, 0, 0, 0))
     px = im.load()
     for r, frames in enumerate(rows_of_frames):
