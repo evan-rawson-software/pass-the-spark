@@ -1,7 +1,7 @@
 // Per-player views: the battle state, plus the open ends with their charge.
 
 import type { BattleState } from "./battle";
-import { getOpenEnds, scaledIntent, upcomingIntents } from "./battle";
+import { getOpenEnds, passFires, scaledIntent, upcomingIntents } from "./battle";
 import type { EnemyState } from "./battle";
 import { getRunWindow } from "./run";
 import type { RunState } from "./run";
@@ -24,6 +24,7 @@ export type BattleView = Omit<BattleState, "rng" | "enemy"> & {
   enemy: Omit<EnemyState, "intents" | "pattern" | "queue" | "rolled" | "lastIntent" | "repeats">;
   openEnds: OpenEndView[];
   upcomingIntents: Intent[]; // the intents of the next rounds: empty unless this player holds Spyglass
+  passFires: boolean; // the seat to act passing now would complete the round of passes, so the cascade fires
   baseIntent: Intent; // this round's intent before the party-size scaling `intent` has (what previewSetOff grows and scales)
 };
 
@@ -35,7 +36,7 @@ export function getView(state: BattleState, playerId: string): BattleView {
   const copy: BattleState = JSON.parse(JSON.stringify(state));
   const { rng, enemy, ...rest } = copy;
   const { intents, pattern, queue, rolled, lastIntent, repeats, ...enemyView } = enemy;
-  return { ...rest, intent: scaledIntent(copy, copy.intent), enemy: enemyView, openEnds: getOpenEnds(copy, playerId), upcomingIntents: upcomingIntents(copy, spyglassRounds(copy, playerId)), baseIntent: copy.intent };
+  return { ...rest, intent: scaledIntent(copy, copy.intent), enemy: enemyView, openEnds: getOpenEnds(copy, playerId), upcomingIntents: upcomingIntents(copy, spyglassRounds(copy, playerId)), baseIntent: copy.intent, passFires: passFires(copy) };
 }
 
 // The run as a player sees it. Everything in a run is open information (maps, decks, coins, offers,

@@ -5,7 +5,7 @@ import { combatLayoutData, hexColour } from "./presentation";
 import { enemies } from "./devBattle";
 import type { ColumnLayout } from "./columnLayout";
 
-// The "If you set off now" tally in the left column (#231): a damage tile and a block tile, and a line
+// The "If it fires now" tally in the left column (#231): a damage tile and a block tile, and a line
 // under them saying what that does to the enemy and the party. Every number is from the engine's
 // previewSetOff, the same call that puts the ghosts on the health bars, so they always agree. It is
 // drawn into the set-off preview's layer, so it updates live with hover and drag. Layout only.

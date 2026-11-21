@@ -65,7 +65,7 @@ export class SetOffPreviewUi {
     }
 
     if (glowSetOff) {
-      const r = combatLayoutData.actions.setOff;
+      const r = combatLayoutData.actions.pass;
       const P = D.setOffGlow.pad;
       const glow = s.add.graphics();
       glow.lineStyle(D.setOffGlow.width, hexColour(D.setOffGlow.colour), 1);

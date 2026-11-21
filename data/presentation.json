@@ -164,7 +164,7 @@
     "buttonW": 80, "buttonH": 40, "itemH": 44, "gap": 8, "fontSize": 22, "depth": 650
   },
   "setOffPreview": {
-    "comment": "Set-off preview on the health bars (#222), read by src/game/setOffPreview.ts. Px on the 1920x1080 table. The ghost is the part of a bar the set-off would take; it pulses between alphaLow and alphaHigh every pulseMs (steady at alphaHigh under reduced flashing). The bars and shields it draws on come from the column (combatLayout, through the scene's refs) and the Set off button from combatLayout.actions.setOff. Label offsets are from the bar's right edge, the shield or the safe mark. Skull and crack numbers are fractions of the skull radius or the shield size.",
+    "comment": "Set-off preview on the health bars (#222), read by src/game/setOffPreview.ts. Px on the 1920x1080 table. The ghost is the part of a bar the set-off would take; it pulses between alphaLow and alphaHigh every pulseMs (steady at alphaHigh under reduced flashing). The bars and shields it draws on come from the column (combatLayout, through the scene's refs) and the Pass button from combatLayout.actions.pass. Label offsets are from the bar's right edge, the shield or the safe mark. Skull and crack numbers are fractions of the skull radius or the shield size.",
     "ghost": { "colour": "#ffffff", "alphaLow": 0.35, "alphaHigh": 0.85, "pulseMs": 700, "minWidth": 2 },
     "text": { "strokeThickness": 5, "strokeColour": "#101010" },
     "loss": { "colour": "#ff9a94", "fontSize": 24, "dx": 0, "dy": -26, "originX": 1 },
@@ -210,7 +210,7 @@
     "opener": { "w": 170, "h": 84, "colour": "#ffe14d", "textSize": 24 }
   },
   "handFan": {
-    "comment": "The fanned hand (#229), read by src/game/handFan.ts. scale: a hand domino's resting size (shrunk, never below minScale, when a big hand would overlap more than minStepFactor of a domino's width); stepFactor: how far apart (a share of a domino's width) they sit before they are squeezed into the area; degPerDomino / maxSpread: fan angle; arc: how far the ends sit below the middle. The hovered domino straightens, grows to hoverScale and lifts by lift (tweenMs). gap: the faint dashed place left by a dragged domino (the domino itself fades to holderAlpha). enter: a new draw slides in from the deck (slideMs for an old domino finding its new place, enterMs from the deck, staggerMs between new ones). area: the rectangle the fan sits in (between the piles and clear of Pass and Set off at x1610; the middle domino's centre is the middle of it). piles: the deck on the left and the discard on the right, each a rectangle (the pile is drawn at its middle and the rectangle is its click area), drawn at pile scale with their count and label.",
+    "comment": "The fanned hand (#229), read by src/game/handFan.ts. scale: a hand domino's resting size (shrunk, never below minScale, when a big hand would overlap more than minStepFactor of a domino's width); stepFactor: how far apart (a share of a domino's width) they sit before they are squeezed into the area; degPerDomino / maxSpread: fan angle; arc: how far the ends sit below the middle. The hovered domino straightens, grows to hoverScale and lifts by lift (tweenMs). gap: the faint dashed place left by a dragged domino (the domino itself fades to holderAlpha). enter: a new draw slides in from the deck (slideMs for an old domino finding its new place, enterMs from the deck, staggerMs between new ones). area: the rectangle the fan sits in (between the piles and clear of the Pass button at x1610; the middle domino's centre is the middle of it). piles: the deck on the left and the discard on the right, each a rectangle (the pile is drawn at its middle and the rectangle is its click area), drawn at pile scale with their count and label.",
     "scale": 0.7,
     "minScale": 0.45,
     "stepFactor": 0.8,
@@ -249,7 +249,7 @@
       "later": { "h": 40, "size": 15, "scale": 0.4, "colour": "#9fd1b8" }
     },
     "tally": {
-      "label": { "h": 26, "text": "IF YOU SET OFF NOW", "size": 15, "spacing": 3, "colour": "#ffd54a" },
+      "label": { "h": 26, "text": "IF IT FIRES NOW", "size": 15, "spacing": 3, "colour": "#ffd54a" },
       "tile": { "h": 140, "r": 16, "gap": 14, "edge": 7, "numberY": 62, "numberSize": 76, "labelY": 108, "labelSize": 15, "labelSpacing": 3, "subY": 128, "subSize": 15, "numberColour": "#ffffff", "labelColour": "#ffe3df", "dash": "–", "numberPad": 18 },
       "damage": { "fill": "#f2564a", "edge": "#a8322c", "label": "DAMAGE", "sub": "blocked" },
       "block": { "fill": "#1e88f0", "edge": "#1560b0", "label": "BLOCK" },
@@ -284,8 +284,7 @@
     },
     "board": { "x": 500, "y": 204, "w": 1400, "h": 652 },
     "actions": {
-      "pass": { "x": 1595, "y": 868, "w": 295, "h": 60, "fill": "#163a2c", "stroke": "#f3ead6", "strokeAlpha": 0.6, "size": 28, "colour": "#f3ead6" },
-      "setOff": { "x": 1595, "y": 944, "w": 295, "h": 100, "fill": "#ffd54a", "stroke": "#22201c", "strokeWidth": 3, "size": 40, "colour": "#22201c", "offFill": "#163a2c", "offColour": "#5f8f7a" }
+      "pass": { "x": 1595, "y": 944, "w": 295, "h": 100, "fill": "#ffd54a", "stroke": "#22201c", "strokeWidth": 3, "size": 40, "colour": "#22201c", "text": "Pass", "fireText": "Pass and fire", "fireSize": 34 }
     },
     "pause": { "x": 1130, "buttonX": 1500, "y": 392 },
     "waiting": { "text": "Waiting for the host", "x": 1040, "y": 866, "size": 24, "colour": "#cfe9dc" },

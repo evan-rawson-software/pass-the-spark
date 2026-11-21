@@ -309,7 +309,7 @@ export class Animator {
         floatText(scene, 960, 470, `${ev.player} passes`, "#ffd9a0", 44, 900);
         break;
       case "setOff": {
-        const why = ev.reason === "player" ? `${ev.player} sets it off` : ev.reason === "capped" ? "Every end is capped" : "Everyone passed";
+        const why = ev.reason === "capped" ? "Every end is capped" : "Everyone passed";
         floatText(scene, 960, 470, why, "#ffe14d", 48, 1000);
         this.resetHeat();
         this.inCascade = true;

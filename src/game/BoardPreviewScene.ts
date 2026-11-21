@@ -174,8 +174,7 @@ export class BoardPreviewScene extends Phaser.Scene {
     box(24, 24, 330, 1032, "turn-order rail");
     box(830, 318, 600, 34, "enemy bar");
     box(830, 806, 600, 34, "party bar");
-    box(1610, 866, 300, 60, "Pass");
-    box(1610, 942, 300, 96, "Set off", 0xffd54a);
+    box(1610, 942, 300, 96, "Pass", 0xffd54a);
     g.lineStyle(2, 0xb8c4b4, 0.25);
     const a = boardArea();
     g.strokeRect(a.x, a.y, a.w, a.h);

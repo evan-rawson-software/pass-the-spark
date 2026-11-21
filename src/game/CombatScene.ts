@@ -186,7 +186,7 @@ export class CombatScene extends Phaser.Scene {
     this.hlSeat = null;
     this.handSeat = null;
     this.tooltip = new Tooltip(this);
-    this.tooltip.avoid = { x: ACTIONS.pass.x, y: ACTIONS.pass.y - 20, w: ACTIONS.pass.w, h: ACTIONS.setOff.y + ACTIONS.setOff.h - ACTIONS.pass.y + 20 }; // Pass and Set off
+    this.tooltip.avoid = { x: ACTIONS.pass.x, y: ACTIONS.pass.y - 20, w: ACTIONS.pass.w, h: ACTIONS.pass.h + 20 }; // Pass
     setMenuButtonSpot(footerSpots().menu); // the menu button sits in the column's footer while this screen is up
     this.pings = new PingMarks(this);
     if (this.online) {
@@ -621,7 +621,9 @@ export class CombatScene extends Phaser.Scene {
     const hover = this.hoverPlay;
     const p = (hover ? previewSetOff(view, hover) : null) ?? previewSetOff(view);
     const mine = !!pending && (!this.online || pending.player === this.mySeat());
-    this.previewUi.draw(into, view, p, !!p?.lethal && (hover !== null || (mine && pending!.canSetOff)), this.anim.refs);
+    // The Pass button glows when this pass fires the cascade and the cascade is lethal (a hover is a different board).
+    const lethalNow = (hover ? previewSetOff(view) : p)?.lethal === true;
+    this.previewUi.draw(into, view, p, lethalNow && mine && view.passFires, this.anim.refs);
     tally(p);
   }
 
@@ -832,13 +834,12 @@ export class CombatScene extends Phaser.Scene {
     if (this.drag?.ghost) fan.setDragged(fan.items.find((i) => i.id === this.drag!.id)?.key ?? null);
   }
 
-  // The actions bottom right (L7): Set off and Pass. Whose turn it is shows on the seat tabs.
+  // The action bottom right (L7): Pass (or Pass and fire). Whose turn it is shows on the seat tabs.
   private drawActionButtons(layer: Layer, view: BattleView, pending: PendingChoice | null): void {
     drawActions(this.ctx, layer, {
       mine: pending !== null && view.phase !== "over",
-      canSetOff: pending?.canSetOff === true,
+      passFires: view.passFires,
       onPass: () => this.submit({ type: "pass" }),
-      onSetOff: () => this.submit({ type: "setOff" }),
     });
   }
 
