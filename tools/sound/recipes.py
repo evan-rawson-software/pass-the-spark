@@ -1,0 +1,587 @@
+"""One recipe per sound cue (data/sound.json), in the layered jsfxr style picked in the sound spike (#244).
+
+RECIPES maps a cue to its variants; PICKS says which variant ships. A recipe returns
+(audio, how it was made). Tuned cues have their root on a C, so the game's scale pitching keeps
+them in C major pentatonic. Every clip is loudness-matched by build.py afterwards, so the gains
+here only balance the layers inside one sound.
+"""
+from sfx import (C4, C5, C6, G4, NOISE, SAW, SINE, SQ, NOTE, P, comp, cut, echoes, hp, lead, lp, mix, reverb,
+                 shelf, softclip, sparkles, step, sustain, voice)
+
+RECIPES = {}
+
+
+def recipe(cue, variant):
+    def deco(fn):
+        RECIPES.setdefault(cue, {})[variant] = fn
+        return fn
+    return deco
+
+
+def click(decay=0.06, hpf=0.35, seed=1, base=0.9):
+    return voice(NOISE, p_base_freq=base, p_env_sustain=0.01, p_env_decay=decay, p_hpf_freq=hpf, seed=seed)
+
+
+# ======================================================================================
+# The four spike picks (sound-spike branch, befd7fc), unchanged.
+# ======================================================================================
+
+def hit_recipe(f=C6 * 1.5, decay=0.22, thump=260):
+    tone = voice(SQ, f, p_arp_mod=-0.2236, p_arp_speed=0.77, p_duty=0.2, p_env_sustain=0.03, p_env_punch=0.7, p_env_decay=decay)
+    body = voice(SINE, thump, p_freq_ramp=-0.35, p_env_sustain=0.03, p_env_decay=0.3)
+    return comp(mix((tone, 0, 0), (body, 0, -4), (click(), 0, -10)), -16, 4)
+
+
+@recipe("combo:hit", "pick")
+def _():
+    return hit_recipe(), "Spike pick combo-hit_2: a narrow square that snaps down a fifth onto C6, a sine thump and a noise click, compressed"
+
+
+def tier_recipe(notes, start=6, gap=0.055, hold=0.55, vib=0.12, whoosh_db=-8, wet=0.22, room=0.9, wave=SQ, top_oct_db=None):
+    parts = []
+    for i in range(notes):
+        last = i == notes - 1
+        f = NOTE(step(i * 2 + start), G4)
+        parts.append((voice(wave, f, p_duty=0.3, p_env_sustain=0.05, p_env_punch=0.3, p_env_decay=hold if last else 0.16,
+                            p_vib_strength=vib if last else 0, p_vib_speed=0.55), i * gap, 0))
+        if top_oct_db is not None:
+            parts.append((voice(SAW, f * 2, p_env_sustain=0.05, p_env_decay=hold if last else 0.12, p_lpf_freq=0.7), i * gap, top_oct_db))
+    whoosh = voice(NOISE, p_base_freq=0.4, p_freq_ramp=0.12, p_env_attack=0.35, p_env_sustain=0.05, p_env_decay=0.3,
+                   p_hpf_freq=0.1, p_hpf_ramp=0.18)
+    parts.append((whoosh, 0, whoosh_db))
+    return reverb(mix(*parts), room, wet)
+
+
+@recipe("combo:tier3", "pick")
+def _():
+    return tier_recipe(7), "Spike pick combo-tier3_1: seven square notes up the pentatonic scale 55 ms apart, the last held with vibrato, over a rising noise whoosh, reverb"
+
+
+def slam_recipe(drop=90, floor=30, room=2.0, wet=0.3, extra=()):
+    snap = voice(NOISE, p_base_freq=0.85, p_env_sustain=0.01, p_env_decay=0.12, p_hpf_freq=0.2)
+    bomb = voice(NOISE, p_base_freq=0.15, p_freq_ramp=-0.12, p_env_sustain=0.3, p_env_punch=0.4, p_env_decay=0.8,
+                 p_pha_offset=0.25, p_pha_ramp=-0.1, p_lpf_freq=0.6, p_lpf_ramp=-0.08)
+    sub = voice(SINE, drop, p_freq_limit=P(floor), p_freq_ramp=-0.2, p_env_sustain=0.35, p_env_decay=0.8)
+    return reverb(comp(mix((snap, 0, -2), (bomb, 0, 0), (sub, 0, -1), *extra), -20, 4), room, wet)
+
+
+@recipe("combo:slam", "pick")
+def _():
+    return slam_recipe(), "Spike pick combo-slam_3: a noise bomb with a flanger sweep and closing low-pass, a sine drop 90 to 30 Hz, a bright snap, compressed, long reverb"
+
+
+def fanfare_recipe(stabs=3, hold=1.4, octave_db=-9, sparks=18, spark_len=1.6, seed=2, run=0, wet=0.28, room=1.8, vib=0.1):
+    parts = []
+    t = 0.0
+    for i in range(run):  # an optional pentatonic run-up into the stabs
+        parts.append((lead(NOTE(step(i), G4), 0.07), t, -4))
+        t += 0.045
+    for k in range(stabs):
+        parts += [(lead(NOTE(s - 5), 0.11, wave=SAW), t, -3) for s in (0, 4, 7)]
+        t += 0.16
+    t += 0.02 if stabs else 0
+    parts += [(lead(NOTE(s), hold, wave=SAW, vib=vib), t, -3) for s in (0, 4, 7)]
+    if octave_db is not None:
+        parts += [(lead(NOTE(s + 12), hold, wave=SQ, vib=vib), t, octave_db) for s in (0, 4, 7)]
+    parts += sparkles(t + 0.1, spark_len, sparks, seed)
+    return reverb(comp(shelf(mix(*parts), 4000, 2), -18, 3), room, wet)
+
+
+@recipe("combo:fanfareLethal", "pick")
+def _():
+    return fanfare_recipe(), "Spike pick combo-fanfareLethal_2: three saw G-chord stabs, a held C major chord with an octave square layer and vibrato, 18 sparkles, high shelf, compressed, reverb"
+
+
+# ======================================================================================
+# Placing
+# ======================================================================================
+
+@recipe("clack", "A")
+def _():
+    tok = voice(SQ, NOTE(-12, C5), p_duty=0.5, p_env_sustain=0.01, p_env_punch=0.6, p_env_decay=0.14, p_lpf_freq=0.45)
+    x = mix((click(0.05, 0.2, seed=3, base=0.6), 0, 0), (tok, 0, -3))
+    return reverb(x, 0.3, 0.12), "A low-passed square 'tok' on C4 under a noise click, short room"
+
+
+@recipe("clack", "B")
+def _():
+    body = voice(SINE, 196, p_freq_ramp=-0.25, p_env_sustain=0.02, p_env_decay=0.28)
+    x = mix((click(0.08, 0.25, seed=4, base=0.7), 0, 0), (click(0.1, 0.15, seed=5, base=0.5), 0.028, -3), (body, 0, -2))
+    return comp(x, -16, 3), "Two noise clicks 28 ms apart (the domino tapping down) over a falling sine body, compressed"
+
+
+@recipe("hum", "A")
+def _():
+    a = voice(SINE, C4, p_env_attack=sustain(0.06), p_env_sustain=sustain(0.15), p_env_decay=sustain(0.35), p_vib_strength=0.05, p_vib_speed=0.4)
+    b = voice(SQ, C4, p_duty=0.5, p_env_attack=sustain(0.06), p_env_sustain=sustain(0.15), p_env_decay=sustain(0.3), p_lpf_freq=0.3)
+    return reverb(mix((a, 0, 0), (b, 0, -8), (voice(SINE, C5, p_env_sustain=sustain(0.1), p_env_decay=sustain(0.3)), 0, -12)), 0.8, 0.2), \
+        "A soft sine swell on C4 with a low-passed square under it and a quiet octave, slight vibrato, reverb"
+
+
+@recipe("hum", "B")
+def _():
+    a = voice(SAW, C4, p_env_attack=sustain(0.04), p_env_sustain=sustain(0.2), p_env_decay=sustain(0.3), p_lpf_freq=0.35,
+              p_pha_offset=0.1, p_pha_ramp=0.04)
+    b = voice(SAW, C4 * 1.006, p_env_attack=sustain(0.04), p_env_sustain=sustain(0.2), p_env_decay=sustain(0.3), p_lpf_freq=0.35)
+    return reverb(mix((a, 0, 0), (b, 0, -2)), 0.9, 0.22), "Two slightly detuned low-passed saws on C4 with a flanger, a warm pad blip, reverb"
+
+
+# ======================================================================================
+# The cascade
+# ======================================================================================
+
+@recipe("tick", "A")
+def _():
+    t = voice(SQ, C5, p_duty=0.35, p_env_sustain=0.03, p_env_punch=0.5, p_env_decay=0.4)
+    return reverb(mix((t, 0, 0), (click(0.03, seed=6), 0, -12)), 0.4, 0.15), "A tiny square blip on C5 with punch and a faint click, short room"
+
+
+@recipe("tick", "B")
+def _():
+    t = voice(SINE, C5, p_env_sustain=0.02, p_env_punch=0.4, p_env_decay=0.42)
+    h = voice(SINE, C5 * 2, p_env_sustain=0.01, p_env_decay=0.18)
+    return reverb(mix((t, 0, 0), (h, 0, -8), (click(0.02, seed=7), 0, -14)), 0.4, 0.15), "A sine pluck on C5 with an octave overtone, like a glass tap"
+
+
+@recipe("junction", "A")
+def _():
+    a = voice(SQ, C4, p_duty=0.3, p_env_sustain=0.04, p_env_punch=0.4, p_env_decay=0.4, p_arp_mod=0.42, p_arp_speed=0.65)
+    b = voice(SQ, NOTE(7, C4), p_duty=0.3, p_env_sustain=0.04, p_env_punch=0.4, p_env_decay=0.4, p_arp_mod=0.42, p_arp_speed=0.65)
+    return reverb(mix((a, 0, 0), (b, 0.02, -3), (click(0.04, seed=8), 0, -10)), 0.5, 0.18), \
+        "Two square notes a fifth apart (C4 and G4), each jumping up an octave, 20 ms apart: the glow splitting"
+
+
+@recipe("junction", "B")
+def _():
+    a = voice(SAW, C4, p_env_sustain=0.04, p_env_decay=0.42, p_arp_mod=0.42, p_arp_speed=0.6, p_pha_offset=0.15, p_pha_ramp=0.1, p_lpf_freq=0.7)
+    return reverb(mix((a, 0, 0), (click(0.04, seed=9), 0, -10)), 0.5, 0.2), "A saw blip on C4 that jumps an octave, through a sweeping flanger"
+
+
+@recipe("effect:damage", "A")
+def _():
+    z = voice(SQ, C5 * 2, p_freq_ramp=-0.25, p_duty=0.3, p_env_sustain=0.04, p_env_punch=0.6, p_env_decay=0.3)
+    body = voice(SQ, C4, p_duty=0.5, p_env_sustain=0.04, p_env_decay=0.42, p_lpf_freq=0.5)
+    return comp(mix((z, 0, -2), (body, 0, 0), (click(0.07, seed=10), 0, -8)), -16, 4), \
+        "A square zap falling from C6 over a filtered square body on C4 and a noise crack, compressed"
+
+
+@recipe("effect:damage", "B")
+def _():
+    s = voice(SAW, C4, p_env_sustain=0.05, p_env_punch=0.7, p_env_decay=0.42, p_lpf_freq=0.6, p_lpf_ramp=-0.08)
+    crunch = voice(NOISE, p_base_freq=0.5, p_env_sustain=0.02, p_env_punch=0.5, p_env_decay=0.15, seed=11)
+    return comp(softclip(mix((s, 0, 0), (crunch, 0, -6)), 4), -16, 4), "A saw stab on C4 with a closing filter and a noise crunch, saturated and compressed"
+
+
+@recipe("effect:block", "A")
+def _():
+    a = voice(SINE, C5, p_env_sustain=0.02, p_env_punch=0.5, p_env_decay=0.4)
+    b = voice(SINE, C5 * 2.76, p_env_sustain=0.01, p_env_decay=0.22)
+    k = voice(SQ, C4, p_duty=0.5, p_env_sustain=0.01, p_env_decay=0.12, p_lpf_freq=0.4)
+    return reverb(mix((a, 0, 0), (b, 0, -8), (k, 0, -6), (click(0.03, seed=12), 0, -12)), 0.6, 0.2), \
+        "A metallic 'ting': a sine on C5 with an inharmonic overtone, over a dull square knock on C4, reverb"
+
+
+@recipe("effect:block", "B")
+def _():
+    a = voice(SQ, C4, p_duty=0.5, p_env_sustain=0.03, p_env_punch=0.6, p_env_decay=0.35, p_lpf_freq=0.5)
+    r = voice(SINE, C5, p_env_sustain=0.02, p_env_decay=0.4, p_vib_strength=0.05, p_vib_speed=0.7)
+    return reverb(mix((a, 0, 0), (r, 0, -6), (click(0.05, 0.2, seed=13, base=0.5), 0, -8)), 0.7, 0.22), \
+        "A shield 'thunk': a filtered square on C4 with a ringing sine an octave up, reverb"
+
+
+@recipe("effect:amplify", "A")
+def _():
+    up = voice(SQ, C4, p_freq_ramp=0.25, p_repeat_speed=0.55, p_duty=0.4, p_env_sustain=sustain(0.12), p_env_decay=0.3)
+    return reverb(mix((up, 0, 0), (click(0.04, seed=14), 0, -12)), 0.6, 0.2), "A short square power-up staircase rising from C4, reverb"
+
+
+@recipe("effect:amplify", "B")
+def _():
+    a = voice(SAW, C4, p_env_sustain=0.02, p_env_punch=0.3, p_env_decay=0.14, p_lpf_freq=0.7)
+    b = voice(SAW, NOTE(7, C4), p_env_sustain=0.03, p_env_punch=0.3, p_env_decay=0.3, p_lpf_freq=0.7)
+    c = voice(SQ, NOTE(12, C4), p_duty=0.3, p_env_sustain=0.02, p_env_decay=0.3)
+    return reverb(mix((a, 0, 0), (b, 0.06, 0), (c, 0.12, -4)), 0.6, 0.2), "Three quick notes up a C chord (C4, G4, C5), saw and square, reverb"
+
+
+@recipe("effect:echo", "A")
+def _():
+    b = voice(SQ, C5, p_duty=0.3, p_env_sustain=0.02, p_env_punch=0.4, p_env_decay=0.26)
+    return echoes(b, 0.09, 3, 6), "A square blip on C5 with three repeats 90 ms apart, each 6 dB quieter"
+
+
+@recipe("effect:echo", "B")
+def _():
+    p = voice(SINE, C5, p_env_sustain=0.01, p_env_decay=0.25)
+    return reverb(echoes(mix((p, 0, 0), (voice(SINE, C5 * 1.5, p_env_sustain=0.01, p_env_decay=0.2), 0, -8)), 0.12, 2, 5), 0.8, 0.25), \
+        "A sine ping on C5 with a soft fifth, two repeats 120 ms apart, reverb"
+
+
+@recipe("effect:spectrum", "A")
+def _():
+    parts = [(voice(SQ, NOTE(s, C5), p_duty=0.25, p_env_sustain=0.01, p_env_decay=0.2 if i < 4 else 0.35), i * 0.03, -i * 0.5)
+             for i, s in enumerate([0, 4, 7, 12, 16])]
+    return reverb(mix(*parts), 0.8, 0.25), "A fast five-note glissando up a C chord from C5, 30 ms apart, reverb"
+
+
+@recipe("effect:spectrum", "B")
+def _():
+    chord = [(voice(SAW, NOTE(s, C4), p_env_sustain=sustain(0.08), p_env_decay=0.35, p_pha_offset=0.2, p_pha_ramp=0.15, p_lpf_freq=0.7), 0, -2)
+             for s in (0, 4, 7, 12)]
+    return reverb(shelf(mix(*chord, *sparkles(0.02, 0.25, 4, 21, quiet=8)), 3000, 3), 0.9, 0.28), \
+        "A flanged saw C major chord on C4 with a few sparkles on top, bright shelf, reverb"
+
+
+@recipe("effect:charm", "A")
+def _():
+    a = voice(SINE, C5, p_env_sustain=0.02, p_env_decay=0.45)
+    b = voice(SINE, NOTE(7, C5), p_env_sustain=0.02, p_env_decay=0.4)
+    return reverb(mix((a, 0, 0), (b, 0.05, -3), *sparkles(0.05, 0.3, 4, 22, quiet=10)), 1.0, 0.3), \
+        "A two-note bell (C5 then G5) in sines with a few sparkles, roomy reverb"
+
+
+@recipe("effect:charm", "B")
+def _():
+    a = voice(SQ, C5, p_duty=0.5, p_env_sustain=0.02, p_env_decay=0.3, p_arp_mod=0.35, p_arp_speed=0.6)
+    sh = voice(NOISE, p_base_freq=0.9, p_env_attack=0.1, p_env_sustain=0.05, p_env_decay=0.25, p_hpf_freq=0.5, seed=23)
+    return reverb(mix((a, 0, 0), (sh, 0, -10), (voice(SINE, C5 * 2, p_env_sustain=0.01, p_env_decay=0.3), 0.06, -6)), 0.9, 0.28), \
+        "A magic twinkle: a square coin blip on C5, a sine an octave up and a high noise shimmer, reverb"
+
+
+@recipe("fizzle", "A")
+def _():
+    sp = voice(NOISE, p_base_freq=0.6, p_freq_ramp=-0.1, p_repeat_speed=0.6, p_env_sustain=0.2, p_env_decay=0.35, p_lpf_freq=0.5, seed=24)
+    dn = voice(SQ, NOTE(4, C4), p_freq_ramp=-0.2, p_duty=0.5, p_env_sustain=0.05, p_env_decay=0.25, p_lpf_freq=0.4)
+    return mix((sp, 0, 0), (dn, 0, -4)), "A sputtering noise burst over a filtered square sinking from E4: 'pfft'"
+
+
+@recipe("fizzle", "B")
+def _():
+    a = voice(SQ, NOTE(4, C4), p_duty=0.5, p_env_sustain=0.03, p_env_decay=0.15, p_lpf_freq=0.35)
+    b = voice(SQ, C4, p_duty=0.5, p_env_sustain=0.03, p_env_decay=0.3, p_lpf_freq=0.3, p_freq_ramp=-0.08)
+    cr = voice(NOISE, p_base_freq=0.7, p_repeat_speed=0.7, p_env_sustain=0.08, p_env_decay=0.15, p_hpf_freq=0.3, seed=25)
+    return mix((a, 0, 0), (b, 0.1, 0), (cr, 0.05, -10)), "A sad two-note drop (E4 to a sagging C4), muted square, with a faint crackle"
+
+
+@recipe("lightning", "A")
+def _():
+    crack = voice(NOISE, p_base_freq=0.9, p_env_sustain=0.02, p_env_punch=0.8, p_env_decay=0.3, p_hpf_freq=0.2, seed=26)
+    zap = voice(SAW, 1800, p_freq_ramp=-0.35, p_env_sustain=0.05, p_env_decay=0.25)
+    return reverb(comp(mix((crack, 0, 0), (zap, 0, -4)), -16, 4), 1.0, 0.22), "A bright noise crack with a saw zap diving down under it, compressed, reverb"
+
+
+@recipe("lightning", "B")
+def _():
+    buzz = voice(SAW, 440, p_vib_strength=0.6, p_vib_speed=0.9, p_freq_ramp=-0.15, p_env_sustain=0.1, p_env_punch=0.5, p_env_decay=0.3)
+    crack = voice(NOISE, p_base_freq=0.8, p_repeat_speed=0.75, p_env_sustain=0.08, p_env_decay=0.25, p_hpf_freq=0.15, seed=27)
+    return reverb(softclip(mix((buzz, 0, -2), (crack, 0, 0)), 5), 0.9, 0.2), "A buzzing saw with fast vibrato and a stuttering noise crack, saturated, reverb"
+
+
+@recipe("shake", "A")
+def _():
+    rum = voice(NOISE, p_base_freq=0.08, p_env_sustain=0.2, p_env_punch=0.5, p_env_decay=0.45, p_lpf_freq=0.3, seed=28)
+    sub = voice(SINE, 70, p_freq_ramp=-0.1, p_env_sustain=0.15, p_env_decay=0.4)
+    return comp(mix((rum, 0, 0), (sub, 0, -2)), -18, 4), "A low-passed noise rumble with a 70 Hz sine sub, compressed"
+
+
+@recipe("shake", "B")
+def _():
+    thud = voice(SINE, 110, p_freq_ramp=-0.3, p_env_sustain=0.03, p_env_punch=0.6, p_env_decay=0.3)
+    rattle = voice(NOISE, p_base_freq=0.3, p_repeat_speed=0.72, p_env_sustain=0.2, p_env_decay=0.3, p_lpf_freq=0.5, seed=29)
+    return comp(mix((thud, 0, 0), (rattle, 0.02, -5)), -18, 4), "A sine thud with a rattling noise behind it, like the table jumping"
+
+
+@recipe("slowMotion", "A")
+def _():
+    dn = voice(SAW, 660, p_freq_ramp=-0.12, p_env_attack=sustain(0.03), p_env_sustain=sustain(0.35), p_env_decay=sustain(0.4), p_lpf_freq=0.5)
+    sub = voice(SINE, 220, p_freq_ramp=-0.12, p_env_sustain=sustain(0.35), p_env_decay=sustain(0.4))
+    return reverb(mix((dn, 0, 0), (sub, 0, -4)), 1.4, 0.3), "A slow saw and sine sliding down together ('wooom'), low-passed, long reverb"
+
+
+@recipe("slowMotion", "B")
+def _():
+    sw = voice(NOISE, p_base_freq=0.5, p_freq_ramp=-0.1, p_env_attack=sustain(0.25), p_env_sustain=sustain(0.1), p_env_decay=sustain(0.25),
+               p_lpf_freq=0.6, p_lpf_ramp=-0.1, seed=30)
+    tone = voice(SQ, C4, p_freq_ramp=-0.1, p_duty=0.5, p_env_attack=sustain(0.25), p_env_sustain=sustain(0.1), p_env_decay=sustain(0.3), p_lpf_freq=0.3)
+    return reverb(mix((sw, 0, 0), (tone, 0, -6)), 1.2, 0.28), "A noise swell that rises then sinks under a closing filter, with a sagging square, reverb"
+
+
+@recipe("whoosh", "A")
+def _():
+    w = voice(NOISE, p_base_freq=0.4, p_env_attack=sustain(0.12), p_env_sustain=sustain(0.05), p_env_decay=sustain(0.2),
+              p_hpf_freq=0.05, p_hpf_ramp=0.2, p_lpf_freq=0.5, p_lpf_ramp=0.15, seed=31)
+    return reverb(w, 0.6, 0.15), "A noise whoosh whose band sweeps up (high-pass and low-pass both opening)"
+
+
+@recipe("whoosh", "B")
+def _():
+    w = voice(NOISE, p_base_freq=0.5, p_env_attack=sustain(0.1), p_env_sustain=sustain(0.05), p_env_decay=sustain(0.22),
+              p_pha_offset=0.3, p_pha_ramp=-0.2, p_lpf_freq=0.6, seed=32)
+    return reverb(w, 0.6, 0.15), "A noise whoosh through a flanger sweeping down"
+
+
+@recipe("combo:block", "A")
+def _():
+    a = voice(SINE, C5, p_env_sustain=0.03, p_env_punch=0.6, p_env_decay=0.4)
+    b = voice(SINE, C5 * 2.76, p_env_sustain=0.01, p_env_decay=0.2)
+    body = voice(SINE, 260, p_freq_ramp=-0.35, p_env_sustain=0.03, p_env_decay=0.3)
+    return comp(mix((a, 0, 0), (b, 0, -9), (body, 0, -4), (click(), 0, -12)), -16, 4), \
+        "The hit's recipe on sines: a metallic ting on C5 (inharmonic overtone), the same thump and click, compressed"
+
+
+@recipe("combo:block", "B")
+def _():
+    tone = voice(SQ, C5, p_duty=0.5, p_env_sustain=0.05, p_env_punch=0.7, p_env_decay=0.4, p_lpf_freq=0.6)
+    ring = voice(SINE, C5 * 2, p_env_sustain=0.02, p_env_decay=0.35)
+    return comp(mix((tone, 0, 0), (ring, 0, -6), (voice(SINE, 260, p_freq_ramp=-0.35, p_env_sustain=0.03, p_env_decay=0.3), 0, -4),
+                    (click(0.05, 0.2, base=0.6), 0, -9)), -16, 4), "A rounder 'clank': a filtered square on C5 with an octave ring, the hit's thump, compressed"
+
+
+for t, notes, extra in [(1, 4, {}), (2, 5, {}), (4, 9, {"top_oct_db": -8, "whoosh_db": -5, "room": 1.1, "wet": 0.26})]:
+    @recipe(f"combo:tier{t}", "A")
+    def _(notes=notes, extra=extra):
+        return tier_recipe(notes, **extra), f"The tier 3 recipe with {notes} notes" + (", an octave saw layer, a louder whoosh and a bigger room" if extra else "")
+
+    @recipe(f"combo:tier{t}", "B")
+    def _(notes=notes, t=t, extra=extra):
+        start = {1: 4, 2: 5, 4: 6}[t]
+        kw = dict(extra, start=start, gap=0.05 if t == 4 else 0.06, wave=SAW if t == 4 else SQ)
+        return tier_recipe(notes, **kw), f"The tier 3 recipe with {notes} notes from a lower start" + (" in saws, with an octave layer and a bigger room" if t == 4 else "")
+
+
+@recipe("combo:lethal", "A")
+def _():
+    fire = voice(NOISE, p_base_freq=0.2, p_freq_ramp=0.1, p_env_attack=sustain(0.15), p_env_sustain=sustain(0.3), p_env_decay=sustain(0.4),
+                 p_lpf_freq=0.3, p_lpf_ramp=0.12, seed=33)
+    a = voice(SAW, 110, p_freq_ramp=0.18, p_env_attack=sustain(0.1), p_env_sustain=sustain(0.35), p_env_decay=sustain(0.4))
+    b = voice(SAW, 165, p_freq_ramp=0.18, p_env_attack=sustain(0.1), p_env_sustain=sustain(0.35), p_env_decay=sustain(0.4))
+    return reverb(softclip(mix((fire, 0, 0), (a, 0, -4), (b, 0, -6)), 4), 1.2, 0.25), \
+        "Catching fire: a noise roar opening up under two rising saws a fifth apart, saturated, reverb"
+
+
+@recipe("combo:lethal", "B")
+def _():
+    crackle = voice(NOISE, p_base_freq=0.6, p_repeat_speed=0.8, p_env_sustain=sustain(0.5), p_env_decay=sustain(0.3), p_hpf_freq=0.2, seed=34)
+    roar = voice(NOISE, p_base_freq=0.15, p_env_attack=sustain(0.1), p_env_sustain=sustain(0.4), p_env_decay=sustain(0.3), p_lpf_freq=0.35, seed=35)
+    chord = [(voice(SQ, NOTE(s, C4), p_freq_ramp=0.12, p_duty=0.4, p_env_attack=sustain(0.1), p_env_sustain=sustain(0.3),
+                    p_env_decay=sustain(0.3), p_lpf_freq=0.5), 0, -8) for s in (0, 7, 12)]
+    return reverb(mix((roar, 0, 0), (crackle, 0.1, -6), *chord), 1.2, 0.25), \
+        "A fire roar with crackle, and a rising filtered square chord (C4, G4, C5) inside it, reverb"
+
+
+@recipe("combo:charge", "A")
+def _():
+    n = voice(NOISE, p_base_freq=0.3, p_env_attack=sustain(2.0), p_env_sustain=sustain(0.3), p_env_decay=sustain(0.1),
+              p_hpf_freq=0.05, p_hpf_ramp=0.06, seed=36)
+    s = voice(SAW, 196, p_freq_ramp=0.06, p_env_attack=sustain(2.0), p_env_sustain=sustain(0.3), p_env_decay=sustain(0.1), p_lpf_freq=0.6)
+    return mix((n, 0, 0), (s, 0, -6)), "A 2.4 s riser: noise with an opening high-pass and a saw climbing from G3"
+
+
+@recipe("combo:charge", "B")
+def _():
+    s = voice(SQ, C4, p_freq_ramp=0.08, p_repeat_speed=0.0, p_vib_strength=0.3, p_vib_speed=0.6, p_duty=0.4,
+              p_env_attack=sustain(2.0), p_env_sustain=sustain(0.3), p_env_decay=sustain(0.1), p_lpf_freq=0.6)
+    n = voice(NOISE, p_base_freq=0.5, p_env_attack=sustain(2.0), p_env_sustain=sustain(0.3), p_env_decay=sustain(0.1), p_hpf_freq=0.3, seed=37)
+    return mix((s, 0, 0), (n, 0, -10)), "A 2.4 s riser: a square climbing from C4 with fast vibrato (a charging whine) over a faint hiss"
+
+
+# ======================================================================================
+# The finale
+# ======================================================================================
+
+@recipe("combo:slamLethal", "A")
+def _():
+    crunch = voice(SQ, 220, p_freq_ramp=-0.4, p_env_sustain=0.06, p_env_punch=0.7, p_env_decay=0.3, p_duty=0.6)
+    return softclip(slam_recipe(drop=80, floor=25, room=2.6, wet=0.34, extra=((crunch, 0, -5),)), 3), \
+        "The slam recipe, bigger: the sub drops 80 to 25 Hz, a square crunch on top, a 2.6 s room, more saturation"
+
+
+@recipe("combo:slamLethal", "B")
+def _():
+    thunder = voice(NOISE, p_base_freq=0.1, p_repeat_speed=0.35, p_env_sustain=sustain(0.6), p_env_decay=sustain(0.9), p_lpf_freq=0.4, seed=38)
+    sub2 = voice(SINE, 45, p_freq_ramp=-0.1, p_env_sustain=0.4, p_env_decay=0.8)
+    return slam_recipe(room=2.4, wet=0.32, extra=((thunder, 0.15, -4), (sub2, 0, -3))), \
+        "The slam recipe with a rolling thunder tail (repeating low noise) and a second sub an octave down, 2.4 s room"
+
+
+for t, kw in [(0, dict(stabs=1, hold=0.6, octave_db=None, sparks=3, spark_len=0.5, room=1.2, wet=0.22)),
+              (1, dict(stabs=1, hold=0.8, octave_db=None, sparks=6, spark_len=0.7, room=1.3, wet=0.24)),
+              (2, dict(stabs=2, hold=1.0, octave_db=-12, sparks=9, spark_len=1.0, room=1.5, wet=0.25)),
+              (3, dict(stabs=3, hold=1.1, octave_db=-11, sparks=12, spark_len=1.2, room=1.6, wet=0.26)),
+              (4, dict(stabs=3, hold=1.25, octave_db=-10, sparks=15, spark_len=1.4, room=1.7, wet=0.27))]:
+    @recipe(f"combo:fanfare{t}", "A")
+    def _(kw=kw):
+        return fanfare_recipe(**kw), f"The lethal fanfare recipe, smaller: {kw['stabs']} stab(s), a {kw['hold']} s chord, {kw['sparks']} sparkles" + \
+            ("" if kw["octave_db"] is None else ", an octave layer")
+
+    @recipe(f"combo:fanfare{t}", "B")
+    def _(kw=kw, t=t):
+        k = dict(kw, run=3 + 2 * t, stabs=max(0, kw["stabs"] - 1))
+        return fanfare_recipe(**k), f"The lethal fanfare recipe, smaller, opening with a {k['run']}-note pentatonic run instead of one stab"
+
+
+@recipe("combo:coin", "A")
+def _():
+    c = voice(SQ, C6, p_duty=0.5, p_env_sustain=0.03, p_env_punch=0.4, p_env_decay=0.3, p_arp_mod=0.35, p_arp_speed=0.55)
+    return reverb(c, 0.4, 0.12), "A classic square coin blip on C6 that jumps up a fourth, short room"
+
+
+@recipe("combo:coin", "B")
+def _():
+    a = voice(SINE, C6, p_env_sustain=0.01, p_env_decay=0.3)
+    b = voice(SINE, C6 * 2.4, p_env_sustain=0.01, p_env_decay=0.18)
+    return reverb(mix((a, 0, 0), (b, 0, -6), (click(0.02, 0.5, seed=39), 0, -12)), 0.4, 0.12), "A metallic sine 'clink' on C6 with an inharmonic overtone"
+
+
+# ======================================================================================
+# Enemy reactions
+# ======================================================================================
+
+@recipe("enemyHit", "A")
+def _():
+    p = voice(NOISE, p_base_freq=0.35, p_env_sustain=0.02, p_env_punch=0.7, p_env_decay=0.28, p_lpf_freq=0.6, seed=40)
+    d = voice(SQ, 220, p_freq_ramp=-0.35, p_duty=0.5, p_env_sustain=0.03, p_env_decay=0.32, p_lpf_freq=0.5)
+    return comp(mix((p, 0, 0), (d, 0, -3)), -16, 4), "A noise punch with a square dropping from A3: a 'thwack', compressed"
+
+
+@recipe("enemyHit", "B")
+def _():
+    s = voice(SAW, 180, p_freq_ramp=-0.3, p_env_sustain=0.03, p_env_punch=0.6, p_env_decay=0.3, p_lpf_freq=0.5)
+    th = voice(SINE, 120, p_freq_ramp=-0.3, p_env_sustain=0.03, p_env_decay=0.35)
+    return comp(softclip(mix((s, 0, 0), (th, 0, -2), (click(0.05, 0.2, seed=41, base=0.6), 0, -6)), 5), -16, 4), \
+        "A saw crunch with a sine thump and a click, saturated and compressed"
+
+
+@recipe("enemyBigHit", "A")
+def _():
+    b = voice(NOISE, p_base_freq=0.2, p_env_sustain=0.08, p_env_punch=0.7, p_env_decay=0.4, p_lpf_freq=0.55, seed=42)
+    sub = voice(SINE, 100, p_freq_limit=P(40), p_freq_ramp=-0.25, p_env_sustain=0.1, p_env_decay=0.4)
+    cr = voice(SQ, 220, p_freq_ramp=-0.4, p_env_sustain=0.04, p_env_punch=0.7, p_env_decay=0.25, p_duty=0.6)
+    return reverb(comp(softclip(mix((b, 0, 0), (sub, 0, 0), (cr, 0, -5)), 4), -18, 4), 0.8, 0.18), \
+        "A noise boom, a sine sub falling to 40 Hz and a square crunch, saturated, compressed, room"
+
+
+@recipe("enemyBigHit", "B")
+def _():
+    one = voice(NOISE, p_base_freq=0.35, p_env_sustain=0.02, p_env_punch=0.8, p_env_decay=0.2, p_lpf_freq=0.6, seed=43)
+    two = voice(NOISE, p_base_freq=0.15, p_env_sustain=0.06, p_env_punch=0.6, p_env_decay=0.4, p_lpf_freq=0.5, seed=44)
+    sub = voice(SINE, 90, p_freq_ramp=-0.25, p_env_sustain=0.08, p_env_decay=0.4)
+    return comp(mix((one, 0, 0), (two, 0.06, 0), (sub, 0.06, -2)), -18, 4), "A one-two: a sharp punch then a heavier boom 60 ms later with a sub, compressed"
+
+
+@recipe("enemyShield", "A")
+def _():
+    a = voice(SINE, G4, p_env_sustain=0.02, p_env_punch=0.5, p_env_decay=0.45)
+    b = voice(SINE, G4 * 2.76, p_env_sustain=0.01, p_env_decay=0.25)
+    k = voice(NOISE, p_base_freq=0.5, p_env_sustain=0.01, p_env_decay=0.1, p_lpf_freq=0.5, seed=45)
+    return reverb(mix((a, 0, 0), (b, 0, -6), (k, 0, -4)), 0.8, 0.22), "A low metallic clank: a sine on G4 with an inharmonic overtone and a dull knock, reverb"
+
+
+@recipe("enemyShield", "B")
+def _():
+    d = voice(SQ, G4, p_duty=0.5, p_env_sustain=0.04, p_env_punch=0.5, p_env_decay=0.45, p_lpf_freq=0.4, p_lpf_ramp=-0.05)
+    return reverb(mix((d, 0, 0), (voice(SINE, G4 * 2, p_env_sustain=0.02, p_env_decay=0.4), 0, -8), (click(0.04, 0.2, seed=46, base=0.5), 0, -8)), 1.0, 0.25), \
+        "A filtered square 'dong' on G4 with an octave sine, roomy reverb"
+
+
+@recipe("blockBreak", "A")
+def _():
+    sh = voice(NOISE, p_base_freq=0.9, p_repeat_speed=0.7, p_env_sustain=0.08, p_env_punch=0.6, p_env_decay=0.3, p_hpf_freq=0.3, seed=47)
+    shards = [(voice(SQ, NOTE(s, C6), p_duty=0.25, p_env_sustain=0.01, p_env_decay=0.15), 0.02 + i * 0.04, -6) for i, s in enumerate([12, 9, 7, 4, 0])]
+    return reverb(mix((sh, 0, 0), *shards), 0.8, 0.22), "Glass breaking: a stuttering high noise burst with five square shards falling down the scale"
+
+
+@recipe("blockBreak", "B")
+def _():
+    cr = voice(NOISE, p_base_freq=0.6, p_env_sustain=0.03, p_env_punch=0.8, p_env_decay=0.25, seed=48)
+    t = voice(SINE, C6 * 2, p_freq_ramp=-0.2, p_env_sustain=0.02, p_env_decay=0.35)
+    t2 = voice(SINE, C6 * 2.76, p_freq_ramp=-0.25, p_env_sustain=0.01, p_env_decay=0.3)
+    return reverb(comp(mix((cr, 0, 0), (t, 0, -4), (t2, 0.01, -6)), -16, 4), 0.9, 0.24), "A noise crunch with two metallic sines sliding down, compressed, reverb"
+
+
+@recipe("enemyDeath", "A")
+def _():
+    wh = voice(SAW, 600, p_freq_ramp=-0.18, p_env_sustain=sustain(0.25), p_env_decay=sustain(0.35), p_lpf_freq=0.6)
+    bu = voice(NOISE, p_base_freq=0.15, p_env_sustain=0.1, p_env_punch=0.6, p_env_decay=0.5, seed=49)
+    return reverb(comp(mix((bu, 0, 0), (wh, 0, -4)), -18, 4), 1.4, 0.28), "A noise burst with a saw whining down from 600 Hz, compressed, long reverb"
+
+
+@recipe("enemyDeath", "B")
+def _():
+    ex = voice(NOISE, p_base_freq=0.12, p_freq_ramp=-0.1, p_env_sustain=0.15, p_env_punch=0.6, p_env_decay=0.55, seed=50)
+    arp = [(voice(SQ, NOTE(s, C5), p_duty=0.5, p_env_sustain=0.02, p_env_decay=0.18), 0.08 + i * 0.07, -6) for i, s in enumerate([12, 7, 4, 0, -5])]
+    return reverb(mix((ex, 0, 0), *arp), 1.2, 0.25), "An 8-bit explosion with a square arpeggio falling down the scale from C6, reverb"
+
+
+@recipe("bossDeath", "A")
+def _():
+    booms = [(voice(NOISE, p_base_freq=0.12 - 0.02 * i, p_freq_ramp=-0.1, p_env_sustain=0.15, p_env_punch=0.6, p_env_decay=0.6, seed=51 + i), 0.35 * i, -2 * i)
+             for i in range(3)]
+    sweep = voice(SAW, 500, p_freq_ramp=-0.08, p_env_sustain=sustain(0.8), p_env_decay=sustain(0.6), p_lpf_freq=0.5)
+    sub = voice(SINE, 60, p_freq_ramp=-0.05, p_env_sustain=sustain(0.6), p_env_decay=sustain(0.8))
+    return reverb(comp(softclip(mix(*booms, (sweep, 0, -6), (sub, 0, -2)), 3), -20, 4), 2.4, 0.32), \
+        "Three explosions 350 ms apart, each lower, over a long saw dive and a sub, saturated, compressed, 2.4 s room"
+
+
+@recipe("bossDeath", "B")
+def _():
+    dive = voice(SQ, 800, p_freq_ramp=-0.06, p_duty=0.5, p_vib_strength=0.3, p_vib_speed=0.5,
+                 p_env_sustain=sustain(1.2), p_env_decay=sustain(0.6), p_lpf_freq=0.5)
+    rum = voice(NOISE, p_base_freq=0.08, p_env_sustain=sustain(1.2), p_env_punch=0.5, p_env_decay=sustain(0.8), p_lpf_freq=0.3, seed=54)
+    snap = voice(NOISE, p_base_freq=0.85, p_env_sustain=0.01, p_env_decay=0.15, p_hpf_freq=0.2, seed=55)
+    return reverb(mix((snap, 0, -2), (rum, 0, 0), (dive, 0, -6)), 2.4, 0.3), "A long wobbling square dive over a rumble, a snap on the front, 2.4 s room"
+
+
+@recipe("lunge", "A")
+def _():
+    w = voice(NOISE, p_base_freq=0.5, p_env_attack=sustain(0.06), p_env_sustain=sustain(0.04), p_env_decay=sustain(0.12),
+              p_hpf_freq=0.1, p_hpf_ramp=0.25, seed=56)
+    s = voice(SAW, 150, p_freq_ramp=0.3, p_env_attack=sustain(0.06), p_env_sustain=sustain(0.04), p_env_decay=sustain(0.1), p_lpf_freq=0.5)
+    return mix((w, 0, 0), (s, 0, -8)), "A fast rising noise whoosh with a growling saw sweeping up under it"
+
+
+@recipe("lunge", "B")
+def _():
+    w = voice(NOISE, p_base_freq=0.6, p_env_attack=sustain(0.03), p_env_sustain=sustain(0.03), p_env_decay=sustain(0.15),
+              p_lpf_freq=0.7, p_lpf_ramp=-0.25, seed=57)
+    return w, "A quick noise swish whose filter closes down"
+
+
+@recipe("impact", "A")
+def _():
+    th = voice(NOISE, p_base_freq=0.15, p_env_sustain=0.03, p_env_punch=0.8, p_env_decay=0.3, p_lpf_freq=0.5, seed=58)
+    cr = voice(SQ, 165, p_freq_ramp=-0.35, p_duty=0.6, p_env_sustain=0.03, p_env_punch=0.6, p_env_decay=0.25)
+    return comp(softclip(mix((th, 0, 0), (cr, 0, -4)), 4), -18, 4), "A heavy noise thud with a low square crunch, saturated, compressed"
+
+
+@recipe("impact", "B")
+def _():
+    p = voice(NOISE, p_base_freq=0.4, p_env_sustain=0.02, p_env_punch=0.8, p_env_decay=0.2, seed=59)
+    sub = voice(SINE, 80, p_freq_ramp=-0.2, p_env_sustain=0.05, p_env_decay=0.35)
+    return comp(softclip(mix((p, 0, 0), (sub, 0, 0)), 6), -18, 4), "A punch with a low sine under it, heavily saturated"
+
+
+@recipe("heal", "A")
+def _():
+    notes = [(voice(SINE, NOTE(s), p_env_attack=0.05, p_env_sustain=0.05, p_env_decay=0.4), i * 0.08, -1) for i, s in enumerate([0, 4, 7, 12])]
+    return reverb(mix(*notes), 1.2, 0.3), "A soft sine arpeggio rising C5, E5, G5, C6, reverb"
+
+
+@recipe("heal", "B")
+def _():
+    sw = voice(SINE, C5, p_freq_ramp=0.05, p_env_attack=sustain(0.15), p_env_sustain=sustain(0.2), p_env_decay=sustain(0.3), p_vib_strength=0.08, p_vib_speed=0.5)
+    return reverb(mix((sw, 0, 0), (voice(SINE, NOTE(7), p_env_attack=sustain(0.15), p_env_sustain=sustain(0.2), p_env_decay=sustain(0.3)), 0, -4),
+                      *sparkles(0.15, 0.5, 6, 60, quiet=12)), 1.2, 0.3), "A rising sine swell on C5 with a fifth and a few sparkles, reverb"
+
+
+# Which variant ships. Filled in from the designer's picks.
+PICKS = {"combo:hit": "pick", "combo:tier3": "pick", "combo:slam": "pick", "combo:fanfareLethal": "pick"}
+
+GROUPS = {
+    "Placing": ["clack", "hum"],
+    "The cascade": ["tick", "junction", "effect:damage", "effect:block", "effect:amplify", "effect:echo", "effect:spectrum",
+                    "effect:charm", "fizzle", "lightning", "shake", "slowMotion", "whoosh", "combo:hit", "combo:block",
+                    "combo:tier1", "combo:tier2", "combo:tier3", "combo:tier4", "combo:lethal"],
+    "Enemy reactions": ["lunge", "impact", "enemyHit", "enemyBigHit", "enemyShield", "blockBreak", "heal", "enemyDeath", "bossDeath"],
+    "The finale": ["combo:charge", "combo:slam", "combo:slamLethal", "combo:fanfare0", "combo:fanfare1", "combo:fanfare2",
+                   "combo:fanfare3", "combo:fanfare4", "combo:fanfareLethal", "combo:coin"],
+}
