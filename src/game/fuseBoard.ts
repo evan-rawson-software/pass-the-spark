@@ -30,6 +30,11 @@ type Layer = Phaser.GameObjects.Container;
 // A domino's own silhouette size at scale 1 (a junction is taller, a cap narrower).
 const sizeOf = (kind: DominoKind) => dominoPixelSize("large", kind);
 
+// The board's area, from data (CombatScene reads it from here; a later layout moves it in data).
+export function boardArea(): Rect {
+  return { ...D.area };
+}
+
 // ---- layout (pure geometry, in nominal px at the board scale) ----
 
 export interface TreeTile { id: number; kind: DominoKind; cx: number; cy: number; w: number; h: number; socket: Pt }

@@ -3,7 +3,7 @@ import { createBattle, getPendingChoice, previewPlay, step } from "../engine/bat
 import type { BattleState } from "../engine/battle";
 import { loadContent } from "../engine/content";
 import { getView } from "../engine/view";
-import { FuseBoard, chargesInto, liveNumber } from "./fuseBoard";
+import { FuseBoard, boardArea, chargesInto, liveNumber } from "./fuseBoard";
 import { HandFan } from "./handFan";
 import { seatColour } from "./seatColours";
 
@@ -32,7 +32,7 @@ export class BoardPreviewScene extends Phaser.Scene {
     if (q.get("guides") !== "0") this.guides(layer);
 
     const board = new FuseBoard(this, layer);
-    const area = { x: 400, y: 372, w: Number(q.get("aw") ?? 1490), h: 418 };
+    const area = { ...boardArea(), w: Number(q.get("aw") ?? boardArea().w) };
     const ownerColour = (o: string) => seatColour(view.seatOrder, o);
     board.draw({
       board: view.board,
@@ -176,7 +176,8 @@ export class BoardPreviewScene extends Phaser.Scene {
     box(1610, 866, 300, 60, "Pass");
     box(1610, 942, 300, 96, "Set off", 0xffd54a);
     g.lineStyle(2, 0xb8c4b4, 0.25);
-    g.strokeRect(400, 372, 1490, 418);
+    const a = boardArea();
+    g.strokeRect(a.x, a.y, a.w, a.h);
     layer.add(this.add.text(404, 376, "board area", { fontFamily: FONT, fontSize: "16px", color: "#b8c4b4" }).setAlpha(0.6));
   }
 }
