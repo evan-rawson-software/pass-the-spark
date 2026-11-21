@@ -315,10 +315,12 @@ export class Animator {
           sh?.text.setText(String(before.party.block));
           hold = this.reactions.lunge().then(() => {
             this.reactions.partyHit(ev.amount);
-            this.tweenHealth(key, before, after, ev.blocked > 0 ? reactionData.impact.blockFirstMs : 0);
+            const lag = ev.blocked > 0 ? reactionData.impact.blockFirstMs : 0;
+            this.tweenHealth(key, before, after, lag);
+            this.reactions.ghostHit(key, before[key].health, after[key].health, lag);
           });
         }
-        this.reactions.ghostHit(key, before[key].health, after[key].health);
+        if (ev.side === "enemy") this.reactions.ghostHit(key, before[key].health, after[key].health);
         break;
       }
       case "block": {
