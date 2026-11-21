@@ -158,7 +158,7 @@
     }
   },
   "fuseBoard": {
-    "comment": "Fuse board (#229), read by src/game/fuseBoard.ts. Lengths are px at the board scale (scale, a share of full size) and the whole tree shrinks together (never below minScale) only when it outgrows its area. The owner stripe stays down to detailScale. gap: run between a domino's edge and the next one; rowPitch: distance between branches; ringRadius: the open-end ghost ring; junctionGapX: where a junction's middle output (Hall of Mirrors) leaves, in domino units. fuse: dark under-stroke and spark-colour stroke widths, bend (share of the run used as the curve's handle), the cascade's burnt part (burnWidth, burnAlpha, burnMs at 1x). badge: the charge pill at a fuse's midpoint; nudge lists the places along the fuse (0..1) tried in order until it clears every tile, ring and other badge by clearance. ring: dashed open end, its gold charge badge, the legal highlight (pulse is skipped with reduced flashing); lock: the padlock on a locked end. live: the result bubble beside an end while a hand domino is hovered or dragged (good = at or above its base, bad = below it); dimAlpha for ends it is not aimed at. opener: the empty first slot.",
+    "comment": "Fuse board (#229), read by src/game/fuseBoard.ts. Lengths are px at the board scale (scale, a share of full size) and the whole tree shrinks together (never below minScale) only when it outgrows its area. The owner stripe stays down to detailScale. gap: run between a domino's edge and the next one; rowPitch: distance between branches; ringRadius: the open-end ghost ring; padLeft: space left of the opener inside the area so its socket ring is not clipped; junctionGapX: where a junction's middle output (Hall of Mirrors) leaves, in domino units. fuse: dark under-stroke and spark-colour stroke widths, bend (share of the run used as the curve's handle), the cascade's burnt part (burnWidth, burnAlpha, burnMs at 1x). badge: the charge pill at a fuse's midpoint; nudge lists the places along the fuse (0..1) tried in order until it clears every tile, ring and other badge by clearance. ring: dashed open end, its gold charge badge, the legal highlight (pulse is skipped with reduced flashing); lock: the padlock on a locked end. live: the result bubble beside an end while a hand domino is hovered or dragged (good = at or above its base, bad = below it); dimAlpha for ends it is not aimed at. opener: the empty first slot.",
     "scale": 0.6,
     "minScale": 0.3,
     "detailScale": 0.4,
@@ -166,6 +166,7 @@
     "rowPitch": 90,
     "ringRadius": 30,
     "junctionGapX": 150,
+    "padLeft": 16,
     "fuse": { "under": 13, "width": 7, "bend": 0.5, "dimAlpha": 0.3, "underColour": "#22201c", "burnWidth": 9, "burnAlpha": 0.95, "burnMs": 500 },
     "badge": { "w": 44, "h": 30, "fill": "#fff7d6", "stroke": "#22201c", "strokeWidth": 2.5, "size": 20, "text": "#22201c", "minSize": 11, "clearance": 4, "nudge": [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74, 0.18, 0.82] },
     "ring": { "width": 4, "dash": 7, "gap": 6, "legalColour": "#ffe14d", "legalWidth": 6, "fillAlpha": 0.12, "backing": "#0d2a20", "badgeR": 14, "badgeFill": "#ffd54a", "badgeDx": 26, "badgeDy": -24, "badgeText": "#2a2200", "minHit": 44, "pulseMs": 700, "pulseAlpha": 0.55 },

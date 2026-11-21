@@ -396,11 +396,11 @@ export class FuseBoard {
     }
     const lay = layoutTree(board, input.dominoes);
     this.lay = lay;
-    const f = fitScale(lay, area.w, area.h);
+    const f = fitScale(lay, area.w - D.padLeft, area.h);
     const k = D.scale * f;
     this.f = f;
     this.k = k;
-    const ox = area.x;
+    const ox = area.x + D.padLeft; // room for the opener's socket ring
     const oy = area.y + (area.h - (lay.y1 - lay.y0) * f) / 2;
     this.X = (x) => ox + (x - lay.x0) * f;
     this.Y = (y) => oy + (y - lay.y0) * f;
@@ -507,9 +507,9 @@ export class FuseBoard {
   // The empty board: a dashed slot for the opener, on the left of the area.
   private drawOpener(area: Rect): void {
     const O = D.opener;
-    const x = area.x + O.w / 2;
+    const x = area.x + D.padLeft + O.w / 2;
     const y = area.y + area.h / 2;
-    this.box = { x: area.x, y: y - O.h / 2, w: O.w, h: O.h };
+    this.box = { x: area.x + D.padLeft, y: y - O.h / 2, w: O.w, h: O.h };
     const g = this.scene.add.graphics();
     this.root.add(g);
     this.opener = { x, y, g };
