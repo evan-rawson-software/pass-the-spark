@@ -246,6 +246,7 @@ export class ComboHype {
   event(ev: GameEvent): void {
     if (!this.on) return;
     if (ev.type === "damage" && ev.side === "enemy") {
+      if (ev.amount + ev.blocked === 0) return; // a hit of 0 (an amplifier passing on nothing) is no hit
       this.sum.damage += ev.amount + ev.blocked;
       this.sum.health += ev.amount;
       this.sum.blocked += ev.blocked;
@@ -289,7 +290,6 @@ export class ComboHype {
   skip(): void {
     this.quick = true;
     for (const hit of [...this.flights]) hit.cancel?.();
-    this.open = { damage: null, block: null }; // what comes now has no spark: every hit counts on its own
   }
 
   // Everything away at once (a new round, the scene going).

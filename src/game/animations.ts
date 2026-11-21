@@ -264,7 +264,13 @@ export class Animator {
       setSoundHushed(true);
       scene.tweens.timeScale = SKIP_SPEED;
       scene.time.timeScale = SKIP_SPEED;
-    } else this.hype.event(ev);
+    } else {
+      // Hits are counted as when watched: a cap is one hit however many times it triggers, an amplifier or
+      // junction one hit when it passes on something (no sparks fly: the hype is in its quick mode).
+      if (ev.type === "capFired") this.hype.cap(ev, { x: 0, y: 0 }, true);
+      else if (ev.type === "nodeLit" && shown.dominoes.find((d) => d.id === ev.domino)?.kind !== "cap") this.hype.smallHit(ev, { x: 0, y: 0 });
+      this.hype.event(ev);
+    }
   }
 
   // The shots in the air have landed.
