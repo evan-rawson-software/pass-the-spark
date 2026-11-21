@@ -36,7 +36,6 @@ import { scaleTime } from "./playbackSpeed";
 import { SpeedControl } from "./speedControl";
 import { Animator, SKIP_SPEED, animTime, newRefs, paintBar } from "./animations";
 import { SetOffPreviewUi } from "./setOffPreview";
-import type { PreviewSpots } from "./setOffPreview";
 import { boardGlow } from "./spectacle";
 import { buildupStrip, litGlowStrength } from "./buildup";
 import { applyEvent, startShown } from "./shownView";
@@ -91,15 +90,6 @@ const SIDE_H = 450;
 function matFor(players: number): typeof MAT {
   return players === 2 ? { ...MAT, w: RIGHT_X + SIDE_W - 15 - MAT.x } : MAT;
 }
-
-// Where the preview draws, matching drawEnemy, drawParty and the Set off button.
-const PREVIEW_SPOTS: PreviewSpots = {
-  enemyBar: { x: 60, y: 112, w: 400, h: 40 },
-  enemyShield: { x: 80, y: 208, s: 40 },
-  partyBar: { x: RIGHT_X, y: 68, w: 190, h: 34 },
-  partyShield: { x: RIGHT_X + 212, y: 85, s: 34 },
-  setOffButton: { x: HAND.x + HAND.w - 170, y: HAND.y - 2 - 22, w: 150, h: 44 },
-};
 
 const GOLD = 0xffe14d;
 const RED = 0xe0443e;
@@ -737,14 +727,14 @@ export class CombatScene extends Phaser.Scene {
     if (!into?.active) return;
     const view = this.view;
     if (this.locked || this.waiting || this.shown || view.phase === "over") {
-      this.previewUi.draw(into, view, null, PREVIEW_SPOTS, false);
+      this.previewUi.draw(into, view, null, false);
       return;
     }
     const pending = getPendingChoice(view);
     const hover = this.hoverPlay;
     const p = (hover ? previewSetOff(view, hover) : null) ?? previewSetOff(view);
     const mine = !!pending && (!this.online || pending.player === this.mySeat());
-    this.previewUi.draw(into, view, p, PREVIEW_SPOTS, !!p?.lethal && (hover !== null || (mine && pending!.canSetOff)));
+    this.previewUi.draw(into, view, p, !!p?.lethal && (hover !== null || (mine && pending!.canSetOff)));
   }
 
   // A hand domino hovered, picked or dragged over a legal end: preview the board with it there.

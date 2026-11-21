@@ -8,13 +8,13 @@ import { reducedFlashing } from "./comfort";
 // previewSetOff; this file only places ghosts, marks and labels. Rebuilt on each update.
 
 interface Box { x: number; y: number; w: number; h: number } // top-left origin
-export interface PreviewSpots {
+const spots = D.spots as {
   enemyBar: Box;
   enemyShield: { x: number; y: number; s: number };
   partyBar: Box;
   partyShield: { x: number; y: number; s: number };
   setOffButton: Box;
-}
+};
 
 export class SetOffPreviewUi {
   private tweens: Phaser.Tweens.Tween[] = [];
@@ -27,7 +27,7 @@ export class SetOffPreviewUi {
   }
 
   // Draws into `into` (emptied first). No preview (null) draws nothing.
-  draw(into: Phaser.GameObjects.Container, view: BattleView, p: SetOffPreview | null, spots: PreviewSpots, glowSetOff: boolean): void {
+  draw(into: Phaser.GameObjects.Container, view: BattleView, p: SetOffPreview | null, glowSetOff: boolean): void {
     this.clear();
     into.removeAll(true);
     if (!p) return;
@@ -35,7 +35,7 @@ export class SetOffPreviewUi {
     const g = s.add.graphics();
     into.add(g);
     const text = (x: number, y: number, str: string, colour: string, size: number, originX = 0.5) =>
-      into.add(s.add.text(x, y, str, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${size}px`, color: colour, fontStyle: "bold", stroke: "#101010", strokeThickness: 5 }).setOrigin(originX, 0.5));
+      into.add(s.add.text(x, y, str, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${size}px`, color: colour, fontStyle: "bold", strokeThickness: D.text.strokeThickness, stroke: D.text.strokeColour }).setOrigin(originX, 0.5));
 
     // Enemy: the damage as a ghost from current to projected health, the block it uses up.
     const e = spots.enemyBar;
@@ -43,35 +43,36 @@ export class SetOffPreviewUi {
     if (p.canSetOff && p.damage > 0) {
       const from = e.w * (p.enemyHealth / enemy.maxHealth);
       const to = e.w * (enemy.health / enemy.maxHealth);
-      this.ghost(into, e.x + from, e.y, Math.max(to - from, 2), e.h);
-      text(e.x + e.w, e.y - 16, `−${p.damage}`, D.loss.colour, D.loss.fontSize, 1);
+      this.ghost(into, e.x + from, e.y, Math.max(to - from, D.ghost.minWidth), e.h);
+      text(e.x + e.w, e.y + D.loss.enemyDy, `−${p.damage}`, D.loss.colour, D.loss.fontSize, 1);
     }
     if (p.canSetOff && p.enemyBlockUsed > 0) {
       const sh = spots.enemyShield;
-      text(sh.x + sh.s * 0.5 + 70, sh.y, `−${p.enemyBlockUsed}`, D.gain.colour, D.gain.fontSize, 0);
+      text(sh.x + sh.s * 0.5 + D.gain.enemyShieldDx, sh.y, `−${p.enemyBlockUsed}`, D.gain.colour, D.gain.fontSize, 0);
       if (p.enemyBlock === 0) this.cracks(g, sh.x, sh.y, sh.s);
     }
-    if (p.lethal) this.skull(g, e.x + e.h * 0.6, e.y + e.h / 2, D.skull.size);
+    if (p.lethal) this.skull(g, e.x + e.h * D.skull.dx, e.y + e.h / 2, D.skull.size);
 
     // Party: block gained, health lost to what the intent still does after block (or safe).
     const sh = spots.partyShield;
-    if (p.partyBlockGain > 0) text(sh.x, sh.y - sh.s * 0.5 - 20, `+${p.partyBlockGain}`, D.gain.colour, D.gain.fontSize);
+    if (p.partyBlockGain > 0) text(sh.x, sh.y - sh.s * 0.5 + D.gain.partyDy, `+${p.partyBlockGain}`, D.gain.colour, D.gain.fontSize);
     const b = spots.partyBar;
     if (p.partyDamage > 0) {
       const from = b.w * (p.partyHealth / view.party.maxHealth);
       const to = b.w * (view.party.health / view.party.maxHealth);
-      this.ghost(into, b.x + from, b.y, Math.max(to - from, 2), b.h);
+      this.ghost(into, b.x + from, b.y, Math.max(to - from, D.ghost.minWidth), b.h);
       text(b.x + b.w, b.y + b.h + 18, `−${p.partyDamage}`, D.loss.colour, D.loss.fontSize, 1);
     } else if (!p.lethal && view.intent.actions.some((a) => a.kind === "attack")) {
-      this.safe(g, b.x + 12, b.y + b.h + 18);
-      text(b.x + 30, b.y + b.h + 18, "safe", D.safe.colour, D.safe.fontSize, 0);
+      this.safe(g, b.x + D.safe.iconDx, b.y + b.h + D.safe.dy);
+      text(b.x + D.safe.textDx, b.y + b.h + D.safe.dy, "safe", D.safe.colour, D.safe.fontSize, 0);
     }
 
     if (glowSetOff) {
       const r = spots.setOffButton;
+      const P = D.setOffGlow.pad;
       const glow = s.add.graphics();
-      glow.lineStyle(7, hexColour(D.setOffGlow.colour), 1);
-      glow.strokeRoundedRect(r.x - 5, r.y - 5, r.w + 10, r.h + 10, r.h / 2 + 5);
+      glow.lineStyle(D.setOffGlow.width, hexColour(D.setOffGlow.colour), 1);
+      glow.strokeRoundedRect(r.x - P, r.y - P, r.w + 2 * P, r.h + 2 * P, r.h / 2 + P);
       into.add(glow);
       this.pulse(glow, D.setOffGlow.alphaLow, D.setOffGlow.alphaHigh, D.setOffGlow.pulseMs);
     }
@@ -93,29 +94,28 @@ export class SetOffPreviewUi {
   private cracks(g: Phaser.GameObjects.Graphics, x: number, y: number, s: number): void {
     g.lineStyle(D.crack.width, hexColour(D.crack.colour), 1);
     g.beginPath();
-    g.moveTo(x - s * 0.1, y - s * 0.5);
-    g.lineTo(x + s * 0.12, y - s * 0.1);
-    g.lineTo(x - s * 0.12, y + s * 0.15);
-    g.lineTo(x + s * 0.05, y + s * 0.55);
+    D.crack.points.forEach(([dx, dy], i) => (i === 0 ? g.moveTo(x + dx * s, y + dy * s) : g.lineTo(x + dx * s, y + dy * s)));
     g.strokePath();
   }
 
   private skull(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number): void {
-    g.fillStyle(0x101010, 0.85);
-    g.fillCircle(x, y, r + 4);
-    g.fillStyle(hexColour(D.skull.colour), 1);
-    g.fillCircle(x, y - r * 0.15, r * 0.8);
-    g.fillRect(x - r * 0.4, y + r * 0.35, r * 0.8, r * 0.5);
-    g.fillStyle(0x101010, 1);
-    g.fillCircle(x - r * 0.3, y - r * 0.15, r * 0.22);
-    g.fillCircle(x + r * 0.3, y - r * 0.15, r * 0.22);
+    const k = D.skull;
+    g.fillStyle(hexColour(k.outlineColour), k.outlineAlpha);
+    g.fillCircle(x, y, r + k.outline);
+    g.fillStyle(hexColour(k.colour), 1);
+    g.fillCircle(x, y + r * k.headDy, r * k.head);
+    g.fillRect(x - r * k.jawHalf, y + r * k.jawTop, r * k.jawHalf * 2, r * k.jawH);
+    g.fillStyle(hexColour(k.outlineColour), 1);
+    g.fillCircle(x - r * k.eyeDx, y + r * k.headDy, r * k.eyeR);
+    g.fillCircle(x + r * k.eyeDx, y + r * k.headDy, r * k.eyeR);
   }
 
   // A small shield with a tick.
   private safe(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
-    g.fillStyle(hexColour(D.safe.colour), 1);
-    g.fillPoints([new Phaser.Math.Vector2(x - 10, y - 11), new Phaser.Math.Vector2(x + 10, y - 11), new Phaser.Math.Vector2(x + 10, y + 2), new Phaser.Math.Vector2(x, y + 12), new Phaser.Math.Vector2(x - 10, y + 2)], true);
-    g.lineStyle(3, 0x10301c, 1);
+    const k = D.safe;
+    g.fillStyle(hexColour(k.colour), 1);
+    g.fillPoints([[-k.half, -k.top], [k.half, -k.top], [k.half, k.shoulder], [0, k.tip], [-k.half, k.shoulder]].map(([dx, dy]) => new Phaser.Math.Vector2(x + dx, y + dy)), true);
+    g.lineStyle(k.tickWidth, hexColour(k.tickColour), 1);
     g.lineBetween(x - 5, y, x - 1, y + 4);
     g.lineBetween(x - 1, y + 4, x + 6, y - 5);
   }
