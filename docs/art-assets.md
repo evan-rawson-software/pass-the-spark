@@ -55,7 +55,7 @@ Scenes almost always get a painted artist signature in a bottom corner, and anyt
 ## The list
 
 The branching cascade redesign (M9, `docs/design-branching-cascade.md`) changed some of this list:
-- **New:** `charms/junction_runner.png` (a forked signpost), for the charm that replaces Lap Runner.
+- **New:** `charms/junction_runner.png` (a forked signpost), for the charm that replaces Lap Runner. Shipped (#193).
 - **Retired once the `cascade` branch merges into `main`:** `charms/lap_runner.png`, `ui/spectrum.png`, `ui/no_lap.png` and `tiles/enemy.png`. `main` still uses them until then, so keep the files and their manifest entries for now.
 
 ### Sparks: `sparks/<Spark>.png`, 256×256, transparent
@@ -64,17 +64,17 @@ The branching cascade redesign (M9, `docs/design-branching-cascade.md`) changed 
 ### Effects: drawn in code
 **Not generated.** All effect icons are drawn in code in one consistent style, by designer choice. Don't add any `effects/` files to the manifest. Under the branching cascade (M9) they are: caps `damage`, `block`, `coins`; amplifiers `boost`, `double`, `echo`, `spectrum`; and `junction`.
 
-### Effects textures: `fx/<id>.png`, 256×256, transparent (optional)
-For the cascade effects in M10 (#188). Every one has a code-drawn fallback, so make only the ones that clearly look better than code. The game tints them in code, so draw each **white to light grey on a plain flat black background**, then turn brightness into transparency (black becomes fully transparent, white fully opaque) instead of colour-keying. Soft edges are welcome here, unlike the icons.
+### Effects textures: `fx/<id>.png`, 256×256, transparent
+For the cascade effects in M10 (#188). Each file is white, with brightness as alpha: code tints it by multiplying a colour into the RGB and keeping the alpha. To make more, draw white to light grey on a plain flat black background, then turn brightness into transparency (black fully transparent, white fully opaque) instead of colour-keying. Soft edges are welcome here, unlike the icons.
 
-| Id | What |
-| --- | --- |
-| `glow` | A soft round glow, brightest in the middle, fading to nothing at the edge. |
-| `spark` | A small four-pointed star particle with a soft halo. |
-| `slash` | A curved blade streak, sharp at one end, trailing off at the other. |
-| `bolt` | A short jagged energy bolt, horizontal. |
-| `shard` | One broken fragment, for shattering shields and enemy deaths. |
-| `ring` | A thin shockwave ring with a soft edge, for impacts. |
+| Id | Status | What |
+| --- | --- | --- |
+| `spark` | Shipped (#195) | An 8-pointed star particle with a soft halo. |
+| `slash` | Shipped (#195) | A curved blade streak, trailing off to the upper right. |
+| `bolt` | Shipped (#195) | A short jagged energy bolt, running left to right. |
+| `shard` | Shipped (#195) | One faceted crystal chunk, for shattering shields and enemy deaths. |
+| `glow` | **Drawn in code** | A soft radial gradient. The model drew a hard rim instead of a soft falloff, so don't generate it. |
+| `ring` | **Drawn in code** | A thin shockwave circle. Same reason. |
 
 Use the icon style words with "glowing magical energy effect" in the subject, but drop "thick bold black outline" and change "isolated on a plain flat pure white background" to "isolated on a plain flat pure black background".
 
