@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sound Spike Picker</title>
+<title>Sound Picker Round 1</title>
 <style>
 :root {
   --bg: #121417; --panel: #1b1e23; --panel2: #23272e; --ink: #eceae4; --muted: #a7abb3; --line: #2c3139;
@@ -11,130 +11,182 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-.wrap { max-width: 980px; margin: 0 auto; padding: 28px 16px 64px; display: grid; gap: 20px; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 28px 16px 64px; display: grid; gap: 20px; }
 h1 { margin: 0; font-size: 1.8rem; color: var(--gold); }
-h2 { margin: 0 0 4px; font-size: 1.25rem; }
-p { margin: 0; max-width: 72ch; }
+h2 { margin: 0; font-size: 1.35rem; }
+h3 { margin: 0; font-size: 1.05rem; font-family: ui-monospace, Consolas, monospace; }
+p { margin: 0; max-width: 76ch; }
+a { color: var(--gold); }
 .muted { color: var(--muted); }
 .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
-section { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
-.need { color: var(--muted); font-size: .92rem; }
-.row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.group { display: grid; gap: 12px; }
+.group > header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; position: sticky; top: 0; background: var(--bg); padding: 8px 0; z-index: 1; }
+.cue { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+.cue.done { border-color: #2e5a3a; }
+.cue > div:first-child { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
 .row.picked { border-color: var(--pick); box-shadow: 0 0 0 1px var(--pick) inset; }
-.name { font-weight: 600; }
-.meta { color: var(--muted); font-size: .85rem; }
+.row .how { color: var(--muted); font-size: .88rem; }
+.row .v { font-weight: 700; margin-right: 6px; color: var(--ink); }
 .btns { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-button { font: 600 14px system-ui, sans-serif; border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer; background: var(--gold); color: #22201c; }
+button { font: 600 14px system-ui, sans-serif; border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer; background: var(--gold); color: #22201c; white-space: nowrap; }
 button.alt { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 button.pick { background: transparent; color: var(--pick); border: 1px solid var(--pick); }
 .row.picked button.pick { background: var(--pick); color: #0d1a10; }
 button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-details { grid-column: 2 / 4; font-size: .88rem; color: var(--muted); }
-details ul { margin: 6px 0 0; padding-left: 18px; }
-summary { cursor: pointer; }
-textarea { width: 100%; min-height: 110px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 13px ui-monospace, Consolas, monospace; }
-@media (max-width: 640px) {
-  .row { grid-template-columns: 1fr; }
-  .btns { justify-content: flex-start; }
-  details { grid-column: 1; }
+.tag { font-size: .8rem; color: var(--pick); border: 1px solid #2e5a3a; border-radius: 999px; padding: 1px 8px; }
+textarea { width: 100%; min-height: 160px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 13px ui-monospace, Consolas, monospace; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; }
+@media (max-width: 680px) {
+  .row { grid-template-columns: auto 1fr; }
+  .btns { grid-column: 1 / -1; justify-content: flex-start; }
 }
 </style>
 </head>
 <body>
 <main class="wrap">
   <header style="display:grid;gap:8px">
-    <h1>Sound spike picker</h1>
-    <p class="muted">Issue #244. Every candidate is matched to the same loudness (−14 LUFS, loudest 400 ms) so the loudest doesn't win by default. "Current" is what the game plays today. Use headphones or decent speakers, and turn on blind mode to hide which method made what.</p>
+    <h1>Sound picker, round 1</h1>
+    <p class="muted">Issue #251: every combat sound, remade with the layered jsfxr recipe you picked in the spike. Two candidates per cue, A and B, all matched to −14 LUFS. Your four spike picks ship as they are and are here for reference. Pitched cues are played the way the game plays them (speed and pitch together, on the C major pentatonic scale): "Climb" runs every step the game can reach, and "Top" plays the highest one.</p>
+    <p class="muted">The spike's picker is still at <a href="spike.html">spike.html</a>.</p>
     <div class="bar">
-      <label><input type="checkbox" id="blind"> Blind mode</label>
       <label>Volume <input type="range" id="vol" min="0" max="1" step="0.05" value="0.8"></label>
       <button class="alt" id="stop">Stop all</button>
+      <span class="muted" id="count"></span>
     </div>
   </header>
-  <div id="cues"></div>
-  <section>
-    <h2>Not tested</h2>
-    <p class="need">These methods need an account, which was skipped this session: <b>Stable Audio Open</b> (local AI; the Hugging Face model is gated behind accepting its licence), <b>Freesound CC0</b> (needs an API key), <b>ElevenLabs</b> (needs a free-tier sign-up) and the <b>Sonniss GDC bundle</b> (20–30 GB and blocks scripts). The report says what each would take.</p>
-  </section>
-  <section>
+  <div id="groups"></div>
+  <section class="panel">
     <h2>Your picks</h2>
-    <p class="muted">Press "Pick" on your favourite for each cue, then copy this and send it back.</p>
+    <p class="muted">Pick A or B for every cue, then copy this and send it back.</p>
     <textarea id="out" readonly></textarea>
     <div class="bar"><button id="copy">Copy</button></div>
   </section>
 </main>
 <script>
-const DATA = [{"method":"jsfxr","cue":"combo-hit","n":1,"file":"jsfxr/combo-hit_1.ogg","seconds":0.4,"lufs":-14,"peak_db":-2,"steps":["jsfxr square 'coin' blip at C6 with punch and an upward arpeggio jump","layered with a short high-passed jsfxr noise click (-9 dB)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"jsfxr","cue":"combo-hit","n":2,"file":"jsfxr/combo-hit_2.ogg","seconds":0.21,"lufs":-14.1,"peak_db":-1.2,"steps":["jsfxr narrow square that snaps down a fifth onto C6","layered with a sine thump (260 Hz falling, -4 dB) and a noise click (-10 dB)","compressed (4:1 at -16 dB)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"jsfxr","cue":"combo-hit","n":3,"file":"jsfxr/combo-hit_3.ogg","seconds":0.54,"lufs":-14,"peak_db":-2.1,"steps":["jsfxr saw at C6 with a closing low-pass, plus a sine an octave up (-3 dB) for a bell-like top","a noise click (-12 dB)","short room reverb (0.5 s, 18 % wet)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"jsfxr","cue":"combo-tier3","n":1,"file":"jsfxr/combo-tier3_1.ogg","seconds":1.41,"lufs":-14.3,"peak_db":-6.6,"steps":["seven jsfxr square notes running up the pentatonic scale 55 ms apart, the last held with vibrato","a rising jsfxr noise whoosh under it (-8 dB)","room reverb (0.9 s, 22 % wet)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"jsfxr","cue":"combo-tier3","n":2,"file":"jsfxr/combo-tier3_2.ogg","seconds":1.08,"lufs":-14.1,"peak_db":-3,"steps":["jsfxr 'power-up' staircase (square, rising slide with repeat)","doubled an octave up with a filtered saw (-6 dB)","a noise crash on the top step (-6 dB)","reverb (0.8 s, 20 %), compressed 3:1","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"jsfxr","cue":"combo-tier3","n":3,"file":"jsfxr/combo-tier3_3.ogg","seconds":1.6,"lufs":-14,"peak_db":-3.1,"steps":["seven jsfxr saw notes arpeggiating a C major chord up two octaves, 60 ms apart, with jsfxr's flanger","high shelf +3 dB at 3 kHz","reverb (1.1 s, 28 % wet)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"jsfxr","cue":"combo-slam","n":1,"file":"jsfxr/combo-slam_1.ogg","seconds":1.81,"lufs":-14.2,"peak_db":-2.6,"steps":["jsfxr noise explosion with punch","a sine sub dropping 140 → 34 Hz","a square crunch (-6 dB)","soft-clip saturation (+6 dB drive), compressed 5:1","reverb (1.4 s, 20 %)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"jsfxr","cue":"combo-slam","n":2,"file":"jsfxr/combo-slam_2.ogg","seconds":1.55,"lufs":-14.1,"peak_db":-2.7,"steps":["two jsfxr noise explosions stacked (low and filtered, plus a short mid crack at -3 dB)","a filtered saw dropping 110 → 30 Hz (-2 dB)","soft-clip (+4 dB), compressed 4:1","low shelf +4 dB at 120 Hz","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"jsfxr","cue":"combo-slam","n":3,"file":"jsfxr/combo-slam_3.ogg","seconds":2.77,"lufs":-14.2,"peak_db":-1,"steps":["jsfxr 'bomb': noise explosion with a sweeping flanger and closing low-pass","a sine drop 90 → 30 Hz (-1 dB)","a bright noise snap on the front (-2 dB)","compressed 4:1","long reverb (2 s, 30 %) for size","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"jsfxr","cue":"combo-fanfareLethal","n":1,"file":"jsfxr/combo-fanfareLethal_1.ogg","seconds":3.04,"lufs":-14.1,"peak_db":-3.2,"steps":["a fast jsfxr square run up the pentatonic scale (10 notes, 45 ms apart)","then a held C major chord: four jsfxr saw/square notes plus a slightly detuned saw copy of each for width, with vibrato","14 jsfxr coin sparkles scattered over the chord (-10 to -16 dB)","compressed 3:1","reverb (1.6 s, 25 %)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"jsfxr","cue":"combo-fanfareLethal","n":2,"file":"jsfxr/combo-fanfareLethal_2.ogg","seconds":3.35,"lufs":-14.1,"peak_db":-3,"steps":["three short jsfxr saw chord stabs (G major), then a held C major chord with an octave-up square layer (-9 dB) and vibrato","18 jsfxr sparkles over the hold","high shelf +2 dB at 4 kHz, compressed 3:1","reverb (1.8 s, 28 %)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"jsfxr","cue":"combo-fanfareLethal","n":3,"file":"jsfxr/combo-fanfareLethal_3.ogg","seconds":3.2,"lufs":-14.1,"peak_db":-3.2,"steps":["four rolled jsfxr chords climbing I–IV–V–I (C, F, G, high C), 240 ms apart; the last one held with vibrato","16 jsfxr sparkles over the last chord","compressed 3:1","reverb (1.6 s, 25 %)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":[]},{"method":"library","cue":"combo-hit","n":1,"file":"library/combo-hit_1.ogg","seconds":0.19,"lufs":-14.5,"peak_db":-0.7,"steps":["trimmed to 250 ms with a fade","high shelf +3 dB at 3 kHz for brightness","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`hit_01.ogg` from [100 CC0 SFX by rubberduck](https://opengameart.org/content/100-cc0-sfx) (OpenGameArt, CC0)"]},{"method":"library","cue":"combo-hit","n":2,"file":"library/combo-hit_2.ogg","seconds":0.28,"lufs":-14,"peak_db":-1.9,"steps":["retro coin blip trimmed to 300 ms","layered with a Kenney light impact for the punch (-6 dB)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`retro_coin_02.ogg` from [50 CC0 retro / synth SFX by rubberduck](https://opengameart.org/content/50-cc0-retro-synth-sfx) (OpenGameArt, CC0)","`impactGeneric_light_000.ogg` from [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) (Kenney, CC0)"]},{"method":"library","cue":"combo-hit","n":3,"file":"library/combo-hit_3.ogg","seconds":0.38,"lufs":-14,"peak_db":-2,"steps":["point bell trimmed to 400 ms","a Kenney punch, high-passed at 200 Hz, under it (-8 dB)","compressed 4:1","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`point_bell.wav` from [Point bell by haeldb](https://opengameart.org/content/point-bell) (OpenGameArt, CC0 (dual CC0 / OGA-BY 3.0; used under CC0))","`impactPunch_medium_000.ogg` from [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) (Kenney, CC0)"]},{"method":"library","cue":"combo-tier3","n":1,"file":"library/combo-tier3_1.ogg","seconds":0.88,"lufs":-14.1,"peak_db":-5.2,"steps":["used as is","reverb (0.8 s, 20 %) for size","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`power_up_04.ogg` from [50 CC0 retro / synth SFX by rubberduck](https://opengameart.org/content/50-cc0-retro-synth-sfx) (OpenGameArt, CC0)"]},{"method":"library","cue":"combo-tier3","n":2,"file":"library/combo-tier3_2.ogg","seconds":1.27,"lufs":-14,"peak_db":-5,"steps":["trimmed to 1.4 s with a 400 ms fade","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`Rise06.aif` from [Level up, power up, Coin get by wobbleboxx](https://opengameart.org/content/level-up-power-up-coin-get-13-sounds) (OpenGameArt, CC0)"]},{"method":"library","cue":"combo-tier3","n":3,"file":"library/combo-tier3_3.ogg","seconds":1.1,"lufs":-14,"peak_db":-7.8,"steps":["retro power-up","a bell hit on the top at 350 ms (-4 dB)","reverb (1 s, 22 %)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`power_up_01.ogg` from [50 CC0 retro / synth SFX by rubberduck](https://opengameart.org/content/50-cc0-retro-synth-sfx) (OpenGameArt, CC0)","`bell_02.ogg` from [100 CC0 SFX by rubberduck](https://opengameart.org/content/100-cc0-sfx) (OpenGameArt, CC0)"]},{"method":"library","cue":"combo-slam","n":1,"file":"library/combo-slam_1.ogg","seconds":1.1,"lufs":-14.1,"peak_db":-2.3,"steps":["synthesized explosion","a Kenney heavy punch on the front for the hit (-3 dB)","compressed 4:1","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`synthetic_explosion_1.flac` from [Synthesized explosion by qubodup](https://opengameart.org/content/synthesized-explosion) (OpenGameArt, CC0)","`impactPunch_heavy_002.ogg` from [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) (Kenney, CC0)"]},{"method":"library","cue":"combo-slam","n":2,"file":"library/combo-slam_2.ogg","seconds":1.98,"lufs":-14,"peak_db":-1.8,"steps":["muffled explosion trimmed to 2.2 s","a Kenney mining impact (-4 dB) and a door slam (-6 dB) on the front","compressed 4:1, low shelf +3 dB at 100 Hz","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`muffled.wav` from [Muffled Distant Explosion by NenadSimic](https://opengameart.org/content/muffled-distant-explosion) (OpenGameArt, CC0)","`impactMining_004.ogg` from [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) (Kenney, CC0)","`slam_03.ogg` from [100 CC0 SFX by rubberduck](https://opengameart.org/content/100-cc0-sfx) (OpenGameArt, CC0)"]},{"method":"library","cue":"combo-slam","n":3,"file":"library/combo-slam_3.ogg","seconds":1.37,"lufs":-14.1,"peak_db":-2.5,"steps":["retro explosion","a gong, low-passed at 2.5 kHz, for a ringing tail (-6 dB)","a Kenney heavy punch on the front (-2 dB)","compressed 4:1","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`retro_explosion_05.ogg` from [50 CC0 retro / synth SFX by rubberduck](https://opengameart.org/content/50-cc0-retro-synth-sfx) (OpenGameArt, CC0)","`gong_01.ogg` from [100 CC0 SFX by rubberduck](https://opengameart.org/content/100-cc0-sfx) (OpenGameArt, CC0)","`impactPunch_heavy_000.ogg` from [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) (Kenney, CC0)"]},{"method":"library","cue":"combo-fanfareLethal","n":1,"file":"library/combo-fanfareLethal_1.ogg","seconds":3.09,"lufs":-14.2,"peak_db":-3.6,"steps":["used as is (3.1 s)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`life.wav` from [8bit fanfare jingle \"The Lick\" by haley-halcyon](https://opengameart.org/content/8bit-fanfare-jingle-the-lick) (OpenGameArt, CC0)"]},{"method":"library","cue":"combo-fanfareLethal","n":2,"file":"library/combo-fanfareLethal_2.ogg","seconds":2.34,"lufs":-14,"peak_db":-2.5,"steps":["leading silence trimmed","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`fanfare_3.ogg` from [Classic fanfare lick by fvcalderan](https://opengameart.org/content/classic-fanfare-lick) (OpenGameArt, CC0)"]},{"method":"library","cue":"combo-fanfareLethal","n":3,"file":"library/combo-fanfareLethal_3.ogg","seconds":1.97,"lufs":-14,"peak_db":-6.5,"steps":["victory jingle","a bright bell shimmer from 0.5 s (-6 dB), for sparkle","reverb (1.2 s, 20 %)","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`win-176035.mp3` from [Victory by musheran](https://opengameart.org/content/victory-6) (OpenGameArt, CC0)","`bell_03.ogg` from [100 CC0 SFX by rubberduck](https://opengameart.org/content/100-cc0-sfx) (OpenGameArt, CC0)"]},{"method":"current","cue":"combo-hit","n":1,"file":"current/combo-hit_1.ogg","seconds":0.34,"lufs":-14,"peak_db":-1,"steps":["the clip the game uses today, loudness-matched only","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`public/audio/generated/hit_chip.ogg` (generated for the game)"]},{"method":"current","cue":"combo-tier3","n":1,"file":"current/combo-tier3_1.ogg","seconds":0.9,"lufs":-14,"peak_db":-4.3,"steps":["the clip the game uses today, loudness-matched only","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`public/audio/generated/tier3_chip.ogg` (generated for the game)"]},{"method":"current","cue":"combo-slam","n":1,"file":"current/combo-slam_1.ogg","seconds":1.58,"lufs":-14,"peak_db":-1.9,"steps":["the clip the game uses today, loudness-matched only","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`public/audio/generated/slam_boom.ogg` (generated for the game)"]},{"method":"current","cue":"combo-fanfareLethal","n":1,"file":"current/combo-fanfareLethal_1.ogg","seconds":4.28,"lufs":-14.1,"peak_db":-5.5,"steps":["the clip the game uses today, loudness-matched only","DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"],"sources":["`public/audio/generated/fanfareLethal_bells.ogg` (generated for the game)"]}];
-const CUES = [
-  ["combo-hit", "combo:hit", "Bright, punchy, satisfying. Plays up to 15 times in a row, climbing the pentatonic scale."],
-  ["combo-tier3", "combo:tier3", "An exciting rising stinger: \"Inferno!\""],
-  ["combo-slam", "combo:slam", "A huge, deep impact with weight."],
-  ["combo-fanfareLethal", "combo:fanfareLethal", "The biggest reward in the game: 2–3 s, triumphant, sparkling."],
-];
-const METHOD = { current: "Current game sound", jsfxr: "jsfxr", library: "CC0 library" };
-const PENTA = [0, 2, 4, 7, 9];
-const step = (i) => PENTA[i % 5] + 12 * Math.floor(i / 5);
+const DATA = [{"cue":"combo:hit","variant":"pick","group":"The cascade","file":"combo-hit_pick.ogg","seconds":0.21,"lufs":-14,"how":"Spike pick combo-hit_2: a narrow square that snaps down a fifth onto C6, a sine thump and a noise click, compressed"},{"cue":"combo:tier3","variant":"pick","group":"The cascade","file":"combo-tier3_pick.ogg","seconds":1.41,"lufs":-14.3,"how":"Spike pick combo-tier3_1: seven square notes up the pentatonic scale 55 ms apart, the last held with vibrato, over a rising noise whoosh, reverb"},{"cue":"combo:slam","variant":"pick","group":"The finale","file":"combo-slam_pick.ogg","seconds":2.81,"lufs":-14.2,"how":"Spike pick combo-slam_3: a noise bomb with a flanger sweep and closing low-pass, a sine drop 90 to 30 Hz, a bright snap, compressed, long reverb"},{"cue":"combo:fanfareLethal","variant":"pick","group":"The finale","file":"combo-fanfareLethal_pick.ogg","seconds":3.35,"lufs":-14.1,"how":"Spike pick combo-fanfareLethal_2: three saw G-chord stabs, a held C major chord with an octave square layer and vibrato, 18 sparkles, high shelf, compressed, reverb"},{"cue":"clack","variant":"A","group":"Placing","file":"clack_A.ogg","seconds":0.22,"lufs":-15.9,"how":"A low-passed square 'tok' on C4 under a noise click, short room"},{"cue":"clack","variant":"B","group":"Placing","file":"clack_B.ogg","seconds":0.18,"lufs":-14,"how":"Two noise clicks 28 ms apart (the domino tapping down) over a falling sine body, compressed"},{"cue":"hum","variant":"A","group":"Placing","file":"hum_A.ogg","seconds":0.97,"lufs":-13.9,"how":"A soft sine swell on C4 with a low-passed square under it and a quiet octave, slight vibrato, reverb"},{"cue":"hum","variant":"B","group":"Placing","file":"hum_B.ogg","seconds":1.02,"lufs":-13.9,"how":"Two slightly detuned low-passed saws on C4 with a flanger, a warm pad blip, reverb"},{"cue":"tick","variant":"A","group":"The cascade","file":"tick_A.ogg","seconds":0.5,"lufs":-14,"how":"A tiny square blip on C5 with punch and a faint click, short room"},{"cue":"tick","variant":"B","group":"The cascade","file":"tick_B.ogg","seconds":0.53,"lufs":-13.9,"how":"A sine pluck on C5 with an octave overtone, like a glass tap"},{"cue":"junction","variant":"A","group":"The cascade","file":"junction_A.ogg","seconds":0.63,"lufs":-14,"how":"Two square notes a fifth apart (C4 and G4), each jumping up an octave, 20 ms apart: the glow splitting"},{"cue":"junction","variant":"B","group":"The cascade","file":"junction_B.ogg","seconds":0.67,"lufs":-13.9,"how":"A saw blip on C4 that jumps an octave, through a sweeping flanger"},{"cue":"effect:damage","variant":"A","group":"The cascade","file":"effect-damage_A.ogg","seconds":0.4,"lufs":-14,"how":"A square zap falling from C6 over a filtered square body on C4 and a noise crack, compressed"},{"cue":"effect:damage","variant":"B","group":"The cascade","file":"effect-damage_B.ogg","seconds":0.41,"lufs":-13.9,"how":"A saw stab on C4 with a closing filter and a noise crunch, saturated and compressed"},{"cue":"effect:block","variant":"A","group":"The cascade","file":"effect-block_A.ogg","seconds":0.59,"lufs":-13.9,"how":"A metallic 'ting': a sine on C5 with an inharmonic overtone, over a dull square knock on C4, reverb"},{"cue":"effect:block","variant":"B","group":"The cascade","file":"effect-block_B.ogg","seconds":0.75,"lufs":-14,"how":"A shield 'thunk': a filtered square on C4 with a ringing sine an octave up, reverb"},{"cue":"effect:amplify","variant":"A","group":"The cascade","file":"effect-amplify_A.ogg","seconds":0.68,"lufs":-14.1,"how":"A short square power-up staircase rising from C4, reverb"},{"cue":"effect:amplify","variant":"B","group":"The cascade","file":"effect-amplify_B.ogg","seconds":0.65,"lufs":-13.9,"how":"Three quick notes up a C chord (C4, G4, C5), saw and square, reverb"},{"cue":"effect:echo","variant":"A","group":"The cascade","file":"effect-echo_A.ogg","seconds":0.42,"lufs":-14,"how":"A square blip on C5 with three repeats 90 ms apart, each 6 dB quieter"},{"cue":"effect:echo","variant":"B","group":"The cascade","file":"effect-echo_B.ogg","seconds":0.84,"lufs":-13.9,"how":"A sine ping on C5 with a soft fifth, two repeats 120 ms apart, reverb"},{"cue":"effect:spectrum","variant":"A","group":"The cascade","file":"effect-spectrum_A.ogg","seconds":0.81,"lufs":-14,"how":"A fast five-note glissando up a C chord from C5, 30 ms apart, reverb"},{"cue":"effect:spectrum","variant":"B","group":"The cascade","file":"effect-spectrum_B.ogg","seconds":0.96,"lufs":-14,"how":"A flanged saw C major chord on C4 with a few sparkles on top, bright shelf, reverb"},{"cue":"effect:charm","variant":"A","group":"The cascade","file":"effect-charm_A.ogg","seconds":1.02,"lufs":-14,"how":"A two-note bell (C5 then G5) in sines with a few sparkles, roomy reverb"},{"cue":"effect:charm","variant":"B","group":"The cascade","file":"effect-charm_B.ogg","seconds":0.81,"lufs":-14,"how":"A magic twinkle: a square coin blip on C5, a sine an octave up and a high noise shimmer, reverb"},{"cue":"fizzle","variant":"A","group":"The cascade","file":"fizzle_A.ogg","seconds":0.37,"lufs":-14.4,"how":"A sputtering noise burst over a filtered square sinking from E4: 'pfft'"},{"cue":"fizzle","variant":"B","group":"The cascade","file":"fizzle_B.ogg","seconds":0.31,"lufs":-14.1,"how":"A sad two-note drop (E4 to a sagging C4), muted square, with a faint crackle"},{"cue":"lightning","variant":"A","group":"The cascade","file":"lightning_A.ogg","seconds":0.85,"lufs":-14.4,"how":"A bright noise crack with a saw zap diving down under it, compressed, reverb"},{"cue":"lightning","variant":"B","group":"The cascade","file":"lightning_B.ogg","seconds":0.81,"lufs":-14.3,"how":"A buzzing saw with fast vibrato and a stuttering noise crack, saturated, reverb"},{"cue":"shake","variant":"A","group":"The cascade","file":"shake_A.ogg","seconds":0.55,"lufs":-14.1,"how":"A low-passed noise rumble with a 70 Hz sine sub, compressed"},{"cue":"shake","variant":"B","group":"The cascade","file":"shake_B.ogg","seconds":0.31,"lufs":-14.3,"how":"A sine thud with a rattling noise behind it, like the table jumping"},{"cue":"slowMotion","variant":"A","group":"The cascade","file":"slowMotion_A.ogg","seconds":1.69,"lufs":-13.9,"how":"A slow saw and sine sliding down together ('wooom'), low-passed, long reverb"},{"cue":"slowMotion","variant":"B","group":"The cascade","file":"slowMotion_B.ogg","seconds":1.41,"lufs":-14.3,"how":"A noise swell that rises then sinks under a closing filter, with a sagging square, reverb"},{"cue":"whoosh","variant":"A","group":"The cascade","file":"whoosh_A.ogg","seconds":0.69,"lufs":-14.4,"how":"A noise whoosh whose band sweeps up (high-pass and low-pass both opening)"},{"cue":"whoosh","variant":"B","group":"The cascade","file":"whoosh_B.ogg","seconds":0.69,"lufs":-14.4,"how":"A noise whoosh through a flanger sweeping down"},{"cue":"combo:block","variant":"A","group":"The cascade","file":"combo-block_A.ogg","seconds":0.36,"lufs":-13.9,"how":"The hit's recipe on sines: a metallic ting on C5 (inharmonic overtone), the same thump and click, compressed"},{"cue":"combo:block","variant":"B","group":"The cascade","file":"combo-block_B.ogg","seconds":0.37,"lufs":-14,"how":"A rounder 'clank': a filtered square on C5 with an octave ring, the hit's thump, compressed"},{"cue":"combo:tier1","variant":"A","group":"The cascade","file":"combo-tier1_A.ogg","seconds":1.3,"lufs":-14.4,"how":"The tier 3 recipe with 4 notes"},{"cue":"combo:tier1","variant":"B","group":"The cascade","file":"combo-tier1_B.ogg","seconds":1.31,"lufs":-14.3,"how":"The tier 3 recipe with 4 notes from a lower start"},{"cue":"combo:tier2","variant":"A","group":"The cascade","file":"combo-tier2_A.ogg","seconds":1.32,"lufs":-14.4,"how":"The tier 3 recipe with 5 notes"},{"cue":"combo:tier2","variant":"B","group":"The cascade","file":"combo-tier2_B.ogg","seconds":1.32,"lufs":-14.4,"how":"The tier 3 recipe with 5 notes from a lower start"},{"cue":"combo:tier4","variant":"A","group":"The cascade","file":"combo-tier4_A.ogg","seconds":1.63,"lufs":-14.2,"how":"The tier 3 recipe with 9 notes, an octave saw layer, a louder whoosh and a bigger room"},{"cue":"combo:tier4","variant":"B","group":"The cascade","file":"combo-tier4_B.ogg","seconds":1.6,"lufs":-14.2,"how":"The tier 3 recipe with 9 notes from a lower start in saws, with an octave layer and a bigger room"},{"cue":"combo:lethal","variant":"A","group":"The cascade","file":"combo-lethal_A.ogg","seconds":1.55,"lufs":-14.4,"how":"Catching fire: a noise roar opening up under two rising saws a fifth apart, saturated, reverb"},{"cue":"combo:lethal","variant":"B","group":"The cascade","file":"combo-lethal_B.ogg","seconds":1.54,"lufs":-14.3,"how":"A fire roar with crackle, and a rising filtered square chord (C4, G4, C5) inside it, reverb"},{"cue":"combo:charge","variant":"A","group":"The finale","file":"combo-charge_A.ogg","seconds":2.4,"lufs":-14.4,"how":"A 2.4 s riser: noise with an opening high-pass and a saw climbing from G3"},{"cue":"combo:charge","variant":"B","group":"The finale","file":"combo-charge_B.ogg","seconds":2.4,"lufs":-14.2,"how":"A 2.4 s riser: a square climbing from C4 with fast vibrato (a charging whine) over a faint hiss"},{"cue":"combo:slamLethal","variant":"A","group":"The finale","file":"combo-slamLethal_A.ogg","seconds":3.35,"lufs":-14.3,"how":"The slam recipe, bigger: the sub drops 80 to 25 Hz, a square crunch on top, a 2.6 s room, more saturation"},{"cue":"combo:slamLethal","variant":"B","group":"The finale","file":"combo-slamLethal_B.ogg","seconds":3.36,"lufs":-14.2,"how":"The slam recipe with a rolling thunder tail (repeating low noise) and a second sub an octave down, 2.4 s room"},{"cue":"combo:fanfare0","variant":"A","group":"The finale","file":"combo-fanfare0_A.ogg","seconds":1.66,"lufs":-14,"how":"The lethal fanfare recipe, smaller: 1 stab(s), a 0.6 s chord, 3 sparkles"},{"cue":"combo:fanfare0","variant":"B","group":"The finale","file":"combo-fanfare0_B.ogg","seconds":1.61,"lufs":-14.1,"how":"The lethal fanfare recipe, smaller, opening with a 3-note pentatonic run instead of one stab"},{"cue":"combo:fanfare1","variant":"A","group":"The finale","file":"combo-fanfare1_A.ogg","seconds":1.88,"lufs":-14,"how":"The lethal fanfare recipe, smaller: 1 stab(s), a 0.8 s chord, 6 sparkles"},{"cue":"combo:fanfare1","variant":"B","group":"The finale","file":"combo-fanfare1_B.ogg","seconds":1.93,"lufs":-14,"how":"The lethal fanfare recipe, smaller, opening with a 5-note pentatonic run instead of one stab"},{"cue":"combo:fanfare2","variant":"A","group":"The finale","file":"combo-fanfare2_A.ogg","seconds":2.4,"lufs":-14,"how":"The lethal fanfare recipe, smaller: 2 stab(s), a 1.0 s chord, 9 sparkles, an octave layer"},{"cue":"combo:fanfare2","variant":"B","group":"The finale","file":"combo-fanfare2_B.ogg","seconds":2.6,"lufs":-14.1,"how":"The lethal fanfare recipe, smaller, opening with a 7-note pentatonic run instead of one stab"},{"cue":"combo:fanfare3","variant":"A","group":"The finale","file":"combo-fanfare3_A.ogg","seconds":2.86,"lufs":-14.1,"how":"The lethal fanfare recipe, smaller: 3 stab(s), a 1.1 s chord, 12 sparkles, an octave layer"},{"cue":"combo:fanfare3","variant":"B","group":"The finale","file":"combo-fanfare3_B.ogg","seconds":3.05,"lufs":-14.1,"how":"The lethal fanfare recipe, smaller, opening with a 9-note pentatonic run instead of one stab"},{"cue":"combo:fanfare4","variant":"A","group":"The finale","file":"combo-fanfare4_A.ogg","seconds":3.1,"lufs":-14.1,"how":"The lethal fanfare recipe, smaller: 3 stab(s), a 1.25 s chord, 15 sparkles, an octave layer"},{"cue":"combo:fanfare4","variant":"B","group":"The finale","file":"combo-fanfare4_B.ogg","seconds":3.44,"lufs":-14.1,"how":"The lethal fanfare recipe, smaller, opening with a 11-note pentatonic run instead of one stab"},{"cue":"combo:coin","variant":"A","group":"The finale","file":"combo-coin_A.ogg","seconds":0.39,"lufs":-14,"how":"A classic square coin blip on C6 that jumps up a fourth, short room"},{"cue":"combo:coin","variant":"B","group":"The finale","file":"combo-coin_B.ogg","seconds":0.36,"lufs":-14,"how":"A metallic sine 'clink' on C6 with an inharmonic overtone"},{"cue":"enemyHit","variant":"A","group":"Enemy reactions","file":"enemyHit_A.ogg","seconds":0.18,"lufs":-14.4,"how":"A noise punch with a square dropping from A3: a 'thwack', compressed"},{"cue":"enemyHit","variant":"B","group":"Enemy reactions","file":"enemyHit_B.ogg","seconds":0.27,"lufs":-14,"how":"A saw crunch with a sine thump and a click, saturated and compressed"},{"cue":"enemyBigHit","variant":"A","group":"Enemy reactions","file":"enemyBigHit_A.ogg","seconds":0.88,"lufs":-14.2,"how":"A noise boom, a sine sub falling to 40 Hz and a square crunch, saturated, compressed, room"},{"cue":"enemyBigHit","variant":"B","group":"Enemy reactions","file":"enemyBigHit_B.ogg","seconds":0.43,"lufs":-14.3,"how":"A one-two: a sharp punch then a heavier boom 60 ms later with a sub, compressed"},{"cue":"enemyShield","variant":"A","group":"Enemy reactions","file":"enemyShield_A.ogg","seconds":0.79,"lufs":-13.9,"how":"A low metallic clank: a sine on G4 with an inharmonic overtone and a dull knock, reverb"},{"cue":"enemyShield","variant":"B","group":"Enemy reactions","file":"enemyShield_B.ogg","seconds":0.98,"lufs":-14,"how":"A filtered square 'dong' on G4 with an octave sine, roomy reverb"},{"cue":"blockBreak","variant":"A","group":"Enemy reactions","file":"blockBreak_A.ogg","seconds":0.84,"lufs":-14.5,"how":"Glass breaking: a stuttering high noise burst with five square shards falling down the scale"},{"cue":"blockBreak","variant":"B","group":"Enemy reactions","file":"blockBreak_B.ogg","seconds":0.87,"lufs":-14.5,"how":"A noise crunch with two metallic sines sliding down, compressed, reverb"},{"cue":"enemyDeath","variant":"A","group":"Enemy reactions","file":"enemyDeath_A.ogg","seconds":1.52,"lufs":-14.2,"how":"A noise burst with a saw whining down from 600 Hz, compressed, long reverb"},{"cue":"enemyDeath","variant":"B","group":"Enemy reactions","file":"enemyDeath_B.ogg","seconds":1.35,"lufs":-14.2,"how":"An 8-bit explosion with a square arpeggio falling down the scale from C6, reverb"},{"cue":"bossDeath","variant":"A","group":"Enemy reactions","file":"bossDeath_A.ogg","seconds":3.26,"lufs":-14.1,"how":"Three explosions 350 ms apart, each lower, over a long saw dive and a sub, saturated, compressed, 2.4 s room"},{"cue":"bossDeath","variant":"B","group":"Enemy reactions","file":"bossDeath_B.ogg","seconds":3.31,"lufs":-14.1,"how":"A long wobbling square dive over a rumble, a snap on the front, 2.4 s room"},{"cue":"lunge","variant":"A","group":"Enemy reactions","file":"lunge_A.ogg","seconds":0.22,"lufs":-14.3,"how":"A fast rising noise whoosh with a growling saw sweeping up under it"},{"cue":"lunge","variant":"B","group":"Enemy reactions","file":"lunge_B.ogg","seconds":0.21,"lufs":-14.4,"how":"A quick noise swish whose filter closes down"},{"cue":"impact","variant":"A","group":"Enemy reactions","file":"impact_A.ogg","seconds":0.21,"lufs":-14.3,"how":"A heavy noise thud with a low square crunch, saturated, compressed"},{"cue":"impact","variant":"B","group":"Enemy reactions","file":"impact_B.ogg","seconds":0.28,"lufs":-14.1,"how":"A punch with a low sine under it, heavily saturated"},{"cue":"heal","variant":"A","group":"Enemy reactions","file":"heal_A.ogg","seconds":1.27,"lufs":-13.9,"how":"A soft sine arpeggio rising C5, E5, G5, C6, reverb"},{"cue":"heal","variant":"B","group":"Enemy reactions","file":"heal_B.ogg","seconds":1.41,"lufs":-14,"how":"A rising sine swell on C5 with a fifth and a few sparkles, reverb"}];
+const CUES = {"click":{"baseCents":0,"scale":null},"clack":{"baseCents":0,"scale":null},"hum":{"baseCents":0,"scale":[0,2,4,7,9],"maxStep":14},"tick":{"baseCents":0,"scale":[0,2,4,7,9],"maxStep":10},"fizzle":{"baseCents":0,"scale":null},"shake":{"baseCents":0,"scale":null},"slowMotion":{"baseCents":0,"scale":null},"lightning":{"baseCents":0,"scale":null},"junction":{"baseCents":0,"scale":[0,2,4,7,9],"maxStep":10},"effect:damage":{"baseCents":0,"scale":[0,2,4,7,9],"maxStep":10},"effect:block":{"baseCents":0,"scale":[0,2,4,7,9],"maxStep":10},"effect:amplify":{"baseCents":0,"scale":[0,2,4,7,9],"maxStep":10},"effect:echo":{"baseCents":0,"scale":[0,2,4,7,9],"maxStep":10},"effect:spectrum":{"baseCents":0,"scale":[0,2,4,7,9],"maxStep":10},"effect:charm":{"baseCents":0,"scale":[0,2,4,7,9],"maxStep":10},"whoosh":{"baseCents":-600,"scale":null},"voteRoll":{"baseCents":0,"scale":null},"coins":{"baseCents":0,"scale":null},"buy":{"baseCents":0,"scale":null},"rest":{"baseCents":0,"scale":null},"enemyHit":{"baseCents":-300,"scale":null},"enemyBigHit":{"baseCents":-600,"scale":null},"blockBreak":{"baseCents":-500,"scale":null},"enemyDeath":{"baseCents":-700,"scale":null},"bossDeath":{"baseCents":-1400,"scale":null},"lunge":{"baseCents":-400,"scale":null},"impact":{"baseCents":-200,"scale":null},"enemyShield":{"baseCents":-300,"scale":null},"heal":{"baseCents":200,"scale":null},"combo:hit":{"baseCents":0,"scale":[0,2,4,7,9],"maxStep":14},"combo:block":{"baseCents":-500,"scale":[0,2,4,7,9],"maxStep":14},"combo:tier1":{"baseCents":0,"scale":null},"combo:tier2":{"baseCents":0,"scale":null},"combo:tier3":{"baseCents":0,"scale":null},"combo:tier4":{"baseCents":0,"scale":null},"combo:lethal":{"baseCents":0,"scale":null},"combo:charge":{"baseCents":0,"scale":null},"combo:slam":{"baseCents":0,"scale":null},"combo:slamLethal":{"baseCents":0,"scale":null},"combo:fanfare0":{"baseCents":0,"scale":null},"combo:fanfare1":{"baseCents":0,"scale":null},"combo:fanfare2":{"baseCents":0,"scale":null},"combo:fanfare3":{"baseCents":0,"scale":null},"combo:fanfare4":{"baseCents":0,"scale":null},"combo:fanfareLethal":{"baseCents":0,"scale":null},"combo:coin":{"baseCents":0,"scale":[0,2,4,7,9],"maxStep":9}};
+const ABOUT = {
+  "clack": "A domino is placed on the board.",
+  "hum": "The board hums as the tree grows; climbs with the number of dominoes.",
+  "tick": "Each domino lights in the cascade; climbs with the cascade.",
+  "junction": "A junction splits the glow.",
+  "effect:damage": "A damage cap fires.",
+  "effect:block": "A block cap fires.",
+  "effect:amplify": "An amplifier boosts the charge.",
+  "effect:echo": "An echo amplifier fires.",
+  "effect:spectrum": "A spectrum amplifier fires.",
+  "effect:charm": "A charm triggers.",
+  "fizzle": "An open end fizzles out.",
+  "lightning": "A big cap throws lightning across the board.",
+  "shake": "A big cap shakes the screen.",
+  "slowMotion": "The biggest caps drop into slow motion.",
+  "whoosh": "The camera pushes in on a new biggest cap.",
+  "combo:hit": "Each damage spark lands in the combo number; climbs with the hit count.",
+  "combo:block": "Each block spark lands in the block counter.",
+  "combo:tier1": "The combo passes 10%: \"Nice!\"",
+  "combo:tier2": "25%: \"Blazing!\"",
+  "combo:tier3": "50%: \"Inferno!\"",
+  "combo:tier4": "75%: \"Overload!\"",
+  "combo:lethal": "The chain becomes lethal: the number catches fire.",
+  "lunge": "The enemy lunges at the party.",
+  "impact": "The party takes a hit.",
+  "enemyHit": "The enemy takes a normal hit.",
+  "enemyBigHit": "The enemy takes a big hit and staggers.",
+  "enemyShield": "The enemy raises a shield, or its block soaks a hit.",
+  "blockBreak": "The enemy's block shatters.",
+  "heal": "The Glutton heals.",
+  "enemyDeath": "An enemy dies.",
+  "bossDeath": "A boss dies.",
+  "combo:charge": "The combo number charges up before the slam (stopped when the slam lands).",
+  "combo:slam": "The combo number slams into the enemy.",
+  "combo:slamLethal": "The slam that kills.",
+  "combo:fanfare0": "Fanfare after a small chain (tier 0).",
+  "combo:fanfare1": "Fanfare, tier 1.",
+  "combo:fanfare2": "Fanfare, tier 2.",
+  "combo:fanfare3": "Fanfare, tier 3.",
+  "combo:fanfare4": "Fanfare, tier 4.",
+  "combo:fanfareLethal": "The biggest reward: the fanfare when the chain kills.",
+  "combo:coin": "Coins shower during the fanfare (each a random note).",
+};
+const GROUPS = ["Placing", "The cascade", "Enemy reactions", "The finale"];
 const $ = (id) => document.getElementById(id);
-let playing = [], timers = [];
-let picks = {};
-try { picks = JSON.parse(localStorage.getItem("spikePicks") || "{}"); } catch (e) {}
+let playing = [], timers = [], picks = {};
+try { picks = JSON.parse(localStorage.getItem("round1Picks") || "{}"); } catch (e) {}
 
+function semis(cue, step) {
+  const c = CUES[cue] || {};
+  let s = (c.baseCents || 0) / 100;
+  if (c.scale) { const sc = c.scale, i = Math.min(step, c.maxStep); s += sc[i % sc.length] + 12 * Math.floor(i / sc.length); }
+  return s;
+}
 function stopAll() { playing.forEach((a) => a.pause()); playing = []; timers.forEach(clearTimeout); timers = []; }
-function play(file, semis = 0) {
+function play(file, st = 0) {
   const a = new Audio(file);
   a.preservesPitch = false; a.mozPreservesPitch = false; a.webkitPreservesPitch = false;
-  a.playbackRate = Math.pow(2, semis / 12);
+  a.playbackRate = Math.pow(2, st / 12);
   a.volume = +$("vol").value;
   a.play(); playing.push(a);
   a.onended = () => { playing = playing.filter((x) => x !== a); };
 }
-function run(file, n) {
+function climb(cue, file) {
   stopAll();
-  // the demo's gap: starts at 380 ms and tightens by 22 ms per hit, never under 170 ms
-  let t = 0;
-  for (let i = 0; i < n; i++) {
-    timers.push(setTimeout(() => play(file, step(Math.min(i, 14))), t));
-    t += Math.max(170, 380 - i * 22);
-  }
+  const top = CUES[cue].maxStep;
+  for (let i = 0; i <= top; i++) timers.push(setTimeout(() => play(file, semis(cue, i)), i * 150));
 }
-function label(c, idx) { return $("blind").checked ? `Candidate ${String.fromCharCode(65 + idx)}` : `${METHOD[c.method]} ${c.method === "current" ? "" : c.n}`; }
+function coinShower(file) {
+  stopAll();
+  for (let i = 0; i < 12; i++) timers.push(setTimeout(() => play(file, semis("combo:coin", Math.floor(Math.random() * (CUES["combo:coin"].maxStep + 1)))), i * 70));
+}
+function save() { try { localStorage.setItem("round1Picks", JSON.stringify(picks)); } catch (e) {} }
 
 function render() {
-  const box = $("cues"); box.innerHTML = "";
-  for (const [key, name, want] of CUES) {
-    let list = DATA.filter((c) => c.cue === key);
-    if ($("blind").checked) list = list.map((c) => [c, (c.file.length * 7 + c.n * 13) % 97]).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
-    const sec = document.createElement("section");
-    sec.innerHTML = `<div><h2>${name}</h2><p class="muted">${want}</p></div>`;
-    list.forEach((c, i) => {
-      const row = document.createElement("div");
-      row.className = "row" + (picks[key] === c.file ? " picked" : "");
-      const hit = key === "combo-hit";
-      row.innerHTML = `
-        <button data-a="play" aria-label="Play">▶</button>
-        <div><div class="name">${label(c, i)}</div><div class="meta">${c.seconds} s</div></div>
-        <div class="btns">
-          ${hit ? '<button class="alt" data-a="run8">Run ×8</button><button class="alt" data-a="run15">×15</button><button class="alt" data-a="up12">+12</button>' : ""}
-          <button class="pick" data-a="pick">Pick</button>
-        </div>
-        <details><summary>How it was made</summary><ul>${c.steps.map((s) => `<li>${s}</li>`).join("")}${c.sources.map((s) => `<li>Source: ${s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--gold)">$1</a>').replace(/`([^`]+)`/g, "<code>$1</code>")}</li>`).join("")}</ul></details>`;
-      if ($("blind").checked) row.querySelector("details").hidden = true;
-      row.addEventListener("click", (e) => {
-        const a = e.target.dataset.a; if (!a) return;
-        if (a === "play") { stopAll(); play(c.file); }
-        if (a === "run8") run(c.file, 8);
-        if (a === "run15") run(c.file, 15);
-        if (a === "up12") { stopAll(); play(c.file, 12); }
-        if (a === "pick") { picks[key] = c.file; try { localStorage.setItem("spikePicks", JSON.stringify(picks)); } catch (err) {} render(); }
-      });
-      sec.appendChild(row);
-    });
+  const box = $("groups"); box.innerHTML = "";
+  for (const g of GROUPS) {
+    const sec = document.createElement("section"); sec.className = "group";
+    sec.innerHTML = `<header><h2>${g}</h2></header>`;
+    const cues = [...new Set(DATA.filter((d) => d.group === g).map((d) => d.cue))];
+    for (const cue of cues) {
+      const rows = DATA.filter((d) => d.cue === cue);
+      const fixed = rows.length === 1 && rows[0].variant === "pick";
+      const card = document.createElement("div");
+      card.className = "cue" + (fixed || picks[cue] ? " done" : "");
+      card.innerHTML = `<div><h3>${cue}</h3><span class="muted">${ABOUT[cue] || ""}</span>${fixed ? '<span class="tag">spike pick, ships as is</span>' : ""}</div>`;
+      const tuned = CUES[cue] && CUES[cue].scale;
+      for (const r of rows) {
+        const row = document.createElement("div");
+        row.className = "row" + (picks[cue] === r.variant ? " picked" : "");
+        row.innerHTML = `<button data-a="play" aria-label="Play">▶</button>
+          <div><span class="v">${fixed ? "Pick" : r.variant}</span><span class="how">${r.how} · ${r.seconds} s</span></div>
+          <div class="btns">${tuned ? (cue === "combo:coin" ? '<button class="alt" data-a="shower">Shower</button>' : '<button class="alt" data-a="climb">Climb</button><button class="alt" data-a="top">Top</button>') : ""}${fixed ? "" : '<button class="pick" data-a="pick">Pick</button>'}</div>`;
+        row.addEventListener("click", (e) => {
+          const a = e.target.dataset.a; if (!a) return;
+          const file = "round1/" + r.file;
+          if (a === "play") { stopAll(); play(file, semis(cue, 0)); }
+          if (a === "climb") climb(cue, file);
+          if (a === "top") { stopAll(); play(file, semis(cue, CUES[cue].maxStep)); }
+          if (a === "shower") coinShower(file);
+          if (a === "pick") { picks[cue] = r.variant; save(); render(); }
+        });
+        card.appendChild(row);
+      }
+      if (fixed && (cue === "combo:slam" || cue === "combo:tier3")) {
+        const orig = cue === "combo:slam" ? "jsfxr/combo-slam_3.ogg" : "jsfxr/combo-tier3_1.ogg";
+        const note = document.createElement("div"); note.className = "row";
+        note.innerHTML = `<button data-a="play" aria-label="Play">▶</button><div class="how">The file you picked in the spike. The recipe above re-renders it from the same parameters, but its noise layer is now seeded so it renders the same every time, so the noise grain differs slightly. Say if you hear a difference you don't like.</div><div></div>`;
+        note.querySelector("button").addEventListener("click", () => { stopAll(); play(orig); });
+        card.appendChild(note);
+      }
+      sec.appendChild(card);
+    }
     box.appendChild(sec);
   }
-  $("out").value = CUES.map(([k, n]) => `${n}: ${picks[k] ? picks[k].replace(".ogg", "") : "(none yet)"}`).join("\n");
+  const open = [...new Set(DATA.filter((d) => d.variant !== "pick").map((d) => d.cue))];
+  const done = open.filter((c) => picks[c]).length;
+  $("count").textContent = `${done} of ${open.length} cues picked`;
+  $("out").value = open.map((c) => `${c}: ${picks[c] || "?"}`).join("\n");
 }
-$("blind").addEventListener("change", render);
 $("stop").addEventListener("click", stopAll);
 $("copy").addEventListener("click", () => { $("out").select(); navigator.clipboard?.writeText($("out").value); });
 render();

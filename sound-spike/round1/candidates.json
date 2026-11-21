@@ -1,0 +1,704 @@
+[
+ {
+  "cue": "combo:hit",
+  "variant": "pick",
+  "group": "The cascade",
+  "file": "combo-hit_pick.ogg",
+  "seconds": 0.21,
+  "lufs": -14.0,
+  "how": "Spike pick combo-hit_2: a narrow square that snaps down a fifth onto C6, a sine thump and a noise click, compressed"
+ },
+ {
+  "cue": "combo:tier3",
+  "variant": "pick",
+  "group": "The cascade",
+  "file": "combo-tier3_pick.ogg",
+  "seconds": 1.41,
+  "lufs": -14.3,
+  "how": "Spike pick combo-tier3_1: seven square notes up the pentatonic scale 55 ms apart, the last held with vibrato, over a rising noise whoosh, reverb"
+ },
+ {
+  "cue": "combo:slam",
+  "variant": "pick",
+  "group": "The finale",
+  "file": "combo-slam_pick.ogg",
+  "seconds": 2.81,
+  "lufs": -14.2,
+  "how": "Spike pick combo-slam_3: a noise bomb with a flanger sweep and closing low-pass, a sine drop 90 to 30 Hz, a bright snap, compressed, long reverb"
+ },
+ {
+  "cue": "combo:fanfareLethal",
+  "variant": "pick",
+  "group": "The finale",
+  "file": "combo-fanfareLethal_pick.ogg",
+  "seconds": 3.35,
+  "lufs": -14.1,
+  "how": "Spike pick combo-fanfareLethal_2: three saw G-chord stabs, a held C major chord with an octave square layer and vibrato, 18 sparkles, high shelf, compressed, reverb"
+ },
+ {
+  "cue": "clack",
+  "variant": "A",
+  "group": "Placing",
+  "file": "clack_A.ogg",
+  "seconds": 0.22,
+  "lufs": -15.9,
+  "how": "A low-passed square 'tok' on C4 under a noise click, short room"
+ },
+ {
+  "cue": "clack",
+  "variant": "B",
+  "group": "Placing",
+  "file": "clack_B.ogg",
+  "seconds": 0.18,
+  "lufs": -14.0,
+  "how": "Two noise clicks 28 ms apart (the domino tapping down) over a falling sine body, compressed"
+ },
+ {
+  "cue": "hum",
+  "variant": "A",
+  "group": "Placing",
+  "file": "hum_A.ogg",
+  "seconds": 0.97,
+  "lufs": -13.9,
+  "how": "A soft sine swell on C4 with a low-passed square under it and a quiet octave, slight vibrato, reverb"
+ },
+ {
+  "cue": "hum",
+  "variant": "B",
+  "group": "Placing",
+  "file": "hum_B.ogg",
+  "seconds": 1.02,
+  "lufs": -13.9,
+  "how": "Two slightly detuned low-passed saws on C4 with a flanger, a warm pad blip, reverb"
+ },
+ {
+  "cue": "tick",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "tick_A.ogg",
+  "seconds": 0.5,
+  "lufs": -14.0,
+  "how": "A tiny square blip on C5 with punch and a faint click, short room"
+ },
+ {
+  "cue": "tick",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "tick_B.ogg",
+  "seconds": 0.53,
+  "lufs": -13.9,
+  "how": "A sine pluck on C5 with an octave overtone, like a glass tap"
+ },
+ {
+  "cue": "junction",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "junction_A.ogg",
+  "seconds": 0.63,
+  "lufs": -14.0,
+  "how": "Two square notes a fifth apart (C4 and G4), each jumping up an octave, 20 ms apart: the glow splitting"
+ },
+ {
+  "cue": "junction",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "junction_B.ogg",
+  "seconds": 0.67,
+  "lufs": -13.9,
+  "how": "A saw blip on C4 that jumps an octave, through a sweeping flanger"
+ },
+ {
+  "cue": "effect:damage",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "effect-damage_A.ogg",
+  "seconds": 0.4,
+  "lufs": -14.0,
+  "how": "A square zap falling from C6 over a filtered square body on C4 and a noise crack, compressed"
+ },
+ {
+  "cue": "effect:damage",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "effect-damage_B.ogg",
+  "seconds": 0.41,
+  "lufs": -13.9,
+  "how": "A saw stab on C4 with a closing filter and a noise crunch, saturated and compressed"
+ },
+ {
+  "cue": "effect:block",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "effect-block_A.ogg",
+  "seconds": 0.59,
+  "lufs": -13.9,
+  "how": "A metallic 'ting': a sine on C5 with an inharmonic overtone, over a dull square knock on C4, reverb"
+ },
+ {
+  "cue": "effect:block",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "effect-block_B.ogg",
+  "seconds": 0.75,
+  "lufs": -14.0,
+  "how": "A shield 'thunk': a filtered square on C4 with a ringing sine an octave up, reverb"
+ },
+ {
+  "cue": "effect:amplify",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "effect-amplify_A.ogg",
+  "seconds": 0.68,
+  "lufs": -14.1,
+  "how": "A short square power-up staircase rising from C4, reverb"
+ },
+ {
+  "cue": "effect:amplify",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "effect-amplify_B.ogg",
+  "seconds": 0.65,
+  "lufs": -13.9,
+  "how": "Three quick notes up a C chord (C4, G4, C5), saw and square, reverb"
+ },
+ {
+  "cue": "effect:echo",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "effect-echo_A.ogg",
+  "seconds": 0.42,
+  "lufs": -14.0,
+  "how": "A square blip on C5 with three repeats 90 ms apart, each 6 dB quieter"
+ },
+ {
+  "cue": "effect:echo",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "effect-echo_B.ogg",
+  "seconds": 0.84,
+  "lufs": -13.9,
+  "how": "A sine ping on C5 with a soft fifth, two repeats 120 ms apart, reverb"
+ },
+ {
+  "cue": "effect:spectrum",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "effect-spectrum_A.ogg",
+  "seconds": 0.81,
+  "lufs": -14.0,
+  "how": "A fast five-note glissando up a C chord from C5, 30 ms apart, reverb"
+ },
+ {
+  "cue": "effect:spectrum",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "effect-spectrum_B.ogg",
+  "seconds": 0.96,
+  "lufs": -14.0,
+  "how": "A flanged saw C major chord on C4 with a few sparkles on top, bright shelf, reverb"
+ },
+ {
+  "cue": "effect:charm",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "effect-charm_A.ogg",
+  "seconds": 1.02,
+  "lufs": -14.0,
+  "how": "A two-note bell (C5 then G5) in sines with a few sparkles, roomy reverb"
+ },
+ {
+  "cue": "effect:charm",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "effect-charm_B.ogg",
+  "seconds": 0.81,
+  "lufs": -14.0,
+  "how": "A magic twinkle: a square coin blip on C5, a sine an octave up and a high noise shimmer, reverb"
+ },
+ {
+  "cue": "fizzle",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "fizzle_A.ogg",
+  "seconds": 0.37,
+  "lufs": -14.4,
+  "how": "A sputtering noise burst over a filtered square sinking from E4: 'pfft'"
+ },
+ {
+  "cue": "fizzle",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "fizzle_B.ogg",
+  "seconds": 0.31,
+  "lufs": -14.1,
+  "how": "A sad two-note drop (E4 to a sagging C4), muted square, with a faint crackle"
+ },
+ {
+  "cue": "lightning",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "lightning_A.ogg",
+  "seconds": 0.85,
+  "lufs": -14.4,
+  "how": "A bright noise crack with a saw zap diving down under it, compressed, reverb"
+ },
+ {
+  "cue": "lightning",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "lightning_B.ogg",
+  "seconds": 0.81,
+  "lufs": -14.3,
+  "how": "A buzzing saw with fast vibrato and a stuttering noise crack, saturated, reverb"
+ },
+ {
+  "cue": "shake",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "shake_A.ogg",
+  "seconds": 0.55,
+  "lufs": -14.1,
+  "how": "A low-passed noise rumble with a 70 Hz sine sub, compressed"
+ },
+ {
+  "cue": "shake",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "shake_B.ogg",
+  "seconds": 0.31,
+  "lufs": -14.3,
+  "how": "A sine thud with a rattling noise behind it, like the table jumping"
+ },
+ {
+  "cue": "slowMotion",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "slowMotion_A.ogg",
+  "seconds": 1.69,
+  "lufs": -13.9,
+  "how": "A slow saw and sine sliding down together ('wooom'), low-passed, long reverb"
+ },
+ {
+  "cue": "slowMotion",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "slowMotion_B.ogg",
+  "seconds": 1.41,
+  "lufs": -14.3,
+  "how": "A noise swell that rises then sinks under a closing filter, with a sagging square, reverb"
+ },
+ {
+  "cue": "whoosh",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "whoosh_A.ogg",
+  "seconds": 0.69,
+  "lufs": -14.4,
+  "how": "A noise whoosh whose band sweeps up (high-pass and low-pass both opening)"
+ },
+ {
+  "cue": "whoosh",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "whoosh_B.ogg",
+  "seconds": 0.69,
+  "lufs": -14.4,
+  "how": "A noise whoosh through a flanger sweeping down"
+ },
+ {
+  "cue": "combo:block",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "combo-block_A.ogg",
+  "seconds": 0.36,
+  "lufs": -13.9,
+  "how": "The hit's recipe on sines: a metallic ting on C5 (inharmonic overtone), the same thump and click, compressed"
+ },
+ {
+  "cue": "combo:block",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "combo-block_B.ogg",
+  "seconds": 0.37,
+  "lufs": -14.0,
+  "how": "A rounder 'clank': a filtered square on C5 with an octave ring, the hit's thump, compressed"
+ },
+ {
+  "cue": "combo:tier1",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "combo-tier1_A.ogg",
+  "seconds": 1.3,
+  "lufs": -14.4,
+  "how": "The tier 3 recipe with 4 notes"
+ },
+ {
+  "cue": "combo:tier1",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "combo-tier1_B.ogg",
+  "seconds": 1.31,
+  "lufs": -14.3,
+  "how": "The tier 3 recipe with 4 notes from a lower start"
+ },
+ {
+  "cue": "combo:tier2",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "combo-tier2_A.ogg",
+  "seconds": 1.32,
+  "lufs": -14.4,
+  "how": "The tier 3 recipe with 5 notes"
+ },
+ {
+  "cue": "combo:tier2",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "combo-tier2_B.ogg",
+  "seconds": 1.32,
+  "lufs": -14.4,
+  "how": "The tier 3 recipe with 5 notes from a lower start"
+ },
+ {
+  "cue": "combo:tier4",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "combo-tier4_A.ogg",
+  "seconds": 1.63,
+  "lufs": -14.2,
+  "how": "The tier 3 recipe with 9 notes, an octave saw layer, a louder whoosh and a bigger room"
+ },
+ {
+  "cue": "combo:tier4",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "combo-tier4_B.ogg",
+  "seconds": 1.6,
+  "lufs": -14.2,
+  "how": "The tier 3 recipe with 9 notes from a lower start in saws, with an octave layer and a bigger room"
+ },
+ {
+  "cue": "combo:lethal",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "combo-lethal_A.ogg",
+  "seconds": 1.55,
+  "lufs": -14.4,
+  "how": "Catching fire: a noise roar opening up under two rising saws a fifth apart, saturated, reverb"
+ },
+ {
+  "cue": "combo:lethal",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "combo-lethal_B.ogg",
+  "seconds": 1.54,
+  "lufs": -14.3,
+  "how": "A fire roar with crackle, and a rising filtered square chord (C4, G4, C5) inside it, reverb"
+ },
+ {
+  "cue": "combo:charge",
+  "variant": "A",
+  "group": "The finale",
+  "file": "combo-charge_A.ogg",
+  "seconds": 2.4,
+  "lufs": -14.4,
+  "how": "A 2.4 s riser: noise with an opening high-pass and a saw climbing from G3"
+ },
+ {
+  "cue": "combo:charge",
+  "variant": "B",
+  "group": "The finale",
+  "file": "combo-charge_B.ogg",
+  "seconds": 2.4,
+  "lufs": -14.2,
+  "how": "A 2.4 s riser: a square climbing from C4 with fast vibrato (a charging whine) over a faint hiss"
+ },
+ {
+  "cue": "combo:slamLethal",
+  "variant": "A",
+  "group": "The finale",
+  "file": "combo-slamLethal_A.ogg",
+  "seconds": 3.35,
+  "lufs": -14.3,
+  "how": "The slam recipe, bigger: the sub drops 80 to 25 Hz, a square crunch on top, a 2.6 s room, more saturation"
+ },
+ {
+  "cue": "combo:slamLethal",
+  "variant": "B",
+  "group": "The finale",
+  "file": "combo-slamLethal_B.ogg",
+  "seconds": 3.36,
+  "lufs": -14.2,
+  "how": "The slam recipe with a rolling thunder tail (repeating low noise) and a second sub an octave down, 2.4 s room"
+ },
+ {
+  "cue": "combo:fanfare0",
+  "variant": "A",
+  "group": "The finale",
+  "file": "combo-fanfare0_A.ogg",
+  "seconds": 1.66,
+  "lufs": -14.0,
+  "how": "The lethal fanfare recipe, smaller: 1 stab(s), a 0.6 s chord, 3 sparkles"
+ },
+ {
+  "cue": "combo:fanfare0",
+  "variant": "B",
+  "group": "The finale",
+  "file": "combo-fanfare0_B.ogg",
+  "seconds": 1.61,
+  "lufs": -14.1,
+  "how": "The lethal fanfare recipe, smaller, opening with a 3-note pentatonic run instead of one stab"
+ },
+ {
+  "cue": "combo:fanfare1",
+  "variant": "A",
+  "group": "The finale",
+  "file": "combo-fanfare1_A.ogg",
+  "seconds": 1.88,
+  "lufs": -14.0,
+  "how": "The lethal fanfare recipe, smaller: 1 stab(s), a 0.8 s chord, 6 sparkles"
+ },
+ {
+  "cue": "combo:fanfare1",
+  "variant": "B",
+  "group": "The finale",
+  "file": "combo-fanfare1_B.ogg",
+  "seconds": 1.93,
+  "lufs": -14.0,
+  "how": "The lethal fanfare recipe, smaller, opening with a 5-note pentatonic run instead of one stab"
+ },
+ {
+  "cue": "combo:fanfare2",
+  "variant": "A",
+  "group": "The finale",
+  "file": "combo-fanfare2_A.ogg",
+  "seconds": 2.4,
+  "lufs": -14.0,
+  "how": "The lethal fanfare recipe, smaller: 2 stab(s), a 1.0 s chord, 9 sparkles, an octave layer"
+ },
+ {
+  "cue": "combo:fanfare2",
+  "variant": "B",
+  "group": "The finale",
+  "file": "combo-fanfare2_B.ogg",
+  "seconds": 2.6,
+  "lufs": -14.1,
+  "how": "The lethal fanfare recipe, smaller, opening with a 7-note pentatonic run instead of one stab"
+ },
+ {
+  "cue": "combo:fanfare3",
+  "variant": "A",
+  "group": "The finale",
+  "file": "combo-fanfare3_A.ogg",
+  "seconds": 2.86,
+  "lufs": -14.1,
+  "how": "The lethal fanfare recipe, smaller: 3 stab(s), a 1.1 s chord, 12 sparkles, an octave layer"
+ },
+ {
+  "cue": "combo:fanfare3",
+  "variant": "B",
+  "group": "The finale",
+  "file": "combo-fanfare3_B.ogg",
+  "seconds": 3.05,
+  "lufs": -14.1,
+  "how": "The lethal fanfare recipe, smaller, opening with a 9-note pentatonic run instead of one stab"
+ },
+ {
+  "cue": "combo:fanfare4",
+  "variant": "A",
+  "group": "The finale",
+  "file": "combo-fanfare4_A.ogg",
+  "seconds": 3.1,
+  "lufs": -14.1,
+  "how": "The lethal fanfare recipe, smaller: 3 stab(s), a 1.25 s chord, 15 sparkles, an octave layer"
+ },
+ {
+  "cue": "combo:fanfare4",
+  "variant": "B",
+  "group": "The finale",
+  "file": "combo-fanfare4_B.ogg",
+  "seconds": 3.44,
+  "lufs": -14.1,
+  "how": "The lethal fanfare recipe, smaller, opening with a 11-note pentatonic run instead of one stab"
+ },
+ {
+  "cue": "combo:coin",
+  "variant": "A",
+  "group": "The finale",
+  "file": "combo-coin_A.ogg",
+  "seconds": 0.39,
+  "lufs": -14.0,
+  "how": "A classic square coin blip on C6 that jumps up a fourth, short room"
+ },
+ {
+  "cue": "combo:coin",
+  "variant": "B",
+  "group": "The finale",
+  "file": "combo-coin_B.ogg",
+  "seconds": 0.36,
+  "lufs": -14.0,
+  "how": "A metallic sine 'clink' on C6 with an inharmonic overtone"
+ },
+ {
+  "cue": "enemyHit",
+  "variant": "A",
+  "group": "Enemy reactions",
+  "file": "enemyHit_A.ogg",
+  "seconds": 0.18,
+  "lufs": -14.4,
+  "how": "A noise punch with a square dropping from A3: a 'thwack', compressed"
+ },
+ {
+  "cue": "enemyHit",
+  "variant": "B",
+  "group": "Enemy reactions",
+  "file": "enemyHit_B.ogg",
+  "seconds": 0.27,
+  "lufs": -14.0,
+  "how": "A saw crunch with a sine thump and a click, saturated and compressed"
+ },
+ {
+  "cue": "enemyBigHit",
+  "variant": "A",
+  "group": "Enemy reactions",
+  "file": "enemyBigHit_A.ogg",
+  "seconds": 0.88,
+  "lufs": -14.2,
+  "how": "A noise boom, a sine sub falling to 40 Hz and a square crunch, saturated, compressed, room"
+ },
+ {
+  "cue": "enemyBigHit",
+  "variant": "B",
+  "group": "Enemy reactions",
+  "file": "enemyBigHit_B.ogg",
+  "seconds": 0.43,
+  "lufs": -14.3,
+  "how": "A one-two: a sharp punch then a heavier boom 60 ms later with a sub, compressed"
+ },
+ {
+  "cue": "enemyShield",
+  "variant": "A",
+  "group": "Enemy reactions",
+  "file": "enemyShield_A.ogg",
+  "seconds": 0.79,
+  "lufs": -13.9,
+  "how": "A low metallic clank: a sine on G4 with an inharmonic overtone and a dull knock, reverb"
+ },
+ {
+  "cue": "enemyShield",
+  "variant": "B",
+  "group": "Enemy reactions",
+  "file": "enemyShield_B.ogg",
+  "seconds": 0.98,
+  "lufs": -14.0,
+  "how": "A filtered square 'dong' on G4 with an octave sine, roomy reverb"
+ },
+ {
+  "cue": "blockBreak",
+  "variant": "A",
+  "group": "Enemy reactions",
+  "file": "blockBreak_A.ogg",
+  "seconds": 0.84,
+  "lufs": -14.5,
+  "how": "Glass breaking: a stuttering high noise burst with five square shards falling down the scale"
+ },
+ {
+  "cue": "blockBreak",
+  "variant": "B",
+  "group": "Enemy reactions",
+  "file": "blockBreak_B.ogg",
+  "seconds": 0.87,
+  "lufs": -14.5,
+  "how": "A noise crunch with two metallic sines sliding down, compressed, reverb"
+ },
+ {
+  "cue": "enemyDeath",
+  "variant": "A",
+  "group": "Enemy reactions",
+  "file": "enemyDeath_A.ogg",
+  "seconds": 1.52,
+  "lufs": -14.2,
+  "how": "A noise burst with a saw whining down from 600 Hz, compressed, long reverb"
+ },
+ {
+  "cue": "enemyDeath",
+  "variant": "B",
+  "group": "Enemy reactions",
+  "file": "enemyDeath_B.ogg",
+  "seconds": 1.35,
+  "lufs": -14.2,
+  "how": "An 8-bit explosion with a square arpeggio falling down the scale from C6, reverb"
+ },
+ {
+  "cue": "bossDeath",
+  "variant": "A",
+  "group": "Enemy reactions",
+  "file": "bossDeath_A.ogg",
+  "seconds": 3.26,
+  "lufs": -14.1,
+  "how": "Three explosions 350 ms apart, each lower, over a long saw dive and a sub, saturated, compressed, 2.4 s room"
+ },
+ {
+  "cue": "bossDeath",
+  "variant": "B",
+  "group": "Enemy reactions",
+  "file": "bossDeath_B.ogg",
+  "seconds": 3.31,
+  "lufs": -14.1,
+  "how": "A long wobbling square dive over a rumble, a snap on the front, 2.4 s room"
+ },
+ {
+  "cue": "lunge",
+  "variant": "A",
+  "group": "Enemy reactions",
+  "file": "lunge_A.ogg",
+  "seconds": 0.22,
+  "lufs": -14.3,
+  "how": "A fast rising noise whoosh with a growling saw sweeping up under it"
+ },
+ {
+  "cue": "lunge",
+  "variant": "B",
+  "group": "Enemy reactions",
+  "file": "lunge_B.ogg",
+  "seconds": 0.21,
+  "lufs": -14.4,
+  "how": "A quick noise swish whose filter closes down"
+ },
+ {
+  "cue": "impact",
+  "variant": "A",
+  "group": "Enemy reactions",
+  "file": "impact_A.ogg",
+  "seconds": 0.21,
+  "lufs": -14.3,
+  "how": "A heavy noise thud with a low square crunch, saturated, compressed"
+ },
+ {
+  "cue": "impact",
+  "variant": "B",
+  "group": "Enemy reactions",
+  "file": "impact_B.ogg",
+  "seconds": 0.28,
+  "lufs": -14.1,
+  "how": "A punch with a low sine under it, heavily saturated"
+ },
+ {
+  "cue": "heal",
+  "variant": "A",
+  "group": "Enemy reactions",
+  "file": "heal_A.ogg",
+  "seconds": 1.27,
+  "lufs": -13.9,
+  "how": "A soft sine arpeggio rising C5, E5, G5, C6, reverb"
+ },
+ {
+  "cue": "heal",
+  "variant": "B",
+  "group": "Enemy reactions",
+  "file": "heal_B.ogg",
+  "seconds": 1.41,
+  "lufs": -14.0,
+  "how": "A rising sine swell on C5 with a fifth and a few sparkles, reverb"
+ }
+]

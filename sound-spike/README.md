@@ -1,7 +1,8 @@
-# Sound spike (#244)
+# Sound spike (#244) and sound picker rounds (#251)
 
-This branch never merges. Open `picker.html` in a browser to listen; the report is `docs/sound-spike.md` on `main`.
+This branch never merges. Open `picker.html` in a browser to listen.
 
-- `<method>/<cue>_<n>.ogg`: candidates, loudness-matched to -14 LUFS (loudest 400 ms window), peaks under -1.5 dBFS. `current/` holds the clips the game plays today, matched the same way.
-- `candidates.json`: every processing step and the source and licence of each library clip.
-- `tools/`: `build.py` (layering, processing, loudness matching), `render.js` (jsfxr renderer), `hitcheck.py` (combo:hit pitched up), `picker_template.html`. The library clips themselves were downloaded to a scratch folder and are not committed; their links are in `candidates.json`.
+- `picker.html`: round 1 (#251), every combat cue, two candidates each, made with the recipes in `tools/sound/` on `main`. Files are in `round1/`, with `round1/candidates.json` (what each one is made of).
+- `spike.html`: the original spike (#244). `<method>/<cue>_<n>.ogg` are its candidates and `tools/` its build script. The report is `docs/sound-spike.md` on `main`.
+
+Every clip is matched to -14 LUFS (loudest 400 ms window), with peaks under -1.5 dBFS.
