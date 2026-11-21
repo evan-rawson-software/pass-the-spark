@@ -1,5 +1,7 @@
 # Pass the Spark: build brief
 
+> **0.2 (2026-11-21):** this is the 0.1 record. For 0.2, `docs/v0.2/design.md` and `docs/v0.2/decisions.md` win where they differ, and 0.1's rulings count only as recommendations.
+
 Written 2026-11-18 as a handoff from a design conversation to a coding session. "Pass the Spark" and every domino, spark, enemy and event name are placeholders. All numbers are starting values to tune.
 
 This brief is self-contained. Where it marks something **Assumption**, the designer has not confirmed it; ask before building on it if it matters.

@@ -1,5 +1,7 @@
 # Design: branching cascade chains
 
+> **0.2 (2026-11-21):** this is the 0.1 record. For 0.2, `docs/v0.2/design.md` and `docs/v0.2/decisions.md` win where they differ, and 0.1's rulings count only as recommendations.
+
 > **Note (2026-11-21):** coin caps were removed; see "Coin caps removed" in `docs/decisions.md`.
 >
 > **Approved 2026-11-20.** This document is the source for combat rules. Where it conflicts with earlier combat rulings in `docs/decisions.md` or the brief, this document wins. Exact numbers live in data.
