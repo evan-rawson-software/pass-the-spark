@@ -1,8 +1,10 @@
-// Plays one whole run with the bot over the engine's public run functions. Run choices other than
+// Plays one whole run with the stock bot or the planning bot over the engine's public run functions. Run choices other than
 // battles follow the sim rules in docs/decisions.md ("Simulation"); every random pick uses the
 // seeded RNG, so the same seed and player count always give the same run. Tooling, not engine rules.
 
 import { getView } from "../src/engine/view";
+import type { BattleView } from "../src/engine/view";
+import type { Choice } from "../src/engine/battle";
 import { applyRunChoice, createRun, getPendingRunChoices } from "../src/engine/run";
 import type { RunChoice, RunPendingChoice, RunState } from "../src/engine/run";
 import { nextInt } from "../src/engine/rng";
@@ -13,6 +15,7 @@ import { dominoUnavailable, repaintChoices } from "../src/engine/events/deckEven
 import { upgradeChoices, wellSparks, wellStage } from "../src/engine/events/wishingWell";
 import { loadContent } from "../src/engine/content";
 import { botChoice } from "./bot";
+import { createPlannerBot } from "./planner";
 import type { Domino, Rarity, Spark } from "../src/engine/types";
 
 export const content = loadContent();
@@ -129,12 +132,14 @@ function traderChoice(run: RunState, p: Extract<RunPendingChoice, { type: "trade
   return pick.one(items);
 }
 
-function choose(run: RunState, p: RunPendingChoice, pick: Picker, bought: Record<string, number>): RunChoice {
+type BattleBot = (view: BattleView, seat: string, rng: number) => { choice: Choice; rng: number };
+
+function choose(run: RunState, p: RunPendingChoice, pick: Picker, bought: Record<string, number>, bot: BattleBot): RunChoice {
   switch (p.type) {
     case "vote":
       return { type: "vote", node: pick.one(p.options) };
     case "battle": {
-      const b = botChoice(getView(run.battle!, p.player), p.player, pick.state);
+      const b = bot(getView(run.battle!, p.player), p.player, pick.state);
       pick.state = b.rng;
       return { type: "battle", choice: b.choice };
     }
@@ -155,7 +160,8 @@ function choose(run: RunState, p: RunPendingChoice, pick: Picker, bought: Record
   }
 }
 
-export function playRun(playerCount: number, seed: number, maxSteps: number): RunStats {
+export function playRun(playerCount: number, seed: number, maxSteps: number, which: "stock" | "planner" = "stock"): RunStats {
+  const bot: BattleBot = which === "planner" ? createPlannerBot() : botChoice;
   const players = Array.from({ length: playerCount }, (_, i) => "p" + (i + 1));
   let run = createRun({ players, seed, content });
   const pick = new Picker((seed ^ 0x9e3779b9) >>> 0);
@@ -172,7 +178,7 @@ export function playRun(playerCount: number, seed: number, maxSteps: number): Ru
       lastPhase = stop;
       bought = {}; // a new stop starts the Trader purchase count again
     }
-    run = applyRunChoice(run, pending[0].player, choose(run, pending[0], pick, bought)).run;
+    run = applyRunChoice(run, pending[0].player, choose(run, pending[0], pick, bought, bot)).run;
     steps += 1;
     if (run.phase === "battle" && run.position?.type === "boss" && bossHealth[run.actIndex] === null) bossHealth[run.actIndex] = run.health;
     for (const id of players) for (const c of run.charms[id]) held.add(c);

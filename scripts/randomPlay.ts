@@ -1,4 +1,4 @@
-// Plays battles with random legal choices, or with the bot, over the engine's public functions only.
+// Plays battles with random legal choices, with the stock bot or with the planning bot, over the engine's public functions only.
 // Random picks come from the engine's seeded RNG, so the same seed gives the same battle. Along the
 // way it counts the options each turn offered and what each cascade looked like (for npm run sim).
 
@@ -8,6 +8,7 @@ import { nextInt } from "../src/engine/rng";
 import { getView } from "../src/engine/view";
 import { loadContent } from "../src/engine/content";
 import { botChoice } from "./bot";
+import { createPlannerBot } from "./planner";
 
 export const { config, dominoes, enemies, starterDeck } = loadContent();
 const kindOf = new Map(dominoes.map((d) => [d.id, d.kind]));
@@ -27,6 +28,8 @@ export interface BattleStats {
   result: "won" | "lost" | null; // null: stopped at the step cap
   rounds: number;
   turns: number; // player turns taken
+  passes: number; // turns that were a pass
+  enemyHealth: number; // the enemy's health at the start
   turnsWithChoice: number; // turns with more than one distinct legal choice (plays and pass together)
   turnsWithPlays: number; // turns with more than one distinct play (domino x end)
   choices: number; // distinct legal choices summed over all turns
@@ -48,14 +51,15 @@ export function newBattle(enemyId: string, seed: number, partySize: number): Bat
   });
 }
 
-export type Player = "random" | "bot";
+export type Player = "random" | "stock" | "planner";
 
-// Plays one battle with random legal choices, or with the bot. Stops after maxSteps choices.
+// Plays one battle with random legal choices, the stock bot or the planning bot. Stops after maxSteps choices.
 export function playRandomBattle(enemyId: string, seed: number, maxSteps: number, player: Player = "random", partySize = 2): BattleStats {
   let state = newBattle(enemyId, seed, partySize);
   let pick = seed; // the picker's own RNG state
+  const planner = createPlannerBot();
   const stats: BattleStats = {
-    result: null, rounds: 0, turns: 0, turnsWithChoice: 0, turnsWithPlays: 0, choices: 0, playOptions: 0, cascades: [], steps: 0, final: state,
+    result: null, rounds: 0, turns: 0, passes: 0, enemyHealth: state.enemy.health, turnsWithChoice: 0, turnsWithPlays: 0, choices: 0, playOptions: 0, cascades: [], steps: 0, final: state,
   };
   const fresh = (): CascadeStats => ({ nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0, damageCaps: 0, blockCaps: 0, ended: "capped" });
   let cascade = fresh();
@@ -81,7 +85,11 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
     if (plays > 1) stats.turnsWithPlays += 1;
 
     let choice: Choice;
-    if (player === "bot") {
+    if (player === "planner") {
+      const b = planner(getView(state, pending.player), pending.player, pick);
+      pick = b.rng;
+      choice = b.choice;
+    } else if (player === "stock") {
       const b = botChoice(getView(state, pending.player), pending.player, pick);
       pick = b.rng;
       choice = b.choice;
@@ -90,6 +98,7 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
       pick = r.state;
       choice = options[r.value];
     }
+    if (choice.type === "pass") stats.passes += 1;
     const result = step(state, choice);
     state = result.state;
     stats.steps += 1;
