@@ -1,0 +1,212 @@
+{
+ "tall/idle_robe_plain": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "tall/idle_robe_trim": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "tall/idle_body": {
+  "half_alpha_px": 0,
+  "colours": 16,
+  "off_palette": 0
+ },
+ "tall/idle_hat_pointed": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "tall/idle_hat_brim": {
+  "half_alpha_px": 0,
+  "colours": 12,
+  "off_palette": 0
+ },
+ "tall/idle_staff": {
+  "half_alpha_px": 0,
+  "colours": 8,
+  "off_palette": 0
+ },
+ "tall/idle_hand": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "tall/cast_robe_plain": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "tall/cast_robe_trim": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "tall/cast_body": {
+  "half_alpha_px": 0,
+  "colours": 16,
+  "off_palette": 0
+ },
+ "tall/cast_hat_pointed": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "tall/cast_hat_brim": {
+  "half_alpha_px": 0,
+  "colours": 12,
+  "off_palette": 0
+ },
+ "tall/cast_staff": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "tall/cast_hand": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "balanced/idle_robe_plain": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "balanced/idle_robe_trim": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "balanced/idle_body": {
+  "half_alpha_px": 0,
+  "colours": 17,
+  "off_palette": 0
+ },
+ "balanced/idle_hat_pointed": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "balanced/idle_hat_brim": {
+  "half_alpha_px": 0,
+  "colours": 12,
+  "off_palette": 0
+ },
+ "balanced/idle_staff": {
+  "half_alpha_px": 0,
+  "colours": 8,
+  "off_palette": 0
+ },
+ "balanced/idle_hand": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "balanced/cast_robe_plain": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "balanced/cast_robe_trim": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "balanced/cast_body": {
+  "half_alpha_px": 0,
+  "colours": 17,
+  "off_palette": 0
+ },
+ "balanced/cast_hat_pointed": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "balanced/cast_hat_brim": {
+  "half_alpha_px": 0,
+  "colours": 12,
+  "off_palette": 0
+ },
+ "balanced/cast_staff": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "balanced/cast_hand": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "cosy/idle_robe_plain": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "cosy/idle_robe_trim": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "cosy/idle_body": {
+  "half_alpha_px": 0,
+  "colours": 17,
+  "off_palette": 0
+ },
+ "cosy/idle_hat_pointed": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "cosy/idle_hat_brim": {
+  "half_alpha_px": 0,
+  "colours": 12,
+  "off_palette": 0
+ },
+ "cosy/idle_staff": {
+  "half_alpha_px": 0,
+  "colours": 8,
+  "off_palette": 0
+ },
+ "cosy/idle_hand": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "cosy/cast_robe_plain": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "cosy/cast_robe_trim": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "cosy/cast_body": {
+  "half_alpha_px": 0,
+  "colours": 17,
+  "off_palette": 0
+ },
+ "cosy/cast_hat_pointed": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "cosy/cast_hat_brim": {
+  "half_alpha_px": 0,
+  "colours": 12,
+  "off_palette": 0
+ },
+ "cosy/cast_staff": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "cosy/cast_hand": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ }
+}

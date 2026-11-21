@@ -10,3 +10,4 @@ This branch never merges. Open `picker.html` in a browser (straight from disk is
 - `tools/pix.py`: the shared 23-colour palette and pixel checks; `tools/bundle.py` rebuilds `sheets.js` after any PNG changes.
 
 The report is `docs/art-spike.md` on `main`.
+- `wizards.html` and `code3/`: #261 step 1, three wizard styles between storybook and chibi (`code3/make.py`).

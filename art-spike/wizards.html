@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wizard Style Picker</title>
+<style>
+:root { --bg: #110d16; --panel: #1b1524; --panel2: #241c30; --line: #3b2f49; --ink: #f3ead6; --muted: #b9aec6; --gold: #ffd54a; --pick: #3fbf62; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.wrap { max-width: 1480px; margin: 0 auto; padding: 28px 16px 64px; display: grid; gap: 28px; }
+h1 { margin: 0; font-size: 1.9rem; color: var(--gold); }
+h2 { margin: 0; font-size: 1.4rem; }
+h3 { margin: 0; font-size: 1.05rem; }
+p { margin: 0; max-width: 90ch; }
+.muted { color: var(--muted); }
+a { color: var(--gold); }
+section.method { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 12px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bar .lab { color: var(--muted); margin-right: 2px; }
+button { font: 600 14px system-ui, sans-serif; border: 1px solid var(--line); border-radius: 999px; padding: 6px 13px; cursor: pointer; background: var(--panel2); color: var(--ink); }
+button.on { background: var(--gold); color: #22201c; border-color: var(--gold); }
+button.sw { width: 30px; height: 30px; padding: 0; border: 2px solid transparent; }
+button.sw.on { border-color: #fff; box-shadow: 0 0 0 2px var(--bg) inset; }
+button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.stage { width: 100%; overflow-x: auto; border-radius: 12px; border: 2px solid var(--line); }
+.stage canvas { display: block; image-rendering: pixelated; }
+.fit .stage canvas { width: 100%; height: auto; }
+.sheets { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; background: #2a2236; border-radius: 12px; padding: 12px; }
+.sheets figure { margin: 0; display: grid; gap: 4px; }
+.sheets figcaption { font-size: .8rem; color: var(--muted); }
+.sheets img, .gallery img { image-rendering: pixelated; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.card { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 8px; align-content: start; }
+.card .img { background: #2a2236; border-radius: 8px; min-height: 120px; display: grid; place-items: center; overflow: hidden; }
+.card .img img { max-width: 100%; max-height: 260px; }
+.lic { font-size: .85rem; color: var(--muted); }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.notes { display: grid; gap: 4px; font-size: .92rem; color: var(--muted); }
+textarea { width: 100%; min-height: 90px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 13px ui-monospace, Consolas, monospace; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header style="display:grid;gap:8px">
+    <h1>Wizard style (#261)</h1>
+    <p class="muted">Issue #261, step 1: three wizard styles between the spike's storybook and chibi, made by one generator that blends their proportions. Each is shown at ×3 (48×64 art pixels) with nearest-neighbour scaling, over the combat background and the code circle. Light now comes mostly from above, so the mirrored wizard on the right doesn't look lit from the wrong side. Pick one; the full set (5 hats, 5 robes, 7 animations, 8 tuned colours) follows in that style. The spike's picker is at <a href="picker.html">picker.html</a>.</p>
+    <div class="bar"><button id="fit">Fit to width</button><button id="pause">Pause</button><span class="lab">Speed</span><button data-speed="1" class="on">1×</button><button data-speed="0.25">¼×</button></div>
+  </header>
+  <div id="methods" style="display:grid;gap:28px"></div>
+  <section class="method">
+    <h2>Your pick</h2>
+    <p class="muted">Which method, or mix, should make the full M12 set? Notes welcome.</p>
+    <textarea id="pick" placeholder="A, B or C, and anything to change"></textarea>
+  </section>
+</main>
+<script src="sheets.js"></script>
+<script>
+const SEATS = [["Red", "#e8364f"], ["Cyan", "#22d3ee"], ["Pink", "#ff7ad9"], ["White", "#f5f5f5"],
+               ["Violet", "#8b5cf6"], ["Green", "#4ade80"], ["Orange", "#fb923c"], ["Blue", "#3b82f6"]];
+const KEY = ["#c7a4ff", "#9a6ef0", "#6a45c0", "#43297e"]; // round 1's robe ramp (4 colours)
+const KEY5 = ["#d9c2ff", "#a983f7", "#7d58d6", "#563a9e", "#2f1f5c"]; // round 2's (5 colours)
+const X = 4, CW = 32, CH = 48;
+const STAGE = { w: 1440, h: 860, bgX: 480, bgY: 180, circle: [720, 470], feet: { left: [176, 560], front: [720, 812], right: [1262, 560] }, target: [92, 150] };
+const MS = { idle: 200, cast: 110, fly: 70, impact: 80 };
+
+// What each method has. A wizard is layers drawn in order; each layer is a sheet of frames 32x48.
+const CODE_WIZ = (anim) => ({
+  frames: anim === "idle" ? 4 : 6,
+  layers: (o) => [`code/wizard_${anim}_robe_${o.robe}.png`, `code/wizard_${anim}_body.png`, `code/wizard_${anim}_hat_${o.hat}.png`,
+                  `code/wizard_${anim}_staff.png`, `code/wizard_${anim}_hand.png`],
+  release: 2,
+});
+const R2 = (style, title, blurb, tip) => ({ id: style, title, blurb, round2: true, key: KEY5, cw: 48, ch: 64, scales: [3, 4], tip,
+  hats: ["pointed", "brim"], robes: ["plain", "trim"],
+  wiz: Object.fromEntries(["idle", "cast"].map((a) => [a, { frames: a === "idle" ? 4 : 6, release: 2,
+    layers: (o) => ["robe_" + o.robe, "body", "hat_" + o.hat, "staff", "hand"].map((l) => `code2/${style}/wizard_${a}_${l}.png`) }])),
+  fly: ["code/fireball_fly.png", 4], impact: ["code/fireball_impact.png", 4], circle: (t) => `code/circle_${t}.png`,
+  sheets: ["robe_plain", "robe_trim", "body", "hat_pointed", "hat_brim"].map((l) => `code2/${style}/wizard_cast_${l}.png`) });
+const R3 = (style, title, blurb) => ({ ...R2(style, title, blurb, [21, 46]), scales: [3],
+  wiz: Object.fromEntries(["idle", "cast"].map((a) => [a, { frames: a === "idle" ? 4 : 6, release: 2,
+    layers: (o) => ["robe_" + o.robe, "body", "hat_" + o.hat, "staff", "hand"].map((l) => `code3/${style}/wizard_${a}_${l}.png`) }])),
+  sheets: ["robe_plain", "robe_trim", "body", "hat_pointed", "hat_brim"].map((l) => `code3/${style}/wizard_cast_${l}.png`) });
+const METHODS = [
+  R3("tall", "Style A: tall", "Closest to storybook: a longer robe, a long pointed beard, an eye in profile and a nose."),
+  R3("balanced", "Style B: balanced", "Halfway: a rounder head with two small eyes, a mid-length beard, a shorter robe."),
+  R3("cosy", "Style C: cosy", "Closer to chibi: a big round head, bigger eyes with a glint, a short beard, a small round body."),
+];
+const PACKS = [
+  ["Wizard 2D Pixel Art", "xzany", "https://xzany.itch.io/wizard-2d-pixel-art", "$3", "Commercial use, no credit needed; no redistribution", "32×48, one fixed wizard: idle 6, attack 10, walk, hurt, death. No separate hat or robe layers.", "https://img.itch.zone/aW1hZ2UvMjMzNDU5Ni8xNzM1MjI1MC5naWY=/original/ZPATOr.gif"],
+  ["Universal LPC Spritesheet Generator", "LPC contributors", "https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator", "Free", "Mixed per part, base set CC-BY-SA 3.0 + GPL 3.0: credit every artist, derivatives stay CC-BY-SA", "64×64 frames, fully layered (bodies, robes, hats), has a spellcast animation. Too big for our grid, and the licence follows the art.", "https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/raw/master/readme-images/example.png"],
+  ["Pixel Magic Sprite Effects", "Foozle", "https://foozlecc.itch.io/pixel-magic-sprite-effects", "Free", "CC0", "32×32: fireball, water, wind, tornado, earth, explosion. No lightning or shadow.", "https://img.itch.zone/aW1nLzExNjk3OTg4LnBuZw==/original/uPI%2FJY.png"],
+  ["Pixel Art Fire Ball", "msfrantz", "https://msfrantz.itch.io/free-fire-ball-pixel-art", "Free", "Commercial use and edits OK; no redistribution", "64×64: shot loop 4, explode 7. Flight loop and impact.", "https://img.itch.zone/aW1hZ2UvMTEwNjY2NC82Mzg3NTU2LmdpZg==/original/NkSg0k.gif"],
+  ["Fire Spells Pixel VFX", "ELV Games", "https://elvgames.itch.io/fire-spells-pixel-vfx", "$3.99", "\"Royalty free\"; terms not on the page", "Fireball 8 + hit 6, explosions.", "https://img.itch.zone/aW1hZ2UvMjE1OTY1NS8xODcxNDQzNC5naWY=/original/8aihef.gif"],
+  ["Magic Circle 192", "AlisAlia", "https://alisalia.itch.io/magiccircle192", "$5", "Commercial use and edits OK; no resale", "192×192, 32 patterns × 13 colours, flat top-down, not animated.", "https://img.itch.zone/aW1nLzE1MDI2NzY3LnBuZw==/original/AzwYfP.png"],
+  ["Magic Summons", "SrZolda", "https://srzolda.itch.io/magic-summons", "Free", "CC-BY 4.0 (credit)", "Animated summon circles in 4 colours; size and angle not stated.", "https://img.itch.zone/aW1nLzE3Njc4MTUwLnBuZw==/original/HVTCNQ.png"],
+  ["Teleport circle", "gfroad", "https://opengameart.org/content/teleport-circle-sprite-sheet", "Free", "CC0", "Used on the stage above: 16 frames of 256×256 line art, not pixel art.", "https://opengameart.org/sites/default/files/teleportCircle.png"],
+];
+
+const $ = (s, el = document) => el.querySelector(s);
+const imgs = {};
+const load = (src) => imgs[src] ||= new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = (window.SHEETS && SHEETS[src]) || src; });
+const bg = load("combat.jpg");
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const mixc = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+function ramp(h, n) {
+  const c = hex(h), W = [255, 255, 255], D = [58, 42, 106], K = [27, 20, 36];
+  return n === 5 ? [mixc(c, W, 0.55), mixc(c, W, 0.22), c, mixc(c, D, 0.4), mixc(c, K, 0.62)]
+                 : [mixc(c, W, 0.45), c, mixc(c, D, 0.38), mixc(c, K, 0.6)];
+}
+const tinted = new Map();
+async function tint(src, colour, key = KEY) { // a copy of a sheet with the robe ramp swapped for the seat colour
+  const k = src + colour, keyRgb = key.map(hex);
+  if (!tinted.has(k)) tinted.set(k, (async () => {
+    const im = await load(src); if (!im) return null;
+    const c = document.createElement("canvas"); c.width = im.width; c.height = im.height;
+    const x = c.getContext("2d"); x.drawImage(im, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height), p = d.data, to = ramp(colour, key.length);
+    for (let i = 0; i < p.length; i += 4) for (let j = 0; j < key.length; j++)
+      if (p[i] === keyRgb[j][0] && p[i + 1] === keyRgb[j][1] && p[i + 2] === keyRgb[j][2]) { p[i] = to[j][0]; p[i + 1] = to[j][1]; p[i + 2] = to[j][2]; break; }
+    x.putImageData(d, 0, 0); return c;
+  })());
+  return tinted.get(k);
+}
+
+let paused = false, speed = 1, clock = 0, last = performance.now();
+const stages = [];
+function frameAt(t, ms, n, loop = true) { const f = Math.floor(t / ms); return loop ? f % n : Math.min(f, n - 1); }
+
+function build(m) {
+  const sec = document.createElement("section"); sec.className = "method";
+  const st = { m, colour: 0, hat: m.hats[0], robe: m.robes[0], tier: "blaze", layers: {}, scale: m.scales ? m.scales[0] : X };
+  sec.innerHTML = `<h2>${m.title}</h2><p class="muted">${m.blurb}</p>
+    <div class="bar"><span class="lab">Seat colour</span>${SEATS.map(([n, h], i) => `<button class="sw" title="${n}" aria-label="${n}" data-c="${i}" style="background:${h}"></button>`).join("")}</div>
+    <div class="bar"><span class="lab">Hat</span>${m.hats.map((h) => `<button data-hat="${h}">${h}</button>`).join("")}
+      <span class="lab" style="margin-left:12px">Robe</span>${m.robes.map((r) => `<button data-robe="${r}">${r}</button>`).join("")}
+      ${m.scales ? `<span class="lab" style="margin-left:12px">Scale</span>${m.scales.map((s) => `<button data-scale="${s}">×${s}</button>`).join("")}` : ""}
+      <span class="lab" style="margin-left:12px">Circle</span><button data-tier="quiet">quietest</button><button data-tier="blaze">biggest</button></div>
+    <div class="stage"><canvas width="${STAGE.w}" height="${STAGE.h}"></canvas></div>
+    <h3>Sprite sheets at ×4</h3><div class="sheets"></div>`;
+  const sync = () => {
+    sec.querySelectorAll("[data-c]").forEach((b) => b.classList.toggle("on", +b.dataset.c === st.colour));
+    sec.querySelectorAll("[data-hat]").forEach((b) => b.classList.toggle("on", b.dataset.hat === st.hat));
+    sec.querySelectorAll("[data-robe]").forEach((b) => b.classList.toggle("on", b.dataset.robe === st.robe));
+    sec.querySelectorAll("[data-tier]").forEach((b) => b.classList.toggle("on", b.dataset.tier === st.tier));
+    sec.querySelectorAll("[data-scale]").forEach((b) => b.classList.toggle("on", +b.dataset.scale === st.scale));
+    prepare(st);
+  };
+  sec.addEventListener("click", (e) => {
+    const d = e.target.dataset;
+    if (d.c) st.colour = +d.c; if (d.hat) st.hat = d.hat; if (d.robe) st.robe = d.robe; if (d.tier) st.tier = d.tier; if (d.scale) st.scale = +d.scale;
+    if (d.c || d.hat || d.robe || d.tier || d.scale) sync();
+  });
+  const sh = $(".sheets", sec);
+  for (const s of m.sheets) load(s).then((im) => { if (!im) return; sh.insertAdjacentHTML("beforeend", `<figure><img src="${s}" width="${im.width * X}" height="${im.height * X}" alt=""><figcaption>${s}</figcaption></figure>`); });
+  if (m.gallery) {
+    sec.insertAdjacentHTML("beforeend", `<h3>Packs looked at (their own preview images, at their own scale)</h3><div class="gallery">${PACKS.map(([n, by, url, price, lic, what, img]) =>
+      `<div class="card"><div class="img"><img src="${img}" alt="${n} preview" loading="lazy"></div><b><a href="${url}" target="_blank" rel="noopener">${n}</a></b><span class="muted">${by} · ${price}</span><span>${what}</span><span class="lic">Licence: ${lic}</span></div>`).join("")}</div>`);
+  }
+  st.canvas = $("canvas", sec); st.ctx = st.canvas.getContext("2d"); st.ctx.imageSmoothingEnabled = false;
+  sync();
+  stages.push(st);
+  return sec;
+}
+
+async function prepare(st) { // tinted layer sheets for the three wizards: yours (the caster) and the next two seats
+  const m = st.m, cols = [0, 1, 2].map((i) => SEATS[(st.colour + i) % 8][1]);
+  const o = { hat: st.hat, robe: st.robe };
+  const out = {};
+  for (const anim of ["idle", "cast"]) {
+    const w = m.wiz[anim]; if (!w) continue;
+    out[anim] = await Promise.all(cols.map((c) => Promise.all(w.layers(o).map((s) => tint(s, c, m.key || KEY)))));
+  }
+  out.circle = await load(m.circle(st.tier));
+  out.fly = await load(m.fly[0]); out.impact = await load(m.impact[0]);
+  st.layers = out;
+}
+
+function drawWizard(ctx, sheets, frame, [fx, fy], mirror, cw = CW, ch = CH, x = X) {
+  if (!sheets) return;
+  ctx.save(); ctx.translate(fx, fy); if (mirror) ctx.scale(-1, 1);
+  ctx.fillStyle = "rgba(10,6,14,0.45)"; ctx.beginPath(); ctx.ellipse(0, -x, cw * x * 0.36, ch * x * 0.05, 0, 0, Math.PI * 2); ctx.fill(); // a vector shadow, like the UI
+  for (const s of sheets) if (s) ctx.drawImage(s, frame * cw, 0, cw, ch, -cw / 2 * x, -ch * x, cw * x, ch * x);
+  ctx.restore();
+}
+
+function draw(st, bgImg) {
+  const { ctx, m, layers: L } = st; if (!L.circle) return;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(bgImg, STAGE.bgX, STAGE.bgY, STAGE.w, STAGE.h, 0, 0, STAGE.w, STAGE.h);
+  const [cx, cy] = STAGE.circle;
+  ctx.drawImage(L.circle, cx - L.circle.width * X / 2, cy - L.circle.height * X / 2, L.circle.width * X, L.circle.height * X);
+  // The loop: idle 1600 ms, cast, the fireball flies from the release frame, then bursts.
+  const cast = m.wiz.cast, castMs = (cast ? cast.frames : 4) * MS.cast, flyMs = 520, impMs = (m.impact[1] || 1) * MS.impact * (m.impact[1] > 1 ? 1 : 4);
+  const cycle = 1600 + castMs + flyMs + impMs + 400, t = clock % cycle;
+  const idleF = frameAt(clock, MS.idle, m.wiz.idle.frames);
+  const cw = m.cw || CW, ch = m.ch || CH, ws = st.scale || X, wz = (sh, f, at, mir) => drawWizard(ctx, sh, f, at, mir, cw, ch, ws);
+  wz(L.idle && L.idle[1], idleF, STAGE.feet.left, false);
+  wz(L.idle && L.idle[2], (idleF + 2) % m.wiz.idle.frames, STAGE.feet.front, false);
+  const tc = t - 1600, rel = cast ? cast.release * MS.cast : 0;
+  if (tc >= 0 && tc < castMs && L.cast) wz(L.cast[0], frameAt(tc, MS.cast, cast.frames, false), STAGE.feet.right, true);
+  else wz(L.idle && L.idle[0], idleF, STAGE.feet.right, true);
+  const tipA = m.tip || [7, 40], tip = [STAGE.feet.right[0] - tipA[0] * ws, STAGE.feet.right[1] - tipA[1] * ws], [tx, ty] = STAGE.target;
+  const tf = tc - rel;
+  if (tf >= 0 && tf < flyMs && L.fly) {
+    const k = tf / flyMs, x = tip[0] + (tx - tip[0]) * k, y = tip[1] + (ty - tip[1]) * k - Math.sin(k * Math.PI) * 60;
+    const n = m.fly[1], f = frameAt(tf, MS.fly, n), fw = L.fly.width / n;
+    ctx.save(); ctx.translate(Math.round(x / X) * X, Math.round(y / X) * X); ctx.scale(-1, 1);
+    ctx.drawImage(L.fly, f * fw, 0, fw, L.fly.height, -fw * X / 2, -L.fly.height * X / 2, fw * X, L.fly.height * X); ctx.restore();
+  }
+  const ti = tf - flyMs;
+  if (ti >= 0 && ti < impMs && L.impact) {
+    const n = m.impact[1], f = n > 1 ? frameAt(ti, MS.impact, n, false) : 0, fw = L.impact.width / n;
+    ctx.drawImage(L.impact, f * fw, 0, fw, L.impact.height, tx - fw * X / 2, ty - L.impact.height * X / 2, fw * X, L.impact.height * X);
+  }
+}
+
+(async () => {
+  const box = $("#methods");
+  for (const m of METHODS) box.appendChild(build(m));
+  
+  const bgImg = await bg;
+  const tick = (now) => {
+    if (!paused) clock += (now - last) * speed; last = now;
+    for (const st of stages) draw(st, bgImg);
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+})();
+$("#fit").addEventListener("click", (e) => { document.body.classList.toggle("fit"); e.target.classList.toggle("on"); });
+$("#pause").addEventListener("click", (e) => { paused = !paused; e.target.textContent = paused ? "Play" : "Pause"; });
+document.querySelectorAll("[data-speed]").forEach((b) => b.addEventListener("click", () => {
+  speed = +b.dataset.speed; document.querySelectorAll("[data-speed]").forEach((x) => x.classList.toggle("on", x === b));
+}));
+try { $("#pick").value = localStorage.getItem("wizardStylePick") || ""; } catch (e) {}
+$("#pick").addEventListener("input", (e) => { try { localStorage.setItem("wizardStylePick", e.target.value); } catch (err) {} });
+</script>
+</body>
+</html>
