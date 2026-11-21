@@ -22,7 +22,6 @@ export function trackEvent(ev: GameEvent, mem: LogMemory): void {
 export function eventDelay(ev: GameEvent, mem: LogMemory): number {
   switch (ev.type) {
     case "roundStart": return 800;
-    case "pass": return 350;
     case "setOff": return 500;
     case "cascadeStep": return 450;
     case "fizzle": return 150;

@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import type { Board, PlayPreview } from "../engine/battle";
-import { getOpenEnds } from "../engine/battle";
+import { getOpenEnds, previewPlay, removeFromBoard } from "../engine/battle";
 import type { BattleView } from "../engine/view";
 import type { Domino, DominoKind, Spark } from "../engine/types";
 import { drawDomino, drawSparkGlyph, dominoPixelSize } from "./dominoDrawing";
@@ -158,7 +158,7 @@ export function layoutTree(board: Board, dominoes: Domino[]): TreeLayout {
     const h = sizeOf(kind).h * s;
     let x = 0;
     if (n.end !== null) {
-      const p = out.tiles.get(board.ends[n.end].node)!;
+      const p = out.tiles.get(board.ends.find((e) => e.id === n.end)!.node)!;
       x = left.get(p.id)! + p.w + D.gap;
     }
     left.set(n.id, x);
@@ -232,10 +232,25 @@ export function chargesInto(view: BattleView, player: string): Map<number, numbe
   const out = new Map<number, number>();
   for (const n of view.board.nodes) {
     if (n.end === null) continue;
-    const cut = view.board.ends.findIndex((e) => e.node >= n.id);
-    const before = { ...view, board: { nodes: view.board.nodes.slice(0, n.id), ends: view.board.ends.slice(0, cut < 0 ? undefined : cut) } };
+    const before = { ...view, board: { ...view.board, nodes: view.board.nodes.filter((x) => x.id < n.id), ends: view.board.ends.filter((e) => e.node < n.id) } };
     const o = getOpenEnds(before, player).find((x) => x.end === n.end);
     if (o) out.set(n.end, o.charge);
+  }
+  return out;
+}
+
+// What each placed cap goes off for (its value times its triggers), by node id: previewPlay on the board
+// without that cap (a cap is always a leaf), with the cap back in its owner's hand.
+export function capTotals(view: BattleView): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const n of view.board.nodes) {
+    const d = view.dominoes.find((q) => q.id === n.domino);
+    if (!d || d.kind !== "cap" || n.end === null) continue;
+    const without: Board = JSON.parse(JSON.stringify(view.board));
+    removeFromBoard(without, n.id);
+    const players = view.players.map((p) => (p.id === n.owner ? { ...p, hand: [...p.hand, d.id] } : p));
+    const p = previewPlay({ ...view, board: without, players }, n.owner, d.id, n.end);
+    if (p) out.set(n.id, p.total);
   }
   return out;
 }
@@ -328,6 +343,19 @@ function badge(scene: Phaser.Scene, layer: Layer, x: number, y: number, f: numbe
   layer.add([g, t]);
 }
 
+// A cap's own number: a pill in its effect's colour.
+function capNumber(scene: Phaser.Scene, layer: Layer, x: number, y: number, f: number, text: string, fill: string): void {
+  const b = D.capNumber;
+  const t = scene.add.text(x, y, text, { fontFamily: FONT, fontSize: `${Math.max(b.minSize, Math.round(b.size * f))}px`, fontStyle: "bold", color: b.text }).setOrigin(0.5);
+  const w = Math.max(b.w * f, t.width + 12 * f), h = b.h * f;
+  const g = scene.add.graphics();
+  g.fillStyle(hexColour(fill), 1);
+  g.fillRoundedRect(x - w / 2, y - h / 2, w, h, h / 2);
+  g.lineStyle(b.strokeWidth * Math.max(f, 0.6), hexColour(b.stroke), 1);
+  g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, h / 2);
+  layer.add([g, t]);
+}
+
 // A board domino: a holder (scaled to k) whose origin is the middle of the domino's own silhouette and
 // whose size is that silhouette, so it is the right size for a hit area and a glow.
 function tile(scene: Phaser.Scene, layer: Layer, d: Domino, k: number, x: number, y: number, owner?: number): Layer {
@@ -355,6 +383,7 @@ export interface FuseBoardInput {
   ownerColour(owner: string): number; // a seat's colour, for the owner stripe
   openEnds: { end: number; spark: Spark; charge: number }[]; // the engine's open ends (getView's openEnds)
   fuseCharges: Map<number, number>; // the charge through each fuse into a placed domino, by end id (chargesInto)
+  capTotals?: Map<number, number>; // what each placed cap goes off for, by node id (capTotals): its own number
   locked: Spark | null; // the Warden's lock: those ends show a padlock and never light up
   blessed?: Spark | null; // the Spark Shrine's blessed spark
   lit?: Set<number>; // nodes the cascade has lit so far: their fuses are drawn burnt
@@ -413,11 +442,12 @@ export class FuseBoard {
     this.box = { x: ox, y: oy, w: (lay.x1 - lay.x0) * f, h: (lay.y1 - lay.y0) * f };
     const lit = input.lit ?? new Set<number>();
     const fizzled = input.fizzled ?? new Set<number>();
-    const sparkOf = (end: number) => board.ends[end].spark;
+    const endOf = (id: number) => board.ends.find((e) => e.id === id)!;
+    const sparkOf = (end: number) => endOf(end).spark;
 
     // Fuses first, under the dominoes: from each output to whatever hangs on it.
     for (const fz of lay.fuses) {
-      const e = board.ends[fz.end];
+      const e = endOf(fz.end);
       const pts = fz.pts.map((p) => ({ x: this.X(p.x), y: this.Y(p.y) }));
       this.fuses.set(e.id, drawFuse(this.scene, this.root, pts, f, SPARK_STYLE[sparkOf(e.id)].color, { dim: fizzled.has(e.id), glow: input.glow, burnt: lit.has(e.node), hot: input.hot }));
     }
@@ -430,6 +460,14 @@ export class FuseBoard {
       const size = sizeOf(t.kind);
       this.tiles.set(n.id, { c, pos: { x, y, k, w: size.w, h: size.h } });
     }
+    // Each cap's own number, straddling its top edge.
+    input.capTotals?.forEach((total, id) => {
+      const t = this.tiles.get(id);
+      if (!t) return;
+      const d = input.dominoes.find((q) => q.id === board.nodes.find((x) => x.id === id)!.domino)!;
+      const w = t.pos.w * k, h = t.pos.h * k;
+      capNumber(this.scene, this.root, t.pos.x + w / 2 - D.capNumber.dx * f, t.pos.y - h / 2, f, String(total), d.effect?.kind === "block" ? L.colours.cap.block : L.colours.cap.damage);
+    });
     // The charge badges, above the dominoes (they never overlap one: see layoutTree).
     for (const fz of lay.fuses) {
       const charge = input.fuseCharges.get(fz.end);

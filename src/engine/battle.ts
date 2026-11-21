@@ -489,7 +489,8 @@ export interface SetOffPreview {
   partyHealth: number;
 }
 
-export function previewSetOff(input: BattleState | BattleView, play?: { player: string; domino: string; end?: number }): SetOffPreview | null {
+// A working copy of a state or view for a preview, with the board after `play` if given (null when that play is illegal).
+function previewCopy(input: BattleState | BattleView, play?: { player: string; domino: string; end?: number }): BattleState | null {
   const copy = JSON.parse(JSON.stringify(input));
   const state = { ...copy, rng: 0, intent: "baseIntent" in copy ? copy.baseIntent : copy.intent } as BattleState;
   if (play) {
@@ -500,6 +501,34 @@ export function previewSetOff(input: BattleState | BattleView, play?: { player: 
     if (opener ? play.end !== undefined || d.kind === "cap" : play.end === undefined || !legalEnds(state, d, play.player).includes(play.end)) return null;
     addToBoard(state.board, play.player, d, play.end ?? null, outputsOf(state, play.player, d));
   }
+  return state;
+}
+
+// What the build shows the party without giving away whether the board is lethal or reaches the line (B8): the
+// block the whole board would give, and the health the party would lose to the intent's full, unhalved attack
+// after that block. It runs the real cascade and enemy action on a copy where the enemy cannot die and has no
+// line to reach, so neither a kill (which stops the cascade and the enemy) nor the stagger changes the numbers.
+export function previewBuild(input: BattleState | BattleView, play?: { player: string; domino: string; end?: number }): { block: number; partyDamage: number } | null {
+  const state = previewCopy(input, play);
+  if (state === null) return null;
+  const realHealth = state.party.health;
+  const out = 1e9;
+  state.enemy.health = out;
+  state.enemy.maxHealth = out;
+  state.enemy.line = Infinity;
+  state.party.health = out;
+  const events: GameEvent[] = [];
+  const tally = fireCascade(state, events);
+  const block = events.reduce((sum, e) => sum + (e.type === "block" && e.side === "party" ? e.amount : 0), 0);
+  longNightGrowth(state, tally.caps, events);
+  state.enemy.block = 0;
+  enemyAct(state, events);
+  return { block, partyDamage: Math.min(realHealth, out - state.party.health) };
+}
+
+export function previewSetOff(input: BattleState | BattleView, play?: { player: string; domino: string; end?: number }): SetOffPreview | null {
+  const state = previewCopy(input, play);
+  if (state === null) return null;
   const events: GameEvent[] = [];
   const before = { enemyHealth: state.enemy.health, partyHealth: state.party.health };
   const tally = fireCascade(state, events);
@@ -560,7 +589,7 @@ function isLeaf(board: Board, nodeId: number): boolean {
 
 // Takes a leaf node off the board with its (open) outputs. Nothing else changes or is renumbered: the end it hung
 // from keeps its id and is open again, and the counters are not rewound.
-function removeFromBoard(board: Board, nodeId: number): void {
+export function removeFromBoard(board: Board, nodeId: number): void {
   board.nodes = board.nodes.filter((n) => n.id !== nodeId);
   board.ends = board.ends.filter((e) => e.node !== nodeId);
 }
