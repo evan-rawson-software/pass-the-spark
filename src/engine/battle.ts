@@ -488,6 +488,59 @@ export function previewCascade(input: BattleState | BattleView): CascadePreview 
   return result;
 }
 
+// What setting the chain off now would do to both sides, worked out by running the real cascade and
+// the real enemy action on a copy (the intent queue and the RNG are not touched). With `play`, the same
+// for the board after that play (a hover). Coins are not part of it.
+export interface SetOffPreview {
+  canSetOff: boolean; // a cap is on the board (without one, damage and block are 0 and only the party side matters)
+  damage: number; // reaching the enemy's health, after its block
+  enemyBlockUsed: number; // the enemy's block worn down by the cascade
+  enemyBlock: number; // its block after the cascade (the Hoarder's gain included)
+  enemyHealth: number;
+  lethal: boolean; // the enemy dies in the cascade; nothing after that goes off
+  partyBlockGain: number; // block the party gains in the cascade
+  partyBlock: number; // the party's block once the cascade is done, before the intent
+  partyDamage: number; // health the party loses to the Auditor and the intent, after block
+  partyHealth: number;
+}
+
+export function previewSetOff(input: BattleState | BattleView, play?: { player: string; domino: string; end?: number }): SetOffPreview | null {
+  const copy = JSON.parse(JSON.stringify(input));
+  const state = { ...copy, rng: 0, intent: "baseIntent" in copy ? copy.baseIntent : copy.intent } as BattleState;
+  if (play) {
+    const player = state.players.find((p) => p.id === play.player);
+    if (!player || !player.hand.includes(play.domino)) return null;
+    const d = getDomino(state, play.domino);
+    const opener = state.board.nodes.length === 0;
+    if (opener ? play.end !== undefined || d.kind === "cap" : play.end === undefined || !legalEnds(state, d, play.player).includes(play.end)) return null;
+    addToBoard(state.board, play.player, d, play.end ?? null, outputsOf(state, play.player, d));
+  }
+  const events: GameEvent[] = [];
+  const before = { enemyHealth: state.enemy.health, partyHealth: state.party.health };
+  const capsFired = fireCascade(state, events);
+  const enemyBlockUsed = events.reduce((sum, e) => sum + (e.type === "damage" && e.side === "enemy" ? e.blocked : 0), 0);
+  const result: SetOffPreview = {
+    canSetOff: capCount(state) > 0,
+    damage: before.enemyHealth - Math.max(state.enemy.health, 0),
+    enemyBlockUsed,
+    enemyBlock: state.enemy.block,
+    enemyHealth: Math.max(state.enemy.health, 0),
+    lethal: state.result === "won",
+    partyBlockGain: events.reduce((sum, e) => sum + (e.type === "block" && e.side === "party" ? e.amount : 0), 0),
+    partyBlock: state.party.block,
+    partyDamage: 0,
+    partyHealth: state.party.health,
+  };
+  if (!isOver(state)) {
+    longNightGrowth(state, capsFired, events);
+    state.enemy.block = 0;
+    enemyAct(state, events);
+  }
+  result.partyHealth = Math.max(state.party.health, 0);
+  result.partyDamage = before.partyHealth - result.partyHealth;
+  return result;
+}
+
 // ---- internals (all mutate the working copy) ----
 
 function legalEnds(state: PendingInput, d: Domino, owner: string): number[] {

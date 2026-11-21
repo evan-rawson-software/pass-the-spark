@@ -24,6 +24,7 @@ export type BattleView = Omit<BattleState, "rng" | "enemy"> & {
   enemy: Omit<EnemyState, "intents" | "pattern" | "queue" | "rolled" | "lastIntent" | "repeats">;
   openEnds: OpenEndView[];
   upcomingIntents: Intent[]; // the intents of the next rounds: empty unless this player holds Spyglass
+  baseIntent: Intent; // this round's intent before the party-size scaling `intent` has (what previewSetOff grows and scales)
 };
 
 // Hands and this round's intent are open to everyone. The open ends show what a cap this player
@@ -34,7 +35,7 @@ export function getView(state: BattleState, playerId: string): BattleView {
   const copy: BattleState = JSON.parse(JSON.stringify(state));
   const { rng, enemy, ...rest } = copy;
   const { intents, pattern, queue, rolled, lastIntent, repeats, ...enemyView } = enemy;
-  return { ...rest, intent: scaledIntent(copy, copy.intent), enemy: enemyView, openEnds: getOpenEnds(copy, playerId), upcomingIntents: upcomingIntents(copy, spyglassRounds(copy, playerId)) };
+  return { ...rest, intent: scaledIntent(copy, copy.intent), enemy: enemyView, openEnds: getOpenEnds(copy, playerId), upcomingIntents: upcomingIntents(copy, spyglassRounds(copy, playerId)), baseIntent: copy.intent };
 }
 
 // The run as a player sees it. Everything in a run is open information (maps, decks, coins, offers,

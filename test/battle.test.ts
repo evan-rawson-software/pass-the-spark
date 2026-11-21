@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { applyChoice, createBattle, getPendingChoice, previewCascade, previewPlay, step } from "../src/engine/battle";
+import { applyChoice, createBattle, getPendingChoice, previewCascade, previewPlay, previewSetOff, step } from "../src/engine/battle";
 import type { BattleState, Choice } from "../src/engine/battle";
 import { getView } from "../src/engine/view";
 import type { Domino, Enemy } from "../src/engine/types";
@@ -221,4 +221,52 @@ test("at party size 2, enemy health and each attack hit use the 2-player table e
   expect(last.events.filter((e) => e.type === "damage" && e.side === "party")).toHaveLength(2); // each hit scaled, not the total
   expect(last.state.party.health).toBe(90 - 26);
   expect(getView(last.state, "a").intent.actions).toEqual([{ kind: "attack", value: 15, hits: 2 }]); // round 2: ceil(12 x 1.25) after growth
+});
+
+test("the set-off preview, for a hover or the board as it stands, matches what setting off does: enemy block, a multi-hit intent, Long Night, and a lethal cascade that stops early", () => {
+  const brute: Enemy = {
+    ...dummy(0, [{ kind: "hoarder", multiplier: 2, name: "Hoarder" }, { kind: "longNight", growth: 1, name: "Long Night" }]),
+    intents: [{ id: "hit", actions: [{ kind: "attack", value: 5, hits: 3 }] }],
+  };
+  const build = (enemyHealth: number): BattleState => {
+    let s = createBattle({
+      config: content.config,
+      content: { dominoes, enemies: [brute] },
+      players: ["a", "b", "c"].map((id) => ({ id, deck: content.starterDeck })),
+      seatOrder: ["a", "b", "c"],
+      enemyId: "dummy",
+      seed: 1,
+    });
+    [["boost_ember", "guard_gale"], ["junction_ember", "strike4_ember"], ["double_tide"]].forEach((hand, i) => (s.players[i].hand = hand));
+    s.enemy.health = enemyHealth;
+    s = play(s, "boost_ember");
+    s = play(s, "junction_ember", 0);
+    s = play(s, "double_tide", 1);
+    return play(s, "guard_gale", 2); // b is next, holding the strike
+  };
+
+  for (const enemyHealth of [100, 5]) {
+    const s = build(enemyHealth);
+    const view = getView(s, "b");
+    const before = JSON.stringify(s);
+    const hover = previewSetOff(view, { player: "b", domino: "strike4_ember", end: 3 });
+    const now = previewSetOff(view);
+    expect(JSON.stringify(s)).toBe(before); // nothing advanced: board, intent queue and rng are as they were
+    expect(now).toMatchObject({ canSetOff: true, damage: 0, partyBlockGain: 6 }); // the strike is not on the board yet
+    expect(previewSetOff(view, { player: "b", domino: "strike4_ember", end: 0 })).toBeNull(); // not a legal end
+
+    const { state, events } = step(s, { type: "play", domino: "strike4_ember", end: 3 });
+    const dealt = events.filter((e) => e.type === "damage" && e.side === "enemy") as { amount: number; blocked: number }[];
+    expect(hover?.damage).toBe(Math.min(dealt.reduce((n, e) => n + e.amount, 0), enemyHealth)); // the last hit can overkill
+    expect(hover?.enemyBlockUsed).toBe(dealt.reduce((n, e) => n + e.blocked, 0));
+    expect(hover?.partyHealth).toBe(state.party.health);
+    expect(hover?.lethal).toBe(state.result === "won");
+    if (enemyHealth === 100) {
+      // Hoarder: 5 dominoes x 2 = 10 block, used up first (16 - 10 = 6 gets through). Long Night: 2 caps, so 3 hits of 7 against 6 block.
+      expect(hover).toMatchObject({ damage: 6, enemyBlockUsed: 10, enemyBlock: 0, enemyHealth: 94, lethal: false, partyBlockGain: 6, partyDamage: 15, partyHealth: 75 });
+    } else {
+      expect(hover).toMatchObject({ lethal: true, enemyHealth: 0, partyDamage: 0, partyHealth: 90 });
+      expect(events.some((e) => e.type === "enemyAction")).toBe(false);
+    }
+  }
 });
