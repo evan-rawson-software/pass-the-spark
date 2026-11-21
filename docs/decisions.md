@@ -429,3 +429,16 @@ Rulings W1–W7, all as recommended. Built in #205.
 - **W5 Lobby and single player:** the host can start with 2 to 4 players. Single player offers 2, 3 or 4 seats. This replaces the earlier "3 or 4" rulings (M2 screens, M3 seats, M4 single player).
 - **W6 Layout:** at 2 players, the teammate's hand sits on one side and the board gets the extra room.
 - **W7 The run:** unchanged. A 1–1 vote is a coin flip through the existing weighted tie-break.
+
+## 2026-11-21: Domino look (D1–D8)
+From the research page "Domino Looks" (how other roguelike deckbuilders draw cards). All as recommended. Built in #217 and #218, in M10.
+- **D1 Silhouettes:** amplifiers end in an arrow, junctions split into two prongs, caps end in a rounded seal. No grey "missing half".
+- **D2 Socket in, outputs out:** the intake is a notch in the left edge, ringed in its spark's colour. Flow reads left to right.
+- **D3 Face colour:** bone for amplifiers, steel for junctions, a light tint of the effect's colour for caps.
+- **D4 Fixed spots:** a big number in the centre, the owner stripe on top, trait sigils top right, the upgrade star bottom left, the rarity gem bottom right.
+- **D5 Live numbers:** hovering or dragging over an end shows the real result (green, or red if lower) with the sum; "If set off now" shows the change.
+- **D6 Board:** small tiles joined by fuses in the spark's colour, with a charge badge on each fuse. Open ends are ghost rings. The cascade burns along the fuses.
+- **D7 Hand:** fanned and sorted by kind, with hover lift. Teammates' hands are small silhouettes.
+- **D8 When:** in M10. #189–#191 were already in review, so this comes after them and keeps their effects working.
+- **Next player's highlight (restored):** while you hover or drag a domino, the next player's hand highlights what they could play after it, as in the old game. This replaces the line in #186 that dropped it. The engine answers which dominoes are playable.
+- **Art:** dominoes are drawn in code. The face art `tiles/starter`, `common`, `uncommon` and `rare` retires in #217; `tiles/hidden` stays for face-down piles.
