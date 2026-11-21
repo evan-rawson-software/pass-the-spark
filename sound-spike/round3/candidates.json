@@ -1,0 +1,38 @@
+[
+ {
+  "cue": "combo:line",
+  "variant": "A",
+  "group": "The cascade",
+  "file": "combo-line_A.ogg",
+  "seconds": 1.45,
+  "lufs": -14.3,
+  "how": "Jackpot: a quick 5-note square run up from C6 into a held C major chord (C6 E6 G6, a saw C7 on top) with vibrato, a fire whoosh with crackles, a few sparkles, reverb"
+ },
+ {
+  "cue": "combo:line",
+  "variant": "B",
+  "group": "The cascade",
+  "file": "combo-line_B.ogg",
+  "seconds": 1.24,
+  "lufs": -14.1,
+  "how": "Ignition: a square whoop sweeping up into a bright sine bell (C6 G6 E7, with a metallic overtone), a burst of flame and a crackling fire whoosh, reverb"
+ },
+ {
+  "cue": "enemy:stagger",
+  "variant": "A",
+  "group": "Enemy reactions",
+  "file": "enemy-stagger_A.ogg",
+  "seconds": 0.76,
+  "lufs": -14.2,
+  "how": "Dazed: a dull thud, then two low-passed squares on C2, slightly out of tune with each other, wobbling and sagging, room"
+ },
+ {
+  "cue": "enemy:stagger",
+  "variant": "B",
+  "group": "Enemy reactions",
+  "file": "enemy-stagger_B.ogg",
+  "seconds": 0.74,
+  "lufs": -14.0,
+  "how": "Reeling: a soft 'oof' and a sine thud dropping to 45 Hz, then a low-passed saw sliding down from G2 with a slow, woozy wobble, room"
+ }
+]

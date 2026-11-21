@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound Picker Round 3</title>
+<style>
+:root {
+  --bg: #121417; --panel: #1b1e23; --panel2: #23272e; --ink: #eceae4; --muted: #a7abb3; --line: #2c3139;
+  --gold: #ffd54a; --pick: #3fbf62; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 28px 16px 64px; display: grid; gap: 20px; }
+h1 { margin: 0; font-size: 1.8rem; color: var(--gold); }
+h2 { margin: 0; font-size: 1.35rem; }
+h3 { margin: 0; font-size: 1.05rem; font-family: ui-monospace, Consolas, monospace; }
+p { margin: 0; max-width: 76ch; }
+a { color: var(--gold); }
+.muted { color: var(--muted); }
+.bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+.group { display: grid; gap: 12px; }
+.group > header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; position: sticky; top: 0; background: var(--bg); padding: 8px 0; z-index: 1; }
+.cue { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+.cue.done { border-color: #2e5a3a; }
+.cue > div:first-child { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.row.picked { border-color: var(--pick); box-shadow: 0 0 0 1px var(--pick) inset; }
+.row .how { color: var(--muted); font-size: .88rem; }
+.row .v { font-weight: 700; margin-right: 6px; color: var(--ink); }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+button { font: 600 14px system-ui, sans-serif; border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer; background: var(--gold); color: #22201c; white-space: nowrap; }
+button.alt { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+button.pick { background: transparent; color: var(--pick); border: 1px solid var(--pick); }
+.row.picked button.pick { background: var(--pick); color: #0d1a10; }
+button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.tag { font-size: .8rem; color: var(--pick); border: 1px solid #2e5a3a; border-radius: 999px; padding: 1px 8px; }
+textarea { width: 100%; min-height: 160px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 13px ui-monospace, Consolas, monospace; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; }
+@media (max-width: 680px) {
+  .row { grid-template-columns: auto 1fr; }
+  .btns { grid-column: 1 / -1; justify-content: flex-start; }
+}
+</style>
+<body>
+<main class="wrap">
+  <header style="display:grid;gap:8px">
+    <h1>Sound picker, round 3</h1>
+    <p class="muted">Issue #277: the two new 0.2 cues, in the same jsfxr style as the rest, all matched to −14 LUFS. Two candidates each. The mix buttons play the sounds next to the cues they share the moment with, at the game's volumes from <code>data/sound.json</code>. The speed changes only the gaps between sounds, as the game's playback speed does.</p>
+    <p class="muted">Round 2 is at <a href="picker.html">picker.html</a>, round 1 at <a href="round1.html">round1.html</a> and the spike at <a href="spike.html">spike.html</a>.</p>
+    <div class="bar">
+      <label>Volume <input type="range" id="vol" min="0" max="1" step="0.05" value="0.8"></label>
+      <label>Speed <select id="speed"><option value="1">1×</option><option value="4">4×</option></select></label>
+      <button class="alt" id="stop">Stop all</button>
+      <span class="muted" id="count"></span>
+    </div>
+  </header>
+  <div id="groups"></div>
+  <section class="panel">
+    <h2>Your picks</h2>
+    <p class="muted">Pick A or B for both cues, then copy this and send it back.</p>
+    <textarea id="out" readonly></textarea>
+    <div class="bar"><button id="copy">Copy</button></div>
+  </section>
+</main>
+<script>
+const DATA = [{"cue": "combo:line", "variant": "A", "group": "The cascade", "file": "combo-line_A.ogg", "seconds": 1.45, "lufs": -14.3, "how": "Jackpot: a quick 5-note square run up from C6 into a held C major chord (C6 E6 G6, a saw C7 on top) with vibrato, a fire whoosh with crackles, a few sparkles, reverb"}, {"cue": "combo:line", "variant": "B", "group": "The cascade", "file": "combo-line_B.ogg", "seconds": 1.24, "lufs": -14.1, "how": "Ignition: a square whoop sweeping up into a bright sine bell (C6 G6 E7, with a metallic overtone), a burst of flame and a crackling fire whoosh, reverb"}, {"cue": "enemy:stagger", "variant": "A", "group": "Enemy reactions", "file": "enemy-stagger_A.ogg", "seconds": 0.76, "lufs": -14.2, "how": "Dazed: a dull thud, then two low-passed squares on C2, slightly out of tune with each other, wobbling and sagging, room"}, {"cue": "enemy:stagger", "variant": "B", "group": "Enemy reactions", "file": "enemy-stagger_B.ogg", "seconds": 0.74, "lufs": -14.0, "how": "Reeling: a soft 'oof' and a sine thud dropping to 45 Hz, then a low-passed saw sliding down from G2 with a slow, woozy wobble, room"}];
+// The game's volume and pitch for the cues the mixes use (data/sound.json); the candidates play at a
+// first-guess volume, between the tier stingers and combo:lethal for the line, and below enemyBigHit for the stagger.
+const GAME = {
+  "combo:hit": { file: "combo-hit.ogg", volume: 0.71, cents: 0 },
+  "combo:tier2": { file: "combo-tier2.ogg", volume: 0.71, cents: 0 },
+  "combo:lethal": { file: "combo-lethal.ogg", volume: 0.79, cents: 0 },
+  "combo:slam": { file: "combo-slam.ogg", volume: 0.84, cents: 0 },
+  "enemyBigHit": { file: "enemyBigHit.ogg", volume: 0.56, cents: -600 },
+  "lunge": { file: "lunge.ogg", volume: 0.4, cents: -400 },
+  "combo:line": { volume: 0.75, cents: 0 },
+  "enemy:stagger": { volume: 0.5, cents: 0 },
+};
+const ABOUT = {
+  "combo:line": "The running combo total reaches the enemy's line and the number catches fire: a jackpot threshold, bright and rising, with a fire whoosh tail. Above the per-hit pings, below combo:lethal.",
+  "enemy:stagger": "After the slam the staggered enemy reels before its halved attack: heavy, wobbling, dazed. Lower and shorter than enemyBigHit; lunge follows it.",
+};
+const COMPARE = { "combo:line": "combo:lethal", "enemy:stagger": "enemyBigHit" };
+const PENTA = [0, 2, 4, 7, 9];
+const $ = (id) => document.getElementById(id);
+let playing = [], timers = [], picks = {};
+try { picks = JSON.parse(localStorage.getItem("round3Picks") || "{}"); } catch (e) {}
+
+function stopAll() { playing.forEach((a) => a.pause()); playing = []; timers.forEach(clearTimeout); timers = []; }
+function play(file, volume = 1, cents = 0) {
+  const a = new Audio("round3/" + file);
+  a.preservesPitch = false; a.mozPreservesPitch = false; a.webkitPreservesPitch = false;
+  a.playbackRate = Math.pow(2, cents / 1200);
+  a.volume = Math.min(1, volume * +$("vol").value);
+  a.play(); playing.push(a);
+  a.onended = () => { playing = playing.filter((x) => x !== a); };
+}
+const cue = (name, file) => { const g = GAME[name]; play(file || g.file, g.volume, g.cents); };
+const at = (ms, fn) => timers.push(setTimeout(fn, ms / +$("speed").value));
+const ping = (step) => play(GAME["combo:hit"].file, GAME["combo:hit"].volume, 100 * (PENTA[step % 5] + 12 * Math.floor(step / 5)));
+
+// A cascade: pings climbing the scale; at the eighth the total reaches the line, so the line, that
+// cap's ping and the tier 2 stinger all land at once; then a few more pings.
+function overPings(file) {
+  stopAll();
+  for (let i = 0; i < 11; i++) at(i * 180, () => { ping(i); if (i === 7) { cue("combo:line", file); cue("combo:tier2"); } });
+}
+// The finale of a staggered cascade: the slam, the stagger, then the enemy's lunge.
+function beforeLunge(file) {
+  stopAll();
+  cue("combo:slam");
+  at(900, () => cue("enemy:stagger", file));
+  at(1450, () => cue("lunge"));
+}
+function save() { try { localStorage.setItem("round3Picks", JSON.stringify(picks)); } catch (e) {} }
+
+function render() {
+  const box = $("groups"); box.innerHTML = "";
+  for (const name of Object.keys(ABOUT)) {
+    const sec = document.createElement("section"); sec.className = "group";
+    const card = document.createElement("div");
+    card.className = "cue" + (picks[name] ? " done" : "");
+    card.innerHTML = `<div><h3>${name}</h3><span class="muted">${ABOUT[name]}</span></div>`;
+    const mix = name === "combo:line" ? '<button class="alt" data-a="mix">Over pings</button>' : '<button class="alt" data-a="mix">Slam, then lunge</button>';
+    for (const r of DATA.filter((d) => d.cue === name)) {
+      const row = document.createElement("div");
+      row.className = "row" + (picks[name] === r.variant ? " picked" : "");
+      row.innerHTML = `<button data-a="play" aria-label="Play">▶</button>
+        <div><span class="v">${r.variant}</span><span class="how">${r.how} · ${r.seconds} s</span></div>
+        <div class="btns">${mix}<button class="pick" data-a="pick">Pick</button></div>`;
+      row.addEventListener("click", (e) => {
+        const a = e.target.dataset.a; if (!a) return;
+        if (a === "play") { stopAll(); cue(name, r.file); }
+        if (a === "mix") (name === "combo:line" ? overPings : beforeLunge)(r.file);
+        if (a === "pick") { picks[name] = r.variant; save(); render(); }
+      });
+      card.appendChild(row);
+    }
+    const other = COMPARE[name], cmp = document.createElement("div"); cmp.className = "row";
+    cmp.innerHTML = `<button aria-label="Play">▶</button><div><span class="v">${other}</span><span class="how">The current game sound, at its game volume, to compare against.</span></div><div></div>`;
+    cmp.querySelector("button").addEventListener("click", () => { stopAll(); cue(other); });
+    card.appendChild(cmp);
+    sec.appendChild(card);
+    box.appendChild(sec);
+  }
+  const open = Object.keys(ABOUT);
+  $("count").textContent = `${open.filter((c) => picks[c]).length} of ${open.length} cues picked`;
+  $("out").value = open.map((c) => `${c}: ${picks[c] || "?"}`).join("\n");
+}
+$("stop").addEventListener("click", stopAll);
+$("copy").addEventListener("click", () => { $("out").select(); navigator.clipboard?.writeText($("out").value); });
+render();
+</script>
+</body>
+</html>
