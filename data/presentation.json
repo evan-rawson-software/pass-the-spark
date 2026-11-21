@@ -34,6 +34,16 @@
     "comment": "Combat playback speed button and its list (#220), read by src/game/speedControl.ts. Px on the 1920x1080 table. The button sits with its right edge at right; the list opens upward, gap above it, and is moved down if it would leave the screen.",
     "right": 1875, "y": 960, "buttonW": 112, "buttonH": 40, "itemH": 44, "gap": 8, "fontSize": 24, "depth": 650
   },
+  "setOffPreview": {
+    "comment": "Set-off preview on the health bars (#222), read by src/game/setOffPreview.ts. The ghost is the part of a bar the set-off would take; it pulses between alphaLow and alphaHigh every pulseMs (steady at alphaHigh under reduced flashing).",
+    "ghost": { "colour": "#ffffff", "alphaLow": 0.35, "alphaHigh": 0.85, "pulseMs": 700 },
+    "loss": { "colour": "#ff9a94", "fontSize": 26 },
+    "gain": { "colour": "#8fd0ff", "fontSize": 26 },
+    "safe": { "colour": "#8fe3a8", "fontSize": 22 },
+    "skull": { "size": 17, "colour": "#f4ecd8" },
+    "crack": { "colour": "#10203a", "width": 3 },
+    "setOffGlow": { "colour": "#ffe14d", "alphaLow": 0.25, "alphaHigh": 0.9, "pulseMs": 600 }
+  },
   "enemyReactions": {
     "comment": "Enemy reactions (#190), read by src/game/enemyReactions.ts. Times are ms at 1x (scaled by playback speed), distances px on the 1920x1080 table. A hit of at least staggerMin damage staggers instead of flinching. The ghost bar waits delayMs after the last hit, then drains to the real value at perPointMs per point (between minMs and maxMs), so a run of hits shares one drain. Shield cracks show at each crack fraction of the block worn down.",
     "body": { "x": 1410, "y": 165, "size": 250 },

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { getOpenEnds, getPendingChoice, previewCascade, previewPlay, step } from "../engine/battle";
+import { getOpenEnds, getPendingChoice, previewPlay, previewSetOff, step } from "../engine/battle";
 import type { Board, BattleState, Choice, PendingChoice } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView, OpenEndView } from "../engine/view";
@@ -35,6 +35,8 @@ import type { DebugHost } from "./DebugPanel";
 import { scaleTime } from "./playbackSpeed";
 import { SpeedControl } from "./speedControl";
 import { Animator, SKIP_SPEED, animTime, newRefs, paintBar } from "./animations";
+import { SetOffPreviewUi } from "./setOffPreview";
+import type { PreviewSpots } from "./setOffPreview";
 import { boardGlow } from "./spectacle";
 import { applyEvent, startShown } from "./shownView";
 import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
@@ -42,7 +44,7 @@ import type { ShownTable } from "./shownView";
 
 // The combat table. Draws everything from getView (and getPendingChoice for
 // whose turn it is and which dominoes are playable, getOpenEnds for the charge on each open end,
-// previewPlay and previewCascade for the previews). No rules live here: layout only.
+// previewPlay and previewSetOff for the previews). No rules live here: layout only.
 // Clicking (or dragging) submits only choices getPendingChoice offers, then the step's events play back
 // in order (see playback below), animated by animations.ts. Tooltips come from tooltip.ts.
 //
@@ -89,6 +91,15 @@ function matFor(players: number): typeof MAT {
   return players === 2 ? { ...MAT, w: RIGHT_X + SIDE_W - 15 - MAT.x } : MAT;
 }
 
+// Where the preview draws, matching drawEnemy, drawParty and the Set off button.
+const PREVIEW_SPOTS: PreviewSpots = {
+  enemyBar: { x: 60, y: 112, w: 400, h: 40 },
+  enemyShield: { x: 80, y: 208, s: 40 },
+  partyBar: { x: RIGHT_X, y: 68, w: 190, h: 34 },
+  partyShield: { x: RIGHT_X + 212, y: 85, s: 34 },
+  setOffButton: { x: HAND.x + HAND.w - 170, y: HAND.y - 2 - 22, w: 150, h: 44 },
+};
+
 const GOLD = 0xffe14d;
 const RED = 0xe0443e;
 
@@ -117,10 +128,9 @@ export class CombatScene extends Phaser.Scene {
   private pings!: PingMarks; // online only: rings from other players' pings
   private pingBoxes = new Map<string, Phaser.GameObjects.Container>(); // pingKey -> that domino or open end
   private anim!: Animator;
-  private totalsShown = [0, 0]; // the "if set off now" numbers as drawn (damage, block), ticking toward the engine's
-  private totalsTarget = [0, 0];
-  private totalLabels: Phaser.GameObjects.Text[] = [];
-  private totalsTween?: Phaser.Tweens.Tween;
+  private previewUi!: SetOffPreviewUi;
+  private previewLayer?: Phaser.GameObjects.Container; // the set-off preview, part of the current layer
+  private hoverPlay: { player: string; domino: string; end?: number } | null = null; // the play whose result the preview shows
   private shown: ShownTable | null = null; // the table part-way through a step; null when idle
   private inCascade = false; // a cascade is playing on this screen: a click or Space may skip it
   private skipping = false; // this player skipped it: the rest of the step is applied at once
@@ -151,9 +161,9 @@ export class CombatScene extends Phaser.Scene {
     this.seed = this.inRun ? runSeed() : data.seed ?? dev.seed;
     this.layer = undefined;
     this.shown = null;
-    this.totalsShown = [0, 0];
-    this.totalsTarget = [0, 0];
-    this.totalsTween = undefined;
+    this.hoverPlay = null;
+    this.previewUi?.clear();
+    this.previewUi = new SetOffPreviewUi(this);
     this.drawTable();
     this.anim = new Animator(this);
     this.locked = false;
@@ -382,6 +392,7 @@ export class CombatScene extends Phaser.Scene {
   private redraw(): void {
     this.tooltip.hide();
     this.clearHover();
+    this.hoverPlay = null;
     this.layer?.destroy(true);
     const layer = this.add.container(0, 0);
     this.layer = layer;
@@ -402,7 +413,6 @@ export class CombatScene extends Phaser.Scene {
     this.drawEnemy(layer, view);
     this.drawHud(layer, view, turn);
     this.drawParty(layer, view);
-    this.drawTotals(layer, view);
     this.drawBoard(layer, view, active, pending);
     this.drawActiveHand(layer, view, active, pending, turn);
     if (this.selected !== null) this.showHints(layer, this.selected);
@@ -421,6 +431,9 @@ export class CombatScene extends Phaser.Scene {
       this.drawTeammate(layer, view, p.id, left ? LEFT_X : RIGHT_X, y, h);
     });
     this.pings.place(this.pingBoxes);
+    this.previewLayer = this.add.container(0, 0);
+    layer.add(this.previewLayer);
+    this.refreshPreview();
   }
 
   // A player's hand slots as drawn, for the draw animation.
@@ -712,44 +725,32 @@ export class CombatScene extends Phaser.Scene {
     this.shield(layer, "party", RIGHT_X + 212, 85, 34, p.block);
   }
 
-  // What setting the chain off now would do, from the engine's previewCascade: damage (after the
-  // enemy's block), and block for the party. Always visible.
-  private drawTotals(layer: Layer, view: BattleView): void {
-    const total = view.phase === "over" ? { damage: 0, block: 0 } : previewCascade(this.view);
-    const x = RIGHT_X;
-    const g = this.gfx(layer);
-    g.fillStyle(0x174c38, 0.6);
-    g.fillRoundedRect(x, 135, SIDE_W, 170, 40);
-    g.lineStyle(3, 0x2f7a5b, 0.7);
-    g.strokeRoundedRect(x, 135, SIDE_W, 170, 40);
-    this.label(layer, x + SIDE_W / 2, 164, "IF SET OFF NOW", 21, "#9fd1b8", 0.5, true);
-    const cells: [IconKind, number][] = [["damage", total.damage], ["block", total.block]];
-    this.totalLabels = cells.map(([kind, value], i) => {
-      const cx = x + 78 + i * 154;
-      this.icon(layer, kind, cx, 212, 0.9);
-      return this.label(layer, cx, 266, String(this.totalsShown[i]), 44, value > 0 ? "#ffffff" : "#5f8f7a", 0.5, true);
-    });
-    // The running total ticks up (or down) to the engine's number instead of jumping.
-    const target = cells.map(([, v]) => v);
-    if (target.join() !== this.totalsTarget.join()) {
-      this.totalsTarget = target;
-      const start = [...this.totalsShown];
-      this.totalsTween?.stop();
-      this.totalsTween = this.tweens.addCounter({
-        from: 0, to: 1, duration: scaleTime(450), ease: "Cubic.easeOut",
-        onUpdate: (t) => {
-          const f = t.getValue() ?? 1;
-          target.forEach((v, i) => {
-            this.totalsShown[i] = Math.round(start[i] + (v - start[i]) * f);
-            const l = this.totalLabels[i];
-            if (l?.active) l.setText(String(this.totalsShown[i])).setColor(v > 0 ? "#ffffff" : "#5f8f7a");
-          });
-        },
-        onComplete: () => {
-          this.totalsShown = [...target];
-        },
-      });
+  // ---- set-off preview (#222) ----
+
+  // The preview over the health bars, from the engine's previewSetOff on the current board, or on the
+  // board after the hovered play. Hidden while a step plays back; the real bars take over.
+  private refreshPreview(): void {
+    const into = this.previewLayer;
+    if (!into?.active) return;
+    const view = this.view;
+    if (this.locked || this.waiting || this.shown || view.phase === "over") {
+      this.previewUi.draw(into, view, null, PREVIEW_SPOTS, false);
+      return;
     }
+    const pending = getPendingChoice(view);
+    const hover = this.hoverPlay;
+    const p = (hover ? previewSetOff(view, hover) : null) ?? previewSetOff(view);
+    const mine = !!pending && (!this.online || pending.player === this.mySeat());
+    this.previewUi.draw(into, view, p, PREVIEW_SPOTS, !!p?.lethal && (hover !== null || (mine && pending!.canSetOff)));
+  }
+
+  // A hand domino hovered, picked or dragged over a legal end: preview the board with it there.
+  private setHoverPlay(id: string | null, end?: number): void {
+    const pending = id === null ? null : getPendingChoice(this.view);
+    const next = id !== null && pending && (!this.online || pending.player === this.mySeat()) ? { player: pending.player, domino: id, end } : null;
+    if (JSON.stringify(next) === JSON.stringify(this.hoverPlay)) return;
+    this.hoverPlay = next;
+    this.refreshPreview();
   }
 
   // ---- the board (middle) ----
@@ -891,6 +892,11 @@ export class CombatScene extends Phaser.Scene {
         hit.setInteractive({ useHandCursor: true });
         hit.on("pointerdown", () => this.onSlotClick(o.end));
       }
+      if (isLegal && this.selected !== null) {
+        const id = this.selected;
+        hit.on("pointerover", () => this.setHoverPlay(id, o.end));
+        hit.on("pointerout", () => this.setHoverPlay(null));
+      }
     }
   }
 
@@ -1021,8 +1027,14 @@ export class CombatScene extends Phaser.Scene {
       this.clearHover();
       this.hoverUi = this.add.container(0, 0).setDepth(500);
       this.showHints(this.hoverUi, id);
+      // A domino with one place to go previews that play.
+      const ends = getPendingChoice(this.view)?.plays.find((o) => o.domino === id)?.ends ?? [];
+      if (ends.length === 1) this.setHoverPlay(id, ends[0]);
     });
-    c.on("pointerout", () => this.clearHover());
+    c.on("pointerout", () => {
+      this.clearHover();
+      this.setHoverPlay(null);
+    });
     c.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       this.drag = { id, x: pointer.worldX, y: pointer.worldY };
     });
@@ -1075,6 +1087,19 @@ export class CombatScene extends Phaser.Scene {
       }
     }
     drag.ghost.setPosition(pointer.worldX, pointer.worldY);
+    // Over a legal end: preview the board with the domino there.
+    const over = this.slotAt(pointer);
+    const legal = getPendingChoice(this.view)?.plays.find((o) => o.domino === drag.id)?.ends;
+    this.setHoverPlay(over !== undefined && over !== "opener" && legal?.includes(over) ? drag.id : null, over === "opener" ? undefined : over);
+  }
+
+  // The open end (or the opener slot) under the pointer, with a little room round it.
+  private slotAt(pointer: Phaser.Input.Pointer): number | "opener" | undefined {
+    const near = 24;
+    for (const [target, b] of this.slotBoxes) {
+      if (Math.abs(pointer.worldX - b.x) <= b.w / 2 + near && Math.abs(pointer.worldY - b.y) <= b.h / 2 + near) return target;
+    }
+    return undefined;
   }
 
   // Dropping on an open end (or the opener slot) plays there; anywhere else puts the domino back.
@@ -1084,13 +1109,8 @@ export class CombatScene extends Phaser.Scene {
     if (!drag?.ghost) return;
     drag.ghost.destroy();
     this.time.delayedCall(0, () => (this.dragMoved = false)); // after the release has also reached the domino (it is not a tap)
-    const near = 24;
-    for (const [target, b] of this.slotBoxes) {
-      if (Math.abs(pointer.worldX - b.x) <= b.w / 2 + near && Math.abs(pointer.worldY - b.y) <= b.h / 2 + near) {
-        if (!this.locked && !this.waiting) this.play(drag.id, target);
-        return;
-      }
-    }
+    const target = this.slotAt(pointer);
+    if (target !== undefined && !this.locked && !this.waiting) this.play(drag.id, target);
   }
 
   // ---- submitting and playback ----
