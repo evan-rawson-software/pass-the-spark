@@ -505,3 +505,13 @@ From the designer's first playtest of the branching cascade with the new combat 
 - **S1 Sound spike:** the local art session compares ways to make sounds: local AI models (such as Stable Audio Open in ComfyUI), curated free libraries (Sonniss GDC bundles, Freesound CC0), a dedicated sound-effect generator (jsfxr or ChipTone), and a hosted paid AI generator. Candidates for four cues go in a picker for the designer, with a short report.
 - **S2 Paid tools:** the hosted paid generator is included in the comparison; buy it only if it clearly wins.
 - **S3 Scope:** the spike picks the method only. Replacing the game's sounds is a follow-up issue.
+
+## 2026-11-21: Re-tune after the playtest fixes, and remaking the sounds (T1–T2, R1–R5)
+From the sim results on #245 and the sound spike (`docs/sound-spike.md`), where the designer picked jsfxr on all four test cues. All as recommended. Built in M11.
+- **T1 Re-tune:** a data-only re-tune to the balance targets from M7: with the bot playing full runs, about 70% clear act 1, about 45% clear act 2 and about 20–25% win, for 3 and 4 players, with 2 players aiming for the same as 3 (W4). The same rules as M7 apply: coders change data values only and post before-and-after tables; any rule change comes back to the designer.
+- **T2 Fix the bot first:** the sim bot reads the starter Strike's value from the data instead of a written-in constant, and scores a pass as firing only when `passFires` says it does. Tuning starts after that.
+- **R1 Who:** the local art session remakes the sounds, running the picker rounds with the designer.
+- **R2 Recipes in the repo:** the build tool and every recipe live in `tools/sound/`, outside the game build, so any sound can be tweaked and re-rendered later. `jsfxr` (public domain) is allowed as a dev dependency, plus the Python libraries the build script needs, listed in a requirements file.
+- **R3 Scope:** all the game's sound cues, in one consistent style made with the layered jsfxr recipe. The Kenney files and the earlier generated clips are deleted once nothing uses them, and `public/audio/CREDITS.md` is updated.
+- **R4 Two picking rounds:** first combat (every cue except the menu and run ones), then the menu and run cues (`click`, `voteRoll`, `coins`, `buy`, `rest`). Each round puts two candidates per cue in the picker on the `sound-spike` branch; the designer picks; a PR ships the picks.
+- **R5 Loudness:** every clip is matched to −14 LUFS (as in the spike), and the volumes in `data/sound.json` are reset so the mix is balanced.
