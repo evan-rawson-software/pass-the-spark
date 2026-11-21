@@ -1,20 +1,13 @@
 import Phaser from "phaser";
 import type { SetOffPreview } from "../engine/battle";
 import type { BattleView } from "../engine/view";
-import { hexColour, setOffPreviewData as D } from "./presentation";
+import { combatLayoutData, hexColour, setOffPreviewData as D } from "./presentation";
 import { reducedFlashing } from "./comfort";
+import type { Refs } from "./animations";
 
 // The set-off preview drawn over the health bars (#222). Every number comes from the engine's
-// previewSetOff; this file only places ghosts, marks and labels. Rebuilt on each update.
-
-interface Box { x: number; y: number; w: number; h: number } // top-left origin
-const spots = D.spots as {
-  enemyBar: Box;
-  enemyShield: { x: number; y: number; s: number };
-  partyBar: Box;
-  partyShield: { x: number; y: number; s: number };
-  setOffButton: Box;
-};
+// previewSetOff; this file only places ghosts, marks and labels. Rebuilt on each update. The bars and
+// shields it draws on are the ones the column drew (the scene's refs), so they can't drift apart.
 
 export class SetOffPreviewUi {
   private tweens: Phaser.Tweens.Tween[] = [];
@@ -27,10 +20,14 @@ export class SetOffPreviewUi {
   }
 
   // Draws into `into` (emptied first). No preview (null) draws nothing.
-  draw(into: Phaser.GameObjects.Container, view: BattleView, p: SetOffPreview | null, glowSetOff: boolean): void {
+  draw(into: Phaser.GameObjects.Container, view: BattleView, p: SetOffPreview | null, glowSetOff: boolean, refs: Refs): void {
     this.clear();
     into.removeAll(true);
-    if (!p) return;
+    const eb = refs.bars.get("enemy");
+    const pb = refs.bars.get("party");
+    const es = refs.shields.get("enemy");
+    const ps = refs.shields.get("party");
+    if (!p || !eb || !pb || !es || !ps) return;
     const s = this.scene;
     const g = s.add.graphics();
     into.add(g);
@@ -38,37 +35,37 @@ export class SetOffPreviewUi {
       into.add(s.add.text(x, y, str, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${size}px`, color: colour, fontStyle: "bold", strokeThickness: D.text.strokeThickness, stroke: D.text.strokeColour }).setOrigin(originX, 0.5));
 
     // Enemy: the damage as a ghost from current to projected health, the block it uses up.
-    const e = spots.enemyBar;
+    const e = eb;
     const enemy = view.enemy;
     if (p.canSetOff && p.damage > 0) {
       const from = e.w * (p.enemyHealth / enemy.maxHealth);
       const to = e.w * (enemy.health / enemy.maxHealth);
       this.ghost(into, e.x + from, e.y, Math.max(to - from, D.ghost.minWidth), e.h);
-      text(e.x + e.w + D.loss.dx, e.y + e.h / 2 + D.loss.dy, `−${p.damage}`, D.loss.colour, D.loss.fontSize, 0);
+      text(e.x + e.w + D.loss.dx, e.y + e.h / 2 + D.loss.dy, `−${p.damage}`, D.loss.colour, D.loss.fontSize, D.loss.originX);
     }
     if (p.canSetOff && p.enemyBlockUsed > 0) {
-      const sh = spots.enemyShield;
-      text(sh.x + sh.s * 0.5 + D.gain.enemyShieldDx, sh.y, `−${p.enemyBlockUsed}`, D.gain.colour, D.gain.fontSize, 0);
+      const sh = es;
+      text(sh.x + D.gain.enemyShieldDx, sh.y + D.gain.enemyShieldDy, `−${p.enemyBlockUsed}`, D.gain.colour, D.gain.fontSize);
       if (p.enemyBlock === 0) this.cracks(g, sh.x, sh.y, sh.s);
     }
     if (p.lethal) this.skull(g, e.x + e.h * D.skull.dx, e.y + e.h / 2, D.skull.size);
 
     // Party: block gained, health lost to what the intent still does after block (or safe).
-    const sh = spots.partyShield;
+    const sh = ps;
     if (p.partyBlockGain > 0) text(sh.x, sh.y - sh.s * 0.5 + D.gain.partyDy, `+${p.partyBlockGain}`, D.gain.colour, D.gain.fontSize);
-    const b = spots.partyBar;
+    const b = pb;
     if (p.partyDamage > 0) {
       const from = b.w * (p.partyHealth / view.party.maxHealth);
       const to = b.w * (view.party.health / view.party.maxHealth);
       this.ghost(into, b.x + from, b.y, Math.max(to - from, D.ghost.minWidth), b.h);
-      text(b.x + b.w + D.loss.dx, b.y + b.h / 2 + D.loss.dy, `−${p.partyDamage}`, D.loss.colour, D.loss.fontSize, 0);
+      text(b.x + b.w + D.loss.dx, b.y + b.h / 2 + D.loss.dy, `−${p.partyDamage}`, D.loss.colour, D.loss.fontSize, D.loss.originX);
     } else if (!p.lethal && view.intent.actions.some((a) => a.kind === "attack")) {
       this.safe(g, b.x + D.safe.iconDx, b.y + D.safe.dy);
       text(b.x + D.safe.textDx, b.y + D.safe.dy, "safe", D.safe.colour, D.safe.fontSize, 0);
     }
 
     if (glowSetOff) {
-      const r = spots.setOffButton;
+      const r = combatLayoutData.actions.setOff;
       const P = D.setOffGlow.pad;
       const glow = s.add.graphics();
       glow.lineStyle(D.setOffGlow.width, hexColour(D.setOffGlow.colour), 1);
@@ -85,7 +82,7 @@ export class SetOffPreviewUi {
   }
 
   // Pulses alpha; under reduced flashing the object just stays at the high alpha.
-  private pulse(o: Phaser.GameObjects.Graphics | Phaser.GameObjects.Rectangle, low: number, high: number, ms: number): void {
+  pulse(o: Phaser.GameObjects.Graphics | Phaser.GameObjects.Rectangle, low: number, high: number, ms: number): void {
     o.setAlpha(high);
     if (reducedFlashing()) return;
     this.tweens.push(this.scene.tweens.add({ targets: o, alpha: low, duration: ms / 2, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }));

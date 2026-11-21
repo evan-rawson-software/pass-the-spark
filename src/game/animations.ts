@@ -49,7 +49,7 @@ export interface Refs {
   handSlots: Map<string, { c: Container; pos: Pos }[]>; // every player's hand, by seat and position (draw animation, #153)
   decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck stack
   bars: Map<string, BarRef>; // "enemy" | "party"
-  shields: Map<string, { text: Text; x: number; y: number }>;
+  shields: Map<string, { text: Text; x: number; y: number; s: number }>; // the icon's centre and size
   intent?: Box; // the enemy's intent card
   charms: Map<string, { x: number; y: number }>; // "seat:charm" -> the charm icon under its name plate (#108)
 }

@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { getOpenEnds, getPendingChoice, previewNextPlayer, previewPlay, previewSetOff, step } from "../engine/battle";
-import type { Board, BattleState, Choice, PendingChoice } from "../engine/battle";
+import type { Board, BattleState, Choice, PendingChoice, SetOffPreview } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView, OpenEndView } from "../engine/view";
 import type { Domino } from "../engine/types";
@@ -12,7 +12,6 @@ import { relay } from "./relay";
 import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
 import { applyRunChoice } from "../engine/run";
-import { artBackground } from "./art";
 import { drawDomino, drawEffectIcon, drawSparkGlyph, iconOf } from "./dominoDrawing";
 import type { DominoState, IconKind } from "./dominoDrawing";
 import { SPARK_STYLE } from "./sparks";
@@ -42,7 +41,11 @@ import { combatLayoutData } from "./presentation";
 import type { CombatCtx } from "./combatCtx";
 import { drawEnemyUnit } from "./enemyUnit";
 import { TurnRail } from "./turnRail";
-import { drawActions, drawBackdrop, drawPartyBar, drawUtilities } from "./combatHud";
+import { drawActions, drawBackdrop, drawColumnPanel, drawFooter, drawPartyBar } from "./combatHud";
+import { columnLayout, footerSpots } from "./columnLayout";
+import type { ColumnLayout } from "./columnLayout";
+import { drawTally } from "./setOffTally";
+import { setMenuButtonSpot } from "./menuButton";
 import type { ShownTable } from "./shownView";
 
 // The combat table. Draws everything from getView (and getPendingChoice for
@@ -60,7 +63,7 @@ import type { ShownTable } from "./shownView";
 // Online, the scene never has a BattleState: it holds the latest BattleView and plays back the
 // events the host sends, on the host's machine too (the host's own player gets its messages by
 // the same path). Choices go to the host, which checks them; the table stays locked until its
-// reply (an update, or an error) arrives. Your own hand is in front; teammates are in the turn-order rail on the left.
+// reply (an update, or an error) arrives. Your own hand is in front; every seat, yours too, has a tab across the top.
 
 // What the lobby hands over to start an online battle.
 export interface OnlineData {
@@ -82,8 +85,8 @@ const DH = 120;
 const FONT = "Arial, Helvetica, sans-serif";
 
 // Table regions (1920x1080), from data/presentation.json (combatLayout).
-const MAT = combatLayoutData.board; // the board: between the enemy bar and the party bar, right of the rail
-const HAND = combatLayoutData.hand; // the active hand, below the party bar
+const MAT = combatLayoutData.board; // the board: right of the column, below the seat tabs, above the hand
+const HAND = combatLayoutData.hand; // the active hand, between the column and the buttons
 const ACTIONS = combatLayoutData.actions;
 
 const GOLD = 0xffe14d;
@@ -120,7 +123,8 @@ export class CombatScene extends Phaser.Scene {
   private inCascade = false; // a cascade is playing on this screen: a click or Space may skip it
   private skipping = false; // this player skipped it: the rest of the step is applied at once
   private speed!: SpeedControl;
-  private rail!: TurnRail; // the turn-order rail (turnRail.ts)
+  private rail!: TurnRail; // the seat tabs (turnRail.ts)
+  private col!: ColumnLayout; // where the left column's parts are this redraw (the tally draws into it)
   private ctx!: CombatCtx; // what enemyUnit.ts, turnRail.ts and combatHud.ts draw with
   private hoverId: string | null = null; // the playable hand domino under the pointer (for the next player's highlight)
   private skipHint?: Phaser.GameObjects.Text;
@@ -167,7 +171,7 @@ export class CombatScene extends Phaser.Scene {
     this.input.on("pointerdown", (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
       if (over.length === 0 && !this.speed.isOpen()) this.skipCascade(); // a click that only closes the speed list is not a skip
     });
-    this.speed = new SpeedControl(this); // made after the skip handler, so that one sees the list still open; follows the menu setting itself
+    this.speed = new SpeedControl(this, footerSpots().speed); // made after the skip handler, so that one sees the list still open; follows the menu setting itself
     this.input.keyboard?.on("keydown-SPACE", () => this.skipCascade());
     this.inCascade = false;
     this.skipping = false;
@@ -176,7 +180,8 @@ export class CombatScene extends Phaser.Scene {
     this.hlSeat = null;
     this.handSeat = null;
     this.tooltip = new Tooltip(this);
-    this.tooltip.avoid = { x: ACTIONS.pass.x, y: ACTIONS.turn.y - 20, w: ACTIONS.pass.w, h: ACTIONS.setOff.y + ACTIONS.setOff.h - ACTIONS.turn.y + 20 }; // Pass and Set off
+    this.tooltip.avoid = { x: ACTIONS.pass.x, y: ACTIONS.pass.y - 20, w: ACTIONS.pass.w, h: ACTIONS.setOff.y + ACTIONS.setOff.h - ACTIONS.pass.y + 20 }; // Pass and Set off
+    setMenuButtonSpot(footerSpots().menu); // the menu button sits in the column's footer while this screen is up
     this.pings = new PingMarks(this);
     if (this.online) {
       this.setView(this.online.view);
@@ -221,6 +226,7 @@ export class CombatScene extends Phaser.Scene {
     if (host) debugPanel.attach(host);
     this.events.once("shutdown", () => {
       this.epoch++;
+      setMenuButtonSpot(null);
       this.anim.clearShots(false);
       if (host) debugPanel.detach(host);
     });
@@ -397,13 +403,16 @@ export class CombatScene extends Phaser.Scene {
     const turn = this.hlSeat ?? now.seat;
 
     const ctx = this.ctx;
+    const col = columnLayout(view);
+    this.col = col;
+    drawColumnPanel(ctx, layer);
     this.rail.draw(layer, view, active, turn);
-    drawUtilities(ctx, layer, view.round);
-    drawEnemyUnit(ctx, layer, view);
-    drawPartyBar(ctx, layer, view);
+    drawEnemyUnit(ctx, layer, view, col);
+    drawPartyBar(ctx, layer, view, col);
+    drawFooter(ctx, layer, view.round);
     this.drawBoard(layer, view, active, pending);
     this.drawActiveHand(layer, view, active, pending, turn);
-    this.drawActionButtons(layer, view, pending, turn);
+    this.drawActionButtons(layer, view, pending);
     if (this.selected !== null) this.showHints(layer, this.selected);
     this.pings.place(this.pingBoxes);
     this.previewLayer = this.add.container(0, 0);
@@ -423,7 +432,7 @@ export class CombatScene extends Phaser.Scene {
   private drawTable(): void {
     // With a background image (added first, so behind everything) the frame, felt and pool of light
     // give way to it.
-    const hasArt = artBackground(this, "combat");
+    const hasArt = this.blurredBackground();
     const g = this.add.graphics();
     if (!hasArt) {
       g.fillStyle(0x2e2016, 1);
@@ -439,6 +448,33 @@ export class CombatScene extends Phaser.Scene {
       g.fillEllipse(960, 560, 1500, 700);
     }
     drawBackdrop(this); // dims the table and darkens the edges: the middle is the brightest (L4)
+  }
+
+  // The table picture, blurred once into a small canvas and stretched over the screen, so the lit board
+  // and the column stand out. (A live blur filter was far too slow; the canvas filter is skipped where
+  // the browser lacks it, and the small size alone still softens the picture.) False when there is no
+  // picture, and the caller keeps its code-drawn table.
+  private blurredBackground(): boolean {
+    const B = combatLayoutData.background.blur;
+    const key = "art/backgrounds/combat";
+    if (!this.textures.exists(key)) return false;
+    const tex = this.textures.exists("combat-bg-blur") ? null : this.textures.createCanvas("combat-bg-blur", Math.round(1920 * B.scale), Math.round(1080 * B.scale));
+    if (tex) {
+      const src = this.textures.get(key).getSourceImage() as CanvasImageSource & { width: number; height: number };
+      const c = tex.context;
+      const f = Math.max(tex.width / src.width, tex.height / src.height); // cover the canvas
+      const w = src.width * f;
+      const h = src.height * f;
+      try {
+        c.filter = `blur(${B.px}px)`;
+      } catch {
+        // no canvas filter here
+      }
+      c.drawImage(src, (tex.width - w) / 2, (tex.height - h) / 2, w, h);
+      tex.refresh();
+    }
+    this.add.image(960, 540, "combat-bg-blur").setDisplaySize(1920, 1080);
+    return true;
   }
 
   // ---- small helpers ----
@@ -522,7 +558,7 @@ export class CombatScene extends Phaser.Scene {
     g.fillPoints(pts, true);
     g.strokePoints(pts, true);
     const text = this.label(layer, x + s * 0.5 + 8, y, String(amount), Math.round(s * 0.7), "#dbe6f5", 0, true);
-    this.anim.refs.shields.set(key, { text, x, y });
+    this.anim.refs.shields.set(key, { text, x, y, s });
     if (key === "enemy") this.anim.reactions.drawCracks(layer, x, y, s, amount);
   }
 
@@ -546,12 +582,16 @@ export class CombatScene extends Phaser.Scene {
       gfx: (l) => this.gfx(l),
       bar: (...a) => this.bar(...a),
       shield: (...a) => this.shield(...a),
-      drawBody: (l, id, tier) => this.anim.reactions.drawBody(l, id, tier),
+      drawBody: (l, id, tier, spot) => this.anim.reactions.drawBody(l, id, tier, spot),
       domino: (...a) => this.domino(...a),
       slots: (seat) => this.slotsOf(seat),
       nameOf: (seat, forPlate, max) => this.nameOf(seat, forPlate, max),
       isAway: (seat) => this.online !== null && this.isAway(seat),
-      deckStack: (l, seat, x, y, count) => drawDeckStack(this, l, this.anim.refs, seat, this.view.dominoes[0], x, y, count),
+      deckSpot: (l, seat, x, y, text) => {
+        const c = this.add.container(x, y);
+        l.add(c);
+        this.anim.refs.decks.set(seat, { c, text, x, y });
+      },
       openDeck: (seat) => openDeckViewer(this, battleDeckPlayers(this.view, (id) => this.nameOf(id, false)), seat),
     };
   }
@@ -565,15 +605,18 @@ export class CombatScene extends Phaser.Scene {
     const into = this.previewLayer;
     if (!into?.active) return;
     const view = this.view;
+    const tally = (p: SetOffPreview | null): void => drawTally(this, into, view, p, this.col, (o, low, high, ms) => this.previewUi.pulse(o, low, high, ms));
     if (this.locked || this.waiting || this.shown || view.phase === "over") {
-      this.previewUi.draw(into, view, null, false);
+      this.previewUi.draw(into, view, null, false, this.anim.refs);
+      tally(null);
       return;
     }
     const pending = getPendingChoice(view);
     const hover = this.hoverPlay;
     const p = (hover ? previewSetOff(view, hover) : null) ?? previewSetOff(view);
     const mine = !!pending && (!this.online || pending.player === this.mySeat());
-    this.previewUi.draw(into, view, p, !!p?.lethal && (hover !== null || (mine && pending!.canSetOff)));
+    this.previewUi.draw(into, view, p, !!p?.lethal && (hover !== null || (mine && pending!.canSetOff)), this.anim.refs);
+    tally(p);
   }
 
   // The NEXT seat's highlight in the rail (#228): while a hand domino is hovered, picked or dragged,
@@ -588,7 +631,7 @@ export class CombatScene extends Phaser.Scene {
       return;
     }
     const end = this.hoverPlay?.domino === id ? this.hoverPlay.end : undefined;
-    this.rail.setNext(previewNextPlayer(view, pending.player, id, end));
+    this.rail.setNext(previewNextPlayer(view, pending.player, id, end), this.dominoOf(id).name);
   }
 
   // A hand domino hovered, picked or dragged over a legal end: preview the board with it there.
@@ -853,16 +896,11 @@ export class CombatScene extends Phaser.Scene {
     }
   }
 
-  // The actions bottom right (L7): "Your turn" over Set off and Pass, or just whose turn it is.
-  private drawActionButtons(layer: Layer, view: BattleView, pending: PendingChoice | null, turn: string): void {
-    let text = `${this.nameOf(turn, true, 14)}'s turn`;
-    if (view.result) text = view.result === "won" ? "Battle won" : "Battle lost";
-    else if (this.waiting) text = "Waiting for the host";
-    else if (pending !== null) text = "Your turn";
+  // The actions bottom right (L7): Set off and Pass. Whose turn it is shows on the seat tabs.
+  private drawActionButtons(layer: Layer, view: BattleView, pending: PendingChoice | null): void {
     drawActions(this.ctx, layer, {
       mine: pending !== null && view.phase !== "over",
       canSetOff: pending?.canSetOff === true,
-      text,
       onPass: () => this.submit({ type: "pass" }),
       onSetOff: () => this.submit({ type: "setOff" }),
     });

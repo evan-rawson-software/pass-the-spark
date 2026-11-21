@@ -15,7 +15,8 @@ export class SpeedControl {
   private hit = false; // a click landed on the button or the list
   private stop: () => void;
 
-  constructor(private scene: Phaser.Scene) {
+  // `at` is where the button sits: its right edge and its centre line (the column's footer).
+  constructor(private scene: Phaser.Scene, private at: { right: number; y: number }) {
     this.box = scene.add.container(0, 0).setDepth(D.depth);
     this.stop = onPlaybackSpeedChange(() => this.draw());
     // A click anywhere that is not this control closes the list; so does Escape.
@@ -53,8 +54,8 @@ export class SpeedControl {
     const s = this.scene;
     this.box.removeAll(true);
     const cur = getPlaybackSpeed();
-    const left = D.right - D.buttonW;
-    const top = D.y - D.buttonH / 2;
+    const left = this.at.right - D.buttonW;
+    const top = this.at.y - D.buttonH / 2;
     const text = (x: number, y: number, t: string, color: string) =>
       s.add.text(x, y, t, { fontFamily: FONT, fontSize: `${D.fontSize}px`, color, fontStyle: "bold" }).setOrigin(0.5);
 
@@ -64,9 +65,9 @@ export class SpeedControl {
     g.fillRoundedRect(left, top, D.buttonW, D.buttonH, D.buttonH / 2);
     g.lineStyle(2, GOLD, this.open ? 1 : 0.5);
     g.strokeRoundedRect(left, top, D.buttonW, D.buttonH, D.buttonH / 2);
-    this.box.add([g, text(left + D.buttonW / 2, D.y, `▶ ${cur}×`, "#ffffff")]);
+    this.box.add([g, text(left + D.buttonW / 2, this.at.y, `▶ ${cur}×`, "#ffffff")]);
     const hint = s.add.text(left + D.buttonW / 2, top - 6, "Playback speed", { fontFamily: FONT, fontSize: "18px", color: "#cfe9dc", backgroundColor: "#101010", padding: { x: 8, y: 4 } }).setOrigin(0.5, 1).setVisible(false);
-    const z = s.add.zone(left + D.buttonW / 2, D.y, D.buttonW, D.buttonH).setInteractive({ useHandCursor: true });
+    const z = s.add.zone(left + D.buttonW / 2, this.at.y, D.buttonW, D.buttonH).setInteractive({ useHandCursor: true });
     z.on("pointerover", () => !this.open && hint.setVisible(true));
     z.on("pointerout", () => hint.setVisible(false));
     z.on("pointerdown", () => {
