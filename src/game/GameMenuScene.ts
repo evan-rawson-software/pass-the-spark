@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { reducedFlashing, setComfort, shakeEnabled } from "./comfort";
 import { debugPanel } from "./DebugPanel";
 import { deckViewerState } from "./deckViewer";
 import { SPEEDS, getPlaybackSpeed, setPlaybackSpeed } from "./playbackSpeed";
@@ -134,6 +135,19 @@ export class GameMenuScene extends Phaser.Scene {
         }, { fill: v === getPlaybackSpeed() ? "#b8860b" : "#0d2a20", width: 90 });
       });
       y += 56;
+
+      heading("Comfort");
+      const toggle = (label: string, on: boolean, set: (v: boolean) => void): void => {
+        text(PX + 20, y, label, 24);
+        button(PX + PW - 80, y, on ? "On" : "Off", () => {
+          set(!on);
+          this.open();
+        }, { fill: on ? "#1e5a42" : "#0d2a20", width: 90 });
+        y += 46;
+      };
+      toggle("Screen shake", shakeEnabled(), (v) => setComfort({ shake: v }));
+      toggle("Reduced flashing", reducedFlashing(), (v) => setComfort({ reducedFlashing: v }));
+      y += 10;
 
       if (debugPanel.available) {
         button(PX + PW / 2, y, "Debug panel (`)", () => debugPanel.toggle(), { fill: "#0d2a20" });

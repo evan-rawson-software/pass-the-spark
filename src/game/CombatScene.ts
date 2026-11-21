@@ -16,6 +16,7 @@ import { artBackground, artImage } from "./art";
 import { drawDomino, drawEffectIcon, drawSparkGlyph, iconOf } from "./dominoDrawing";
 import type { DominoState, IconKind } from "./dominoDrawing";
 import { SPARK_STYLE } from "./sparks";
+import { seatColour } from "./seatColours";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { Tooltip } from "./tooltip";
@@ -24,6 +25,7 @@ import { charmWithTip, charmsByIds } from "./charmUi";
 import { drawPadlock, drawPassiveIcon } from "./passiveIcon";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
+import { setSoundHushed } from "./sound";
 import { PingMarks, attachHold, pingKey } from "./ping";
 import { devSettings, enemies, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
@@ -31,7 +33,7 @@ import { eventDelay, newLogMemory, trackEvent } from "./eventLog";
 import { debugPanel } from "./DebugPanel";
 import type { DebugHost } from "./DebugPanel";
 import { SPEEDS, getPlaybackSpeed, onPlaybackSpeedChange, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
-import { Animator, animTime, newRefs, paintBar } from "./animations";
+import { Animator, SKIP_SPEED, animTime, newRefs, paintBar } from "./animations";
 import { boardGlow } from "./spectacle";
 import { applyEvent, startShown } from "./shownView";
 import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
@@ -119,6 +121,9 @@ export class CombatScene extends Phaser.Scene {
   private totalLabels: Phaser.GameObjects.Text[] = [];
   private totalsTween?: Phaser.Tweens.Tween;
   private shown: ShownTable | null = null; // the table part-way through a step; null when idle
+  private inCascade = false; // a cascade is playing on this screen: a click or Space may skip it
+  private skipping = false; // this player skipped it: the rest of the step is applied at once
+  private skipHint?: Phaser.GameObjects.Text;
   private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
   private inRun = false; // single player inside a run
   private fromQuery = false; // the setup came from the dev query params
@@ -157,6 +162,15 @@ export class CombatScene extends Phaser.Scene {
     this.dragMoved = false;
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => this.onDragMove(p));
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => this.onDragEnd(p));
+    // A click on empty table or Space skips the cascade being played, on this screen only.
+    this.input.on("pointerdown", (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+      if (over.length === 0) this.skipCascade();
+    });
+    this.input.keyboard?.on("keydown-SPACE", () => this.skipCascade());
+    this.inCascade = false;
+    this.skipping = false;
+    this.skipHint = this.add.text(960, 1050, "Click to skip", { fontFamily: FONT, fontSize: "24px", color: "#cfe9dc", stroke: "#101010", strokeThickness: 4 }).setOrigin(0.5).setDepth(700).setVisible(false);
+    setSoundHushed(false);
     this.hlSeat = null;
     this.handSeat = null;
     this.tooltip = new Tooltip(this);
@@ -534,19 +548,24 @@ export class CombatScene extends Phaser.Scene {
 
   // A seat's name plate; the seat on turn glows.
   // A seat id as `deckSeat` makes the plate open that player's deck (#171).
-  private plate(layer: Layer, cx: number, cy: number, text: string, onTurn: boolean, fontSize = 26, deckSeat?: string): void {
+  private plate(layer: Layer, cx: number, cy: number, text: string, onTurn: boolean, fontSize = 26, deckSeat?: string, colour?: number): void {
     const t = this.label(layer, cx, cy, text, fontSize, onTurn ? "#2a2200" : "#ffffff", 0.5, true);
     const w = t.width + 36;
     const h = fontSize + 18;
     const g = this.add.graphics();
     if (onTurn) {
       for (let i = 4; i >= 1; i--) {
-        g.lineStyle(i * 5, GOLD, 0.14);
+        g.lineStyle(i * 5, colour ?? GOLD, 0.14);
         g.strokeRoundedRect(cx - w / 2 - i * 2, cy - h / 2 - i * 2, w + i * 4, h + i * 4, h / 2 + i * 2);
       }
     }
     g.fillStyle(onTurn ? GOLD : 0x0d2a20, 0.95);
     g.fillRoundedRect(cx - w / 2, cy - h / 2, w, h, h / 2);
+    if (colour !== undefined) {
+      // The seat's colour rims the plate (thicker on the seat on turn).
+      g.lineStyle(onTurn ? 5 : 3, colour, 1);
+      g.strokeRoundedRect(cx - w / 2, cy - h / 2, w, h, h / 2);
+    }
     layer.add(g);
     layer.bringToTop(t);
     if (deckSeat !== undefined) this.deckZone(layer, cx, cy, w, h, deckSeat);
@@ -659,7 +678,7 @@ export class CombatScene extends Phaser.Scene {
     const g = this.gfx(layer);
     view.seatOrder.forEach((seat, i) => {
       const x = x0 + i * step;
-      this.plate(layer, x, y - 6, this.nameOf(seat, true, 9), seat === turn && view.phase !== "over", 24);
+      this.plate(layer, x, y - 6, this.nameOf(seat, true, 9), seat === turn && view.phase !== "over", 24, undefined, seatColour(view.seatOrder, seat));
       if (seat === view.lead) this.label(layer, x, y + 28, "LEAD", 16, "#ffe14d", 0.5, true);
       if (i < n - 1) {
         g.fillStyle(0x9fd1b8, 1);
@@ -940,7 +959,7 @@ export class CombatScene extends Phaser.Scene {
     const you = this.online ? (p.id === this.online.seat ? " (you)" : " (playing for)") : "";
     // The plate sits on the hand's top edge so its charm row fits between it and the dominoes. The row
     // starts at the plate's left edge, leaving the area left of the hand free.
-    this.plate(layer, HAND.x + 110, HAND.y - 2, this.nameOf(p.id, true, 9) + you, onTurn, 28, p.id);
+    this.plate(layer, HAND.x + 110, HAND.y - 2, this.nameOf(p.id, true, 9) + you, onTurn, 28, p.id, seatColour(view.seatOrder, p.id));
     this.plateCharms(layer, p.id, p.charms, HAND.x + 70, HAND.y + 32, 20, false);
     let hint = pending === null ? "" : pending.opener ? "Play an opener" : this.selected !== null ? "Pick an open end" : "Play, pass or set off";
     if (this.online && view.phase !== "over" && !this.locked) {
@@ -1124,6 +1143,31 @@ export class CombatScene extends Phaser.Scene {
   // seat follows too. The caller then redraws from the new state or view, so the
   // final table is exactly what the engine says. Input is locked until then.
   // Returns false if the scene was left meanwhile.
+  // Jumps to the end of the cascade being played. Only this screen changes: what is still on the
+  // way plays out at once (the animators and timers run very fast, silently) and the rest of the
+  // step's events are applied to the shown table without animation. The step then ends as always,
+  // with a redraw from the host's own view, so the table is exactly the host's state and the
+  // victory, defeat and reward flow runs as usual.
+  private skipCascade(): void {
+    if (!this.inCascade || this.skipping || debugPanel.stepMode) return;
+    this.skipping = true;
+    this.anim.skipping = true;
+    this.skipHint?.setVisible(false);
+    setSoundHushed(true);
+    this.tweens.timeScale = SKIP_SPEED;
+    this.time.timeScale = SKIP_SPEED;
+  }
+
+  private endSkip(): void {
+    this.inCascade = false;
+    this.skipping = false;
+    this.anim.skipping = false;
+    this.skipHint?.setVisible(false);
+    setSoundHushed(false);
+    this.tweens.timeScale = 1;
+    this.time.timeScale = 1;
+  }
+
   private async playback(events: GameEvent[]): Promise<boolean> {
     this.locked = true;
     this.shown = startShown(JSON.parse(JSON.stringify(this.view)) as BattleView);
@@ -1133,6 +1177,14 @@ export class CombatScene extends Phaser.Scene {
     const epoch = this.epoch;
     for (let n = 0; n < events.length; n++) {
       const ev = events[n];
+      if (this.skipping) {
+        applyEvent(this.shown!, ev);
+        continue;
+      }
+      if (ev.type === "setOff") {
+        this.inCascade = true;
+        this.skipHint?.setVisible(!debugPanel.stepMode);
+      }
       if (isDrawEvent(ev)) {
         // Everything drawn at round start plays at once; the table is redrawn from the end of it.
         let end = n;
@@ -1169,6 +1221,7 @@ export class CombatScene extends Phaser.Scene {
       else if (wait > 0) await new Promise<void>((resolve) => this.time.delayedCall(scaleTime(wait), resolve));
       if (epoch !== this.epoch) return false; // the scene was restarted or left meanwhile
     }
+    this.endSkip();
     this.locked = false;
     this.hlSeat = null;
     this.handSeat = null;
@@ -1187,7 +1240,7 @@ export class CombatScene extends Phaser.Scene {
   private drawTeammate(layer: Layer, view: BattleView, id: string, x: number, y: number, h: number): void {
     const p = view.players.find((q) => q.id === id);
     if (!p) return;
-    this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), view.phase !== "over" && this.turnSeat === p.id, 26, p.id);
+    this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), view.phase !== "over" && this.turnSeat === p.id, 26, p.id, seatColour(view.seatOrder, p.id));
     // A row of charm icons under the plate pushes the discard line, the deck pile and the hand down.
     const extra = p.charms.length > 0 ? 28 : 0;
     this.plateCharms(layer, p.id, p.charms, x + SIDE_W / 2, y + 58, 22);

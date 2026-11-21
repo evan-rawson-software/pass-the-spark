@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
 import { scaleTime } from "./playbackSpeed";
+import { reducedFlashing } from "./comfort";
 import { playSound } from "./sound";
 import { amplify, block, boardGlow, centre, charm, coins, damage, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
 import type { Point, Tally } from "./spectacle";
@@ -12,6 +13,9 @@ import type { Point, Tally } from "./spectacle";
 // the enemy's intent. Heat (spectacle.ts, data/presentation.json) grows with the cascade's size
 // and its biggest caps. Every duration goes through scaleTime. The scene redraws from getView when
 // the step is over, so nothing here has to be exact: it only has to look right on the way.
+
+// The fast-forward factor while a skipped cascade finishes whatever was already playing.
+export const SKIP_SPEED = 1000;
 
 const DW = 240; // a domino at scale 1
 const DH = 120;
@@ -74,12 +78,14 @@ function counter(scene: Phaser.Scene, from: number, to: number, ms: number, onVa
 }
 
 function flash(scene: Phaser.Scene, b: Box, color = 0xffffff): void {
+  // Reduced flashing: a faint, slow fade instead of a bright blink.
+  const soft = reducedFlashing();
   const g = scene.add.graphics().setDepth(90);
-  g.fillStyle(color, 0.5);
+  g.fillStyle(color, soft ? 0.18 : 0.5);
   g.fillRoundedRect(b.x, b.y, b.w, b.h, 14);
-  g.lineStyle(5, color, 1);
+  g.lineStyle(5, color, soft ? 0.5 : 1);
   g.strokeRoundedRect(b.x, b.y, b.w, b.h, 14);
-  scene.tweens.add({ targets: g, alpha: 0, duration: scaleTime(300), onComplete: () => g.destroy() });
+  scene.tweens.add({ targets: g, alpha: 0, duration: scaleTime(soft ? 700 : 300), onComplete: () => g.destroy() });
 }
 
 function boxOf(p: Pos): Box {
@@ -119,9 +125,11 @@ export class Animator {
   private inCascade = false;
   private tally: Tally = { damage: 0, block: 0, coins: 0 };
   private pile: Phaser.GameObjects.Text[] = []; // stacked numbers still on screen
+  skipping = false; // the player skipped the cascade: slow motion is off and the fast-forward stays on
 
   constructor(private scene: Phaser.Scene) {
-    scene.tweens.timeScale = 1; // a restarted scene never inherits slow motion
+    scene.tweens.timeScale = 1; // a restarted scene never inherits slow motion or a skip
+    scene.time.timeScale = 1;
   }
 
   // The colour lit dominoes glow in: it follows the heat of the cascade being played.
@@ -205,7 +213,7 @@ export class Animator {
           }
           const text = ev.triggers > 1 ? `${ev.value}×${ev.triggers}` : String(ev.value);
           floatText(scene, node.pos.x, node.pos.y, text, CAP_COLOR[ev.effect], Math.max(30, Math.round(60 * node.pos.k + 18 + this.tier * 6)), 1000);
-          if (ev.value >= P.lightning.minCap) {
+          if (ev.value >= P.lightning.minCap && !reducedFlashing()) {
             const ends = this.lit
               .filter((id) => id !== ev.node)
               .slice(-P.lightning.bolts)
@@ -220,7 +228,7 @@ export class Animator {
           shake(scene, this.tier);
           playSound("shake");
         }
-        slow = ev.value >= P.slowMotion.minCap;
+        slow = ev.value >= P.slowMotion.minCap && !reducedFlashing() && !this.skipping;
         break;
       }
       case "fizzle": {
@@ -358,7 +366,7 @@ export class Animator {
     this.scene.tweens.timeScale = P.slowMotion.timeScale;
     playSound("slowMotion");
     await new Promise<void>((resolve) => this.scene.time.delayedCall(scaleTime(P.slowMotion.holdMs), resolve));
-    this.scene.tweens.timeScale = 1;
+    this.scene.tweens.timeScale = this.skipping ? SKIP_SPEED : 1;
   }
 
   private tweenHealth(side: "party" | "enemy", before: Snapshot, after: Snapshot): void {

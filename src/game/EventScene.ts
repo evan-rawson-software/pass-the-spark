@@ -1,3 +1,4 @@
+import { reducedFlashing, shakeEnabled } from "./comfort";
 import Phaser from "phaser";
 import { applyRunChoice } from "../engine/run";
 import type { RunEvent, RunState } from "../engine/run";
@@ -203,8 +204,8 @@ export class EventScene extends Phaser.Scene {
     label(this, TEXT_X, 90, eventData(run, event.id).name, 56, { bold: true });
     label(this, TEXT_X, 220, "The Giant wakes!", 64, { bold: true, color: "#ff9d7a" });
     label(this, TEXT_X, 310, `The party takes ${damage} damage.`, 44, { bold: true, color: "#ffd0cc" });
-    this.cameras.main.shake(scaleTime(500), 0.01);
-    this.cameras.main.flash(scaleTime(300), 217, 80, 59);
+    if (shakeEnabled()) this.cameras.main.shake(scaleTime(500), 0.01);
+    if (!reducedFlashing()) this.cameras.main.flash(scaleTime(300), 217, 80, 59);
     this.time.delayedCall(scaleTime(2200), () => openRunScreen(this));
   }
 
