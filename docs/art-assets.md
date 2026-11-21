@@ -1,4 +1,4 @@
-# Art assets
+| `burst` | Shipped (#236) | A jagged radial starburst with uneven spikes around a big soft bright core. For tier jumps and the slam's impact. || `sparkle` | Shipped (#236) | A 4-pointed glint (long thin cross with a bright centre, short faint diagonals), thinner than the 8-pointed `spark`. For the fanfare shower. || `flame` | Shipped (#236) | One teardrop flame tongue rising upward, wide at the base, tapering to a curled tip. For the combo number catching fire on lethal. |# Art assets
 
 This is the list of images the game can use, for generating art locally. The game draws everything in code today. When an image listed here exists and is in the manifest, the web game shows it instead. Otherwise it falls back to the code-drawn version (issue: "Show generated art where it exists"). The same files will carry over to the Godot version.
 
