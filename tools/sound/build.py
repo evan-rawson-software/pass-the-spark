@@ -1,6 +1,6 @@
 """Render the sound recipes to .ogg.
 
-  python tools/sound/build.py                 every cue's picked recipe -> public/audio/sfx/<cue>.ogg
+  python tools/sound/build.py                 every cue's "pick" recipe -> public/audio/sfx/<cue>.ogg
   python tools/sound/build.py --cue combo:hit just that cue
   python tools/sound/build.py --candidates DIR  every variant of every cue -> DIR/<cue>_<variant>.ogg
                                                 plus DIR/candidates.json (for the picker)
@@ -30,16 +30,44 @@ def fname(cue):
     return cue.replace(":", "-")
 
 
+def ogg_crc(data):
+    """The Ogg page checksum: CRC-32, polynomial 0x04C11DB7, not reflected, starting at 0."""
+    crc = 0
+    for byte in data:
+        crc ^= byte << 24
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x04C11DB7) if crc & 0x80000000 else crc << 1
+            crc &= 0xFFFFFFFF
+    return crc
+
+
+def fixed_serial(path, serial=1):
+    """libogg gives every stream a random serial number; set a fixed one (and redo each page's
+    checksum) so the same recipe always writes the same bytes."""
+    b = bytearray(path.read_bytes())
+    i = 0
+    while i < len(b):
+        assert b[i:i + 4] == b"OggS", path
+        n = b[i + 26]
+        size = 27 + n + sum(b[i + 27: i + 27 + n])
+        b[i + 14: i + 18] = serial.to_bytes(4, "little")
+        b[i + 22: i + 26] = bytes(4)
+        b[i + 22: i + 26] = ogg_crc(b[i: i + size]).to_bytes(4, "little")
+        i += size
+    path.write_bytes(bytes(b))
+
+
 def write(x, path):
     path.parent.mkdir(parents=True, exist_ok=True)
     sf.write(path, finish(x).astype(np.float32), SR, format="OGG", subtype="VORBIS")
+    fixed_serial(path)
     y, _ = sf.read(path)
     return round(len(y) / SR, 2), round(loudness(y), 1), round(20 * np.log10(np.abs(y).max()), 1)
 
 
 def build(cues):
     for cue in cues:
-        x, _ = recipes.RECIPES[cue][recipes.PICKS[cue]]()
+        x, _ = recipes.RECIPES[cue]["pick"]()
         secs, lufs, peak = write(x, OUT / f"{fname(cue)}.ogg")
         print(f"{cue:22} {secs:5.2f}s {lufs:6.1f} LUFS  peak {peak:5.1f} dB")
 
@@ -89,7 +117,7 @@ def main():
             files = [(p, p.stem.split("_")[0].replace("-", ":", 1)) for p in sorted(d.glob("*.ogg"))]
             check(files)
         else:
-            build(a.cue or list(recipes.PICKS))
+            build(a.cue or [c for c, v in recipes.RECIPES.items() if "pick" in v])
     finally:
         render.close()
 

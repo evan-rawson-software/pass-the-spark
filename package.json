@@ -9,10 +9,11 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.engine.json",
     "sim": "tsx scripts/sim.ts",
-    "sim:run": "tsx scripts/simRun.ts"
+    "sim:run": "tsx scripts/simRun.ts",
+    "sounds": "python tools/sound/build.py"
   },
   "devDependencies": {
-    "jsfxr": "^1.4.1",
+    "jsfxr": "1.4.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.1"
