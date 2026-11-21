@@ -226,6 +226,17 @@ test("Ready fires uncapped ends as fizzles, and an empty board can fire: nothing
   expect(empty.state.enemy.health).toBe(100 - 18);
   expect(empty.state.party.health).toBe(90 - 16);
   expect(empty.state.round).toBe(3);
+
+  // A board with no cap still hits: the amplifier and the junction land 2 and 2, and both ends fizzle.
+  let bare = empty.state;
+  bare.players[0].hand = ["boost_ember"];
+  bare.players[1].hand = ["junction_ember"];
+  bare = play(play(bare, "a", "boost_ember"), "b", "junction_ember", 0);
+  expect(previewSetOff(getView(bare, "a"))).toMatchObject({ canSetOff: true, damage: 4, comboTotal: 4 });
+  const capless = fire(bare);
+  expect(capless.events.filter((e) => e.type === "fizzle")).toHaveLength(2);
+  expect(capless.events.filter((e) => e.type === "damage" && e.side === "enemy").map((e) => (e as { amount: number }).amount)).toEqual([2, 2]);
+  expect(capless.state.enemy.health).toBe(100 - 18 - 4);
 });
 
 test("the Warden's lock blocks an attachment, and the Auditor fires when a cap repeats the spark before it", () => {

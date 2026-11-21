@@ -462,7 +462,7 @@ export function previewCascade(input: BattleState | BattleView): CascadePreview 
 // the real enemy action on a copy (the intent queue and the RNG are not touched). With `play`, the same
 // for the board after that play (a hover). Coins are not part of it.
 export interface SetOffPreview {
-  canSetOff: boolean; // a cap is on the board (without one, damage and block are 0 and only the party side matters)
+  canSetOff: boolean; // the board is not empty (an empty board fires nothing and only the party side matters)
   damage: number; // reaching the enemy's health, after its block
   comboTotal: number; // every hit of the cascade, before enemy block
   lineReached: boolean; // the combo total reaches the enemy's line: the enemy's attack is halved in partyDamage
@@ -492,7 +492,7 @@ export function previewSetOff(input: BattleState | BattleView, play?: { player: 
   const tally = fireCascade(state, events);
   const enemyBlockUsed = events.reduce((sum, e) => sum + (e.type === "damage" && e.side === "enemy" ? e.blocked : 0), 0);
   const result: SetOffPreview = {
-    canSetOff: capCount(state) > 0,
+    canSetOff: state.board.nodes.length > 0,
     damage: before.enemyHealth - Math.max(state.enemy.health, 0),
     comboTotal: tally.combo,
     lineReached: state.enemy.staggered,
@@ -522,10 +522,6 @@ function legalEnds(state: PendingInput, d: Domino, owner: string): number[] {
   // A junction replaces one open end with its outputs (two, or three with Hall of Mirrors).
   if (d.kind === "junction" && open.length - 1 + outputsOf(state, owner, d).length > state.config.openEndLimit) return [];
   return open.filter((e) => e.spark !== state.locked && (d.intake === "any" || d.intake.includes(e.spark))).map((e) => e.id);
-}
-
-function capCount(state: Pick<BattleState, "board" | "dominoes">): number {
-  return state.board.nodes.filter((n) => getDomino(state, n.domino).kind === "cap").length;
 }
 
 function addToBoard(board: Board, owner: string, d: Domino, end: number | null, outputs: Spark[]): void {
@@ -605,13 +601,13 @@ interface Tally {
 
 // Steps by depth from the opener; within a step, nodes in creation order. Every domino hits as it lights:
 // an amplifier or junction for the charge it passes on, a damage cap for its value per trigger; a block
-// cap gives block instead. Open ends fizzle at the end. With no cap on the board nothing fires.
+// cap gives block instead. Open ends fizzle at the end. An empty board fires nothing; a board with no cap still hits.
 // Stops the moment the enemy is at 0 health.
 function fireCascade(state: BattleState, events: GameEvent[]): Tally {
   const tally: Tally = { caps: 0, combo: 0 };
-  if (capCount(state) === 0) return tally;
+  if (state.board.nodes.length === 0) return tally;
   const hoarder = passiveOf(state.enemy, "hoarder");
-  if (hoarder && state.board.nodes.length > 0) {
+  if (hoarder) {
     const amount = state.board.nodes.length * hoarder.multiplier;
     state.enemy.block += amount;
     events.push({ type: "passive", passive: "hoarder", amount });
