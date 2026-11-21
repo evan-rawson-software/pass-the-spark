@@ -245,7 +245,8 @@
       "pass": { "x": 1595, "y": 868, "w": 295, "h": 60, "fill": "#163a2c", "stroke": "#f3ead6", "strokeAlpha": 0.6, "size": 28, "colour": "#f3ead6" },
       "setOff": { "x": 1595, "y": 944, "w": 295, "h": 100, "fill": "#ffd54a", "stroke": "#22201c", "strokeWidth": 3, "size": 40, "colour": "#22201c", "offFill": "#163a2c", "offColour": "#5f8f7a" }
     },
-    "pause": { "y": 392 },
+    "pause": { "x": 1130, "buttonX": 1500, "y": 392 },
+    "waiting": { "text": "Waiting for the host", "x": 1040, "y": 866, "size": 24, "colour": "#cfe9dc" },
     "skipHint": { "x": 1200, "y": 836 }
   }
 }
