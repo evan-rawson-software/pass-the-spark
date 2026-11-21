@@ -30,7 +30,7 @@ function dummy(attack: number, passives: Enemy["passives"] = []): Enemy {
 // Three players against the dummy, which attacks for 12 every round. Hands are set to known dominoes.
 function setup(hands: string[][], attack = 12, passives: Enemy["passives"] = []): BattleState {
   const state = createBattle({
-    config: content.config,
+    config: { ...content.config, enemyHealthPercentByPartySize: [100, 100, 100, 100] }, // the dummy keeps 100 health
     content: { dominoes, enemies: [dummy(attack, passives)] },
     players: ["a", "b", "c"].map((id) => ({ id, deck: content.starterDeck })),
     seatOrder: ["a", "b", "c"],
@@ -193,7 +193,7 @@ test("the Warden's lock blocks an attachment, and the Auditor fires when a cap r
 test("charms: Keystone adds after a Double's own change, Hall of Mirrors opens a third end, Tide Lens adds to a cap", () => {
   const doubleEmber: Domino = { id: "double_ember", name: "Ember Double", kind: "amplifier", intake: ["Ember"], output: ["Ember"], amp: { op: "mul", value: 2 } };
   let s = createBattle({
-    config: content.config,
+    config: { ...content.config, enemyHealthPercentByPartySize: [100, 100, 100, 100] },
     content: { dominoes: [...dominoes, doubleEmber], enemies: [dummy(12)] },
     players: [
       { id: "a", deck: content.starterDeck, charms: ["keystone", "hall_of_mirrors"] },
