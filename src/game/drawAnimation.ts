@@ -85,9 +85,9 @@ export async function playDraws(
     for (let i = 0; i < keep; i++) {
       const o = old[i];
       const { c, pos } = slots[i];
-      if (!o || (o.x === pos.x && o.y === pos.y && o.k === pos.k)) continue;
-      c.setPosition(o.x, o.y).setScale(o.k);
-      scene.tweens.add({ targets: c, x: pos.x, y: pos.y, scale: pos.k, duration: scaleTime(FLY), ease: "Cubic.easeOut" });
+      if (!o || (o.x === pos.x && o.y === pos.y && o.k === pos.k && o.angle === pos.angle)) continue;
+      c.setPosition(o.x, o.y).setScale(o.k).setAngle(o.angle ?? 0);
+      scene.tweens.add({ targets: c, x: pos.x, y: pos.y, scale: pos.k, angle: pos.angle ?? 0, duration: scaleTime(FLY), ease: "Cubic.easeOut" });
     }
 
     const from = stack ?? { x: slots[0]?.pos.x ?? 0, y: (slots[0]?.pos.y ?? 0) - 60 };

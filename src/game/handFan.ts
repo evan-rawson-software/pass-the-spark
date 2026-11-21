@@ -120,7 +120,9 @@ export class HandFan {
   private area: FanArea = D.area;
   private hovered: string | null = null;
   private dragged: string | null = null;
+  private picked: string | null = null;
   deckPile: Layer | null = null;
+  deckText: Phaser.GameObjects.Text | null = null;
   discardPile: Layer | null = null;
 
   constructor(scene: Phaser.Scene, layer: Layer, cb: HandCallbacks = {}) {
@@ -175,7 +177,7 @@ export class HandFan {
   private drawPiles(input: HandInput): void {
     const P = D.piles;
     const back = input.dominoes[0];
-    const pile = (x: number, count: number, label: string): Layer => {
+    const pile = (x: number, count: number, label: string): { c: Layer; text: Phaser.GameObjects.Text } => {
       const c = this.scene.add.container(x, P.y);
       const layers = count === 0 ? 1 : Math.min(P.layers, count);
       for (let i = 0; i < layers; i++) {
@@ -190,10 +192,12 @@ export class HandFan {
       c.add([text, name]);
       const size = dominoPixelSize("large");
       c.setSize(size.w * P.scale, size.h * P.scale + P.labelSize * 2);
-      return c;
+      return { c, text };
     };
-    this.deckPile = pile(P.deckX, input.deck, "Deck");
-    this.discardPile = pile(P.discardX, input.discard, "Discard");
+    const deck = pile(P.deckX, input.deck, "Deck");
+    this.deckPile = deck.c;
+    this.deckText = deck.text;
+    this.discardPile = pile(P.discardX, input.discard, "Discard").c;
     this.fan.parentContainer?.add([this.deckPile, this.discardPile]);
   }
 
@@ -212,18 +216,29 @@ export class HandFan {
     return key === null ? undefined : this.list.find((i) => i.key === key);
   }
 
-  // The hovered (or picked) domino straightens, grows and lifts; the one before it settles back.
+  // The hovered domino straightens, grows and lifts; the one before it settles back (unless it is picked).
   hover(key: string | null): void {
     if (key === this.hovered) return;
     const was = this.item(this.hovered);
-    const now = this.item(key);
     this.hovered = key;
-    if (was && was.key !== this.dragged) this.settle(was);
-    if (now && now.key !== this.dragged) {
-      this.fan.bringToTop(now.holder);
-      this.scene.tweens.killTweensOf(now.holder);
-      this.scene.tweens.add({ targets: now.holder, x: now.slot.x, y: now.slot.y - D.lift, scale: D.hoverScale, angle: 0, duration: scaleTime(D.tweenMs), ease: "Quad.easeOut" });
-    }
+    if (was && was.key !== this.dragged && was.key !== this.picked) this.settle(was);
+    const now = this.item(key);
+    if (now && now.key !== this.dragged) this.lift(now);
+  }
+
+  // The picked domino stays lifted until it is put back (null), whatever the pointer does.
+  pick(key: string | null): void {
+    const was = this.item(this.picked);
+    this.picked = key;
+    if (was && was.key !== key && was.key !== this.hovered && was.key !== this.dragged) this.settle(was);
+    const now = this.item(key);
+    if (now && now.key !== this.dragged) this.lift(now);
+  }
+
+  private lift(it: HandItem): void {
+    this.fan.bringToTop(it.holder);
+    this.scene.tweens.killTweensOf(it.holder);
+    this.scene.tweens.add({ targets: it.holder, x: it.slot.x, y: it.slot.y - D.lift, scale: D.hoverScale, angle: 0, duration: scaleTime(D.tweenMs), ease: "Quad.easeOut" });
   }
 
   private settle(it: HandItem): void {
@@ -236,10 +251,13 @@ export class HandFan {
   // A dragged domino leaves a faint dashed gap where it was. null puts it back (the domino itself is
   // the scene's to move while dragging; settleDragged() brings it home).
   setDragged(key: string | null): void {
+    const was = this.item(this.dragged);
+    if (was) was.holder.setAlpha(1);
     this.dragged = key;
     this.gapG.clear();
     const it = this.item(key);
     if (!it) return;
+    it.holder.setAlpha(D.gap.holderAlpha);
     const size = dominoPixelSize("large", it.kind);
     const w = size.w * it.slot.k, h = size.h * it.slot.k;
     const G = D.gap;
@@ -268,8 +286,8 @@ export class HandFan {
   snap(): void {
     for (const it of this.list) {
       this.scene.tweens.killTweensOf(it.holder);
-      const lifted = it.key === this.hovered;
-      it.holder.setAlpha(1);
+      const lifted = it.key === this.hovered || it.key === this.picked;
+      it.holder.setAlpha(it.key === this.dragged ? D.gap.holderAlpha : 1);
       if (lifted) it.holder.setPosition(it.slot.x, it.slot.y - D.lift).setScale(D.hoverScale).setAngle(0);
       else it.holder.setPosition(it.slot.x, it.slot.y).setScale(it.slot.k).setAngle(it.slot.angle);
     }
@@ -282,11 +300,13 @@ export class HandFan {
     }
     this.list = [];
     this.hovered = null;
+    this.picked = null;
     this.dragged = null;
     this.gapG.clear();
     this.deckPile?.destroy();
     this.discardPile?.destroy();
     this.deckPile = this.discardPile = null;
+    this.deckText = null;
   }
 
   destroy(): void {

@@ -8,7 +8,7 @@ import { drawPadlock } from "./passiveIcon";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import { reducedFlashing } from "./comfort";
 import { scaleTime } from "./playbackSpeed";
-import { dominoLook, fuseBoardData as D, hexColour } from "./presentation";
+import { combatLayoutData, dominoLook, fuseBoardData as D, hexColour } from "./presentation";
 import { SPARK_STYLE } from "./sparks";
 
 // The fuse board (#229, taking over #218's screen part): small dominoes joined by fuses, a charge
@@ -30,9 +30,9 @@ type Layer = Phaser.GameObjects.Container;
 // A domino's own silhouette size at scale 1 (a junction is taller, a cap narrower).
 const sizeOf = (kind: DominoKind) => dominoPixelSize("large", kind);
 
-// The board's area, from data (CombatScene reads it from here; a later layout moves it in data).
+// The board's area, from data (combatLayout.board): CombatScene reads it from here, so a later layout moves it in data.
 export function boardArea(): Rect {
-  return { ...D.area };
+  return { ...combatLayoutData.board };
 }
 
 // ---- layout (pure geometry, in nominal px at the board scale) ----
@@ -298,6 +298,7 @@ function drawFuse(scene: Phaser.Scene, layer: Layer, pts: Pt[], f: number, colou
   layer.add(g);
   let dim = o.dim;
   const paint = (progress: number, hot = o.hot) => {
+    if (!g.active) return; // the table was redrawn while a burn was running
     g.clear();
     if (o.glow && !dim) strokeLine(g, pts, D.fuse.under * f * 2.4, o.glow.colour, o.glow.alpha);
     strokeLine(g, pts, D.fuse.under * f, hexColour(D.fuse.underColour), 1);
