@@ -44,3 +44,21 @@ All as recommended ("rec").
 - **C2 Brainstorm now:** a first shortlist of enemy traits, spark traits and wizard schools is drafted outside the repo and brought to the planner. Nothing from it is decided until C4.
 - **C3 Prototype after the gate:** once #272 merges, the planner tests the strongest 4–5 enemy traits and the spark traits in scratch sims on the 0.2 engine with the planning bot. The yardstick: a trait earns its place if it changes the best tree, not just the numbers. No issues and no repo code.
 - **C4 Spec:** after the playtest, the planner writes the M15 epic (#278) and its issues from C2, C3 and the playtest notes.
+
+## 2026-11-21: M15 trait sims (C5–C9)
+
+From the C3 scratch sims on `v0.2` after #272: the planning bot against normal enemies with the placeholder numbers, at 2–4 players. The "same tree" measure proved too noisy, because many trees score about the same. Traits were judged by what they do to the fight instead: rounds, combo, tree depth and health lost. All as recommended ("rec"). These stay direction for M15 until C4.
+
+- **C5 Low Ceiling stays:** only the first N steps fire, with N set per enemy at 5 or 6. It is the strongest trait. With N = 5 the tree goes from depth 7 to under 5 and the combo halves. N = 4 is too harsh: elites were won only 61% of the time.
+- **C6 Lock means no caps on the locked spark:** you can still build through that spark. A full lock breaks the Ember, Tide, Gale loop: fights take 6–10 rounds, and elites were won only 33–53% of the time. This applies to the Warden of Locks too, when M15 reworks it.
+- **C7 Dropped or sent back:**
+  - **Narrow Pass** is dropped. Under 0.2, long chains beat branching, so limiting open ends costs nothing; the party even did slightly better.
+  - **Swarm with carry-over** is dropped. It changed nothing.
+  - **Swarm without carry-over** stays in reserve; it is mild.
+  - **Rot Seed** goes back for a redesign. Planted as the opener, it acted as a free extra domino.
+- **C8 Spark traits:**
+  - **Ember: Kindle**, each hit on an Ember end +1, flat. "+1 charge" raised the combo about 45%, which is too strong.
+  - **Tide: Wake at 1 block** for each domino on a Tide end. At 2 block the party lost almost no health. The value of 1 is not yet measured.
+  - **Gale: Tailwind**, the party's first domino on a Gale end each round is free.
+  - **Storm, Void and Rot** wait for the reward dominoes that bring those sparks.
+- **C9 The yardstick's search:** the planning bot's narrow search (3 trees kept per step) leaves it about 15–20% below a wider one (12 trees), at 3 players a combo of 83 against 100. #274 keeps the current bot for its tuning loop, reports a wide-search check beside it, and aims at the wide-search numbers if the two differ by more than one round per fight.
