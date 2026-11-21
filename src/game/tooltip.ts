@@ -12,7 +12,7 @@ const PAD = 16;
 const SCREEN = { w: 1920, h: 1080 };
 
 const KIND_NAME = { amplifier: "Amplifier", junction: "Junction", cap: "Cap" };
-const EFFECT_NAME = { damage: "Damage", block: "Block", coins: "Coins" };
+const EFFECT_NAME = { damage: "Damage", block: "Block" };
 
 function effectText(d: Domino): string {
   if (d.kind === "junction") return "Splits the path: both branches carry the full charge";

@@ -60,7 +60,7 @@ test("worked example: boost, junction, double, guard and strike set off by thems
   expect(previewPlay(s, "a", "guard_gale", 2)).toMatchObject({ value: 6, triggers: 1 });
   s = play(s, "guard_gale", 2); // a caps the Gale branch
   expect(previewPlay(s, "b", "strike4_ember", 3)).toMatchObject({ value: 16, total: 16 });
-  expect(previewCascade(s)).toEqual({ damage: 0, block: 6, coins: {} }); // the strike is not on the board yet
+  expect(previewCascade(s)).toEqual({ damage: 0, block: 6 }); // the strike is not on the board yet
 
   const last = step(s, { type: "play", domino: "strike4_ember", end: 3 }); // b: every end is capped
   s = last.state;
@@ -103,7 +103,7 @@ test("echo and spectrum on a branching tree: echo doubles the caps further along
   expect(getView(s, "b").openEnds.map((e) => [e.end, e.charge])).toEqual([[3, 2], [4, 4]]);
   expect(previewPlay(s, "b", "strike_tide", 3)).toMatchObject({ value: 6, triggers: 2, total: 12 });
   s = play(s, "strike_tide", 3); // b: 3 x 2 = 6, twice
-  expect(previewCascade(s)).toEqual({ damage: 12, block: 0, coins: {} });
+  expect(previewCascade(s)).toEqual({ damage: 12, block: 0 });
   s = play(s, "guard_gale", 4); // c: 3 x 4 = 12 block; every end is capped
 
   expect(s.enemy.health).toBe(100 - 12);

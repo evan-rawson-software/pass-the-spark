@@ -143,8 +143,8 @@ class HudText {
   }
 }
 
-type Kind = "damage" | "block" | "coins";
-const KINDS: [Kind, string, string][] = [["damage", "damage", "#ff6a5f"], ["block", "block", "#9cc4ff"], ["coins", "coins", "#ffd23f"]];
+type Kind = "damage" | "block";
+const KINDS: [Kind, string, string][] = [["damage", "damage", "#ff6a5f"], ["block", "block", "#9cc4ff"]];
 
 export class Buildup {
   // Where the whole tree has to fit: the board mat, from the scene's own layout.
@@ -154,7 +154,7 @@ export class Buildup {
   private big = false; // the board is over the camera's size: it moves
   private steps = 0;
   private biggest = 0;
-  private totals: Record<Kind, number> = { damage: 0, block: 0, coins: 0 };
+  private totals: Record<Kind, number> = { damage: 0, block: 0 };
   private rows = new Map<Kind, HudText>();
   private words: HudText[] = [];
   private fading: HudText[] = []; // counter rows fading out: still re-placed until they are gone
@@ -293,7 +293,7 @@ export class Buildup {
     this.big = false;
     this.shownWords = 0;
     this.fired.clear();
-    this.totals = { damage: 0, block: 0, coins: 0 };
+    this.totals = { damage: 0, block: 0 };
     this.rows.forEach((r) => r.obj.destroy());
     this.rows.clear();
     this.fading.forEach((r) => r.obj.destroy());

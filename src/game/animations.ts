@@ -7,7 +7,7 @@ import { Buildup } from "./buildup";
 import { playSound } from "./sound";
 import { EnemyReactions } from "./enemyReactions";
 import { hexColour, reactionData } from "./presentation";
-import { amplify, block, boardGlow, centre, charm, coins, damage, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
+import { amplify, block, boardGlow, centre, charm, damage, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
 import type { Point, Tally } from "./spectacle";
 
 // The cascade playback, driven only by engine events and the numbers in them (#186, #187): charge
@@ -102,8 +102,8 @@ function boxOf(p: Pos): Box {
   return { x: p.x - (DW * p.k) / 2, y: p.y - (DH * p.k) / 2, w: DW * p.k, h: DH * p.k };
 }
 
-const CAP_COLOR = { damage: "#ff6a5f", block: "#9cc4ff", coins: "#ffd23f" };
-const CAP_SOUND = { damage: "effect:damage", block: "effect:block", coins: "coins" };
+const CAP_COLOR = { damage: "#ff6a5f", block: "#9cc4ff" };
+const CAP_SOUND = { damage: "effect:damage", block: "effect:block" };
 
 // ---- the animator ----
 
@@ -133,7 +133,7 @@ export class Animator {
   private biggest = 0;
   private tier = -1;
   private inCascade = false;
-  private tally: Tally = { damage: 0, block: 0, coins: 0 };
+  private tally: Tally = { damage: 0, block: 0 };
   private pile: Phaser.GameObjects.Text[] = []; // stacked numbers still on screen
   skipping = false; // the player skipped the cascade: slow motion is off and the fast-forward stays on
   buildup: Buildup; // counter, callouts and camera (#191)
@@ -196,7 +196,7 @@ export class Animator {
       this.inCascade = false;
       this.buildup.finish(); // a cascade that wins early stops the build-up here, before the enemy's death
       const total = this.tally;
-      this.tally = { damage: 0, block: 0, coins: 0 };
+      this.tally = { damage: 0, block: 0 };
       await showTally(scene, total, this.litColor(), { x: 960, y: 520 });
     }
     const before = snapshot(shown);
@@ -233,7 +233,7 @@ export class Animator {
         floatText(scene, 960, 470, why, "#ffe14d", 48, 1000);
         this.resetHeat();
         this.inCascade = true;
-        this.tally = { damage: 0, block: 0, coins: 0 };
+        this.tally = { damage: 0, block: 0 };
         this.pile = [];
         this.buildup.begin(refs, shown.board.nodes.length);
         // The whole tree swells with the charge it holds before it goes.
@@ -255,7 +255,7 @@ export class Animator {
           const target = this.targetOf(ev.effect, refs);
           this.hold(P.effects.travelMs + P.effects.ms + Math.min(ev.triggers, 4) * 110);
           for (let i = 0; i < Math.min(ev.triggers, 4); i++) {
-            const go = () => (ev.effect === "damage" ? damage(scene, at, target) : ev.effect === "block" ? block(scene, at, target) : coins(scene, at));
+            const go = () => (ev.effect === "damage" ? damage(scene, at, target) : block(scene, at, target));
             if (i === 0) go();
             else scene.time.delayedCall(scaleTime(i * 110), go);
           }
@@ -329,10 +329,12 @@ export class Animator {
           sh?.text.setText(String(before.party.block));
           hold = this.reactions.lunge().then(() => {
             this.reactions.partyHit(ev.amount);
-            this.tweenHealth(key, before, after, ev.blocked > 0 ? reactionData.impact.blockFirstMs : 0);
+            const lag = ev.blocked > 0 ? reactionData.impact.blockFirstMs : 0;
+            this.tweenHealth(key, before, after, lag);
+            this.reactions.ghostHit(key, before[key].health, after[key].health, lag);
           });
         }
-        this.reactions.ghostHit(key, before[key].health, after[key].health);
+        if (ev.side === "enemy") this.reactions.ghostHit(key, before[key].health, after[key].health);
         break;
       }
       case "block": {
@@ -350,13 +352,6 @@ export class Animator {
         this.tweenHealth(ev.side, before, after);
         break;
       }
-      case "coinsGained":
-        if (this.inCascade) {
-          this.tally.coins += ev.amount;
-          this.buildup.add("coins", ev.amount);
-        }
-        floatText(scene, 960, 600, `${ev.player}: +${ev.amount} coins`, "#ffd23f", 40, 1000);
-        break;
       case "passive": {
         const bar = refs.bars.get(ev.passive === "auditor" ? "party" : "enemy");
         if (ev.passive === "warden") floatText(scene, 960, 470, `Warden locks ${ev.spark}`, "#ff8a8a", 40, 1100);
@@ -382,8 +377,8 @@ export class Animator {
     if (hold) await hold;
   }
 
-  // Where a cap's effect lands: the enemy's bar, or the party's block counter. Coins stay at the cap.
-  private targetOf(effect: "damage" | "block" | "coins", refs: Refs): Point | undefined {
+  // Where a cap's effect lands: the enemy's bar, or the party's block counter.
+  private targetOf(effect: "damage" | "block", refs: Refs): Point | undefined {
     if (effect === "damage") {
       const bar = refs.bars.get("enemy");
       return bar ? { x: bar.x + bar.w / 2, y: bar.y + bar.h / 2 } : undefined;

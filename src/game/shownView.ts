@@ -82,11 +82,6 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
     case "block":
       side(ev.side).block += ev.amount;
       break;
-    case "coinsGained": {
-      const p = v.players.find((q) => q.id === ev.player);
-      if (p) p.coins += ev.amount;
-      break;
-    }
     case "passive":
       if (ev.passive === "warden") v.locked = ev.spark ?? null;
       else if (ev.passive === "glutton") v.enemy.health += ev.amount ?? 0;

@@ -81,8 +81,8 @@ Use the icon style words with "glowing magical energy effect" in the subject, bu
 ### Traits and markers: `ui/<id>.png`, 128×128, transparent
 `ignores_block` (arrow through a shield), `locked` (padlock), `blessed` (halo or sun), `coin`, `health` (heart), `charm_normal` (round frame), `charm_rare` (gold diamond frame). The HUD block shield is drawn in code, not generated. `spectrum` and `no_lap` are no longer used after M9.
 
-### Domino tiles: `tiles/<id>.png`, 480×240, transparent
-`starter`, `common`, `uncommon`, `rare`, `hidden` (face-down back). `enemy` is no longer used after M9: enemies don't play dominoes. A completely blank face with no divider lines: the game draws its own intake, effect and output columns, the sparks, effect icons and numbers on top. Keep the face light so dark numbers stay readable. Rarity can show in the frame (plain, silver, gold). The same tile is used for amplifiers, junctions and caps; the game draws the difference.
+### Domino tiles: `tiles/hidden.png`, 480×240, transparent
+Only `hidden` (the face-down back for deck piles) is used. Domino faces are drawn in code from #217, in a shape per kind (see "Domino look" in `docs/decisions.md`). `starter`, `common`, `uncommon` and `rare` retire with #217, and `enemy` retired with M9. Don't generate domino faces again.
 
 ### Enemies: `enemies/<id>.png`, 768×768, transparent
 Portrait, head and shoulders or full body, facing slightly toward the viewer.
