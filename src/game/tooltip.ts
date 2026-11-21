@@ -51,6 +51,9 @@ export function tipLines(domino: Domino, previews?: TipPreview[]): TipLine[] {
   lines.push({ text: effectText(domino) });
   if (domino.output.length > 0) lines.push({ text: `Output: ${domino.output.join(" and ")}` });
   if (domino.effect?.ignoresBlock) lines.push({ text: "Ignores block", style: "dim" });
+  if (domino.upgraded && domino.upgraded.length > 0) {
+    lines.push({ text: `Upgraded: ${domino.upgraded.length > 1 ? "both" : domino.upgraded[0]}`, style: "dim" });
+  }
   if (previews && previews.length > 0) {
     lines.push({ text: "If played now", style: "head" });
     const seen = new Set<string>();

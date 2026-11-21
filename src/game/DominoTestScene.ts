@@ -2,6 +2,8 @@ import Phaser from "phaser";
 import { loadContent } from "../engine/content";
 import { DOMINO_STATES, drawAnySymbol, drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import type { DominoState } from "./dominoDrawing";
+import type { Domino } from "../engine/types";
+import { hexColour, seatColourData } from "./presentation";
 import { SPARK_ORDER, SPARK_STYLE } from "./sparks";
 
 const dominoes = loadContent().dominoes;
@@ -51,7 +53,35 @@ export class DominoTestScene extends Phaser.Scene {
       });
     });
 
-    this.cameras.main.setBounds(0, 0, 1920, top + dominoes.length * rowH);
+    // Variants of one amplifier, junction and cap: owner stripe, rarity gems, upgrade star, a dual
+    // and an "any" intake, and the ignores-block sigil. Each at both sizes.
+    const base = (kind: Domino["kind"]) => dominoes.find((d) => d.kind === kind) as Domino;
+    const amp = base("amplifier");
+    const junction = base("junction");
+    const cap = dominoes.find((d) => d.kind === "cap" && d.effect?.kind === "damage") ?? base("cap");
+    const spark = (i: number) => SPARK_ORDER[i % SPARK_ORDER.length];
+    const variants: { name: string; d: Domino; owner?: boolean }[] = [];
+    for (const [kind, d] of [["amplifier", amp], ["junction", junction], ["cap", cap]] as const) {
+      variants.push({ name: `${kind}, owner stripe`, d, owner: true });
+      variants.push({ name: `${kind}, common`, d: { ...d, rarity: "common" } });
+      variants.push({ name: `${kind}, uncommon, star`, d: { ...d, rarity: "uncommon", upgraded: ["left"] } });
+      variants.push({ name: `${kind}, rare, any`, d: { ...d, rarity: "rare", upgraded: ["left", "right"], intake: "any" }, owner: true });
+      variants.push({ name: `${kind}, dual intake`, d: { ...d, intake: [spark(0), spark(1)] } });
+      variants.push({ name: `${kind}, same outputs`, d: { ...d, output: d.output.map(() => spark(2)) } });
+    }
+    variants.push({ name: "cap, ignores block", d: { ...cap, effect: { ...(cap.effect ?? { kind: "damage", base: 4 }), ignoresBlock: true }, rarity: "rare" }, owner: true });
+    const seat = hexColour(seatColourData.colours[0]);
+    const vTop = top + dominoes.length * rowH + 80;
+    label(40, vTop - 60, "Variants (both sizes)", "30px").setColor("#ffe14d");
+    variants.forEach((v, i) => {
+      const x = 200 + (i % 6) * 300;
+      const y = vTop + Math.floor(i / 6) * 330;
+      label(x - 130, y - 100, v.name, "18px").setColor("#9fc7b3");
+      drawDomino(this, v.d, "large", "normal", v.owner ? { owner: seat } : {}).setPosition(x, y);
+      drawDomino(this, v.d, "small", "normal", v.owner ? { owner: seat } : {}).setPosition(x, y + 120);
+    });
+
+    this.cameras.main.setBounds(0, 0, 1920, vTop + Math.ceil(variants.length / 6) * 330);
     this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
       this.cameras.main.scrollY += dy;
     });
