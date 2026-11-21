@@ -1,6 +1,8 @@
 {
-  "comment": "One entry per sound cue. file is under public/audio/. volume 0-1. minGapMs: shortest gap between two plays of the cue at 1x, multiplied by the playback speed so fast playback plays fewer sounds. rises: the pitch climbs by tickPitch.stepCents for each step the caller passes (cascade steps, heat tiers), never slowed audio, only pitch. baseCents: a fixed pitch shift (negative is lower).",
+  "comment": "One entry per sound cue. A cue has either file (under public/audio/) or layers: [{file, volume, cents}] that play together (layer volume multiplies the cue's, cents shifts that layer's pitch). volume 0-1. minGapMs: shortest gap between two plays at 1x, multiplied by the playback speed so fast playback plays fewer sounds. rises: pitch climbs by tickPitch.stepCents per step the caller passes. scale: name of an entry in scales (semitone steps, repeating an octave up); the step argument picks the note (1 = first), capped at maxStep (index of the top note); randomStep picks a random note 0..maxStep instead. baseCents: fixed pitch shift (negative is lower). fastFallback: {cue, atSpeed}: at that playback speed or faster, play the named shorter cue instead. limiter: DynamicsCompressorNode values (dB, dB, ratio, s, s) on the final output.",
   "tickPitch": { "stepCents": 80, "maxSteps": 12 },
+  "scales": {"majorPentatonic": [0, 2, 4, 7, 9]},
+  "limiter": { "threshold": -10, "knee": 8, "ratio": 12, "attack": 0.003, "release": 0.2 },
   "cues": {
     "click": { "file": "interface/click_001.ogg", "volume": 0.5, "minGapMs": 60 },
     "clack": { "file": "impact/impactWood_medium_000.ogg", "volume": 0.8, "minGapMs": 50 },
@@ -12,7 +14,7 @@
     "lightning": { "file": "impact/impactPlate_heavy_000.ogg", "volume": 0.8, "minGapMs": 200 },
     "tally": { "file": "interface/confirmation_001.ogg", "volume": 0.7, "minGapMs": 300 },
     "junction": { "file": "interface/switch_001.ogg", "volume": 0.5, "minGapMs": 100, "rises": true },
-    "effect:damage": { "file": "impact/impactGeneric_light_000.ogg", "volume": 0.8, "minGapMs": 80, "rises": true },
+    "effect:damage": { "file": "impact/impactGeneric_light_000.ogg", "volume": 0.4, "minGapMs": 80, "rises": true },
     "effect:block": { "file": "impact/impactPlate_light_000.ogg", "volume": 0.7, "minGapMs": 80, "rises": true },
     "effect:amplify": { "file": "interface/maximize_001.ogg", "volume": 0.6, "minGapMs": 120, "rises": true },
     "effect:echo": { "file": "interface/bong_001.ogg", "volume": 0.5, "minGapMs": 120, "rises": true },
@@ -24,7 +26,7 @@
     "coins": { "file": "casino/chips-collide-1.ogg", "volume": 0.7, "minGapMs": 100, "rises": true },
     "buy": { "file": "casino/chips-handle-1.ogg", "volume": 0.7, "minGapMs": 100 },
     "rest": { "file": "interface/confirmation_002.ogg", "volume": 0.7, "minGapMs": 300 },
-    "launch:damage": { "file": "interface/switch_001.ogg", "volume": 0.45, "minGapMs": 70, "rises": true },
+    "launch:damage": { "file": "interface/switch_001.ogg", "volume": 0.2, "minGapMs": 70, "rises": true },
     "launch:block": { "file": "interface/open_001.ogg", "volume": 0.4, "minGapMs": 90 },
     "impact:block": { "file": "impact/impactPlate_light_000.ogg", "volume": 0.8, "minGapMs": 80 },
     "enemyHit": { "file": "impact/impactWood_medium_000.ogg", "volume": 0.7, "minGapMs": 70, "baseCents": -300 },
@@ -35,6 +37,23 @@
     "lunge": { "file": "interface/scratch_001.ogg", "volume": 0.5, "minGapMs": 150, "baseCents": -400 },
     "impact": { "file": "impact/impactMetal_heavy_000.ogg", "volume": 0.8, "minGapMs": 120, "baseCents": -200 },
     "enemyShield": { "file": "impact/impactPlate_light_000.ogg", "volume": 0.6, "minGapMs": 150, "baseCents": -300 },
-    "heal": { "file": "interface/confirmation_002.ogg", "volume": 0.5, "minGapMs": 300, "baseCents": 200 }
+    "heal": { "file": "interface/confirmation_002.ogg", "volume": 0.5, "minGapMs": 300, "baseCents": 200 },
+    "combo:hit": { "layers": [{ "file": "interface/glass_002.ogg", "volume": 0.8 }, { "file": "interface/bong_001.ogg", "volume": 0.5, "cents": -1200 }], "volume": 0.8, "minGapMs": 45, "scale": "majorPentatonic", "maxStep": 14 },
+    "combo:block": { "layers": [{ "file": "impact/impactPlate_light_000.ogg", "volume": 0.8 }, { "file": "interface/bong_001.ogg", "volume": 0.5, "cents": -1200 }], "volume": 0.8, "minGapMs": 45, "baseCents": -500, "scale": "majorPentatonic", "maxStep": 14 },
+    "combo:tier1": { "layers": [{ "file": "interface/confirmation_002.ogg", "volume": 0.9 }], "volume": 0.8, "minGapMs": 300 },
+    "combo:tier2": { "layers": [{ "file": "interface/confirmation_002.ogg", "volume": 0.9 }, { "file": "interface/maximize_001.ogg", "volume": 0.5, "cents": 400 }], "volume": 0.85, "minGapMs": 300, "baseCents": 200 },
+    "combo:tier3": { "layers": [{ "file": "interface/confirmation_002.ogg", "volume": 0.9 }, { "file": "interface/confirmation_001.ogg", "volume": 0.7, "cents": 400 }, { "file": "interface/glass_002.ogg", "volume": 0.6, "cents": 700 }], "volume": 0.9, "minGapMs": 300, "baseCents": 400 },
+    "combo:tier4": { "layers": [{ "file": "interface/confirmation_002.ogg", "volume": 0.9 }, { "file": "interface/confirmation_001.ogg", "volume": 0.8, "cents": 400 }, { "file": "interface/glass_002.ogg", "volume": 0.7, "cents": 700 }, { "file": "impact/impactPlate_heavy_000.ogg", "volume": 0.7, "cents": -900 }], "volume": 1.0, "minGapMs": 300, "baseCents": 600 },
+    "combo:lethal": { "layers": [{ "file": "interface/maximize_001.ogg", "volume": 0.8, "cents": -800 }, { "file": "interface/scratch_001.ogg", "volume": 0.5, "cents": -1200 }], "volume": 0.9, "minGapMs": 500 },
+    "combo:charge": { "layers": [{ "file": "interface/maximize_001.ogg", "volume": 0.7, "cents": -1200 }, { "file": "interface/bong_001.ogg", "volume": 0.5, "cents": -2400 }], "volume": 0.7, "minGapMs": 300 },
+    "combo:slam": { "layers": [{ "file": "impact/impactMetal_heavy_000.ogg", "cents": -1200 }, { "file": "impact/impactPlate_heavy_000.ogg", "volume": 0.8, "cents": -800 }, { "file": "interface/drop_001.ogg", "volume": 0.6, "cents": -600 }], "volume": 0.9, "minGapMs": 300 },
+    "combo:slamLethal": { "layers": [{ "file": "impact/impactMetal_heavy_000.ogg", "cents": -1400 }, { "file": "impact/impactPlate_heavy_000.ogg", "volume": 0.9, "cents": -1000 }, { "file": "interface/drop_001.ogg", "volume": 0.7, "cents": -800 }, { "file": "casino/chips-collide-1.ogg", "volume": 0.6, "cents": -500 }, { "file": "interface/glass_002.ogg", "volume": 0.5, "cents": -500 }], "volume": 1.0, "minGapMs": 300 },
+    "combo:fanfare0": { "layers": [{ "file": "interface/glass_002.ogg", "volume": 0.7, "cents": 700 }, { "file": "casino/chips-collide-1.ogg", "volume": 0.5 }], "volume": 0.7, "minGapMs": 400 },
+    "combo:fanfare1": { "layers": [{ "file": "interface/confirmation_002.ogg", "volume": 0.8 }, { "file": "casino/chips-collide-1.ogg", "volume": 0.6 }, { "file": "interface/glass_002.ogg", "volume": 0.5, "cents": 700 }], "volume": 0.8, "minGapMs": 400 },
+    "combo:fanfare2": { "layers": [{ "file": "interface/confirmation_002.ogg", "volume": 0.8 }, { "file": "interface/confirmation_001.ogg", "volume": 0.7, "cents": 400 }, { "file": "casino/chips-collide-1.ogg", "volume": 0.7 }, { "file": "casino/chips-handle-1.ogg", "volume": 0.5 }], "volume": 0.85, "minGapMs": 400, "fastFallback": { "cue": "combo:fanfare1", "atSpeed": 4 } },
+    "combo:fanfare3": { "layers": [{ "file": "interface/confirmation_002.ogg", "volume": 0.8 }, { "file": "interface/confirmation_001.ogg", "volume": 0.7, "cents": 400 }, { "file": "interface/glass_002.ogg", "volume": 0.6, "cents": 700 }, { "file": "casino/chips-collide-1.ogg", "volume": 0.8 }, { "file": "casino/chips-handle-1.ogg", "volume": 0.6 }], "volume": 0.9, "minGapMs": 400, "fastFallback": { "cue": "combo:fanfare1", "atSpeed": 2 } },
+    "combo:fanfare4": { "layers": [{ "file": "interface/confirmation_002.ogg", "volume": 0.9 }, { "file": "interface/confirmation_001.ogg", "volume": 0.8, "cents": 400 }, { "file": "interface/glass_002.ogg", "volume": 0.7, "cents": 700 }, { "file": "casino/chips-collide-1.ogg", "volume": 0.9 }, { "file": "casino/chips-handle-1.ogg", "volume": 0.7 }, { "file": "impact/impactPlate_heavy_000.ogg", "volume": 0.5, "cents": -900 }], "volume": 1.0, "minGapMs": 400, "fastFallback": { "cue": "combo:fanfare2", "atSpeed": 2 } },
+    "combo:fanfareLethal": { "layers": [{ "file": "interface/confirmation_002.ogg" }, { "file": "interface/confirmation_001.ogg", "volume": 0.9, "cents": 400 }, { "file": "interface/glass_002.ogg", "volume": 0.8, "cents": 700 }, { "file": "casino/chips-collide-1.ogg" }, { "file": "casino/chips-handle-1.ogg", "volume": 0.8 }, { "file": "impact/impactMetal_heavy_000.ogg", "volume": 0.7, "cents": -1200 }], "volume": 1.0, "minGapMs": 400, "fastFallback": { "cue": "combo:fanfare3", "atSpeed": 4 } },
+    "combo:coin": { "layers": [{ "file": "casino/chips-collide-1.ogg", "volume": 0.8 }, { "file": "interface/glass_002.ogg", "volume": 0.4, "cents": 1200 }], "volume": 0.5, "minGapMs": 30, "scale": "majorPentatonic", "maxStep": 9, "randomStep": true }
   }
 }
