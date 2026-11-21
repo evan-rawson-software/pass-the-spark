@@ -27,6 +27,8 @@ export interface CombatCtx {
   // Marks where a seat's deck is, so its draw animation flies from there: `text` shows the count.
   deckSpot(layer: Layer, seat: string, x: number, y: number, text: Phaser.GameObjects.Text): void;
   openDeck(seat: string): void;
+  // The cascade reached the line and the slam has not yet staggered the enemy: the intent card still shows the full attack.
+  staggerHeld(): boolean;
 }
 
 // A text object's size, shrunk so it is at most `maxW` wide.
