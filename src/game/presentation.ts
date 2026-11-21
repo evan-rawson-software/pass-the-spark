@@ -12,3 +12,5 @@ export function hexColour(hex: string): number {
 }
 
 export const reactionData = presentation.enemyReactions;
+
+export const speedControlData = presentation.speedControl;
