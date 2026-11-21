@@ -105,6 +105,7 @@ export function validateEnemies(data: unknown): Enemy[] {
     checkString(file, id, item, "name");
     if (typeof item.tier !== "string" || !TIERS.includes(item.tier)) fail(file, id, `unknown tier ${JSON.stringify(item.tier)}`);
     checkPositive(file, id, item, "maxHealth");
+    checkWhole(file, id, item, "line");
     const intentIds = checkIntents(file, id, item.intents);
     checkPattern(file, id, item.pattern, intentIds);
     if (!Array.isArray(item.passives)) fail(file, id, `"passives" must be a list`);

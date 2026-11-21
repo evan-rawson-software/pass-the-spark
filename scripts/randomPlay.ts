@@ -22,6 +22,8 @@ export interface CascadeStats {
   caps: number; // caps among them
   fizzled: number; // ends left uncapped
   damage: number; // damage that reached the enemy's health
+  combo: number; // the combo total: every hit, before enemy block
+  lineReached: boolean; // the combo total reached the enemy's line (the enemy was staggered)
   damageCaps: number; // damage caps that went off
   blockCaps: number; // block caps that went off
 }
@@ -80,7 +82,7 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
   const stats: BattleStats = {
     result: null, rounds: 0, turns: 0, enemyHealth: state.enemy.health, turnsWithChoice: 0, turnsWithPlays: 0, choices: 0, playOptions: 0, cascades: [], steps: 0, final: state,
   };
-  const fresh = (): CascadeStats => ({ nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0, damageCaps: 0, blockCaps: 0 });
+  const fresh = (): CascadeStats => ({ nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0, combo: 0, lineReached: false, damageCaps: 0, blockCaps: 0 });
   let cascade = fresh();
   let last = -1; // the seat that acted last
   while (state.phase !== "over" && stats.steps < maxSteps) {
@@ -104,7 +106,10 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
         if (kind === "junction") cascade.junctions += 1;
         if (kind === "cap") cascade.caps += 1;
       } else if (e.type === "fizzle") cascade.fizzled += 1;
-      else if (e.type === "damage" && e.side === "enemy") cascade.damage += e.amount;
+      else if (e.type === "damage" && e.side === "enemy") {
+        cascade.damage += e.amount;
+        cascade.combo += e.amount + e.blocked; // a hit before block
+      } else if (e.type === "lineReached") cascade.lineReached = true;
       else if (e.type === "capFired" && e.effect === "damage") cascade.damageCaps += 1;
       else if (e.type === "capFired" && e.effect === "block") cascade.blockCaps += 1;
     }
