@@ -10,3 +10,5 @@ export const fxData = presentation.fx;
 export function hexColour(hex: string): number {
   return parseInt(hex.replace("#", ""), 16);
 }
+
+export const reactionData = presentation.enemyReactions;

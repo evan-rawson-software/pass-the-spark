@@ -48,7 +48,24 @@
     "impact": { "ms": 420, "sizeFactor": 1.5, "ringFactor": 0.7, "burstScale": [0.4, 1.3], "ringScale": [0.5, 1.8], "slashColour": "0xffffff", "softAlpha": 0.5 },
     "pulse": { "scale": 1.4, "ms": 220 },
     "coinPop": { "size": 36, "colour": "#ffd23f", "ms": 900 },
-    "seatGlow": { "sizeFactor": 1.5, "ms": 520, "alpha": 0.9, "capFactor": 2.4, "capMs": 700, "reducedAlpha": 0.3, "reducedMs": 800 },
-    "shieldCrack": { "lines": 6, "ms": 600, "lineWidth": 3, "colour": "0xffffff", "minLength": 26, "extraLength": 14, "shards": 7, "shardSize": 26, "shardColour": "0x9cc4ff", "shardDistance": 80 }
+    "seatGlow": { "sizeFactor": 1.5, "ms": 520, "alpha": 0.9, "capFactor": 2.4, "capMs": 700, "reducedAlpha": 0.3, "reducedMs": 800 }
+  },
+  "enemyReactions": {
+    "comment": "Enemy reactions (#190), read by src/game/enemyReactions.ts. Times are ms at 1x (scaled by playback speed), distances px on the 1920x1080 table. A hit of at least staggerMin damage staggers instead of flinching. The ghost bar waits delayMs after the last hit, then drains to the real value at perPointMs per point (between minMs and maxMs), so a run of hits shares one drain. Shield cracks show at each crack fraction of the block worn down.",
+    "body": { "x": 1410, "y": 165, "size": 250 },
+    "flinch": { "dx": 14, "dy": -8, "ms": 90, "flashAlpha": 0.45, "flashColour": "#ffffff" },
+    "stagger": { "staggerMin": 12, "dx": 34, "dy": -20, "ms": 160, "rotation": 0.07, "wobbles": 3, "flashColour": "#ff6a5f" },
+    "ghost": { "colour": "#ffffff", "alpha": 0.55, "delayMs": 600, "perPointMs": 14, "minMs": 350, "maxMs": 1800 },
+    "shield": { "cracks": [0.25, 0.5, 0.75], "shatterShards": 7, "shatterSize": 30, "shatterMs": 520, "shatterSpread": 70 },
+    "intent": { "pulseMs": 380, "holdMs": 300, "scale": 1.12 },
+    "lunge": { "dy": 150, "scale": 1.18, "ms": 170, "returnMs": 260 },
+    "impact": { "shakeMs": 260, "shakeIntensity": 0.006, "flashMs": 320, "flashAlpha": 0.35, "blockFirstMs": 350 },
+    "raise": { "ms": 420, "holdMs": 380, "rise": 60, "size": 150 },
+    "heal": { "ms": 700, "colour": "#5be37d", "size": 420 },
+    "freeze": { "ms": 140, "bossMs": 260 },
+    "death": {
+      "normal": { "ms": 700, "shards": 12, "shardSize": 42, "spread": 220, "ringSize": 420, "shakeIntensity": 0.008, "colour": "#ffe9c8" },
+      "boss": { "ms": 1400, "shards": 28, "shardSize": 64, "spread": 380, "ringSize": 760, "shakeIntensity": 0.016, "colour": "#ffb066" }
+    }
   }
 }

@@ -37,7 +37,6 @@ const D = presentation.projectiles as unknown as {
   pulse: { scale: number; ms: number };
   coinPop: { size: number; colour: string; ms: number };
   seatGlow: { sizeFactor: number; ms: number; alpha: number; capFactor: number; capMs: number; reducedAlpha: number; reducedMs: number };
-  shieldCrack: { lines: number; ms: number; lineWidth: number; colour: string; minLength: number; extraLength: number; shards: number; shardSize: number; shardColour: string; shardDistance: number };
 };
 
 interface Point { x: number; y: number }
@@ -161,7 +160,6 @@ export class Projectiles {
     const seat = seatColour(shown.seatOrder, ev.owner);
     // Enemy block as the shots come: what is left decides who hits the shield and who the bar.
     let left = Math.max(0, shown.enemy.block - this.unapplied);
-    const startBlock = Math.max(1, left);
     const ignores = kind === "damage" && shown.dominoes.find((d) => d.id === ev.domino)?.effect?.ignoresBlock === true;
     let spawned = 0;
     for (let i = 0; i < ev.triggers; i++) {
@@ -170,18 +168,18 @@ export class Projectiles {
       left -= absorbed;
       this.unapplied += absorbed;
       const into = this.open[kind].length >= D.maxOnScreen ? this.open[kind][this.open[kind].length - 1] : undefined;
-      const shot = into ?? this.newShot(ev, at, refs, before, startBlock, ignores, spawned++, seat);
+      const shot = into ?? this.newShot(ev, at, refs, before, ignores, spawned++, seat);
       if (into) this.fold(into, ev.value);
       shot.slot.absorbed += absorbed;
       this.queue[kind].push(shot.slot);
     }
   }
 
-  private newShot(ev: Cap, at: Point, refs: TargetRefs, left: number, startBlock: number, ignores: boolean, n: number, seat: number): Shot {
+  private newShot(ev: Cap, at: Point, refs: TargetRefs, left: number, ignores: boolean, n: number, seat: number): Shot {
     const kind = ev.effect;
     const slot: Slot = { done: false, fns: [], absorbed: 0 };
     this.openSlots.add(slot);
-    const shot: Shot = { kind, value: ev.value, count: 1, slot, legs: this.legs(kind, ev, at, refs, left, startBlock, ignores), delay: n * D.staggerMs, baseSize: tierOf(ev.value).size };
+    const shot: Shot = { kind, value: ev.value, count: 1, slot, legs: this.legs(kind, ev, at, refs, left, ignores), delay: n * D.staggerMs, baseSize: tierOf(ev.value).size };
     this.open[kind].push(shot);
     const gen = this.gen;
     const flight = this.fly(shot, at, seat, gen).finally(() => this.flights.delete(flight));
@@ -199,7 +197,7 @@ export class Projectiles {
     }
   }
 
-  private legs(kind: Kind, ev: Cap, at: Point, refs: TargetRefs, left: number, startBlock: number, ignores: boolean): Leg[] {
+  private legs(kind: Kind, ev: Cap, at: Point, refs: TargetRefs, left: number, ignores: boolean): Leg[] {
     if (kind === "damage") {
       const bar = refs.bars.get("enemy");
       const sh = refs.shields.get("enemy");
@@ -207,9 +205,9 @@ export class Projectiles {
       const onBar: Leg = { to: barAt, land: (s) => this.hit(barAt, tierOf(s.value), "damage") };
       if (!sh || ignores || left <= 0) return [{ ...onBar, pass: sh && ignores && left > 0 ? { x: sh.x, y: sh.y } : undefined }];
       const shAt = { x: sh.x, y: sh.y };
+      // The shot lands on the shield; the enemy reactions (#190) crack it when the damage event arrives.
       const absorbed = Math.min(left, ev.value);
-      const remaining = left - absorbed;
-      const legs: Leg[] = [{ to: shAt, land: (s) => this.shieldHit(shAt, tierOf(s.value), 1 - remaining / startBlock, remaining === 0) }];
+      const legs: Leg[] = [{ to: shAt, land: (s) => this.hit(shAt, tierOf(s.value), "block", null) }];
       if (ev.value > absorbed) legs.push(onBar);
       return legs;
     }
@@ -287,7 +285,7 @@ export class Projectiles {
   // ---- landings ----
 
   // An impact burst at the target, bigger for a bigger shot, louder too.
-  private hit(at: Point, tier: Tier, kind: Kind, sound = `impact:${kind}`): void {
+  private hit(at: Point, tier: Tier, kind: Kind, sound: string | null = `impact:${kind}`): void {
     const im = D.impact;
     const colour = colourOf(kind);
     const size = tier.size * im.sizeFactor;
@@ -300,7 +298,7 @@ export class Projectiles {
       this.scene.tweens.add({ targets: parts, scale: { from: im.burstScale[0], to: im.burstScale[1] }, alpha: { from: 1, to: 0 }, duration: scaleTime(im.ms), ease: "Cubic.easeOut", onComplete: () => parts.forEach((p) => p.destroy()) });
     }
     this.ring(at, colour, size * im.ringFactor, soft ? im.softAlpha : 1);
-    playSound(sound, 1, tier.gain);
+    if (sound) playSound(sound, 1, tier.gain);
   }
 
   private ring(at: Point, colour: number, size: number, alpha: number): void {
@@ -313,35 +311,6 @@ export class Projectiles {
     const text = this.refs().shields.get(side)?.text;
     if (!text || !text.active) return;
     this.scene.tweens.add({ targets: text, scale: D.pulse.scale, duration: scaleTime(D.pulse.ms / 2), yoyo: true, ease: "Quad.easeOut" });
-  }
-
-  // The enemy's shield takes the hit and cracks more as its block runs out; at zero it shatters.
-  private shieldHit(at: Point, tier: Tier, worn: number, broken: boolean): void {
-    const sc = D.shieldCrack;
-    const g = this.scene.add.graphics().setDepth(97).setPosition(at.x, at.y);
-    g.lineStyle(sc.lineWidth, hexColour(sc.colour), 1);
-    const lines = Math.max(1, Math.ceil(sc.lines * Math.min(1, worn)));
-    for (let i = 0; i < lines; i++) {
-      const a = (i / sc.lines) * Math.PI * 2 + 0.4;
-      const len = sc.minLength + (i % 2) * sc.extraLength;
-      g.beginPath();
-      g.moveTo(0, 0);
-      g.lineTo(Math.cos(a) * len * 0.5 + 4, Math.sin(a) * len * 0.5 - 3);
-      g.lineTo(Math.cos(a) * len, Math.sin(a) * len);
-      g.strokePath();
-    }
-    this.scene.tweens.add({ targets: g, alpha: 0, duration: scaleTime(sc.ms), ease: "Cubic.easeIn", onComplete: () => g.destroy() });
-    this.hit(at, tier, "block", "impact:shield"); // one impact sound: the shield's
-    if (!broken) return;
-    for (let i = 0; i < sc.shards; i++) {
-      const a = (i / sc.shards) * Math.PI * 2;
-      const s = fxObject(this.scene, "shard", at.x, at.y, sc.shardSize, hexColour(sc.shardColour)) as Phaser.GameObjects.Image;
-      s.setDepth(97);
-      this.scene.tweens.add({
-        targets: s, x: at.x + Math.cos(a) * sc.shardDistance, y: at.y + Math.sin(a) * sc.shardDistance + 30, angle: 180, alpha: 0, duration: scaleTime(sc.ms),
-        ease: "Cubic.easeOut", onComplete: () => s.destroy(),
-      });
-    }
   }
 }
 

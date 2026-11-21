@@ -56,7 +56,7 @@ Scenes almost always get a painted artist signature in a bottom corner, and anyt
 
 The branching cascade redesign (M9, `docs/design-branching-cascade.md`) changed some of this list:
 - **New:** `charms/junction_runner.png` (a forked signpost), for the charm that replaces Lap Runner. Shipped (#193).
-- **Retired once the `cascade` branch merges into `main`:** `charms/lap_runner.png`, `ui/spectrum.png`, `ui/no_lap.png` and `tiles/enemy.png`. `main` still uses them until then, so keep the files and their manifest entries for now.
+- **Retired with M9:** `charms/lap_runner.png`, `ui/spectrum.png`, `ui/no_lap.png` and `tiles/enemy.png` were removed, with their manifest entries, when `cascade` merged into `main`. Don't generate them again.
 
 ### Sparks: `sparks/<Spark>.png`, 256×256, transparent
 `Ember`, `Tide`, `Gale`, `Storm`, `Void`, `Rot`. A glowing glyph in the spark's colour and shape. These sit on domino halves, so keep them simple.
