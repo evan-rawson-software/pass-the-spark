@@ -30,6 +30,10 @@
     "ring": { "lineWidthFraction": 0.06, "alpha": 0.9 },
     "fallbackAlpha": 0.95
   },
+  "speedControl": {
+    "comment": "Combat playback speed button and its list (#220), read by src/game/speedControl.ts. Px on the 1920x1080 table. The button sits with its right edge at right; the list opens upward, gap above it, and is moved down if it would leave the screen.",
+    "right": 1875, "y": 960, "buttonW": 112, "buttonH": 40, "itemH": 44, "gap": 8, "fontSize": 24, "depth": 650
+  },
   "enemyReactions": {
     "comment": "Enemy reactions (#190), read by src/game/enemyReactions.ts. Times are ms at 1x (scaled by playback speed), distances px on the 1920x1080 table. A hit of at least staggerMin damage staggers instead of flinching. The ghost bar waits delayMs after the last hit, then drains to the real value at perPointMs per point (between minMs and maxMs), so a run of hits shares one drain. Shield cracks show at each crack fraction of the block worn down.",
     "body": { "x": 1410, "y": 165, "size": 250 },

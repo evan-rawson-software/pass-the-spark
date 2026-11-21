@@ -32,7 +32,8 @@ import type { GameSettings } from "./devBattle";
 import { eventDelay, newLogMemory, trackEvent } from "./eventLog";
 import { debugPanel } from "./DebugPanel";
 import type { DebugHost } from "./DebugPanel";
-import { SPEEDS, getPlaybackSpeed, onPlaybackSpeedChange, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
+import { scaleTime } from "./playbackSpeed";
+import { SpeedControl } from "./speedControl";
 import { Animator, SKIP_SPEED, animTime, newRefs, paintBar } from "./animations";
 import { boardGlow } from "./spectacle";
 import { applyEvent, startShown } from "./shownView";
@@ -123,6 +124,7 @@ export class CombatScene extends Phaser.Scene {
   private shown: ShownTable | null = null; // the table part-way through a step; null when idle
   private inCascade = false; // a cascade is playing on this screen: a click or Space may skip it
   private skipping = false; // this player skipped it: the rest of the step is applied at once
+  private speed!: SpeedControl;
   private skipHint?: Phaser.GameObjects.Text;
   private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
   private inRun = false; // single player inside a run
@@ -137,8 +139,6 @@ export class CombatScene extends Phaser.Scene {
   create(data: { settings?: GameSettings; seed?: number; devQuery?: boolean; online?: OnlineData; run?: boolean }): void {
     const query = new URLSearchParams(window.location.search);
     const dev = devSettings(query);
-    const stopSpeed = onPlaybackSpeedChange(() => this.redraw()); // the menu can change the speed: keep the quick control in step
-    this.events.once("shutdown", stopSpeed);
     this.epoch++;
     this.online = data.online ?? null;
     this.inRun = data.run === true;
@@ -164,8 +164,9 @@ export class CombatScene extends Phaser.Scene {
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => this.onDragEnd(p));
     // A click on empty table or Space skips the cascade being played, on this screen only.
     this.input.on("pointerdown", (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-      if (over.length === 0) this.skipCascade();
+      if (over.length === 0 && !this.speed.isOpen()) this.skipCascade(); // a click that only closes the speed list is not a skip
     });
+    this.speed = new SpeedControl(this); // made after the skip handler, so that one sees the list still open; follows the menu setting itself
     this.input.keyboard?.on("keydown-SPACE", () => this.skipCascade());
     this.inCascade = false;
     this.skipping = false;
@@ -405,7 +406,6 @@ export class CombatScene extends Phaser.Scene {
     this.drawBoard(layer, view, active, pending);
     this.drawActiveHand(layer, view, active, pending, turn);
     if (this.selected !== null) this.showHints(layer, this.selected);
-    this.drawSpeedControl(layer);
     let others = view.players.filter((p) => p.id !== active);
     if (this.online) {
       // Teammates in seat order, starting with the one after you.
@@ -1091,26 +1091,6 @@ export class CombatScene extends Phaser.Scene {
         return;
       }
     }
-  }
-
-  private drawSpeedControl(layer: Layer): void {
-    const x = RIGHT_X;
-    const y = 960;
-    this.label(layer, x + SIDE_W / 2, y - 36, "Playback speed", 20, "#9fd1b8", 0.5, true);
-    SPEEDS.forEach((v, i) => {
-      const bx = x + i * 76;
-      const on = v === getPlaybackSpeed();
-      const g = this.gfx(layer);
-      g.fillStyle(on ? GOLD : 0x0d2a20, 0.95);
-      g.fillRoundedRect(bx, y - 18, 68, 36, 18);
-      this.label(layer, bx + 34, y, `${v}×`, 22, on ? "#2a2200" : "#ffffff", 0.5, true);
-      const z = this.add.zone(bx + 34, y, 68, 36).setInteractive({ useHandCursor: true });
-      z.on("pointerdown", () => {
-        setPlaybackSpeed(v);
-        this.redraw();
-      });
-      layer.add(z);
-    });
   }
 
   // ---- submitting and playback ----
