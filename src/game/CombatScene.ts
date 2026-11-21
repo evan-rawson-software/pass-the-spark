@@ -31,7 +31,7 @@ import { SpeedControl } from "./speedControl";
 import { Animator, SKIP_SPEED, animTime, newRefs, paintBar } from "./animations";
 import type { Pos } from "./animations";
 import { FuseBoard, boardArea, chargesInto, liveNumber } from "./fuseBoard";
-import { HandFan, handArea } from "./handFan";
+import { HandRow, handArea } from "./handRow";
 import { SetOffPreviewUi } from "./setOffPreview";
 import { boardGlow } from "./spectacle";
 import { litGlowStrength } from "./buildup";
@@ -83,7 +83,7 @@ interface Box { x: number; y: number; w: number; h: number } // centred on x, y
 const FONT = "Arial, Helvetica, sans-serif";
 
 // Table regions (1920x1080), from data/presentation.json (combatLayout).
-// The board's area (boardArea) and the hand's place (handArea and the pile positions) are rectangles in data, not placed from other parts here.
+// The board's area (boardArea) and the hand's place (handArea) are rectangles in data, not placed from other parts here.
 const ACTIONS = combatLayoutData.actions;
 
 export class CombatScene extends Phaser.Scene {
@@ -98,8 +98,8 @@ export class CombatScene extends Phaser.Scene {
   private locked = false; // true while events play back: no input
   private selected: string | null = null; // a clicked hand domino, waiting for an open end
   private board?: FuseBoard; // the fuse board as drawn (fuseBoard.ts)
-  private fan?: HandFan; // your hand as drawn (handFan.ts)
-  private hoverKey: string | null = null; // the hand domino under the pointer (a fan key), playable or not
+  private handRow?: HandRow; // your hand as drawn (handRow.ts)
+  private hoverKey: string | null = null; // the hand domino under the pointer (a hand key), playable or not
   private handPlayable = new Set<string>(); // the engine's playable ids in the hand as drawn
   private openCharge = new Map<number, number>(); // the charge reaching each open end, for the player acting
   private intoKey = "";
@@ -154,7 +154,7 @@ export class CombatScene extends Phaser.Scene {
     this.seed = this.inRun ? runSeed() : data.seed ?? dev.seed;
     this.layer = undefined;
     this.board = undefined;
-    this.fan = undefined;
+    this.handRow = undefined;
     this.hoverKey = null;
     this.hoverId = null;
     this.shown = null;
@@ -392,7 +392,7 @@ export class CombatScene extends Phaser.Scene {
     this.tooltip.hide();
     this.hoverPlay = null;
     this.board?.destroy(); // stops any burn still running before its graphics go
-    this.fan?.destroy();
+    this.handRow?.destroy();
     this.layer?.destroy(true);
     const layer = this.add.container(0, 0);
     this.layer = layer;
@@ -565,13 +565,6 @@ export class CombatScene extends Phaser.Scene {
     const text = this.label(layer, x + s * 0.5 + 8, y, String(shownAmount), Math.round(s * 0.7), "#dbe6f5", 0, true);
     this.anim.refs.shields.set(key, { text, x, y, s });
     if (key === "enemy") this.anim.reactions.drawCracks(layer, x, y, s, shownAmount);
-  }
-
-  // A click area that opens the deck viewer on one player's tab. The viewer shows everyone's deck (#171).
-  private deckZone(layer: Layer, cx: number, cy: number, w: number, h: number, seat: string): void {
-    const z = this.add.zone(cx, cy, w, h).setInteractive({ useHandCursor: true });
-    z.on("pointerdown", () => openDeckViewer(this, battleDeckPlayers(this.view, (id) => this.nameOf(id, false)), seat));
-    layer.add(z);
   }
 
   // What the layout files draw with: this scene's helpers, registered with the animator.
@@ -762,19 +755,19 @@ export class CombatScene extends Phaser.Scene {
     }
   }
 
-  // What a hovered, picked or dragged hand domino shows: it lifts in the fan, its legal ends light up
+  // What a hovered, picked or dragged hand domino shows: it lifts in the row, its legal ends light up
   // and each shows the engine's preview of playing it there (previewPlay): a cap's value in green over
   // its sum (red when below its base), or the charge an amplifier or junction passes on. With an end
   // aimed at (a drag over it, a hover on it) that end is the one lit; the others stay, dimmer. Part of
   // refreshPreview, so the bar previews and the rail's NEXT highlight follow the same hover.
   private refreshLive(): void {
     const board = this.board;
-    const fan = this.fan;
-    if (!board || !fan) return;
+    const handRow = this.handRow;
+    if (!board || !handRow) return;
     board.clearLive();
     board.clearHighlight();
-    fan.pick(this.selected === null ? null : fan.items.find((i) => i.id === this.selected)?.key ?? null);
-    fan.hover(this.drag?.ghost ? null : this.hoverKey);
+    handRow.pick(this.selected === null ? null : handRow.items.find((i) => i.id === this.selected)?.key ?? null);
+    handRow.hover(this.drag?.ghost ? null : this.hoverKey);
     const view = this.view;
     const pending = this.locked || this.waiting || this.shown ? null : getPendingChoice(view);
     const id = this.hoverPlay?.domino ?? this.hoverId ?? this.selected;
@@ -795,7 +788,7 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- hands ----
 
-  // Your hand (fanned, handFan.ts) between your deck pile and your discard pile, all placed from data.
+  // Your hand (a straight row, handRow.ts) along the bottom, placed from data. Your deck and discard open from your seat tab.
   private drawActiveHand(layer: Layer, view: BattleView, active: string, pending: PendingChoice | null, turn: string): void {
     const p = view.players.find((x) => x.id === active);
     if (!p) return;
@@ -803,23 +796,21 @@ export class CombatScene extends Phaser.Scene {
     const onTurn = view.phase !== "over" && (!this.online || turn === active);
     const playable = new Set<string>(pending === null ? [] : pending.plays.map((o) => o.domino));
     this.handPlayable = playable;
-    const fan = new HandFan(this, layer, { onHover: (key) => this.onHandHover(key), onDown: (key, pointer) => this.onHandDown(key, pointer) });
-    this.fan = fan;
-    fan.draw({ hand: p.hand, dominoes: view.dominoes, playable: onTurn ? playable : null, owner: seatColour(view.seatOrder, p.id), deck: p.deck.length, discard: p.discard.length });
+    const handRow = new HandRow(this, layer, { onHover: (key) => this.onHandHover(key), onDown: (key, pointer) => this.onHandDown(key, pointer) });
+    this.handRow = handRow;
+    handRow.draw({ hand: p.hand, dominoes: view.dominoes, playable: onTurn ? playable : null, owner: seatColour(view.seatOrder, p.id) });
     const refs = this.anim.refs;
-    // The piles open this player's deck (#171); the animator draws new dominoes from the deck pile.
-    const deck = fan.deckPoint();
-    const discard = fan.discardPoint();
-    this.deckZone(layer, deck.x, deck.y, fan.deckRect().w, fan.deckRect().h, p.id);
-    this.deckZone(layer, discard.x, discard.y, fan.discardRect().w, fan.discardRect().h, p.id);
-    if (fan.deckPile && fan.deckText) refs.decks.set(p.id, { c: fan.deckPile, text: fan.deckText, x: deck.x, y: deck.y });
+    // New draws come in from the left edge of the row's area (the animator flies them from your deck's spot).
+    const entry = handRow.entryPoint();
+    const stack = refs.decks.get(p.id);
+    if (stack) { stack.x = entry.x; stack.y = entry.y; }
     if (p.hand.length === 0) {
       const a = handArea();
       this.label(layer, a.x + a.w / 2, a.y + a.h / 2, "No dominoes in hand", 28, "#7fb59b", 0.5);
     }
     const slots = this.slotsOf(p.id);
-    for (const it of fan.items) {
-      const pos = { x: it.slot.x, y: it.slot.y, k: it.slot.k, angle: it.slot.angle };
+    for (const it of handRow.items) {
+      const pos = { x: it.slot.x, y: it.slot.y, k: it.slot.k };
       slots[it.index] = { c: it.holder, pos };
       if (!refs.hand.has(it.id)) refs.hand.set(it.id, pos);
       const d = this.dominoOf(it.id);
@@ -831,7 +822,7 @@ export class CombatScene extends Phaser.Scene {
         attachHold(this, it.holder, () => this.sendPing(ping), can ? () => this.onHandTap(it.id) : undefined);
       }
     }
-    if (this.drag?.ghost) fan.setDragged(fan.items.find((i) => i.id === this.drag!.id)?.key ?? null);
+    if (this.drag?.ghost) handRow.setDragged(handRow.items.find((i) => i.id === this.drag!.id)?.key ?? null);
   }
 
   // The action bottom right (L7): Pass (or Pass and fire). Whose turn it is shows on the seat tabs.
@@ -843,13 +834,13 @@ export class CombatScene extends Phaser.Scene {
     });
   }
 
-  // The pointer on a hand domino: it lifts (fan), and, if playable, the hover updates the live numbers,
+  // The pointer on a hand domino: it lifts (hand row), and, if playable, the hover updates the live numbers,
   // the bar previews and the rail's NEXT highlight together. A domino with one place to go previews
   // that play.
   private onHandHover(key: string | null): void {
     if (this.drag?.ghost) return;
     this.hoverKey = key;
-    const item = key === null ? undefined : this.fan?.items.find((i) => i.key === key);
+    const item = key === null ? undefined : this.handRow?.items.find((i) => i.key === key);
     const id = item && this.handPlayable.has(item.id) && this.selected !== item.id ? item.id : null;
     this.hoverId = id;
     let changed = false;
@@ -864,7 +855,7 @@ export class CombatScene extends Phaser.Scene {
   // A press on a hand domino: a tap picks it (offline; online the tap fires on release, see
   // drawActiveHand) and the press may turn into a drag (see onDragMove).
   private onHandDown(key: string, pointer: Phaser.Input.Pointer): void {
-    const item = this.fan?.items.find((i) => i.key === key);
+    const item = this.handRow?.items.find((i) => i.key === key);
     if (!item || !this.handPlayable.has(item.id)) return;
     if (!this.online) this.onHandTap(item.id);
     this.drag = { id: item.id, x: pointer.worldX, y: pointer.worldY };
@@ -916,7 +907,7 @@ export class CombatScene extends Phaser.Scene {
         this.selected = drag.id;
         this.redraw();
       }
-      this.fan?.setDragged(this.fan.items.find((i) => i.id === drag.id)?.key ?? null);
+      this.handRow?.setDragged(this.handRow.items.find((i) => i.id === drag.id)?.key ?? null);
     }
     drag.ghost.setPosition(pointer.worldX, pointer.worldY);
     // Over a legal end: preview the board with the domino there.
@@ -942,7 +933,7 @@ export class CombatScene extends Phaser.Scene {
     drag.ghost.destroy();
     this.time.delayedCall(0, () => (this.dragMoved = false)); // after the release has also reached the domino (it is not a tap)
     const target = this.slotAt(pointer);
-    this.fan?.setDragged(null);
+    this.handRow?.setDragged(null);
     this.setHoverPlay(null);
     if (target !== undefined && !this.locked && !this.waiting) this.play(drag.id, target);
   }
@@ -993,7 +984,7 @@ export class CombatScene extends Phaser.Scene {
     this.time.timeScale = SKIP_SPEED;
     this.anim.buildup.clear(); // the camera goes back at once
     this.board?.stopBurns(); // every fuse burnt all the way
-    this.fan?.snap();
+    this.handRow?.snap();
   }
 
   private endSkip(): void {

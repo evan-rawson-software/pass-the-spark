@@ -26,8 +26,8 @@ export const SKIP_SPEED = 1000;
 const DW = 240; // a domino at scale 1
 const DH = 120;
 
-// A domino or end as drawn: its centre and scale. w and h are its real size at scale 1 (a cap is narrower than the old cell, a junction taller); angle is a fanned hand domino's tilt.
-export interface Pos { x: number; y: number; k: number; w?: number; h?: number; angle?: number }
+// A domino or end as drawn: its centre and scale. w and h are its real size at scale 1 (a cap is narrower than the old cell, a junction taller).
+export interface Pos { x: number; y: number; k: number; w?: number; h?: number }
 interface Box { x: number; y: number; w: number; h: number }
 type Container = Phaser.GameObjects.Container;
 type Text = Phaser.GameObjects.Text;
@@ -50,7 +50,7 @@ export interface Refs {
   slots: Map<number, Pos>; // open ends, by end id
   board?: FuseBoard; // the fuse board as drawn: fuses burn along it, its bounds frame the camera
   handSlots: Map<string, { c: Container; pos: Pos }[]>; // every player's hand, by seat and position (draw animation, #153)
-  decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck stack
+  decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck count in its tab: the text to update and where its draws fly in from (your own: the left edge of the hand row)
   bars: Map<string, BarRef>; // "enemy" | "party"
   shields: Map<string, { text: Text; x: number; y: number; s: number }>; // the icon's centre and size
   intent?: Box; // the enemy's intent card
@@ -299,9 +299,9 @@ export class Animator {
         playSound("hum", ev.node + 1);
         const node = refs.nodes.get(ev.node);
         if (node && from) {
-          node.c.setPosition(from.x, from.y).setScale(from.k).setAngle(from.angle ?? 0);
+          node.c.setPosition(from.x, from.y).setScale(from.k);
           node.c.parentContainer?.bringToTop(node.c);
-          scene.tweens.add({ targets: node.c, x: node.pos.x, y: node.pos.y, scale: node.pos.k, angle: 0, duration: scaleTime(350), ease: "Cubic.easeOut" });
+          scene.tweens.add({ targets: node.c, x: node.pos.x, y: node.pos.y, scale: node.pos.k, duration: scaleTime(350), ease: "Cubic.easeOut" });
         }
         break;
       }

@@ -4,14 +4,14 @@ import type { BattleState } from "../engine/battle";
 import { loadContent } from "../engine/content";
 import { getView } from "../engine/view";
 import { FuseBoard, boardArea, chargesInto, liveNumber } from "./fuseBoard";
-import { HandFan } from "./handFan";
+import { HandRow } from "./handRow";
 import { seatColour } from "./seatColours";
 import { fuseBoardData } from "./presentation";
 
 const content = loadContent();
 const FONT = "Arial, Helvetica, sans-serif";
 
-// Dev preview of the fuse board and the fanned hand (#229), with real engine states and views.
+// Dev preview of the fuse board and the hand row (#253), with real engine states and views.
 // Open with ?scene=board. Options: tree=sample|big|one|empty, hand=<n dominoes, default 10>,
 // aw=<board area width, default 1490>, guides=0 (hide the layout guides), burn=1 (burn the fuses along, slowly). Hover a hand domino to
 // light its legal ends and show its live numbers; click it to keep it picked and move over an end to aim.
@@ -54,10 +54,10 @@ export class BoardPreviewScene extends Phaser.Scene {
     let aim: number | "opener" | null = null;
     const refresh = () => {
       const key = over ?? picked;
-      fan.hover(key);
+      handRow.hover(key);
       board.clearLive();
       board.clearHighlight();
-      const item = fan.items.find((i) => i.key === key);
+      const item = handRow.items.find((i) => i.key === key);
       const option = item && pending?.plays.find((p) => p.domino === item.id);
       if (!item || !option) return;
       const d = view.dominoes.find((x) => x.id === item.id)!;
@@ -70,12 +70,12 @@ export class BoardPreviewScene extends Phaser.Scene {
         board.showLive(t, liveNumber(d, p, reaching), aim === null || aim === t);
       }
     };
-    const fan: HandFan = new HandFan(this, layer, {
+    const handRow: HandRow = new HandRow(this, layer, {
       onHover: (key) => { over = key; refresh(); },
       onDown: (key) => { picked = picked === key ? null : key; refresh(); },
     });
-    const handInput = { dominoes: view.dominoes, playable, owner: ownerColour(me), deck: view.players[0].deck.length, discard: view.players[0].discard.length };
-    fan.draw({ hand, ...handInput });
+    const handInput = { dominoes: view.dominoes, playable, owner: ownerColour(me) };
+    handRow.draw({ hand, ...handInput });
 
     // With a domino picked, moving over an end aims at it.
     for (const t of [...view.openEnds.map((o) => o.end), "opener" as const]) {
@@ -95,8 +95,8 @@ export class BoardPreviewScene extends Phaser.Scene {
       });
     }
     // For the console and the screenshot script: draw a hand with more dominoes, animating the new ones in.
-    const drawHand = (more: string[]) => fan.draw({ hand: [...hand, ...more], ...handInput, previous: fan.positions() });
-    (window as unknown as { preview: unknown }).preview = { board, fan, refresh, drawHand };
+    const drawHand = (more: string[]) => handRow.draw({ hand: [...hand, ...more], ...handInput, previous: handRow.positions() });
+    (window as unknown as { preview: unknown }).preview = { board, handRow, refresh, drawHand };
   }
 
   // Scripted plays on a real battle: Ana holds Hall of Mirrors, the Warden has locked Gale.

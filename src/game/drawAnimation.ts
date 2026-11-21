@@ -8,7 +8,7 @@ import type { Pos, Refs } from "./animations";
 import { scaleTime } from "./playbackSpeed";
 
 // Drawing at round start (#153), played from the draw and reshuffle events. Dominoes slide from each
-// seat's deck stack into its hand, all seats at once, a short stagger apart, and flip face up as they
+// seat's deck count in its seat tab (your own: the left edge of the hand row) into its hand, all seats at once, a short stagger apart, and flip face up as they
 // land. Every time goes through scaleTime.
 
 const STACK_K = 0.3; // a deck stack's dominoes, at the scale of a large domino
@@ -67,9 +67,9 @@ export async function playDraws(
     for (let i = 0; i < keep; i++) {
       const o = old[i];
       const { c, pos } = slots[i];
-      if (!o || (o.x === pos.x && o.y === pos.y && o.k === pos.k && o.angle === pos.angle)) continue;
-      c.setPosition(o.x, o.y).setScale(o.k).setAngle(o.angle ?? 0);
-      scene.tweens.add({ targets: c, x: pos.x, y: pos.y, scale: pos.k, angle: pos.angle ?? 0, duration: scaleTime(FLY), ease: "Cubic.easeOut" });
+      if (!o || (o.x === pos.x && o.y === pos.y && o.k === pos.k)) continue;
+      c.setPosition(o.x, o.y).setScale(o.k);
+      scene.tweens.add({ targets: c, x: pos.x, y: pos.y, scale: pos.k, duration: scaleTime(FLY), ease: "Cubic.easeOut" });
     }
 
     const from = stack ?? { x: slots[0]?.pos.x ?? 0, y: (slots[0]?.pos.y ?? 0) - 60 };
