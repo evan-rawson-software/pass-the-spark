@@ -1,3 +1,4 @@
+import { removeFromBoard } from "../engine/battle";
 import { outputsOf } from "../engine/battleCharms";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
@@ -69,7 +70,7 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
     case "takeBack": {
       const player = v.players.find((p) => p.id === ev.player);
       player?.hand.push(ev.domino);
-      removeNode(v, ev.node);
+      removeFromBoard(v.board, ev.node);
       break;
     }
     case "ready": {
@@ -106,23 +107,6 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
     default:
       break;
   }
-}
-
-// A take-back: the node leaves the board with its (open) outputs, and the nodes and ends after it close up.
-// The same bookkeeping as the engine's own, so the shown board matches the one the host sends next.
-export function removeNode(v: Pick<BattleView, "board">, id: number): void {
-  const nodes = v.board.nodes.filter((n) => n.id !== id);
-  const ends = v.board.ends.filter((e) => e.node !== id);
-  const endIndex = new Map(ends.map((e, i) => [e.id, i]));
-  nodes.forEach((n, i) => {
-    n.id = i;
-    n.end = n.end === null ? null : (endIndex.get(n.end) as number);
-  });
-  ends.forEach((e, i) => {
-    e.id = i;
-    if (e.node > id) e.node -= 1;
-  });
-  v.board = { nodes, ends };
 }
 
 function removeOne(list: string[], id: string): void {

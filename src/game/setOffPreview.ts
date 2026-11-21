@@ -1,16 +1,18 @@
 import Phaser from "phaser";
-import type { SetOffPreview } from "../engine/battle";
 import type { BattleView } from "../engine/view";
 import { hexColour, setOffPreviewData as D } from "./presentation";
 import { reducedFlashing } from "./comfort";
 import type { Refs } from "./animations";
 
-// The set-off preview drawn over the party's bar and shield (#222, B8): the block the party would
-// gain and the health it would still lose to the intent. The enemy's side (its damage ghost, the block it
+// The build preview drawn over the party's bar and shield (#222, B8): the block the whole board would
+// give and the health the party would still lose to the intent's full attack (the engine's previewBuild, which
+// does not depend on the board being lethal or reaching the line). The enemy's side (its damage ghost, the block it
 // uses up, the lethal skull) is not shown: the damage total is hidden until the cascade fires. Every number
-// comes from the engine's previewSetOff; this file only places ghosts, marks and labels. Rebuilt on each
+// comes from the engine; this file only places ghosts, marks and labels. Rebuilt on each
 // update. The bars and shields it draws on are the ones the column drew (the scene's refs), so they can't
 // drift apart.
+
+export type BuildPreview = { block: number; partyDamage: number };
 
 export class SetOffPreviewUi {
   private tweens: Phaser.Tweens.Tween[] = [];
@@ -23,7 +25,7 @@ export class SetOffPreviewUi {
   }
 
   // Draws into `into` (emptied first). No preview (null) draws nothing.
-  draw(into: Phaser.GameObjects.Container, view: BattleView, p: SetOffPreview | null, refs: Refs): void {
+  draw(into: Phaser.GameObjects.Container, view: BattleView, p: BuildPreview | null, refs: Refs): void {
     this.clear();
     into.removeAll(true);
     const pb = refs.bars.get("party");
@@ -37,10 +39,10 @@ export class SetOffPreviewUi {
 
     // Party: block gained, health lost to what the intent still does after block (or safe).
     const sh = ps;
-    if (p.partyBlockGain > 0) text(sh.x, sh.y - sh.s * 0.5 + D.gain.partyDy, `+${p.partyBlockGain}`, D.gain.colour, D.gain.fontSize);
+    if (p.block > 0) text(sh.x, sh.y - sh.s * 0.5 + D.gain.partyDy, `+${p.block}`, D.gain.colour, D.gain.fontSize);
     const b = pb;
     if (p.partyDamage > 0) {
-      const from = b.w * (p.partyHealth / view.party.maxHealth);
+      const from = b.w * ((view.party.health - p.partyDamage) / view.party.maxHealth);
       const to = b.w * (view.party.health / view.party.maxHealth);
       this.ghost(into, b.x + from, b.y, Math.max(to - from, D.ghost.minWidth), b.h);
       text(b.x + b.w + D.loss.dx, b.y + b.h / 2 + D.loss.dy, `−${p.partyDamage}`, D.loss.colour, D.loss.fontSize, D.loss.originX);

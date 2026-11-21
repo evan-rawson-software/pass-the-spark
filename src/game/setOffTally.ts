@@ -1,13 +1,14 @@
 import Phaser from "phaser";
 import type { SetOffPreview } from "../engine/battle";
+import type { BuildPreview } from "./setOffPreview";
 import type { BattleView } from "../engine/view";
 import { combatData, combatLayoutData, hexColour } from "./presentation";
 import { enemies } from "./devBattle";
 import type { ColumnLayout } from "./columnLayout";
 
 // The "Block if it fires" tile in the left column (#231, B8): the block the party would gain. Every
-// number is from the engine's previewSetOff, the same call that puts the ghost on the party's health
-// bar, so they always agree. It is drawn into the set-off preview's layer, so it updates live with
+// number is from the engine (previewBuild, the same call that puts the ghost on the party's health
+// bar, so they always agree). It is drawn into the set-off preview's layer, so it updates live with
 // hover and drag. With combat.showDamageTotal (V5) the old "If it fires now" tally comes back: a damage
 // tile beside the block tile, and a line under them saying what that does to the enemy and the party.
 // Layout only.
@@ -18,7 +19,7 @@ const FONT = "Arial, Helvetica, sans-serif";
 type Pulse = (o: Phaser.GameObjects.Graphics, low: number, high: number, ms: number) => void;
 
 // `p` null (a step is playing, or the battle is over) shows the tiles empty.
-export function drawTally(scene: Phaser.Scene, into: Phaser.GameObjects.Container, view: BattleView, p: SetOffPreview | null, col: ColumnLayout, pulse: Pulse): void {
+export function drawTally(scene: Phaser.Scene, into: Phaser.GameObjects.Container, view: BattleView, p: SetOffPreview | null, b: BuildPreview | null, col: ColumnLayout, pulse: Pulse): void {
   const text = (x: number, y: number, str: string, size: number, colour: string, originX = 0.5, spacing = 0): Phaser.GameObjects.Text => {
     const t = scene.add.text(x, y, str, { fontFamily: FONT, fontSize: `${size}px`, color: colour, fontStyle: "bold" }).setOrigin(originX, 0.5);
     if (spacing) t.setLetterSpacing(spacing);
@@ -55,7 +56,8 @@ export function drawTally(scene: Phaser.Scene, into: Phaser.GameObjects.Containe
   // health change is in the line below.
   const dmg = live ? String(p.damage + p.enemyBlockUsed) : D.tile.dash;
   const blocked = live && p.enemyBlockUsed > 0 ? `${p.enemyBlockUsed} ${D.damage.sub}` : undefined;
-  const blockValue = live ? String(p.partyBlockGain) : D.tile.dash;
+  // Hidden total: the block is the whole board's (previewBuild), which a lethal hit never cuts short.
+  const blockValue = all ? (live ? String(p.partyBlockGain) : D.tile.dash) : b && view.board.nodes.length > 0 ? String(b.block) : D.tile.dash;
   if (all) tile(0, D.damage, dmg, lethal ? D.lethal.label : D.damage.label, blocked);
   tile(all ? 1 : 0, D.block, blockValue, D.block.label);
   if (lethal) {

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { getOpenEnds, getPlayerChoices, previewPlay, previewSetOff, step } from "../engine/battle";
+import { getOpenEnds, getPlayerChoices, previewBuild, previewPlay, previewSetOff, step } from "../engine/battle";
 import type { BattleState, Choice, PlayerChoices, SetOffPreview } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView, OpenEndView } from "../engine/view";
@@ -36,7 +36,7 @@ import { boardGlow } from "./spectacle";
 import { litGlowStrength } from "./buildup";
 import { applyEvent, startShown } from "./shownView";
 import { isDrawEvent, playDraws } from "./drawAnimation";
-import { combatLayoutData, fuseBoardData, handRowData, hexColour } from "./presentation";
+import { combatData, combatLayoutData, fuseBoardData, handRowData, hexColour } from "./presentation";
 import type { CombatCtx } from "./combatCtx";
 import { drawEnemyUnit } from "./enemyUnit";
 import { SeatTabs } from "./seatTabs";
@@ -605,23 +605,25 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- set-off preview (#222) ----
 
-  // The preview on the party's bar and shield, and the block tile, from the engine's previewSetOff on the current
-  // board, or on the board after the hovered play. Hidden while a step plays back; the real bars take over.
+  // The preview on the party's bar and shield, and the block tile, from the engine's previewBuild on the current
+  // board, or on the board after the hovered play (it never depends on a lethal hit or the line). With
+  // combat.showDamageTotal the old tally also reads previewSetOff. Hidden while a step plays back; the real bars take over.
   private refreshPreview(): void {
     this.refreshLive();
     const into = this.previewLayer;
     if (!into?.active) return;
     const view = this.view;
-    const tally = (p: SetOffPreview | null): void => drawTally(this, into, view, p, this.col, (o, low, high, ms) => this.previewUi.pulse(o, low, high, ms));
+    const tally = (p: SetOffPreview | null, b: { block: number; partyDamage: number } | null): void => drawTally(this, into, view, p, b, this.col, (o, low, high, ms) => this.previewUi.pulse(o, low, high, ms));
     if (this.locked || this.waiting || this.shown || view.phase === "over") {
       this.previewUi.draw(into, view, null, this.anim.refs);
-      tally(null);
+      tally(null, null);
       return;
     }
     const hover = this.hoverPlay;
-    const p = (hover ? previewSetOff(view, hover) : null) ?? previewSetOff(view);
-    this.previewUi.draw(into, view, p, this.anim.refs);
-    tally(p);
+    const b = (hover ? previewBuild(view, hover) : null) ?? previewBuild(view);
+    const p = combatData.showDamageTotal ? (hover ? previewSetOff(view, hover) : null) ?? previewSetOff(view) : null;
+    this.previewUi.draw(into, view, b, this.anim.refs);
+    tally(p, b);
   }
 
   // A hand domino hovered, picked or dragged over a legal end: preview the board with it there.
@@ -877,7 +879,7 @@ export class CombatScene extends Phaser.Scene {
     const a = handArea();
     const g = this.gfx(layer);
     g.lineStyle(F.width, seatColour(view.seatOrder, seat), 1);
-    g.strokeRoundedRect(a.x - F.pad, a.y - F.padTop, a.w + 2 * F.pad, a.h + F.padTop + F.pad, 18); // the playable dominoes of the top row stand a little above it
+    g.strokeRoundedRect(a.x - F.pad, a.y - F.padTop, a.w + 2 * F.pad, Math.min(a.h + F.padTop + F.pad, 1076 - (a.y - F.padTop)), 18); // the playable dominoes of the top row stand a little above it
     this.label(layer, a.x - F.pad + 14, a.y + F.label.dy, `${this.online ? "Playing for " : ""}${this.nameOf(seat, true, 14)}${this.online ? "" : "'s hand"}`, F.label.size, "#f3ead6", 0, true);
   }
 

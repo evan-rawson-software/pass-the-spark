@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import type { Board, PlayPreview } from "../engine/battle";
-import { getOpenEnds, previewPlay } from "../engine/battle";
+import { getOpenEnds, previewPlay, removeFromBoard } from "../engine/battle";
 import type { BattleView } from "../engine/view";
 import type { Domino, DominoKind, Spark } from "../engine/types";
 import { drawDomino, drawSparkGlyph, dominoPixelSize } from "./dominoDrawing";
@@ -10,7 +10,6 @@ import { reducedFlashing } from "./comfort";
 import { scaleTime } from "./playbackSpeed";
 import { combatLayoutData, dominoLook, fuseBoardData as D, hexColour } from "./presentation";
 import { SPARK_STYLE } from "./sparks";
-import { removeNode } from "./shownView";
 
 // The fuse board (#229, taking over #218's screen part): small dominoes joined by fuses, a charge
 // badge on each fuse and a dashed ghost ring on each open end. Layout and drawing only: every number
@@ -248,10 +247,10 @@ export function capTotals(view: BattleView): Map<number, number> {
   for (const n of view.board.nodes) {
     const d = view.dominoes.find((q) => q.id === n.domino);
     if (!d || d.kind !== "cap" || n.end === null) continue;
-    const without = { board: JSON.parse(JSON.stringify(view.board)) as Board };
-    removeNode(without, n.id);
+    const without: Board = JSON.parse(JSON.stringify(view.board));
+    removeFromBoard(without, n.id);
     const players = view.players.map((p) => (p.id === n.owner ? { ...p, hand: [...p.hand, d.id] } : p));
-    const p = previewPlay({ ...view, board: without.board, players }, n.owner, d.id, n.end);
+    const p = previewPlay({ ...view, board: without, players }, n.owner, d.id, n.end);
     if (p) out.set(n.id, p.total);
   }
   return out;
