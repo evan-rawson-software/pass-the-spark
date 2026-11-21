@@ -23,6 +23,15 @@
     "voteRoll": { "file": "ui-audio/rollover1.ogg", "volume": 0.5, "minGapMs": 40 },
     "coins": { "file": "casino/chips-collide-1.ogg", "volume": 0.7, "minGapMs": 100, "rises": true },
     "buy": { "file": "casino/chips-handle-1.ogg", "volume": 0.7, "minGapMs": 100 },
-    "rest": { "file": "interface/confirmation_002.ogg", "volume": 0.7, "minGapMs": 300 }
+    "rest": { "file": "interface/confirmation_002.ogg", "volume": 0.7, "minGapMs": 300 },
+    "enemyHit": { "file": "impact/impactWood_medium_000.ogg", "volume": 0.7, "minGapMs": 70, "baseCents": -300 },
+    "enemyBigHit": { "file": "impact/impactMetal_heavy_000.ogg", "volume": 0.8, "minGapMs": 120, "baseCents": -600 },
+    "blockBreak": { "file": "interface/glass_002.ogg", "volume": 0.7, "minGapMs": 200, "baseCents": -500 },
+    "enemyDeath": { "file": "impact/impactPlate_heavy_000.ogg", "volume": 0.9, "minGapMs": 400, "baseCents": -700 },
+    "bossDeath": { "file": "impact/impactMetal_heavy_000.ogg", "volume": 1.0, "minGapMs": 400, "baseCents": -1400 },
+    "lunge": { "file": "interface/scratch_001.ogg", "volume": 0.5, "minGapMs": 150, "baseCents": -400 },
+    "impact": { "file": "impact/impactMetal_heavy_000.ogg", "volume": 0.8, "minGapMs": 120, "baseCents": -200 },
+    "enemyShield": { "file": "impact/impactPlate_light_000.ogg", "volume": 0.6, "minGapMs": 150, "baseCents": -300 },
+    "heal": { "file": "interface/confirmation_002.ogg", "volume": 0.5, "minGapMs": 300, "baseCents": 200 }
   }
 }
