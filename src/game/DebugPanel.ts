@@ -1,5 +1,4 @@
-import { getPendingChoice } from "../engine/battle";
-import { handLimitOf } from "../engine/battleCharms";
+import { handSizeBonus } from "../engine/battleCharms";
 import type { BattleState } from "../engine/battle";
 import { content, dominoes } from "./devBattle";
 import { unlockAll } from "./profile";
@@ -340,18 +339,16 @@ class DebugPanel {
   }
 
   private limitOf(state: BattleState, seat: string): number {
-    return handLimitOf(state, seat);
+    const p = state.players.find((q) => q.id === seat);
+    return (p?.placements ?? 0) + state.config.handExtra + handSizeBonus(state, seat); // a hand refills to this each round
   }
 
-  // The debug edit: a copy of the state with one hand replaced. Returns an error text if the
-  // result would leave the battle without a playable turn.
+  // The debug edit: a copy of the state with one hand replaced.
   private withHand(input: BattleState, seat: string, hand: string[]): BattleState | string {
     const state: BattleState = JSON.parse(JSON.stringify(input));
     const p = state.players.find((q) => q.id === seat);
     if (!p) return "No such player.";
     p.hand = hand.slice();
-    const pending = getPendingChoice(state);
-    if (pending && pending.opener && pending.plays.length === 0) return "The lead would have no opener.";
     return state;
   }
 }

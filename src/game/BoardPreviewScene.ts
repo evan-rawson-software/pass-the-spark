@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { createBattle, getPendingChoice, previewPlay, step } from "../engine/battle";
+import { createBattle, getPlayerChoices, previewPlay, step } from "../engine/battle";
 import type { BattleState } from "../engine/battle";
 import { loadContent } from "../engine/content";
 import { getView } from "../engine/view";
@@ -26,7 +26,7 @@ export class BoardPreviewScene extends Phaser.Scene {
     const state = this.build(tree, Number(q.get("hand") ?? 10));
     const me = "Ana";
     const view = getView(state, me);
-    const pending = getPendingChoice(view);
+    const pending = getPlayerChoices(view, me);
 
     this.add.rectangle(960, 540, 1920, 1080, 0x16402f);
     const layer = this.add.container(0, 0);
@@ -108,19 +108,17 @@ export class BoardPreviewScene extends Phaser.Scene {
       charms: content.charms,
       players: [{ id: "Ana", deck: content.starterDeck, charms: ["hall_of_mirrors"] }, { id: "Ben", deck: content.starterDeck }],
       seatOrder: names,
-      startingLead: "Ana",
       enemyId: "warden",
       seed: 1,
     });
     state.locked = null; // the Warden locks a spark from the start; set below once the tree is built
     // Plays the domino for that seat, on output `index` of board node `node` (no end: the opener).
     const play = (seat: string, domino: string, at?: [number, number]) => {
-      state.seat = seat;
       const hand = state.players.find((p) => p.id === seat)!.hand;
       if (!hand.includes(domino)) hand.push(domino);
       const end = at ? state.board.ends.find((e) => e.node === at[0] && e.index === at[1])!.id : undefined;
       try {
-        state = step(state, { type: "play", domino, end }).state;
+        state = step(state, { type: "play", player: seat, domino, end }).state;
       } catch (e) {
         throw new Error(`${seat} cannot play ${domino} at ${at}: ${(e as Error).message}`);
       }
@@ -151,15 +149,14 @@ export class BoardPreviewScene extends Phaser.Scene {
     }
     state.locked = tree === "empty" || tree === "one" ? null : "Gale";
     // Your hand: a mix, in no particular order.
-    const all = ["strike_tide", "boost_gale", "guard_tide", "junction_tide", "smash_tide", "boost_ember", "strike_ember", "junction_ember", "boost_tide", "guard_gale", "boost_ember_tide", "smash_ember"];
-    state.seat = "Ana";
+    const all = ["strike_tide", "boost_gale_ember", "guard_tide", "junction_tide", "strike_gale", "boost_ember", "strike_ember", "junction_ember", "boost_tide", "guard_gale", "boost_ember_tide", "junction_gale"];
     state.players[0].hand = all.slice(0, Math.max(0, handSize));
     state.players[0].deck = state.players[0].deck.slice(0, 7);
     if (state.players[0].discard.length === 0) state.players[0].discard = ["strike_ember", "guard_gale"];
     return state;
   }
 
-  // The rest of the combat screen's layout, as outlines: the rail, the bars and the actions, so the board
+  // The rest of the combat screen's layout, as outlines: the seat tabs, the bars and the actions, so the board
   // and hand can be judged against them. (#228 builds the real ones.)
   private guides(layer: Phaser.GameObjects.Container): void {
     const g = this.add.graphics();
@@ -171,10 +168,10 @@ export class BoardPreviewScene extends Phaser.Scene {
       g.strokeRoundedRect(x, y, w, h, 16);
       layer.add(this.add.text(x + w / 2, y + h / 2, label, { fontFamily: FONT, fontSize: "20px", color: "#b8c4b4" }).setOrigin(0.5).setAlpha(0.7));
     };
-    box(24, 24, 330, 1032, "turn-order rail");
+    box(24, 24, 330, 1032, "left column");
     box(830, 318, 600, 34, "enemy bar");
     box(830, 806, 600, 34, "party bar");
-    box(1610, 942, 300, 96, "Pass", 0xffd54a);
+    box(1610, 942, 300, 96, "Ready", 0xffd54a);
     g.lineStyle(2, 0xb8c4b4, 0.25);
     const a = boardArea();
     g.strokeRect(a.x, a.y, a.w, a.h);

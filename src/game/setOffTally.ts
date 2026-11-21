@@ -1,14 +1,16 @@
 import Phaser from "phaser";
 import type { SetOffPreview } from "../engine/battle";
 import type { BattleView } from "../engine/view";
-import { combatLayoutData, hexColour } from "./presentation";
+import { combatData, combatLayoutData, hexColour } from "./presentation";
 import { enemies } from "./devBattle";
 import type { ColumnLayout } from "./columnLayout";
 
-// The "If it fires now" tally in the left column (#231): a damage tile and a block tile, and a line
-// under them saying what that does to the enemy and the party. Every number is from the engine's
-// previewSetOff, the same call that puts the ghosts on the health bars, so they always agree. It is
-// drawn into the set-off preview's layer, so it updates live with hover and drag. Layout only.
+// The "Block if it fires" tile in the left column (#231, B8): the block the party would gain. Every
+// number is from the engine's previewSetOff, the same call that puts the ghost on the party's health
+// bar, so they always agree. It is drawn into the set-off preview's layer, so it updates live with
+// hover and drag. With combat.showDamageTotal (V5) the old "If it fires now" tally comes back: a damage
+// tile beside the block tile, and a line under them saying what that does to the enemy and the party.
+// Layout only.
 
 const D = combatLayoutData.tally;
 const FONT = "Arial, Helvetica, sans-serif";
@@ -24,13 +26,15 @@ export function drawTally(scene: Phaser.Scene, into: Phaser.GameObjects.Containe
     return t;
   };
   const L = D.label;
-  text(col.x, col.tally.y + L.h / 2, L.text, L.size, L.colour, 0, L.spacing);
+  const all = combatData.showDamageTotal;
+  text(col.x, col.tally.y + L.h / 2, all ? L.text : D.blockTile.label, L.size, L.colour, 0, L.spacing);
 
   const live = !!p && p.canSetOff;
   const T = D.tile;
-  const w = (col.w - T.gap) / 2;
+  const w = all ? (col.w - T.gap) / 2 : col.w;
+  const th = all ? T.h : D.blockTile.h;
   const top = col.tally.y + L.h;
-  const lethal = live && p.lethal;
+  const lethal = all && live && p.lethal;
   const g = scene.add.graphics();
   into.add(g);
 
@@ -38,11 +42,12 @@ export function drawTally(scene: Phaser.Scene, into: Phaser.GameObjects.Containe
     const x = col.x + i * (w + T.gap);
     // A raised tile: a darker edge showing under the bottom.
     g.fillStyle(hexColour(style.edge), 1);
-    g.fillRoundedRect(x, top, w, T.h, T.r);
+    g.fillRoundedRect(x, top, w, th, T.r);
     g.fillStyle(hexColour(style.fill), 1);
-    g.fillRoundedRect(x, top, w, T.h - T.edge, T.r);
-    const n = text(x + w / 2, top + T.numberY, value, T.numberSize, T.numberColour);
+    g.fillRoundedRect(x, top, w, th - T.edge, T.r);
+    const n = text(x + w / 2, top + (all ? T.numberY : th / 2 - T.edge / 2), value, T.numberSize, T.numberColour);
     if (n.width > w - 2 * T.numberPad) n.setFontSize(Math.floor((T.numberSize * (w - 2 * T.numberPad)) / n.width));
+    if (!all) return;
     text(x + w / 2, top + T.labelY, label, T.labelSize, T.labelColour, 0.5, T.labelSpacing);
     if (sub) text(x + w / 2, top + T.subY, sub, T.subSize, T.labelColour);
   };
@@ -50,21 +55,22 @@ export function drawTally(scene: Phaser.Scene, into: Phaser.GameObjects.Containe
   // health change is in the line below.
   const dmg = live ? String(p.damage + p.enemyBlockUsed) : D.tile.dash;
   const blocked = live && p.enemyBlockUsed > 0 ? `${p.enemyBlockUsed} ${D.damage.sub}` : undefined;
-  tile(0, D.damage, dmg, lethal ? D.lethal.label : D.damage.label, blocked);
-  tile(1, D.block, live ? String(p.partyBlockGain) : D.tile.dash, D.block.label);
+  const blockValue = live ? String(p.partyBlockGain) : D.tile.dash;
+  if (all) tile(0, D.damage, dmg, lethal ? D.lethal.label : D.damage.label, blocked);
+  tile(all ? 1 : 0, D.block, blockValue, D.block.label);
   if (lethal) {
     const K = D.lethal;
     const glow = scene.add.graphics();
     glow.lineStyle(K.width, hexColour(K.glow), 1);
-    glow.strokeRoundedRect(col.x - K.pad, top - K.pad, w + 2 * K.pad, T.h + 2 * K.pad, T.r + K.pad);
+    glow.strokeRoundedRect(col.x - K.pad, top - K.pad, w + 2 * K.pad, th + 2 * K.pad, T.r + K.pad);
     into.add(glow);
     pulse(glow, K.alphaLow, K.alphaHigh, K.pulseMs);
   }
 
   // The line under the tiles.
-  if (!p) return;
+  if (!all || !p) return;
   const Ln = D.line;
-  const y = top + T.h + Ln.gap + Ln.h / 2;
+  const y = top + th + Ln.gap + Ln.h / 2;
   if (!p.canSetOff) {
     text(col.x, y, Ln.noCaps, Ln.size, Ln.colour, 0);
     return;

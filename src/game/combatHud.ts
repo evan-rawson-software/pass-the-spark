@@ -93,25 +93,41 @@ export function drawFooter(ctx: CombatCtx, layer: Layer, round: number): void {
 }
 
 export interface ActionState {
-  mine: boolean; // it is your turn and you may act
-  passFires: boolean; // the engine's view.passFires: this pass completes the round and fires the cascade
-  onPass: () => void;
+  fire: boolean; // single player: the button reads Fire and sets every seat Ready at once
+  ready: boolean; // online: you are Ready (the button says so, and reads "Not ready" on hover to undo)
+  enabled: boolean; // false while a domino is dragged, a step plays back or the host has not answered
+  count: { ready: number; total: number } | null; // online: "2 of 4 ready"
+  onPress: () => void;
 }
 
-// The big Pass button (the seat tabs say whose turn it is); it reads "Pass and fire" when the pass fires
-// the cascade. When it is not your turn, the button goes.
+// The big Ready button (Fire in single player) and, online, how many seats are Ready. While you are Ready
+// it is green and says so; pointing at it reads "Not ready". It is dimmed and does nothing when it can't be
+// pressed (the table is playing back, or a domino is being dragged).
 export function drawActions(ctx: CombatCtx, layer: Layer, a: ActionState): void {
   const A = D.actions;
-  if (!a.mine) return;
   const s = ctx.scene;
+  const R = A.ready;
   const g = ctx.gfx(layer);
-  const P = A.pass;
-  g.fillStyle(hexColour(P.fill), 1);
-  g.fillRoundedRect(P.x, P.y, P.w, P.h, P.h / 2);
-  g.lineStyle(P.strokeWidth, hexColour(P.stroke), 1);
-  g.strokeRoundedRect(P.x, P.y, P.w, P.h, P.h / 2);
-  ctx.label(layer, P.x + P.w / 2, P.y + P.h / 2, a.passFires ? P.fireText : P.text, a.passFires ? P.fireSize : P.size, P.colour, 0.5, true);
-  const pz = s.add.zone(P.x + P.w / 2, P.y + P.h / 2, P.w, P.h).setInteractive({ useHandCursor: true });
-  pz.on("pointerdown", a.onPass);
-  layer.add(pz);
+  g.fillStyle(hexColour(a.ready ? R.readyFill : R.fill), 1);
+  g.fillRoundedRect(R.x, R.y, R.w, R.h, R.h / 2);
+  g.lineStyle(R.strokeWidth, hexColour(R.stroke), 1);
+  g.strokeRoundedRect(R.x, R.y, R.w, R.h, R.h / 2);
+  const idle = a.fire ? R.fireText : a.ready ? `${R.readyText} ✓` : R.text;
+  const label = ctx.label(layer, R.x + R.w / 2, R.y + R.h / 2, idle, R.size, R.colour, 0.5, true);
+  if (a.count) {
+    const C = A.count;
+    ctx.label(layer, R.x + R.w, C.y, `${a.count.ready} ${C.text} ${a.count.total} ${C.tail}`, C.size, C.colour, 1, true);
+  }
+  if (!a.enabled) {
+    g.setAlpha(R.disabledAlpha);
+    label.setAlpha(R.disabledAlpha);
+    return;
+  }
+  const z = s.add.zone(R.x + R.w / 2, R.y + R.h / 2, R.w, R.h).setInteractive({ useHandCursor: true });
+  if (a.ready) {
+    z.on("pointerover", () => label.setText(R.undoText));
+    z.on("pointerout", () => label.setText(idle));
+  }
+  z.on("pointerdown", a.onPress);
+  layer.add(z);
 }

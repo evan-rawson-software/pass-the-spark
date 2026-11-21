@@ -31,11 +31,10 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
       // The finished board goes to its owners' discard piles.
       for (const node of v.board.nodes) v.players.find((p) => p.id === node.owner)?.discard.push(node.domino);
       v.round = ev.round;
-      v.lead = ev.lead;
-      v.seat = ev.lead;
       v.board = { nodes: [], ends: [] };
-      v.passes = 0;
       v.locked = null;
+      v.enemy.staggered = false;
+      for (const p of v.players) p.ready = false;
       s.lit.clear();
       s.fizzled.clear();
       break;
@@ -67,6 +66,20 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
       }
       break;
     }
+    case "takeBack": {
+      const player = v.players.find((p) => p.id === ev.player);
+      player?.hand.push(ev.domino);
+      removeNode(v, ev.node);
+      break;
+    }
+    case "ready": {
+      const player = v.players.find((p) => p.id === ev.player);
+      if (player) player.ready = ev.ready;
+      break;
+    }
+    case "lineReached":
+      v.enemy.staggered = true;
+      break;
     case "nodeLit":
       s.lit.add(ev.node);
       break;
@@ -93,6 +106,23 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
     default:
       break;
   }
+}
+
+// A take-back: the node leaves the board with its (open) outputs, and the nodes and ends after it close up.
+// The same bookkeeping as the engine's own, so the shown board matches the one the host sends next.
+export function removeNode(v: Pick<BattleView, "board">, id: number): void {
+  const nodes = v.board.nodes.filter((n) => n.id !== id);
+  const ends = v.board.ends.filter((e) => e.node !== id);
+  const endIndex = new Map(ends.map((e, i) => [e.id, i]));
+  nodes.forEach((n, i) => {
+    n.id = i;
+    n.end = n.end === null ? null : (endIndex.get(n.end) as number);
+  });
+  ends.forEach((e, i) => {
+    e.id = i;
+    if (e.node > id) e.node -= 1;
+  });
+  v.board = { nodes, ends };
 }
 
 function removeOne(list: string[], id: string): void {
