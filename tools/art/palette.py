@@ -21,6 +21,8 @@ GEM = ["#ffffff", "#bff8ff", "#5fd8f0", "#2a8fc0", "#173f66"]
 BOOT = ["#8a6a5a", "#6a4a3e", "#4e3430", "#3a2426", "#22161c"]
 CLOTH = ["#fffaf0", "#f2e6cf", "#d9c6a5", "#a8916f", "#5a4a3a"]  # cream: sashes and patches
 ACCENTS = {"eye": "#2a1b2e", "cheek": "#ff9a9a"}
+ARCANE = ["#f1e6ff", "#c3a4ff", "#8f68e8", "#5a3d9e", "#352460"]  # the circle at rest; GOLD and white as it blazes
+WHITE = "#ffffff"
 
 # The 8 seat colours: id, name, ramp (light to darkest; the middle one is the seat colour).
 # Shadows lean toward violet and highlights toward warm white, so every colour sits in the same light.
@@ -40,10 +42,21 @@ SEATS = [
 SPARKS = {"Ember": "#ff6a13", "Tide": "#2f80ed", "Gale": "#4cc46a", "Storm": "#f2c200", "Void": "#7b3fc4", "Rot": "#8a6d3b"}
 GOLD_HIGHLIGHT = "#ffd54a"
 PANEL = "#1b1524"
+# A ramp per spark for the spells and the wards, light to darkest; the middle one is the spark's colour.
+SPARK_RAMPS = {
+    "Ember": ["#fff1c2", "#ffb04a", "#ff6a13", "#c23a12", "#5e1810"],
+    "Tide": ["#d6f0ff", "#7ec0ff", "#2f80ed", "#1d4fa8", "#142a5e"],
+    "Gale": ["#e4ffd6", "#9eeaa0", "#4cc46a", "#2a8450", "#16443a"],
+    "Storm": ["#fffbe0", "#ffe866", "#f2c200", "#b07f00", "#5a3c00"],
+    "Void": ["#ecdcff", "#b98af2", "#7b3fc4", "#4b2384", "#241040"],
+    "Rot": ["#e2e09a", "#b8a45e", "#8a6d3b", "#5a4426", "#2c2014"],
+}
+assert all(SPARK_RAMPS[k][2] == v for k, v in SPARKS.items())
 MIN_DELTA_E = 20  # CIE76 distance between any two seat colours, or a seat colour and a spark or the gold
 MIN_CONTRAST = 4.5  # the middle shade against the panel, as text
 
-PALETTE = {hexrgb(c) for ramp in (KEY, SKIN, BEARD, WOOD, GOLD, GEM, BOOT, CLOTH) for c in ramp} | {hexrgb(c) for c in ACCENTS.values()}
+PALETTE = ({hexrgb(c) for ramp in (KEY, SKIN, BEARD, WOOD, GOLD, GEM, BOOT, CLOTH, ARCANE, *SPARK_RAMPS.values()) for c in ramp}
+           | {hexrgb(c) for c in (*ACCENTS.values(), WHITE)})
 
 
 def _lab(c):
