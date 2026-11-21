@@ -280,7 +280,7 @@
     "id": "auditor",
     "name": "The Auditor",
     "tier": "boss",
-    "maxHealth": 106,
+    "maxHealth": 100,
     "passives": [
       {
         "kind": "auditor",
@@ -337,7 +337,7 @@
     "id": "glutton",
     "name": "The Glutton",
     "tier": "boss",
-    "maxHealth": 109,
+    "maxHealth": 114,
     "passives": [
       {
         "kind": "glutton",
@@ -394,7 +394,7 @@
     "id": "bandit",
     "name": "Placeholder Bandit",
     "tier": "basic",
-    "maxHealth": 104,
+    "maxHealth": 187,
     "passives": [],
     "intents": [
       {
@@ -438,7 +438,7 @@
     "id": "golem",
     "name": "Placeholder Golem",
     "tier": "basic",
-    "maxHealth": 123,
+    "maxHealth": 221,
     "passives": [],
     "intents": [
       {
@@ -473,7 +473,7 @@
     "id": "harpy",
     "name": "Placeholder Harpy",
     "tier": "basic",
-    "maxHealth": 85,
+    "maxHealth": 153,
     "passives": [],
     "intents": [
       {
@@ -508,7 +508,7 @@
     "id": "ravager",
     "name": "Placeholder Ravager",
     "tier": "elite",
-    "maxHealth": 95,
+    "maxHealth": 190,
     "passives": [],
     "intents": [
       {
@@ -557,7 +557,7 @@
     "id": "sentinel",
     "name": "Placeholder Sentinel",
     "tier": "elite",
-    "maxHealth": 110,
+    "maxHealth": 220,
     "passives": [],
     "intents": [
       {
@@ -606,7 +606,7 @@
     "id": "hoarder",
     "name": "The Hoarder",
     "tier": "boss",
-    "maxHealth": 88,
+    "maxHealth": 176,
     "passives": [
       {
         "kind": "hoarder",
@@ -663,7 +663,7 @@
     "id": "smolder",
     "name": "The Smolder",
     "tier": "boss",
-    "maxHealth": 96,
+    "maxHealth": 192,
     "passives": [
       {
         "kind": "smolder",
@@ -720,7 +720,7 @@
     "id": "wraith",
     "name": "Placeholder Wraith",
     "tier": "basic",
-    "maxHealth": 123,
+    "maxHealth": 308,
     "passives": [],
     "intents": [
       {
@@ -764,7 +764,7 @@
     "id": "colossus",
     "name": "Placeholder Colossus",
     "tier": "basic",
-    "maxHealth": 113,
+    "maxHealth": 282,
     "passives": [],
     "intents": [
       {
@@ -812,7 +812,7 @@
     "id": "stormling",
     "name": "Placeholder Stormling",
     "tier": "basic",
-    "maxHealth": 104,
+    "maxHealth": 260,
     "passives": [],
     "intents": [
       {
@@ -858,7 +858,7 @@
     "id": "tyrant",
     "name": "Placeholder Tyrant",
     "tier": "elite",
-    "maxHealth": 82,
+    "maxHealth": 246,
     "passives": [],
     "intents": [
       {
@@ -907,7 +907,7 @@
     "id": "warlord",
     "name": "Placeholder Warlord",
     "tier": "elite",
-    "maxHealth": 114,
+    "maxHealth": 342,
     "passives": [],
     "intents": [
       {
@@ -966,7 +966,7 @@
     "id": "long_night",
     "name": "The Long Night",
     "tier": "boss",
-    "maxHealth": 98,
+    "maxHealth": 333,
     "passives": [
       {
         "kind": "longNight",
@@ -1023,7 +1023,7 @@
     "id": "warden_of_locks",
     "name": "The Warden of Locks",
     "tier": "boss",
-    "maxHealth": 72,
+    "maxHealth": 180,
     "passives": [
       {
         "kind": "warden",

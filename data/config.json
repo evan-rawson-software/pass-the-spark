@@ -7,9 +7,9 @@
   "openEndLimit": 4,
   "enemyHealthPercentByPartySize": [
     100,
-    100,
-    100,
-    100
+    66,
+    95,
+    108
   ],
   "enemyAttackPercentByPartySize": [
     100,
