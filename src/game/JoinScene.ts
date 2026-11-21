@@ -10,9 +10,12 @@ import { getRoomToken, hasRoomToken, ROOM_CODE_LENGTH } from "../net/room";
 import { debugPanel } from "./DebugPanel";
 import { watchLink } from "./linkBanner";
 import { relay } from "./relay";
-import { loadProfile } from "./profile";
+import { loadProfile, onlineLook, saveLook } from "./profile";
+import { wizardLookData as D } from "./presentation";
 import { openRunScreen, startOnlineRun } from "./runSession";
 import { button, drawBackground, label, saveName, savedName, textInput } from "./ui";
+import { cssColour, listWizard, takenByOthers, Wardrobe } from "./wardrobe";
+import { lookColour } from "./wizard";
 
 // Joining a room (#33): code and name, then the seat list as the host changes it.
 // Draws what the host sends; the host decides everything.
@@ -25,6 +28,7 @@ export class JoinScene extends Phaser.Scene {
   private dynamic: Phaser.GameObjects.GameObject[] = [];
   private started = false;
   private joinId = 0; // ignores answers from an attempt that was abandoned
+  private wardrobe: Wardrobe | null = null;
 
   constructor() {
     super("join");
@@ -38,6 +42,7 @@ export class JoinScene extends Phaser.Scene {
     this.client = null;
     this.lobby = null;
     this.started = false;
+    this.wardrobe = null;
     this.dynamic = [];
     drawBackground(this);
     label(this, 960, 70, "Join game", 56, { bold: true, origin: 0.5 });
@@ -103,6 +108,7 @@ export class JoinScene extends Phaser.Scene {
         name,
         token: getRoomToken(code, safeStorage()),
         unlocks: () => loadProfile().unlocks,
+        look: onlineLook, // the saved look; the host fixes it when its colour is taken (and it is kept as saved)
         onMessage: (m) => relay.deliver(m),
         onLink: (status) => relay.setLink(status),
       });
@@ -154,15 +160,48 @@ export class JoinScene extends Phaser.Scene {
     this.keep(button(this, 960, 620, "Refresh", () => window.location.reload(), { size: 48, origin: 0.5 }));
   }
 
+  private me(): Lobby["players"][number] | undefined {
+    return this.lobby?.players.find((p) => p.seat === this.client?.seat);
+  }
+
+  // Your wardrobe: a pick goes to the host (which may ignore it when the colour is taken; its lobby message then shows the truth).
+  private openWardrobe(): void {
+    const me = this.me();
+    if (!me || this.wardrobe) return;
+    this.wardrobe = new Wardrobe(this, {
+      look: me.look,
+      taken: takenByOthers(this.lobby!.players, me.seat),
+      onChange: (look) => {
+        saveLook(look);
+        this.client?.sendLook(look);
+      },
+      onClose: () => {
+        this.wardrobe?.destroy();
+        this.wardrobe = null;
+      },
+    });
+  }
+
+  private syncWardrobe(): void {
+    const me = this.me();
+    if (this.wardrobe && me) this.wardrobe.sync(me.look, takenByOthers(this.lobby!.players, me.seat));
+  }
+
   private showLobby(): void {
     const lobby = this.lobby;
     if (!lobby) return;
     this.clear();
     this.keep(label(this, 100, 200, "Seats (the first seat leads)", 34, { bold: true }));
+    const L = D.lobbyList;
     lobby.players.forEach((p, i) => {
       const you = p.seat === this.client?.seat;
-      this.keep(label(this, 100, 290 + i * 90, `${i + 1}.  ${p.name}  (level ${p.level})${you ? "  (you)" : ""}${p.away ? "  (away)" : ""}`, 36));
+      const y = L.joinTop + i * L.pitch;
+      this.keep(label(this, 100, y, `${i + 1}.`, 36));
+      this.keep(listWizard(this, 170, y + 40, p.look, L.wizardScale, i));
+      this.keep(label(this, L.textX, y, `${p.name}  (level ${p.level})${you ? "  (you)" : ""}${p.away ? "  (away)" : ""}`, 36, { color: cssColour(lookColour(p.look)) }));
+      if (you) this.keep(button(this, L.editX, y, "Edit", () => this.openWardrobe(), { size: 26 }));
     });
+    this.syncWardrobe();
     this.keep(label(this, 960, 900, "Waiting for the host to start...", 36, { origin: 0.5, color: "#9fd1b8" }));
     this.keep(button(this, 60, 1000, "Leave", () => this.scene.start("menu")));
   }

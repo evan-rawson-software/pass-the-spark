@@ -2,7 +2,8 @@ import Phaser from "phaser";
 import type { EventState } from "../engine/eventStops";
 import type { EventData } from "../engine/types";
 import type { RunState } from "../engine/run";
-import { PLAYER_COLORS, button, label } from "./ui";
+import { seatColour } from "./seatColours";
+import { button, label } from "./ui";
 import { coinLine } from "./coinIcon";
 import { seatName } from "./runSession";
 
@@ -78,7 +79,7 @@ export function drawGiantPanel(
   run.players.forEach((id, i) => {
     const y = top + 340 + i * 56;
     const out = giant.stopped.includes(id);
-    scene.add.circle(left + 16, y, 16, PLAYER_COLORS[i % PLAYER_COLORS.length]).setStrokeStyle(3, 0x0d2a20);
+    scene.add.circle(left + 16, y, 16, seatColour(run.players, id)).setStrokeStyle(3, 0x0d2a20);
     label(scene, left + 16, y, String(i + 1), 20, { bold: true, color: "#0d2a20", origin: 0.5 });
     const turn = id === giant.turn;
     label(scene, left + 50, y, `${seatName(id)}${turn ? "  <" : ""}`, 28, { bold: turn, color: out ? "#7a8f84" : "#ffffff" });

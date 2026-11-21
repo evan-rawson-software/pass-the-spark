@@ -21,7 +21,8 @@ import { Tooltip } from "./tooltip";
 import { playVoteRoll } from "./voteRoll";
 import { drawTollBridge } from "./tollBridgeArt";
 import { drawWell, drawWellStage, prizeText } from "./wishingWellUi";
-import { PLAYER_COLORS, button, drawBackground, label } from "./ui";
+import { seatColour } from "./seatColours";
+import { button, drawBackground, label } from "./ui";
 
 // The event screen (#87), used by every event. Illustration (drawn in code, one per event) on the
 // left; title, story text and choices on the right. The story text comes from data/events.json and
@@ -280,7 +281,7 @@ export class EventScene extends Phaser.Scene {
     y += 20;
     for (const [i, id] of run.players.entries()) {
       const done = event.choices[id] !== undefined;
-      this.add.circle(TEXT_X + 16, y, 16, PLAYER_COLORS[i % PLAYER_COLORS.length]).setStrokeStyle(3, 0x0d2a20).setAlpha(done ? 1 : 0.4);
+      this.add.circle(TEXT_X + 16, y, 16, seatColour(run.players, id)).setStrokeStyle(3, 0x0d2a20).setAlpha(done ? 1 : 0.4);
       label(this, TEXT_X + 50, y, `${seatName(id)}: ${done ? "has chosen" : "still choosing"}`, 28, { color: done ? "#7dffb0" : "#cfe9dc" });
       y += 46;
     }
@@ -323,7 +324,7 @@ export class EventScene extends Phaser.Scene {
     const tooltip = new Tooltip(this);
     summary.results.forEach((r, i) => {
       const y = 220 + i * 170;
-      this.add.circle(TEXT_X + 16, y, 16, PLAYER_COLORS[run.players.indexOf(r.player) % PLAYER_COLORS.length]).setStrokeStyle(3, 0x0d2a20);
+      this.add.circle(TEXT_X + 16, y, 16, seatColour(run.players, r.player)).setStrokeStyle(3, 0x0d2a20);
       label(this, TEXT_X + 50, y, seatName(r.player), 32, { bold: true });
       if (r.wish) {
         const w = r.wish;
@@ -370,7 +371,7 @@ export class EventScene extends Phaser.Scene {
     voters.forEach((id, k) => {
       const index = run.players.indexOf(id);
       const mx = x + k * 38;
-      this.add.circle(mx, y, 16, PLAYER_COLORS[index % PLAYER_COLORS.length]).setStrokeStyle(3, 0x0d2a20);
+      this.add.circle(mx, y, 16, seatColour(run.players, id)).setStrokeStyle(3, 0x0d2a20);
       label(this, mx, y, String(index + 1), 20, { bold: true, color: "#0d2a20", origin: 0.5 });
     });
     if (voters.length > 0) label(this, x + voters.length * 38 + 6, y, voters.map(seatName).join(", "), 22, { color: "#cfe9dc" });

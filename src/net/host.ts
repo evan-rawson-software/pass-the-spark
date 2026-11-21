@@ -13,6 +13,8 @@ import { getRunView, getView } from "../engine/view";
 import { allUnlocks, runExperience } from "../engine/progression";
 import { REFUSED_BUILD, REFUSED_KICKED } from "./protocol";
 import type { ClientMessage, HostMessage, PingTarget } from "./protocol";
+import { fixLook, isLook } from "./look";
+import type { Look } from "./look";
 import { hostPeerId } from "./room";
 import type { SavedRoom } from "./room";
 import type { Connection, Transport } from "./transport";
@@ -32,6 +34,7 @@ export interface HostOptions {
   hostName: string;
   content: Content; // everything the run reads from data
   unlocks: () => string[]; // the host's own player's unlocks, read when the run starts
+  look?: Look; // the host's own player's saved look; a missing or invalid one is fixed
   // Called with what the host's own player (seat p1) would receive over the network.
   onLocalMessage: (message: HostMessage) => void;
   // Resume a room that was saved earlier: same seats and tokens, same run. Players reconnect on their own.
@@ -47,6 +50,7 @@ interface Member {
   local: boolean; // the host's own seat: no connection, messages go to onLocalMessage
   connection: Connection | null; // null for the host's own seat, and for a saved seat nobody has reclaimed yet
   connected: boolean;
+  look: Look; // always valid, and its colour is never another member's
   unlocks: string[]; // what a joining player said they have unlocked, cleaned; used when the run starts
   lastPing: number; // when this player last pinged (for the rate limit); pings are never saved
 }
@@ -59,6 +63,8 @@ export interface Host {
   // They do nothing once the run has started.
   moveSeat(seat: string, direction: -1 | 1): void;
   kick(seat: string): void;
+  // The host's own player changes their look. Ignored once the run has started, or when the colour is taken.
+  setLook(look: Look): void;
   // The host's own player submits a battle choice, checked like everyone else's. It counts for a seat
   // the host is playing for when that seat's turn is up.
   submitLocal(choice: Choice): void;
@@ -82,18 +88,22 @@ export interface Host {
 export async function createHost(options: HostOptions): Promise<Host> {
   const { transport, buildId } = options;
   const saved = options.resume;
-  const members: Member[] = saved
-    ? saved.members.map((x) => ({
-        seat: x.seat,
-        name: x.name,
-        token: x.token,
-        local: x.token === null, // only the host's own seat has no token
-        connection: null,
-        connected: x.token === null,
-        unlocks: [],
-        lastPing: 0,
-      }))
-    : [{ seat: "p1", name: options.hostName, token: null, local: true, connection: null, connected: true, unlocks: [], lastPing: 0 }];
+  const members: Member[] = [];
+  // Seats in order: a saved look is kept unless it is missing, unreadable or clashes with an earlier seat.
+  for (const x of saved?.members ?? [{ seat: "p1", name: options.hostName, token: null }]) {
+    const look = fixLook((x as { look?: Look }).look ?? (x.token === null ? options.look : undefined), members.map((m) => m.look.colour));
+    members.push({
+      seat: x.seat,
+      name: x.name,
+      token: x.token,
+      local: x.token === null, // only the host's own seat has no token
+      connection: null,
+      connected: x.token === null,
+      look,
+      unlocks: [],
+      lastPing: 0,
+    });
+  }
   let run: RunState | null = saved?.run ?? null;
   const controlled = new Set<string>(); // away seats the host is playing for
   let pauseSeats: string[] = []; // the away seats the game is waiting on
@@ -110,7 +120,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
     options.onSave?.({
       roomCode: options.roomCode,
       buildId,
-      members: members.map((m) => ({ seat: m.seat, name: m.name, token: m.token })),
+      members: members.map((m) => ({ seat: m.seat, name: m.name, token: m.token, look: m.look })),
       run,
     });
   }
@@ -149,7 +159,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
   }
 
   function presenceMessage(): HostMessage {
-    return { type: "presence", players: members.map((m) => ({ seat: m.seat, name: m.name, away: !m.connected })) };
+    return { type: "presence", players: members.map((m) => ({ seat: m.seat, name: m.name, away: !m.connected, look: m.look })) };
   }
 
   function clearPause(): void {
@@ -208,7 +218,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
     return {
       type: "lobby",
       // level is display only: one unlock per level, so the (cleaned) unlocks a player sent say which level they are
-      players: members.map((m) => ({ seat: m.seat, name: m.name, level: (m.local ? cleanUnlocks(options.unlocks()) : m.unlocks).length, away: !m.connected })),
+      players: members.map((m) => ({ seat: m.seat, name: m.name, level: (m.local ? cleanUnlocks(options.unlocks()) : m.unlocks).length, away: !m.connected, look: m.look })),
       seats: members.map((m) => m.seat),
     };
   }
@@ -217,6 +227,16 @@ export async function createHost(options: HostOptions): Promise<Host> {
     const message = lobbyMessage();
     for (const m of members) deliver(m, message);
     save();
+  }
+
+  // A look change from `m`, in the lobby only (a lobby message during a run would send everyone back
+  // to the lobby). A look that is not valid, or whose colour another player has, is ignored; the
+  // player is sent the lobby again so their screen shows the truth.
+  function handleLook(m: Member, raw: unknown): void {
+    if (run !== null) return;
+    if (!isLook(raw) || members.some((x) => x !== m && x.look.colour === raw.colour)) return deliver(m, lobbyMessage());
+    m.look = { colour: raw.colour, hat: raw.hat, robe: raw.robe };
+    sendLobby();
   }
 
   // Seats are list order: p1, p2, ... Tell anyone whose seat changed.
@@ -335,7 +355,11 @@ export async function createHost(options: HostOptions): Promise<Host> {
       } else if (members.length >= MAX_SEATS) {
         return reply({ type: "refused", reason: "The room is full." });
       } else {
-        me = { seat: "p" + (members.length + 1), name, token, local: false, connection, connected: true, unlocks: cleanUnlocks(msg.unlocks), lastPing: 0 };
+        me = {
+          seat: "p" + (members.length + 1), name, token, local: false, connection, connected: true, lastPing: 0,
+          look: fixLook(msg.look, members.map((x) => x.look.colour)), // a joiner never clashes: the later joiner gets the first free colour
+          unlocks: cleanUnlocks(msg.unlocks),
+        };
         members.push(me);
       }
       reply({ type: "welcome", seat: me.seat, token });
@@ -356,6 +380,9 @@ export async function createHost(options: HostOptions): Promise<Host> {
       if (!known) return reply({ type: "error", message: "say hello first" });
       if (run === null || run.phase === "over") known.unlocks = cleanUnlocks(msg.unlocks); // the run is over: they count for the next one
       if (run === null) sendLobby(); // already back in the lobby: show the new level (while the run screen is up, a lobby message would send everyone back)
+    } else if (msg.type === "look") {
+      if (!known) return reply({ type: "error", message: "say hello first" });
+      handleLook(known, msg.look);
     } else if (msg.type === "ping") {
       if (!known) return reply({ type: "error", message: "say hello first" });
       handlePing(known, msg.target);
@@ -405,6 +432,9 @@ export async function createHost(options: HostOptions): Promise<Host> {
       [members[i], members[j]] = [members[j], members[i]];
       renumber();
       sendLobby();
+    },
+    setLook(look) {
+      handleLook(members.find((x) => x.local)!, look);
     },
     kick(seat) {
       if (run !== null) return;

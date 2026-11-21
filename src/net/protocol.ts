@@ -4,6 +4,7 @@ import type { Choice } from "../engine/battle";
 import type { GameEvent } from "../engine/events";
 import type { RunChoice, RunEvent } from "../engine/run";
 import type { BattleView, RunView } from "../engine/view";
+import type { Look } from "./look";
 
 // What a ping points at, named by position so it can only ever name something visible: a seat's
 // hand slot, a domino on the board (its node index), or an open end of the board (its end index).
@@ -14,7 +15,9 @@ export type PingTarget =
 
 // client -> host
 export type ClientMessage =
-  | { type: "hello"; buildId: string; name: string; token: string; unlocks: string[] }
+  | { type: "hello"; buildId: string; name: string; token: string; unlocks: string[]; look: Look }
+  // This player's new look, in the lobby only. The host ignores it when the colour is taken.
+  | { type: "look"; look: Look }
   // A choice in a battle.
   | { type: "choice"; choice: Choice }
   // This player's unlocks changed (after a run). Only counts between runs.
@@ -29,13 +32,13 @@ export type ClientMessage =
 export type HostMessage =
   | { type: "welcome"; seat: string; token: string }
   | { type: "refused"; reason: string }
-  | { type: "lobby"; players: { seat: string; name: string; level: number; away?: boolean }[]; seats: string[] }
+  | { type: "lobby"; players: { seat: string; name: string; level: number; away?: boolean; look: Look }[]; seats: string[] }
   | { type: "update"; view: BattleView; events: GameEvent[] }
   // The run outside its battles: the state after a step, and the run's own events from it. Sent to
   // everyone after every step that is not a move inside a battle, and when a player (re)joins.
   | { type: "runUpdate"; view: RunView; events: RunEvent[] }
   // Who is connected, sent to everyone whenever it changes during a run.
-  | { type: "presence"; players: { seat: string; name: string; away: boolean }[] }
+  | { type: "presence"; players: { seat: string; name: string; away: boolean; look: Look }[] }
   // The run is waiting on seats whose players are away (null: not waiting; waitingFor lists their names).
   // `playFor` goes only to the host, once the wait has been long enough: the seat it may take over.
   | { type: "paused"; waitingFor: string | null; playFor?: string }

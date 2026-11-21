@@ -1,5 +1,7 @@
 import { allUnlocks, applyExperience, NEW_PROFILE } from "../engine/progression";
 import type { Profile } from "../engine/progression";
+import { isLook, randomLook } from "../net/look";
+import type { Look } from "../net/look";
 import { content } from "./devBattle";
 
 // This browser's profile (#131): experience and unlocks in localStorage. A missing or unreadable
@@ -17,6 +19,8 @@ export interface Comfort {
 interface StoredProfile extends Profile {
   lastRun?: string;
   comfort?: Comfort;
+  look?: Look; // the wizard look used online (A5)
+  seatLooks?: (Look | null)[]; // single player: the look of seat 1, seat 2, ...
 }
 
 export function loadProfile(): StoredProfile {
@@ -26,7 +30,9 @@ export function loadProfile(): StoredProfile {
     const unlocks = allUnlocks(data).filter((id) => p.unlocks!.includes(id));
     const c = p.comfort;
     const comfort = c && typeof c.shake === "boolean" && typeof c.reducedFlashing === "boolean" ? { comfort: { shake: c.shake, reducedFlashing: c.reducedFlashing } } : {};
-    return { experience: p.experience, unlocks, ...(typeof p.lastRun === "string" ? { lastRun: p.lastRun } : {}), ...comfort };
+    const look = isLook(p.look) ? { look: p.look } : {};
+    const seatLooks = Array.isArray(p.seatLooks) ? { seatLooks: p.seatLooks.map((l) => (isLook(l) ? l : null)) } : {};
+    return { experience: p.experience, unlocks, ...(typeof p.lastRun === "string" ? { lastRun: p.lastRun } : {}), ...comfort, ...look, ...seatLooks };
   } catch {
     return { ...NEW_PROFILE, unlocks: [] };
   }
@@ -47,6 +53,28 @@ export function loadComfort(defaults: Comfort): Comfort {
 
 export function saveComfort(comfort: Comfort): void {
   saveProfile({ ...loadProfile(), comfort });
+}
+
+// The look saved for online play. A missing or unreadable one is a random one, saved at once so it stays.
+export function onlineLook(): Look {
+  const saved = loadProfile().look;
+  if (saved) return saved;
+  const look = randomLook([]);
+  saveLook(look);
+  return look;
+}
+
+export function saveLook(look: Look): void {
+  saveProfile({ ...loadProfile(), look });
+}
+
+// Single player: the saved look of each seat, by seat number (null where there is none yet).
+export function loadSeatLooks(): (Look | null)[] {
+  return loadProfile().seatLooks ?? [];
+}
+
+export function saveSeatLooks(seatLooks: Look[]): void {
+  saveProfile({ ...loadProfile(), seatLooks });
 }
 
 export function resetProfile(): void {
@@ -77,6 +105,6 @@ export function awardExperience(runId: string, gained: number): void {
   const profile = loadProfile();
   if (profile.lastRun === runId) return;
   const result = applyExperience(data, profile, gained);
-  saveProfile({ ...result.profile, lastRun: runId, ...(profile.comfort ? { comfort: profile.comfort } : {}) });
+  saveProfile({ ...profile, ...result.profile, lastRun: runId }); // the rest of the profile (comfort, looks) stays
   lastAward = { runId, gained, newUnlocks: result.newUnlocks };
 }

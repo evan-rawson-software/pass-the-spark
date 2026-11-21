@@ -9,9 +9,12 @@ import type { SavedRoom } from "../net/room";
 import { debugPanel } from "./DebugPanel";
 import { content } from "./devBattle";
 import { relay } from "./relay";
-import { loadProfile } from "./profile";
+import { loadProfile, onlineLook, saveLook } from "./profile";
+import { wizardLookData as D } from "./presentation";
 import { openRunScreen, startOnlineRun } from "./runSession";
 import { button, drawBackground, INPUT_STYLE, label } from "./ui";
+import { cssColour, listWizard, takenByOthers, Wardrobe } from "./wardrobe";
+import { lookColour } from "./wizard";
 
 // The host's lobby (#33): room code and link, the seat list, and Start, which starts the run (#49).
 // Draws what the host reports and calls the host's lobby methods; it holds no rules.
@@ -25,6 +28,8 @@ export class HostLobbyScene extends Phaser.Scene {
   private dynamic: Phaser.GameObjects.GameObject[] = [];
   private note = "";
   private started = false;
+  private wardrobe: Wardrobe | null = null;
+  private linkInput: Phaser.GameObjects.DOMElement | null = null;
 
   constructor() {
     super("hostLobby");
@@ -43,6 +48,8 @@ export class HostLobbyScene extends Phaser.Scene {
     this.lobby = null;
     this.mySeat = restore?.members.find((m) => m.token === null)?.seat ?? "p1";
     this.started = false;
+    this.wardrobe = null;
+    this.linkInput = null;
     this.note = "";
     this.dynamic = [];
     drawBackground(this);
@@ -66,7 +73,7 @@ export class HostLobbyScene extends Phaser.Scene {
     const status = label(this, 960, 540, "Creating room...", 36, { origin: 0.5 });
     button(this, 60, 1000, "Back", () => this.leave());
 
-    this.lobby = { type: "lobby", players: [{ seat: "p1", name, level: loadProfile().unlocks.length }], seats: ["p1"] };
+    this.lobby = { type: "lobby", players: [{ seat: "p1", name, level: loadProfile().unlocks.length, look: onlineLook() }], seats: ["p1"] };
     debugPanel.onLobbyChange = () => this.redraw();
     this.events.once("shutdown", () => {
       debugPanel.onLobbyChange = null;
@@ -127,6 +134,7 @@ export class HostLobbyScene extends Phaser.Scene {
           hostName: name,
           content,
           unlocks: () => loadProfile().unlocks,
+          look: onlineLook(),
           onLocalMessage: (m) => relay.deliver(m),
           resume: restore ?? undefined,
           onSave: (room) => saveHostedRoom(roomCode, room, safeStorage()),
@@ -172,6 +180,7 @@ export class HostLobbyScene extends Phaser.Scene {
     label(this, 100, 160, "Room code", 30);
     label(this, 380, 160, this.roomCode, 64, { bold: true });
     const el = this.add.dom(1100, 160, "input", INPUT_STYLE + ";width:760px;font-size:22px");
+    this.linkInput = el;
     const input = el.node as HTMLInputElement;
     input.readOnly = true;
     input.value = link;
@@ -197,23 +206,57 @@ export class HostLobbyScene extends Phaser.Scene {
       return o;
     };
 
+    const L = D.lobbyList;
     lobby.players.forEach((p, i) => {
-      const y = 340 + i * 90;
+      const y = L.hostTop + i * L.pitch;
       const you = p.seat === this.mySeat;
-      keep(label(this, 100, y, `${i + 1}.  ${p.name}  (level ${p.level})${you ? "  (you, host)" : ""}${p.away ? "  (away)" : ""}`, 36));
-      keep(button(this, 620, y, "Up", () => host.moveSeat(p.seat, -1), { size: 26, disabled: i === 0 }));
-      keep(button(this, 720, y, "Down", () => host.moveSeat(p.seat, 1), { size: 26, disabled: i === lobby.players.length - 1 }));
-      if (!you) keep(button(this, 850, y, "Kick", () => host.kick(p.seat), { size: 26 }));
+      keep(label(this, 100, y, `${i + 1}.`, 36));
+      keep(listWizard(this, 170, y + 40, p.look, L.wizardScale, i));
+      keep(label(this, L.textX, y, `${p.name}  (level ${p.level})${you ? "  (you, host)" : ""}${p.away ? "  (away)" : ""}`, 36, { color: cssColour(lookColour(p.look)) }));
+      keep(button(this, 760, y, "Up", () => host.moveSeat(p.seat, -1), { size: 26, disabled: i === 0 }));
+      keep(button(this, 860, y, "Down", () => host.moveSeat(p.seat, 1), { size: 26, disabled: i === lobby.players.length - 1 }));
+      if (you) keep(button(this, L.editX, y, "Edit", () => this.openWardrobe(), { size: 26 }));
+      else keep(button(this, L.editX, y, "Kick", () => host.kick(p.seat), { size: 26 }));
     });
     for (let i = lobby.players.length; i < MAX_SEATS; i++) {
-      keep(label(this, 100, 340 + i * 90, `${i + 1}.  (empty)`, 36, { color: "#9fd1b8" }));
+      keep(label(this, 100, L.hostTop + i * L.pitch, `${i + 1}.  (empty)`, 36, { color: "#9fd1b8" }));
     }
+    this.syncWardrobe();
 
     const count = lobby.players.length;
     const canStart = count >= MIN_SEATS || debugPanel.allowFewerPlayers;
     keep(button(this, 960, 900, "Start", () => this.start(), { size: 56, origin: 0.5, disabled: !canStart }));
     const hint = canStart ? this.note : `Waiting for players (${count} of ${MIN_SEATS} to ${MAX_SEATS})`;
     keep(label(this, 960, 980, hint, 28, { origin: 0.5, color: "#ffd0cc" }));
+  }
+
+  private me(): Lobby["players"][number] | undefined {
+    return this.lobby?.players.find((p) => p.seat === this.mySeat);
+  }
+
+  // Your wardrobe: a pick goes to the host (which may ignore it when the colour is taken; its lobby message then shows the truth).
+  private openWardrobe(): void {
+    const me = this.me();
+    if (!me || this.wardrobe) return;
+    this.linkInput?.setVisible(false); // a DOM element draws above the canvas, so it would show through the panel
+    this.wardrobe = new Wardrobe(this, {
+      look: me.look,
+      taken: takenByOthers(this.lobby!.players, this.mySeat),
+      onChange: (look) => {
+        saveLook(look);
+        this.host?.setLook(look);
+      },
+      onClose: () => {
+        this.wardrobe?.destroy();
+        this.wardrobe = null;
+        this.linkInput?.setVisible(true);
+      },
+    });
+  }
+
+  private syncWardrobe(): void {
+    const me = this.me();
+    if (this.wardrobe && me) this.wardrobe.sync(me.look, takenByOthers(this.lobby!.players, this.mySeat));
   }
 
   private start(): void {

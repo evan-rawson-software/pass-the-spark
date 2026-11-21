@@ -1,4 +1,5 @@
 import type { RunState } from "../engine/run";
+import type { Look } from "./look";
 
 // Room codes and the host's peer id. Not part of the engine, so Math.random and crypto are fine here.
 
@@ -64,7 +65,7 @@ export function hasRoomToken(code: string, storage?: TokenStorage): boolean {
 export interface SavedRoom {
   roomCode: string;
   buildId: string;
-  members: { seat: string; name: string; token: string | null }[]; // in seat order; the host's own seat has no token
+  members: { seat: string; name: string; token: string | null; look?: Look }[]; // in seat order; the host's own seat has no token; look is missing in older saves
   run: RunState | null;
 }
 

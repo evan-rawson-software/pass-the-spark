@@ -8,6 +8,7 @@ import { BUILD_ID } from "../src/net/buildId";
 import { joinRoom } from "../src/net/client";
 import type { Client } from "../src/net/client";
 import { createHost } from "../src/net/host";
+import { COLOUR_IDS } from "../src/net/look";
 import { createMemoryNetwork } from "../src/net/memoryTransport";
 import type { HostMessage } from "../src/net/protocol";
 import { generateRoomCode } from "../src/net/room";
@@ -154,4 +155,51 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
   expect((saved as SavedRoom | null)?.run?.unlocks).toEqual({ p1: ["double"], p2: ["advancedSparks", "boostTwo"], p3: ["advancedSparks", "boostTwo"] });
   rejoined.forEach((c) => c.close());
   host2.close();
+});
+
+test("a joiner with the host's colour gets the first free one, both screens agree, and a look with a taken colour is ignored", async () => {
+  const network = createMemoryNetwork();
+  const code = generateRoomCode();
+  const hostMessages: HostMessage[] = [];
+  const clientMessages: HostMessage[] = [];
+  const first = COLOUR_IDS[0];
+  const host = await createHost({
+    transport: network.createTransport(),
+    roomCode: code,
+    buildId: BUILD_ID,
+    hostName: "Host",
+    content: loadContent(),
+    unlocks: () => [],
+    look: { colour: first, hat: "pointed", robe: "plain" },
+    onLocalMessage: (m) => hostMessages.push(m),
+  });
+  const client = await joinRoom({
+    transport: network.createTransport(),
+    roomCode: code,
+    buildId: BUILD_ID,
+    name: "Friend",
+    token: "token",
+    unlocks: () => [],
+    look: () => ({ colour: first, hat: "hood", robe: "runic" }), // the same saved colour as the host
+    onMessage: (m) => clientMessages.push(m),
+  });
+  await flush();
+  const lobbies = (list: HostMessage[]) => list.filter((m) => m.type === "lobby");
+  const looks = [
+    ["p1", { colour: first, hat: "pointed", robe: "plain" }],
+    ["p2", { colour: COLOUR_IDS[1], hat: "hood", robe: "runic" }],
+  ];
+  const lastLobby = (list: HostMessage[]) => (lobbies(list).at(-1) as Extract<HostMessage, { type: "lobby" }>).players.map((p) => [p.seat, p.look]);
+  expect(lastLobby(clientMessages)).toEqual(looks);
+  expect(lastLobby(hostMessages)).toEqual(looks);
+
+  // The joiner asks for the host's colour: ignored, and the lobby is sent again, unchanged.
+  const before = lobbies(clientMessages).length;
+  client.sendLook({ colour: first, hat: "brim", robe: "mantle" });
+  await flush();
+  expect(lobbies(clientMessages).length).toBe(before + 1);
+  expect(lastLobby(clientMessages)).toEqual(looks);
+
+  client.close();
+  host.close();
 });
