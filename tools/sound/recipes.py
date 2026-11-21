@@ -6,7 +6,7 @@ returns (audio, how it was made). Tuned cues have their root on a C, so the game
 them in C major pentatonic. Every clip is loudness-matched by build.py afterwards, so the gains
 here only balance the layers inside one sound.
 """
-from sfx import (C4, C5, C6, G4, NOISE, SAW, SINE, SQ, NOTE, P, comp, echoes, lead, mix, reverb,
+from sfx import (C4, C5, C6, G4, NOISE, SAW, SINE, SQ, NOTE, P, comp, echoes, lead, lp, mix, reverb,
                  shelf, softclip, sparkles, step, sustain, voice)
 
 RECIPES = {}
@@ -357,6 +357,76 @@ def _():
     return reverb(mix(*notes), 1.2, 0.3), "A soft sine arpeggio rising C5, E5, G5, C6, reverb"
 
 
+# ======================================================================================
+# Menus and the run (round 2, #252)
+# ======================================================================================
+
+@recipe("click", "A")
+def _():
+    t = voice(SINE, NOTE(7), p_freq_ramp=-0.1, p_env_sustain=0.01, p_env_decay=sustain(0.05))
+    return mix((t, 0, 0), (click(0.04, 0.4, 61), 0, -14)), "A soft sine tock on G5 that dips slightly, with a faint click on top"
+
+
+@recipe("click", "B")
+def _():
+    t = voice(SQ, C5, p_duty=0.5, p_env_sustain=0.005, p_env_decay=sustain(0.035), p_lpf_freq=0.35)
+    return mix((t, 0, 0), (click(0.03, 0.5, 62), 0, -12)), "A muffled square tick on C5 (low-passed, like a wooden key), with a faint click"
+
+
+@recipe("voteRoll", "A")
+def _():
+    t = voice(SINE, C6, p_env_sustain=0.01, p_env_decay=sustain(0.045))
+    return reverb(t, 0.25, 0.08), "A short sine pip on C6, a touch of room"
+
+
+@recipe("voteRoll", "B")
+def _():
+    t = voice(SQ, NOTE(4, C6), p_duty=0.25, p_env_sustain=0.005, p_env_decay=sustain(0.03), p_lpf_freq=0.45)
+    return mix((t, 0, 0), (click(0.02, 0.6, 63), 0, -16)), "A tiny low-passed square blip on E6, like a roulette tick"
+
+
+def coin(f, decay=0.3):
+    return voice(SQ, f, p_duty=0.5, p_env_sustain=0.03, p_env_punch=0.4, p_env_decay=decay, p_arp_mod=0.35, p_arp_speed=0.55)
+
+
+@recipe("coins", "A")
+def _():
+    return reverb(mix((coin(C6), 0, 0), (coin(NOTE(7, C6)), 0.07, -2), *sparkles(0.1, 0.3, 3, 64, 14)), 0.5, 0.14),         "Two combo:coin blips, C6 then G6, with a few sparkles, short room"
+
+
+@recipe("coins", "B")
+def _():
+    notes = [(coin(NOTE(s, C6), 0.22), i * 0.045, -i) for i, s in enumerate([0, 4, 7, 12])]
+    return reverb(mix(*notes), 0.6, 0.16), "Four combo:coin blips running up C6, E6, G6, C7, short room"
+
+
+@recipe("buy", "A")
+def _():
+    chord = [(voice(SINE, NOTE(s), p_env_attack=0.02, p_env_sustain=sustain(0.12), p_env_decay=sustain(0.35)), 0.04, -6) for s in (0, 4, 7)]
+    return reverb(mix((coin(NOTE(7, C6)), 0, 0), *chord), 0.8, 0.2), "A coin blip on G6 over a soft sine C major chord, reverb"
+
+
+@recipe("buy", "B")
+def _():
+    a = voice(SINE, NOTE(7), p_env_sustain=0.03, p_env_punch=0.3, p_env_decay=0.35)
+    b = voice(SINE, C6, p_env_sustain=0.05, p_env_punch=0.3, p_env_decay=0.45)
+    return reverb(mix((a, 0, 0), (b, 0.09, 0), *sparkles(0.12, 0.35, 4, 65, 12)), 0.9, 0.22),         "A two-note sine chime rising G5 to C6, with a few sparkles, reverb"
+
+
+@recipe("rest", "A")
+def _():
+    chord = [(voice(SINE, NOTE(s, C4), p_env_attack=sustain(0.15), p_env_sustain=sustain(0.5), p_env_decay=sustain(0.8),
+                    p_vib_strength=0.05, p_vib_speed=0.3), 0, -2) for s in (0, 4, 7, 12)]
+    return reverb(lp(mix(*chord), 3000), 1.8, 0.3), "A warm sine chord, C4 E4 G4 C5, swelling in slowly with a gentle vibrato, low-passed, long reverb"
+
+
+@recipe("rest", "B")
+def _():
+    notes = [(voice(SINE, NOTE(s, C4), p_env_attack=0.05, p_env_sustain=sustain(0.2), p_env_decay=sustain(0.9)), i * 0.14, -1 - i)
+             for i, s in enumerate([0, 7, 12, 16])]
+    return reverb(lp(mix(*notes), 3000), 2.0, 0.32), "A slow sine arpeggio, C4 G4 C5 E5, each note ringing on, low-passed, long reverb"
+
+
 # How the picker groups the cues.
 GROUPS = {
     "Placing": ["clack", "hum"],
@@ -366,4 +436,5 @@ GROUPS = {
     "Enemy reactions": ["lunge", "impact", "enemyHit", "enemyBigHit", "enemyShield", "blockBreak", "heal", "enemyDeath", "bossDeath"],
     "The finale": ["combo:charge", "combo:slam", "combo:slamLethal", "combo:fanfare0", "combo:fanfare1", "combo:fanfare2",
                    "combo:fanfare3", "combo:fanfare4", "combo:fanfareLethal", "combo:coin"],
+    "Menus and the run": ["click", "voteRoll", "coins", "buy", "rest"],
 }
