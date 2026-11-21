@@ -22,7 +22,8 @@ const B = (presentationJson as unknown as {
     glow: { litMin: number; litMax: number };
     strip: number;
     counter: { at: number; size: number; spacing: number; pump: number; pumpMs: number; fadeMs: number };
-    callouts: { max: number; at: number; size: number; ms: number; list: Callout[] };
+    callouts: { max: number; at: number; size: number; ms: number; holdFraction: number; fadeInMs: number; popMs: number; startScale: number; popScale: number; list: Callout[] };
+    keep: { slot: number; shield: { x: number; y: number; w: number; h: number } };
     camera: { minNodes: number; zoomOut: number; minZoom: number; pad: number; easeMs: number; restoreMs: number; push: { minCap: number; zoom: number; reducedZoom: number; inMs: number; holdMs: number } };
   };
 }).buildup;
@@ -255,12 +256,12 @@ export class Buildup {
     this.words.push(w);
     playSound("callout", 1 + hit * 2);
     const soft = reducedFlashing(); // a fade instead of a burst
-    w.pump = soft ? 1 : 0.4;
+    w.pump = soft ? 1 : B.callouts.startScale;
     w.obj.setAlpha(0);
-    this.scene.tweens.add({ targets: w.obj, alpha: 1, duration: scaleTime(120) });
-    if (!soft) this.scene.tweens.add({ targets: w, pump: 1.1, duration: scaleTime(220), ease: "Back.easeOut" });
+    this.scene.tweens.add({ targets: w.obj, alpha: 1, duration: scaleTime(B.callouts.fadeInMs) });
+    if (!soft) this.scene.tweens.add({ targets: w, pump: B.callouts.popScale, duration: scaleTime(B.callouts.popMs), ease: "Back.easeOut" });
     this.scene.tweens.add({
-      targets: w.obj, alpha: 0, delay: scaleTime(B.callouts.ms * 0.6), duration: scaleTime(B.callouts.ms * 0.4),
+      targets: w.obj, alpha: 0, delay: scaleTime(B.callouts.ms * B.callouts.holdFraction), duration: scaleTime(B.callouts.ms * (1 - B.callouts.holdFraction)),
       onComplete: () => w.obj.destroy(),
     });
   }
@@ -330,7 +331,7 @@ export class Buildup {
       y0 = Math.min(y0, y - h / 2); y1 = Math.max(y1, y + h / 2);
     };
     refs.nodes.forEach((n) => grow(n.pos.x, n.pos.y, DW * n.pos.k, DH * n.pos.k));
-    refs.slots.forEach((s) => grow(s.x, s.y, 40, 40));
+    refs.slots.forEach((s) => grow(s.x, s.y, B.keep.slot, B.keep.slot));
     if (x0 > x1) return this.frame();
     const p = B.camera.pad;
     return { x: x0 - p, y: y0 - p, w: x1 - x0 + 2 * p, h: y1 - y0 + 2 * p };
@@ -340,7 +341,7 @@ export class Buildup {
   private keepBox(refs: BuildupRefs): Box {
     const boxes: Box[] = [];
     refs.bars.forEach((b) => boxes.push(b));
-    refs.shields.forEach((s) => boxes.push({ x: s.x - 25, y: s.y - 25, w: 110, h: 50 }));
+    refs.shields.forEach((s) => boxes.push({ x: s.x + B.keep.shield.x, y: s.y + B.keep.shield.y, w: B.keep.shield.w, h: B.keep.shield.h }));
     if (refs.intent) boxes.push(refs.intent);
     if (boxes.length === 0) return { x: 0, y: 0, w: 1, h: 1 };
     const x0 = Math.min(...boxes.map((b) => b.x));
