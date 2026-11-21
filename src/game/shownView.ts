@@ -1,3 +1,4 @@
+import { removeFromBoard } from "../engine/battle";
 import { outputsOf } from "../engine/battleCharms";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
@@ -31,11 +32,10 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
       // The finished board goes to its owners' discard piles.
       for (const node of v.board.nodes) v.players.find((p) => p.id === node.owner)?.discard.push(node.domino);
       v.round = ev.round;
-      v.lead = ev.lead;
-      v.seat = ev.lead;
       v.board = { nodes: [], ends: [] };
-      v.passes = 0;
       v.locked = null;
+      v.enemy.staggered = false;
+      for (const p of v.players) p.ready = false;
       s.lit.clear();
       s.fizzled.clear();
       break;
@@ -67,6 +67,20 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
       }
       break;
     }
+    case "takeBack": {
+      const player = v.players.find((p) => p.id === ev.player);
+      player?.hand.push(ev.domino);
+      removeFromBoard(v.board, ev.node);
+      break;
+    }
+    case "ready": {
+      const player = v.players.find((p) => p.id === ev.player);
+      if (player) player.ready = ev.ready;
+      break;
+    }
+    case "lineReached":
+      v.enemy.staggered = true;
+      break;
     case "nodeLit":
       s.lit.add(ev.node);
       break;

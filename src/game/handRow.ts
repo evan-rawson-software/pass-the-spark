@@ -87,7 +87,7 @@ export function rowSlots(sizes: { w: number; h: number }[], area: Rect, P: RowPa
   return out;
 }
 
-// The default area, from data: right of the left column, left of the Pass button, under the board.
+// The default area, from data: right of the left column, left of the Ready button, under the board.
 export function handArea(): Rect {
   return { ...D.area };
 }

@@ -1,6 +1,5 @@
 import Phaser from "phaser";
 import type { BattleView } from "../engine/view";
-import type { NextPlayerPreview } from "../engine/battle";
 import { drawDomino, dominoPixelSize } from "./dominoDrawing";
 import { rowSlots } from "./handRow";
 import { charmWithTip, charmsByIds } from "./charmUi";
@@ -9,61 +8,43 @@ import { combatLayoutData, hexColour } from "./presentation";
 import type { CombatCtx, Layer } from "./combatCtx";
 import { fitText } from "./combatCtx";
 
-// The seat tabs across the top of the combat screen (#231, Spotlight; the rows of #228's turn-order
-// rail laid out sideways): one tab per seat in turn order, equal widths, a small arrow between them.
-// Each has the seat colour, name, LEAD / YOU · NOW / NEXT / AWAY tags, charms, deck and discard
-// counts (click them to open the deck and discard views) and the hand as small dominoes, in a row
-// that never overlaps (see rowSlots; your own tab says "Your hand is below"). The seat on turn
-// glows gold and the NEXT seat has a green outline. While a hand domino is hovered or dragged,
-// setNext() lights what the NEXT seat could play after it and dims the rest (from previewNextPlayer),
-// with a caption and a "pass" marker if that seat would have to pass. Hovering a small domino shows
-// it full size. Layout only; positions are in data/presentation.json (combatLayout.tabs).
+// The seat tabs across the top of the combat screen (#231, Spotlight): one tab per seat in seat order,
+// equal widths. There is no turn order in 0.2 (everyone builds at the same time). Each tab shows the
+// seat's colour and name, a YOU tag on your own, its placements for the round as pips that fill as it
+// places, a Ready mark (an away seat says "Waiting for [name]", then "Ready (away)"), charms, deck and
+// discard counts (click them to open the deck and discard views) and the hand as small dominoes, in a
+// row that never overlaps (see rowSlots; the tab whose hand is in front says "Your hand is below"). The
+// seat whose hand is in front has its tab framed in its colour. A click on a tab you may play from
+// (single player: any seat; online: your own, or an away seat the host has taken over) brings its hand
+// to the front. Hovering a small domino shows it full size. Layout only; positions are in
+// data/presentation.json (combatLayout.tabs).
 
 const D = combatLayoutData.tabs;
 const DOMINO_W = 240; // the full-size zoom's cell (an amplifier at scale 1)
 const DOMINO_H = 112; // the bar's height at scale 1
 
-interface Tab {
-  seat: string;
-  box: { x: number; y: number; w: number; h: number };
-  tagsLeft: number; // the left edge of the tags
-  tagsY: number;
-  dominoes: { id: string; x: number; y: number; k: number; w: number; h: number; c: Phaser.GameObjects.Container }[]; // x, y: the outline's centre; w, h: its size at scale 1
+export interface TabsInput {
+  front: string; // the seat whose hand is in front (its tab is framed)
+  you: string; // the seat marked YOU
+  pickable(seat: string): boolean; // a click on its tab brings this seat's hand to the front
+  onPick(seat: string): void;
+  isAway(seat: string): boolean;
+  nameOf(seat: string): string; // the seat's full name, for "Waiting for [name]"
 }
 
-export class TurnRail {
-  private tabs: Tab[] = [];
-  private layer?: Layer;
-  private marks?: Phaser.GameObjects.Container;
+export class SeatTabs {
   private zoom?: Phaser.GameObjects.Container;
 
   constructor(private ctx: CombatCtx) {}
 
-  // The seat after `turn` in the seat order: who plays next.
-  static nextSeat(view: BattleView, turn: string): string {
-    const o = view.seatOrder;
-    return o[(o.indexOf(turn) + 1) % o.length];
-  }
-
-  // `you` is the seat whose hand is in front; `turn` the seat on turn.
-  draw(layer: Layer, view: BattleView, you: string, turn: string): void {
-    const ctx = this.ctx;
-    this.layer = layer;
-    this.marks = undefined;
+  draw(layer: Layer, view: BattleView, input: TabsInput): void {
     this.hideZoom();
-    this.tabs = [];
-    const over = view.phase === "over";
     const seats = view.seatOrder.filter((s) => view.players.some((p) => p.id === s));
-    const next = over ? null : TurnRail.nextSeat(view, turn);
     const w = (D.w - (seats.length - 1) * D.gap) / seats.length;
-    seats.forEach((seat, i) => {
-      const x = D.x + i * (w + D.gap);
-      this.tab(layer, view, seat, x, w, { you: seat === you, lead: seat === view.lead, next: seat === next, onTurn: !over && seat === turn });
-      if (i < seats.length - 1) ctx.label(layer, x + w + D.gap / 2, D.y + D.h / 2, "▸", D.arrow.size, D.arrow.colour, 0.5, true);
-    });
+    seats.forEach((seat, i) => this.tab(layer, view, seat, D.x + i * (w + D.gap), w, input));
   }
 
-  private tab(layer: Layer, view: BattleView, seat: string, x: number, w: number, flags: { you: boolean; lead: boolean; next: boolean; onTurn: boolean }): void {
+  private tab(layer: Layer, view: BattleView, seat: string, x: number, w: number, input: TabsInput): void {
     const ctx = this.ctx;
     const s = ctx.scene;
     const y = D.y;
@@ -71,33 +52,31 @@ export class TurnRail {
     const T = D.tab;
     const player = view.players.find((p) => p.id === seat)!;
     const colour = seatColour(view.seatOrder, seat);
+    const framed = seat === input.front;
+    const away = input.isAway(seat);
     const g = ctx.gfx(layer);
-    if (flags.onTurn) {
-      // The seat on turn glows.
-      for (let i = 4; i >= 1; i--) {
-        g.lineStyle(i * 5, hexColour(T.turnStroke), 0.12);
-        g.strokeRoundedRect(x - i * 2, y - i * 2, w + i * 4, h + i * 4, D.r + i * 2);
-      }
-    }
-    g.fillStyle(hexColour(flags.onTurn ? T.turnFill : T.fill), 1);
+    g.fillStyle(hexColour(player.ready ? T.readyFill : T.fill), 1);
     g.fillRoundedRect(x, y, w, h, D.r);
-    const stroke = flags.onTurn ? { c: T.turnStroke, w: T.turnStrokeWidth } : flags.next ? { c: T.nextStroke, w: T.nextStrokeWidth } : { c: T.stroke, w: T.strokeWidth };
-    g.lineStyle(stroke.w, hexColour(stroke.c), 1);
+    if (framed) g.lineStyle(T.frameWidth, colour, 1);
+    else g.lineStyle(T.strokeWidth, hexColour(T.stroke), 1);
     g.strokeRoundedRect(x, y, w, h, D.r);
+    if (input.pickable(seat) && !framed) {
+      // A click anywhere on the tab (the parts drawn after this one take their own clicks first).
+      const pick = s.add.zone(x + w / 2, y + h / 2, w, h).setInteractive({ useHandCursor: true });
+      pick.on("pointerdown", () => input.onPick(seat));
+      layer.add(pick);
+    }
 
-    // Tags on the right of the name line, right to left; LEAD, YOU, NEXT, AWAY.
+    // Tags on the right of the name line, right to left: the status (Ready, or the away seat's), then YOU.
     const G = D.tags;
     const tags: { text: string; fill: string; ink: string }[] = [];
-    if (flags.lead) tags.push({ text: "LEAD", fill: G.lead.fill, ink: G.lead.text });
-    if (flags.you) tags.push({ text: flags.onTurn ? "YOU · NOW" : "YOU", fill: G.you.fill, ink: G.you.text });
-    if (flags.next) tags.push({ text: "NEXT", fill: G.next.fill, ink: G.next.text });
-    if (ctx.isAway(seat)) tags.push({ text: "AWAY", fill: G.away.fill, ink: G.away.text });
+    if (seat === input.you) tags.push({ text: "YOU", fill: G.you.fill, ink: G.you.text });
+    if (away) tags.push(player.ready ? { text: "Ready (away)", fill: G.ready.fill, ink: G.ready.text } : { text: `Waiting for ${input.nameOf(seat)}`, fill: G.waiting.fill, ink: G.waiting.text });
+    else if (player.ready) tags.push({ text: "✓ Ready", fill: G.ready.fill, ink: G.ready.text });
     const ty = y + G.y;
     let right = x + w - D.padX;
     for (let i = tags.length - 1; i >= 0; i--) right -= this.pill(layer, right, ty, tags[i].text, tags[i].fill, tags[i].ink) + G.gap;
     const tagsLeft = tags.length > 0 ? right + G.gap : x + w - D.padX;
-    const tab: Tab = { seat, box: { x, y, w, h }, tagsLeft, tagsY: ty, dominoes: [] };
-    this.tabs.push(tab);
 
     // The seat colour and the name, which opens the seat's deck.
     const N = D.name;
@@ -125,7 +104,7 @@ export class TurnRail {
     counts.on("pointerout", () => tint(C.colour));
     counts.on("pointerdown", () => ctx.openDeck(seat));
     layer.add(counts);
-    // Draws fly in from the deck count (your own come in from the left edge of your hand row instead).
+    // Draws fly in from the deck count (the hand in front comes in from the left edge of its row instead).
     ctx.deckSpot(layer, seat, dl.x, cy, dn);
     const K = D.charm;
     const charms = charmsByIds(player.charms);
@@ -139,16 +118,33 @@ export class TurnRail {
       ctx.refs().charms.set(`${seat}:${ch.id}`, { x: px, y: cy });
     });
 
+    // The placements for the round: a pip for each, filled as the seat places (take-backs empty one).
+    const P = D.pips;
+    const used = view.board.nodes.filter((n) => n.owner === seat).length;
+    const pg = ctx.gfx(layer);
+    for (let i = 0; i < player.placements; i++) {
+      const px = x + D.padX + P.r + i * (2 * P.r + P.gap);
+      const py = y + P.y;
+      if (i < used) {
+        pg.fillStyle(colour, 1);
+        pg.fillCircle(px, py, P.r);
+      } else {
+        pg.lineStyle(2, colour, P.emptyAlpha + 0.4);
+        pg.strokeCircle(px, py, P.r - 1);
+      }
+    }
+    ctx.label(layer, x + D.padX + player.placements * (2 * P.r + P.gap) + 4, y + P.y, `${used} of ${player.placements} placed`, P.label, P.labelColour, 0, false);
+
     const Hd = D.hand;
     const top = y + Hd.top;
     const availH = h - Hd.top - Hd.bottom;
     const availW = w - 2 * D.padX;
-    if (flags.you) {
+    if (framed) {
       ctx.label(layer, x + w / 2, top + availH / 2, D.you.text, D.you.size, D.you.colour, 0.5, false);
       return;
     }
 
-    // The hand as small dominoes in the same straight row as your own hand: no overlap, shrunk to fit
+    // The hand as small dominoes in the same straight row as the hand in front: no overlap, shrunk to fit
     // (then wrapped into two rows) in the tab.
     const n = player.hand.length;
     const sizes = player.hand.map((id) => dominoPixelSize("large", view.dominoes.find((q) => q.id === id)!.kind));
@@ -164,7 +160,6 @@ export class TurnRail {
       c.on("pointerout", () => this.hideZoom());
       c.on("destroy", () => this.hideZoom());
       slots[i] = { c, pos: { x: cx, y: py, k } };
-      tab.dominoes.push({ id, x: px, y: py, k, w: sizes[i].w, h: sizes[i].h, c });
     });
     if (n === 0) ctx.label(layer, x + w / 2, top + availH / 2, "No dominoes", D.you.size, D.you.colour, 0.5, false);
   }
@@ -200,54 +195,5 @@ export class TurnRail {
   private hideZoom(): void {
     this.zoom?.destroy(true);
     this.zoom = undefined;
-  }
-
-  // Lights the NEXT seat's playable dominoes and dims the rest, with a caption naming the domino
-  // being hovered (`after`), and a "pass" marker if that seat must pass. null puts everything back.
-  setNext(p: NextPlayerPreview | null, after = ""): void {
-    this.marks?.destroy(true);
-    this.marks = undefined;
-    for (const r of this.tabs) r.dominoes.forEach((d) => d.c.active && d.c.setAlpha(1));
-    const layer = this.layer;
-    if (!p || !layer?.active) return;
-    const rec = this.tabs.find((r) => r.seat === p.player);
-    if (!rec) return;
-    const N = D.next;
-    const marks = this.ctx.scene.add.container(0, 0);
-    layer.add(marks);
-    this.marks = marks;
-    const g = this.ctx.scene.add.graphics();
-    marks.add(g);
-    const lit = new Set(p.playable);
-    for (const d of rec.dominoes) {
-      if (!d.c.active) continue;
-      if (!lit.has(d.id)) {
-        d.c.setAlpha(N.dimAlpha);
-        continue;
-      }
-      const w = d.w * d.k;
-      const h = d.h * d.k;
-      g.lineStyle(N.glowWidth * d.k * 2, hexColour(N.glow), N.glowAlpha * 0.4);
-      g.strokeRoundedRect(d.x - w / 2 - 2, d.y - h / 2 - 2, w + 4, h + 4, 6);
-      g.lineStyle(Math.max(2, N.glowWidth * d.k * 0.6), hexColour(N.glow), N.glowAlpha + 0.3);
-      g.strokeRoundedRect(d.x - w / 2, d.y - h / 2, w, h, 5);
-    }
-    const C = D.caption;
-    const text = `${p.mustPass ? C.passText : C.text} ${after}`.trim();
-    const cap = this.ctx.label(marks, rec.box.x + D.padX, rec.box.y + rec.box.h - C.dy, text, C.size, C.colour, 0, true);
-    fitText(cap, rec.box.w - 2 * D.padX);
-    if (p.mustPass) {
-      // Left of the tags, on the same line.
-      const T = D.tags;
-      const t = this.ctx.label(marks, 0, rec.tagsY, "pass", T.size, T.pass.text, 0, true);
-      const w = t.width + T.padX * 2;
-      const x = rec.tagsLeft - T.gap - w;
-      t.setX(x + T.padX);
-      const pg = this.ctx.scene.add.graphics();
-      pg.fillStyle(hexColour(T.pass.fill), 1);
-      pg.fillRoundedRect(x, rec.tagsY - T.h / 2, w, T.h, T.h / 2);
-      marks.add(pg);
-      marks.bringToTop(t);
-    }
   }
 }

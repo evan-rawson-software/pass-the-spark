@@ -7,7 +7,8 @@ import { Buildup } from "./buildup";
 import { playSound, setSoundHushed } from "./sound";
 import { ComboHype } from "./comboHype";
 import { EnemyReactions } from "./enemyReactions";
-import { hexColour, reactionData } from "./presentation";
+import { dominoLook, hexColour, reactionData } from "./presentation";
+import { drawDomino } from "./dominoDrawing";
 import { amplify, boardGlow, centre, charm, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, split, spectrum, sputter } from "./spectacle";
 import { seatGlow } from "./projectiles";
 import { seatColour } from "./seatColours";
@@ -113,7 +114,7 @@ const CAP_COLOR = { damage: "#ff6a5f", block: "#9cc4ff" };
 const CAP_SOUND = { damage: "effect:damage", block: "effect:block" };
 // Events that belong to the step already under way: what is still flying keeps flying. Any other
 // event waits for it to land first.
-const IN_STEP: GameEvent["type"][] = ["nodeLit", "capFired", "damage", "block", "charm", "fizzle", "passive"];
+const IN_STEP: GameEvent["type"][] = ["nodeLit", "capFired", "damage", "block", "charm", "fizzle", "passive", "lineReached"];
 
 // ---- the animator ----
 
@@ -279,6 +280,7 @@ export class Animator {
     this.lastShown = shown;
     const before = snapshot(shown);
     const from = ev.type === "play" ? this.refs.hand.get(ev.domino) : undefined; // read before the redraw replaces it
+    const gone = ev.type === "takeBack" ? this.refs.nodes.get(ev.node)?.pos : undefined;
     apply();
     const refs = this.refs; // replaced by the redraw in apply()
     const after = snapshot(shown);
@@ -305,12 +307,22 @@ export class Animator {
         }
         break;
       }
-      case "pass":
-        floatText(scene, 960, 470, `${ev.player} passes`, "#ffd9a0", 44, 900);
+      case "takeBack": {
+        // The domino slides off the board to its owner's hand (or, for a teammate, their tab).
+        playSound("clack");
+        const d = shown.dominoes.find((x) => x.id === ev.domino);
+        const to = refs.decks.get(ev.player);
+        if (gone && d && to) {
+          const ghost = scene.add.container(gone.x, gone.y).setScale(gone.k).setDepth(700);
+          const inner = drawDomino(scene, d, "large", "normal", { scale: gone.k, owner: seatColour(shown.seatOrder, ev.player) });
+          inner.setPosition(((dominoLook.extent.amplifier.w - dominoLook.extent[d.kind].w) / 2) * dominoLook.unit, 0);
+          ghost.add(inner);
+          scene.tweens.add({ targets: ghost, x: to.x, y: to.y, scale: gone.k * 0.4, alpha: 0.2, duration: scaleTime(350), ease: "Cubic.easeIn", onComplete: () => ghost.destroy() });
+        }
         break;
+      }
       case "setOff": {
-        const why = ev.reason === "capped" ? "Every end is capped" : "Everyone passed";
-        floatText(scene, 960, 470, why, "#ffe14d", 48, 1000);
+        floatText(scene, 960, 470, "Everyone is ready", "#ffe14d", 48, 1000);
         this.resetHeat();
         this.inCascade = true;
         this.hype.begin(after.enemy);

@@ -21,3 +21,4 @@ export const fuseBoardData = presentation.fuseBoard;
 export const handRowData = presentation.handRow;
 export const combatLayoutData = presentation.combatLayout;
 export const wizardLookData = presentation.wizardLook;
+export const combatData = presentation.combat;

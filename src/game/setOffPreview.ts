@@ -1,13 +1,18 @@
 import Phaser from "phaser";
-import type { SetOffPreview } from "../engine/battle";
 import type { BattleView } from "../engine/view";
-import { combatLayoutData, hexColour, setOffPreviewData as D } from "./presentation";
+import { hexColour, setOffPreviewData as D } from "./presentation";
 import { reducedFlashing } from "./comfort";
 import type { Refs } from "./animations";
 
-// The set-off preview drawn over the health bars (#222). Every number comes from the engine's
-// previewSetOff; this file only places ghosts, marks and labels. Rebuilt on each update. The bars and
-// shields it draws on are the ones the column drew (the scene's refs), so they can't drift apart.
+// The build preview drawn over the party's bar and shield (#222, B8): the block the whole board would
+// give and the health the party would still lose to the intent's full attack (the engine's previewBuild, which
+// does not depend on the board being lethal or reaching the line). The enemy's side (its damage ghost, the block it
+// uses up, the lethal skull) is not shown: the damage total is hidden until the cascade fires. Every number
+// comes from the engine; this file only places ghosts, marks and labels. Rebuilt on each
+// update. The bars and shields it draws on are the ones the column drew (the scene's refs), so they can't
+// drift apart.
+
+export type BuildPreview = { block: number; partyDamage: number };
 
 export class SetOffPreviewUi {
   private tweens: Phaser.Tweens.Tween[] = [];
@@ -20,58 +25,30 @@ export class SetOffPreviewUi {
   }
 
   // Draws into `into` (emptied first). No preview (null) draws nothing.
-  draw(into: Phaser.GameObjects.Container, view: BattleView, p: SetOffPreview | null, glowSetOff: boolean, refs: Refs): void {
+  draw(into: Phaser.GameObjects.Container, view: BattleView, p: BuildPreview | null, refs: Refs): void {
     this.clear();
     into.removeAll(true);
-    const eb = refs.bars.get("enemy");
     const pb = refs.bars.get("party");
-    const es = refs.shields.get("enemy");
     const ps = refs.shields.get("party");
-    if (!p || !eb || !pb || !es || !ps) return;
+    if (!p || !pb || !ps) return;
     const s = this.scene;
     const g = s.add.graphics();
     into.add(g);
     const text = (x: number, y: number, str: string, colour: string, size: number, originX = 0.5) =>
       into.add(s.add.text(x, y, str, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${size}px`, color: colour, fontStyle: "bold", strokeThickness: D.text.strokeThickness, stroke: D.text.strokeColour }).setOrigin(originX, 0.5));
 
-    // Enemy: the damage as a ghost from current to projected health, the block it uses up.
-    const e = eb;
-    const enemy = view.enemy;
-    if (p.canSetOff && p.damage > 0) {
-      const from = e.w * (p.enemyHealth / enemy.maxHealth);
-      const to = e.w * (enemy.health / enemy.maxHealth);
-      this.ghost(into, e.x + from, e.y, Math.max(to - from, D.ghost.minWidth), e.h);
-      text(e.x + e.w + D.loss.dx, e.y + e.h / 2 + D.loss.dy, `−${p.damage}`, D.loss.colour, D.loss.fontSize, D.loss.originX);
-    }
-    if (p.canSetOff && p.enemyBlockUsed > 0) {
-      const sh = es;
-      text(sh.x + D.gain.enemyShieldDx, sh.y + D.gain.enemyShieldDy, `−${p.enemyBlockUsed}`, D.gain.colour, D.gain.fontSize);
-      if (p.enemyBlock === 0) this.cracks(g, sh.x, sh.y, sh.s);
-    }
-    if (p.lethal) this.skull(g, e.x + e.h * D.skull.dx, e.y + e.h / 2, D.skull.size);
-
     // Party: block gained, health lost to what the intent still does after block (or safe).
     const sh = ps;
-    if (p.partyBlockGain > 0) text(sh.x, sh.y - sh.s * 0.5 + D.gain.partyDy, `+${p.partyBlockGain}`, D.gain.colour, D.gain.fontSize);
+    if (p.block > 0) text(sh.x, sh.y - sh.s * 0.5 + D.gain.partyDy, `+${p.block}`, D.gain.colour, D.gain.fontSize);
     const b = pb;
     if (p.partyDamage > 0) {
-      const from = b.w * (p.partyHealth / view.party.maxHealth);
+      const from = b.w * ((view.party.health - p.partyDamage) / view.party.maxHealth);
       const to = b.w * (view.party.health / view.party.maxHealth);
       this.ghost(into, b.x + from, b.y, Math.max(to - from, D.ghost.minWidth), b.h);
       text(b.x + b.w + D.loss.dx, b.y + b.h / 2 + D.loss.dy, `−${p.partyDamage}`, D.loss.colour, D.loss.fontSize, D.loss.originX);
-    } else if (!p.lethal && view.intent.actions.some((a) => a.kind === "attack")) {
+    } else if (view.intent.actions.some((a) => a.kind === "attack")) {
       this.safe(g, b.x + D.safe.iconDx, b.y + D.safe.dy);
       text(b.x + D.safe.textDx, b.y + D.safe.dy, "safe", D.safe.colour, D.safe.fontSize, 0);
-    }
-
-    if (glowSetOff) {
-      const r = combatLayoutData.actions.pass;
-      const P = D.setOffGlow.pad;
-      const glow = s.add.graphics();
-      glow.lineStyle(D.setOffGlow.width, hexColour(D.setOffGlow.colour), 1);
-      glow.strokeRoundedRect(r.x - P, r.y - P, r.w + 2 * P, r.h + 2 * P, r.h / 2 + P);
-      into.add(glow);
-      this.pulse(glow, D.setOffGlow.alphaLow, D.setOffGlow.alphaHigh, D.setOffGlow.pulseMs);
     }
   }
 
@@ -86,25 +63,6 @@ export class SetOffPreviewUi {
     o.setAlpha(high);
     if (reducedFlashing()) return;
     this.tweens.push(this.scene.tweens.add({ targets: o, alpha: low, duration: ms / 2, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }));
-  }
-
-  private cracks(g: Phaser.GameObjects.Graphics, x: number, y: number, s: number): void {
-    g.lineStyle(D.crack.width, hexColour(D.crack.colour), 1);
-    g.beginPath();
-    D.crack.points.forEach(([dx, dy], i) => (i === 0 ? g.moveTo(x + dx * s, y + dy * s) : g.lineTo(x + dx * s, y + dy * s)));
-    g.strokePath();
-  }
-
-  private skull(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number): void {
-    const k = D.skull;
-    g.fillStyle(hexColour(k.outlineColour), k.outlineAlpha);
-    g.fillCircle(x, y, r + k.outline);
-    g.fillStyle(hexColour(k.colour), 1);
-    g.fillCircle(x, y + r * k.headDy, r * k.head);
-    g.fillRect(x - r * k.jawHalf, y + r * k.jawTop, r * k.jawHalf * 2, r * k.jawH);
-    g.fillStyle(hexColour(k.outlineColour), 1);
-    g.fillCircle(x - r * k.eyeDx, y + r * k.headDy, r * k.eyeR);
-    g.fillCircle(x + r * k.eyeDx, y + r * k.headDy, r * k.eyeR);
   }
 
   // A small shield with a tick.
