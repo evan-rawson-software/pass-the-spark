@@ -134,6 +134,18 @@ export function stackedNumber(scene: Phaser.Scene, pile: Phaser.GameObjects.Text
 
 export type EffectKind = "amplify" | "echo" | "spectrum" | "charm";
 
+// Gold discs pop up from the cap.
+export function coins(scene: Phaser.Scene, at: Point): void {
+  for (let i = 0; i < 5; i++) {
+    const c = scene.add.circle(at.x + (i - 2) * 22, at.y + 10, 11, 0xffd23f).setStrokeStyle(3, 0x9a6a00).setDepth(DEPTH).setAlpha(0);
+    scene.tweens.add({
+      targets: c, y: at.y - 70 - (i % 2) * 20, alpha: { from: 1, to: 0 }, delay: scaleTime(i * 50), duration: scaleTime(P.effects.ms + 200), ease: "Cubic.easeOut",
+      onStart: () => c.setAlpha(1), onComplete: done(c),
+    });
+  }
+}
+
+
 // Orange chevrons rise from an amplifier: the charge just got stronger. `size` grows with the change.
 export function amplify(scene: Phaser.Scene, at: Point, size: number): void {
   for (let i = 0; i < 3; i++) {

@@ -40,14 +40,12 @@
       { "minValue": 16, "size": 104, "travelMs": 300, "gain": 0.85 },
       { "minValue": 30, "size": 136, "travelMs": 240, "gain": 1 }
     ],
-    "colours": { "damage": "0xff5a4a", "block": "0x7fb2ff", "coins": "0xffd23f" },
-    "arcHeight": 140,
+    "colours": { "damage": "0xff5a4a", "block": "0x7fb2ff" },
     "flight": { "haloFactor": 2, "passAt": 0.6, "passRingSize": 60, "passRingAlpha": 0.6 },
     "count": { "size": 26, "colour": "#ffffff", "stroke": "#101010", "dyFactor": 0.55 },
-    "shapes": { "shieldFactor": 0.5, "shieldFill": "0x4a6fa5", "shieldEdge": "0xdbe6f5", "coinFactor": 0.3, "coinFill": "0xffd23f", "coinEdge": "0x9a6a00" },
+    "shapes": { "shieldFactor": 0.5, "shieldFill": "0x4a6fa5", "shieldEdge": "0xdbe6f5" },
     "impact": { "ms": 420, "sizeFactor": 1.5, "ringFactor": 0.7, "burstScale": [0.4, 1.3], "ringScale": [0.5, 1.8], "slashColour": "0xffffff", "softAlpha": 0.5 },
     "pulse": { "scale": 1.4, "ms": 220 },
-    "coinPop": { "size": 36, "colour": "#ffd23f", "ms": 900 },
     "seatGlow": { "sizeFactor": 1.5, "ms": 520, "alpha": 0.9, "capFactor": 2.4, "capMs": 700, "reducedAlpha": 0.3, "reducedMs": 800 }
   },
   "enemyReactions": {

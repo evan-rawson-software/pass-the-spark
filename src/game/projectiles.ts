@@ -8,16 +8,14 @@ import { scaleTime } from "./playbackSpeed";
 import { hexColour } from "./presentation";
 import { seatColour } from "./seatColours";
 import { playSound } from "./sound";
-import { floatText } from "./spectacle";
 
 // Effects fly to their targets (#189): every trigger of a cap sends its own shot from the cap to
-// where the effect lands (a bolt to the enemy, a shield to the party's block counter, coins to the
-// owner's name plate), and each domino glows in its owner's seat colour as the charge passes.
+// where the effect lands (a bolt to the enemy, a shield to the party's block counter), and each domino glows in its owner's seat colour as the charge passes.
 // Visual and sound only, driven by capFired and nodeLit events and the numbers in them. Sizes,
 // speeds, the on-screen limit and the colours are in data/presentation.json ("projectiles").
 // Every duration goes through scaleTime.
 //
-// The table's numbers follow the shots: the Animator holds each damage, block and coins event
+// The table's numbers follow the shots: the Animator holds each enemy damage and party block event
 // (whenLanded) until the shot that carries it lands, so the counters change on impact. landed()
 // resolves when nothing is in the air, and clear() ends every shot at once (cascade skip, leaving
 // the scene).
@@ -29,20 +27,18 @@ const D = presentation.projectiles as unknown as {
   staggerMs: number;
   tiers: Tier[];
   colours: Record<Kind, string>;
-  arcHeight: number;
   flight: { haloFactor: number; passAt: number; passRingSize: number; passRingAlpha: number };
   count: { size: number; colour: string; stroke: string; dyFactor: number };
-  shapes: { shieldFactor: number; shieldFill: string; shieldEdge: string; coinFactor: number; coinFill: string; coinEdge: string };
+  shapes: { shieldFactor: number; shieldFill: string; shieldEdge: string };
   impact: { ms: number; sizeFactor: number; ringFactor: number; burstScale: Pair; ringScale: Pair; slashColour: string; softAlpha: number };
   pulse: { scale: number; ms: number };
-  coinPop: { size: number; colour: string; ms: number };
   seatGlow: { sizeFactor: number; ms: number; alpha: number; capFactor: number; capMs: number; reducedAlpha: number; reducedMs: number };
 };
 
 interface Point { x: number; y: number }
-type Kind = "damage" | "block" | "coins";
-const KINDS: Kind[] = ["damage", "block", "coins"];
-type Cap = Extract<GameEvent, { type: "capFired" }>;
+type Kind = "damage" | "block";
+const KINDS: Kind[] = ["damage", "block"];
+type Cap = Omit<Extract<GameEvent, { type: "capFired" }>, "effect"> & { effect: Kind }; // a damage or block cap
 type Container = Phaser.GameObjects.Container;
 
 // The parts of the Animator's refs this file reads. The scene redraws between events, so the
@@ -51,7 +47,6 @@ type Container = Phaser.GameObjects.Container;
 export interface TargetRefs {
   bars: Map<string, { x: number; y: number; w: number; h: number }>;
   shields: Map<string, { text: Phaser.GameObjects.Text; x: number; y: number }>;
-  plates: Map<string, Point>;
 }
 
 // What a landing does to the table: waiting events register here and run when the shot lands.
@@ -100,8 +95,8 @@ export function seatGlow(scene: Phaser.Scene, at: Point, width: number, colour: 
 
 export class Projectiles {
   private gen = 0; // bumped by clear(): shots from an earlier generation just stop
-  private open: Record<Kind, Shot[]> = { damage: [], block: [], coins: [] }; // not yet landed, oldest first
-  private queue: Record<Kind, Slot[]> = { damage: [], block: [], coins: [] }; // one per trigger whose event has not arrived
+  private open: Record<Kind, Shot[]> = { damage: [], block: [] }; // not yet landed, oldest first
+  private queue: Record<Kind, Slot[]> = { damage: [], block: [] }; // one per trigger whose event has not arrived
   private openSlots = new Set<Slot>();
   private flights = new Set<Promise<void>>();
   private cancels = new Set<() => void>(); // stagger timers and flights that clear() ends
@@ -114,7 +109,7 @@ export class Projectiles {
     while (this.flights.size > 0) await Promise.all([...this.flights]);
   }
 
-  // Runs fn when the shot carrying the next damage, block or coins event lands (at once if there
+  // Runs fn when the shot carrying the next damage, or block event lands (at once if there
   // is none, or it already has).
   whenLanded(kind: Kind, fn: () => void): void {
     const slot = this.queue[kind].shift();
@@ -211,13 +206,9 @@ export class Projectiles {
       if (ev.value > absorbed) legs.push(onBar);
       return legs;
     }
-    if (kind === "block") {
-      const sh = refs.shields.get("party");
-      const to = sh ? { x: sh.x + 30, y: sh.y } : at;
-      return [{ to, land: (s) => { this.hit(to, tierOf(s.value), "block"); this.pulse("party"); } }];
-    }
-    const to = refs.plates.get(ev.owner) ?? { x: at.x, y: at.y - 120 };
-    return [{ to, land: (s) => { this.hit(to, tierOf(s.value), "coins"); floatText(this.scene, to.x, to.y - 20, `+${s.value}`, D.coinPop.colour, D.coinPop.size, D.coinPop.ms); } }];
+    const sh = refs.shields.get("party");
+    const to = sh ? { x: sh.x + 30, y: sh.y } : at;
+    return [{ to, land: (s) => { this.hit(to, tierOf(s.value), "block"); this.pulse("party"); } }];
   }
 
   // One shot: waits its turn, flies each leg in turn, lands, goes.
@@ -233,14 +224,13 @@ export class Projectiles {
     if (!reducedFlashing()) glow.setBlendMode(Phaser.BlendModes.ADD);
     if (s.kind === "damage") fxObject(scene, "bolt", 0, 0, tier.size, colourOf("damage"), c);
     else if (s.kind === "block") shieldShape(scene, c, tier.size * D.shapes.shieldFactor);
-    else coinShape(scene, c, tier.size * D.shapes.coinFactor);
     s.label = scene.add.text(0, tier.size * D.count.dyFactor, `×${s.count}`, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${D.count.size}px`, fontStyle: "bold", color: D.count.colour, stroke: D.count.stroke, strokeThickness: 5 }).setOrigin(0.5).setVisible(s.count > 1);
     c.add(s.label);
     playSound(`launch:${s.kind}`);
     let pos = from;
     for (let i = 0; i < s.legs.length; i++) {
       const leg = s.legs[i];
-      await this.travel(c, pos, leg.to, tier.travelMs, s.kind === "coins" ? D.arcHeight : 0, s.kind === "damage", leg.pass);
+      await this.travel(c, pos, leg.to, tier.travelMs, 0, s.kind === "damage", leg.pass);
       if (gen !== this.gen) return;
       leg.land(s);
       pos = leg.to;
@@ -324,10 +314,4 @@ function shieldShape(scene: Phaser.Scene, parent: Container, r: number): void {
   g.fillPoints(pts, true);
   g.strokePoints(pts, true);
   parent.add(g);
-}
-
-function coinShape(scene: Phaser.Scene, parent: Container, r: number): void {
-  const edge = hexColour(D.shapes.coinEdge);
-  parent.add(scene.add.circle(0, 0, r, hexColour(D.shapes.coinFill)).setStrokeStyle(4, edge));
-  parent.add(scene.add.circle(0, 0, r * 0.55).setStrokeStyle(3, edge));
 }

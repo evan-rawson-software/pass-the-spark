@@ -6,7 +6,7 @@ import { reducedFlashing } from "./comfort";
 import { playSound } from "./sound";
 import { EnemyReactions } from "./enemyReactions";
 import { hexColour, reactionData } from "./presentation";
-import { amplify, boardGlow, centre, charm, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
+import { amplify, boardGlow, centre, charm, coins, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
 import type { Tally } from "./spectacle";
 import { Projectiles, seatGlow } from "./projectiles";
 import { seatColour } from "./seatColours";
@@ -51,11 +51,10 @@ export interface Refs {
   shields: Map<string, { text: Text; x: number; y: number }>;
   intent?: Box; // the enemy's intent card
   charms: Map<string, { x: number; y: number }>; // "seat:charm" -> the charm icon under its name plate (#108)
-  plates: Map<string, { x: number; y: number }>; // seat -> its name plate, where coins land (#189)
 }
 
 export function newRefs(): Refs {
-  return { hand: new Map(), nodes: new Map(), slots: new Map(), handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map(), plates: new Map() };
+  return { hand: new Map(), nodes: new Map(), slots: new Map(), handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map() };
 }
 
 // `ghost` is the lighter bar that drains after a hit (enemyReactions.ts): drawn behind the real one.
@@ -207,8 +206,8 @@ export class Animator {
       this.tally = { damage: 0, block: 0, coins: 0 };
       await showTally(scene, total, this.litColor(), { x: 960, y: 520 });
     }
-    // The table's numbers change on impact: a damage, block or coins event waits for its shot.
-    const kind = ev.type === "damage" && ev.side === "enemy" ? "damage" : ev.type === "block" && ev.side === "party" ? "block" : ev.type === "coinsGained" ? "coins" : undefined;
+    // The table's numbers change on impact: an enemy damage or party block event waits for its shot.
+    const kind = ev.type === "damage" && ev.side === "enemy" ? "damage" : ev.type === "block" && ev.side === "party" ? "block" : undefined;
     if (kind) {
       this.fx.whenLanded(kind, () => void this.play(ev, shown, apply));
       return;
@@ -279,7 +278,10 @@ export class Animator {
         playSound(CAP_SOUND[ev.effect], 1 + this.tier * 3);
         if (node) {
           const at = centre(boxOf(node.pos));
-          this.fx.cap(ev, shown, at);
+          if (ev.effect === "coins") {
+            // Coin caps are on their way out (#221): the old discs popping up at the cap.
+            for (let i = 0; i < Math.min(ev.triggers, 4); i++) scene.time.delayedCall(scaleTime(i * 110), () => coins(scene, at));
+          } else this.fx.cap({ ...ev, effect: ev.effect }, shown, at);
           seatGlow(scene, at, DW * node.pos.k, seatColour(shown.seatOrder, ev.owner), true);
           const text = ev.triggers > 1 ? `${ev.value}×${ev.triggers}` : String(ev.value);
           floatText(scene, node.pos.x, node.pos.y, text, CAP_COLOR[ev.effect], Math.max(30, Math.round(60 * node.pos.k + 18 + this.tier * 6)), 1000);
@@ -369,7 +371,7 @@ export class Animator {
       }
       case "coinsGained":
         if (this.inCascade) this.tally.coins += ev.amount;
-        if (!refs.plates.has(ev.player)) floatText(scene, 960, 600, `${ev.player}: +${ev.amount} coins`, "#ffd23f", 40, 1000); // otherwise the coins landed on the plate
+        floatText(scene, 960, 600, `${ev.player}: +${ev.amount} coins`, "#ffd23f", 40, 1000);
         break;
       case "passive": {
         const bar = refs.bars.get(ev.passive === "auditor" ? "party" : "enemy");
