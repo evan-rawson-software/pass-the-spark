@@ -151,19 +151,31 @@ The cost driver is layers × frames. Each hat and robe has to be drawn on every 
 | 3. Packs | 15–25 h adapting, plus wizards from another method | $0–30 | Spells from Foozle (CC0) and thundersnowpixel (about $3), re-palettised. The circle adapted from CC0 line art. No wizards, no acid. |
 | 4. Hiring an artist | 4–8 weeks, plus 5–10 h of our time | $2,500–7,000 | Outfit layers × frames (350 layer-frames at $3–8): $1,050–2,800. Body, staff and hand frames: $175–525. Spells: $360–900. Ward and final spell: $120–300. Circle variants: $480–1,440. Plus about 15% for revisions. |
 
+## Wizard round 2
+
+No round-1 wizard was liked: they were too low in detail at 32×48 and clashed with the painted background and the rounded vector UI. Round 2 tried two more code-drawn styles (`art-spike/code2/make.py`, about 45 minutes):
+
+- 48×64 frames, shown at ×3 (the same size on screen as round 1 at ×4, with 1.5× the detail) or ×4.
+- Rounded shading worked out from each part's shape (a distance field lit from the upper right), and coloured outlines in each part's own darkest shade instead of one near-black line.
+- A soft vector shadow under the feet, drawn by the game like the UI.
+- Two styles: **storybook** (tall and flowing, a long beard) and **chibi** (a big round head, a small round body).
+
+Both keep everything that made method 2 work: 2 hats and 2 robes as layers on every frame, run-time recolouring (now a 5-colour key ramp), and a consistent idle and cast. The wizards use 37 colours, more than the 16–24 the issue suggested for the whole set.
+
 ## Designer's picks
 
-- **Circle: method 2 (pixel data in code).**
-- **Wizards: none of the three.** The code, AI and pack wizards were all turned down, so the wizard method is still open (see below).
+- **Method 2, pixel data in code, for the wizards, the circle and the spells.**
+- **Circle:** round 1's code circle.
+- **Wizards:** made in code. The exact style (storybook, chibi or something between) is decided in the M12 art issue, starting from round 2.
+- **Scale: ×3.** Wizards are 48×64 art pixels at ×3. The circle and spells get redrawn at ×3 too, so all pixel art shares one pixel size (A10). This updates A10's "about 4 screen pixels" and "roughly 32×48".
 
 ## Recommendation
 
-**Make the circle in code (picked). Spells probably in code too. The wizards still need a method: none of the candidates was liked.** The art session's original opinion follows, for reference.
+**Use method 2 for the whole M12 set, as picked.**
 
-- **Wizards in code.** It is the only method that met every hard requirement with no extra work: layers that line up on every frame, run-time recolouring, and consistent animation. It is also the cheapest to extend; a sixth hat is an hour. Raise the bar in the full set with a hand-tuned face and beard and more robe folds. Keep the script as the source of truth.
-- **Circle in code.** Its tiers, variants and rotating rings are settings, and exact ellipses are what a tilted pixel circle needs. The adapted CC0 circle was weaker, and the AI circle noisier.
-- **Spells in code.** CC0 Foozle effects are a fallback for any spell that looks weak, once re-palettised. Don't mix in paid packs with other styles.
-- **AI as a reference only.** It's useful for ideas (ornament, silhouettes), but don't ship it: no usable animation, noise at 32×48, and the LoRA licence question.
-- **Optional: an artist polish pass later.** Brief a pixel artist to redraw the base body and the 5 hats and 5 robes as keyframes in our palette, key ramp and layer layout, then regenerate the in-between frames with the script. Budget about $1,000–2,000. Decide after the code set is in the game.
+- **Wizards, circle and spells drawn in code,** at ×3 with 48×64 wizards. That's the only method that gives layers, run-time recolouring and consistent animation without extra work.
+- **Packs are a fallback only:** CC0 Foozle effects, re-palettised, for any spell that looks weak.
+- **AI for ideas only,** never shipped.
+- **An artist polish pass stays optional,** decided after the code set is in the game.
 
-The designer picks in the picker. This recommendation is the art session's opinion.
+**Full-set estimate:** about 40–60 hours of art-session time, at $0. That's round 1's 35–50 hours, plus the bigger frames and the richer shading.
