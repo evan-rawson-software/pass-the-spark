@@ -4,25 +4,20 @@ import { reducedFlashing, shakeEnabled } from "./comfort";
 import { scaleTime } from "./playbackSpeed";
 import { playSound } from "./sound";
 
-// The cascade build-up (#191): a running counter that pumps with each cap, callout words at
-// damage thresholds, rising pitch up to a cap, a growing glow on the lit tree, and a gentle camera
-// (ease out to frame a big tree, push in on the biggest cap, ease back for the enemy's action).
+// The cascade build-up (#191): rising pitch up to a cap, a growing glow on the lit tree, and a gentle
+// camera (ease out to frame a big tree, push in on the biggest cap, ease back for the enemy's action).
+// The running counter and callout words are now the combo number (comboHype.ts, #234).
 // Visual and sound only; numbers come from the engine's events and data/presentation.json
 // ("buildup"). Every duration goes through scaleTime. The main camera's zoom and scroll are
 // touched only through the Camera helper below, and always restored (clear, or the scene shutting).
 
-const FONT = "Arial, Helvetica, sans-serif";
 const W = 1920;
 const H = 1080;
 
-interface Callout { at: number; word: string; color: string }
 const B = (presentationJson as unknown as {
   buildup: {
     pitch: { maxSteps: number };
     glow: { litMin: number; litMax: number };
-    strip: number;
-    counter: { at: number; size: number; spacing: number; pump: number; pumpMs: number; fadeMs: number };
-    callouts: { max: number; at: number; size: number; ms: number; holdFraction: number; fadeInMs: number; popMs: number; startScale: number; popScale: number; list: Callout[] };
     keep: { slot: number; shield: { x: number; y: number; w: number; h: number } };
     camera: { minNodes: number; zoomOut: number; minZoom: number; pad: number; easeMs: number; restoreMs: number; push: { minCap: number; zoom: number; reducedZoom: number; inMs: number; holdMs: number } };
   };
@@ -41,9 +36,6 @@ export interface BuildupRefs {
 
 const DW = 240;
 const DH = 120;
-
-// The height of the strip at the top of the board mat kept free for the counter and callouts.
-export const buildupStrip = B.strip;
 
 // The pitch step for the Nth step of a cascade: climbs one step at a time up to the data's cap.
 export function pitchLinks(step: number): number {
@@ -126,28 +118,6 @@ function framed(z: number, c: Pt, keep: Box): { z: number; c: Pt } {
   return { z, c: { x: clamp(c.x, lx, hx), y: clamp(c.y, ly, hy) } };
 }
 
-// ---- screen-fixed text: stays where it is on the screen whatever the camera does ----
-
-class HudText {
-  readonly obj: Phaser.GameObjects.Text;
-  pump = 1;
-  constructor(scene: Phaser.Scene, public sx: number, public sy: number, text: string, size: number, color: string) {
-    this.obj = scene.add
-      .text(0, 0, text, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: "bold", color, stroke: "#101010", strokeThickness: 8 })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(130);
-  }
-  sync(zoom: number): void {
-    if (!this.obj.active) return;
-    this.obj.setPosition(W / 2 + (this.sx - W / 2) / zoom, H / 2 + (this.sy - H / 2) / zoom);
-    this.obj.setScale(this.pump / zoom);
-  }
-}
-
-type Kind = "damage" | "block";
-const KINDS: [Kind, string, string][] = [["damage", "damage", "#ff6a5f"], ["block", "block", "#9cc4ff"]];
-
 export class Buildup {
   // Where the whole tree has to fit: the board mat, from the scene's own layout.
   frame: () => Box = () => ({ x: 370, y: 400, w: 1180, h: 360 });
@@ -156,22 +126,13 @@ export class Buildup {
   private big = false; // the board is over the camera's size: it moves
   private steps = 0;
   private biggest = 0;
-  private totals: Record<Kind, number> = { damage: 0, block: 0 };
-  private rows = new Map<Kind, HudText>();
-  private words: HudText[] = [];
-  private fading: HudText[] = []; // counter rows fading out: still re-placed until they are gone
-  private fired = new Set<number>();
-  private shownWords = 0;
   private base: { z: number; c: Pt } = { z: 1, c: { x: W / 2, y: H / 2 } };
   private token = 0; // bumped on every clear, so a pending hold does nothing after it
   private keep: Box = { x: 0, y: 0, w: W, h: H };
-  private onUpdate = () => this.sync();
 
   constructor(private scene: Phaser.Scene) {
     this.cam = new Camera(scene);
-    scene.events.on(Phaser.Scenes.Events.UPDATE, this.onUpdate);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      scene.events.off(Phaser.Scenes.Events.UPDATE, this.onUpdate);
       this.token++;
       this.cam.reset();
     });
@@ -182,7 +143,7 @@ export class Buildup {
     return pitchLinks(this.steps++);
   }
 
-  // The cascade is set off: frame a big tree, start the counter from nothing.
+  // The cascade is set off: frame a big tree.
   begin(refs: BuildupRefs, nodeCount: number): void {
     this.clear();
     this.active = true;
@@ -191,7 +152,7 @@ export class Buildup {
     if (!this.big) return;
     const t = this.treeBox(refs);
     const f = this.frame();
-    const fit = Math.min(B.camera.zoomOut, f.w / t.w, (f.h - B.strip) / t.h);
+    const fit = Math.min(B.camera.zoomOut, f.w / t.w, f.h / t.h);
     const z = Math.max(B.camera.minZoom, Math.min(1, fit));
     this.base = framed(z, { x: t.x + t.w / 2, y: t.y + t.h / 2 }, this.keep);
     this.cam.to(this.base.z, this.base.c, B.camera.easeMs);
@@ -212,78 +173,13 @@ export class Buildup {
     });
   }
 
-  // Running totals: pumps the counter and fires a callout when the damage crosses a threshold.
-  add(kind: Kind, amount: number): void {
-    if (!this.active || amount <= 0) return;
-    this.totals[kind] += amount;
-    this.layoutRows();
-    const row = this.rows.get(kind);
-    if (row) {
-      this.scene.tweens.killTweensOf(row);
-      row.pump = reducedFlashing() ? 1 + (B.counter.pump - 1) / 2 : B.counter.pump;
-      this.scene.tweens.add({ targets: row, pump: 1, duration: scaleTime(B.counter.pumpMs), ease: "Back.easeOut" });
-    }
-    if (kind === "damage") this.callout();
-  }
-
-  private layoutRows(): void {
-    const shown = KINDS.filter(([k]) => this.totals[k] > 0);
-    shown.forEach(([k, label, color], i) => {
-      let row = this.rows.get(k);
-      if (!row) {
-        row = new HudText(this.scene, 0, this.stripY(), "", B.counter.size, color);
-        row.obj.setAlpha(0);
-        this.scene.tweens.add({ targets: row.obj, alpha: 1, duration: scaleTime(B.counter.fadeMs) });
-        this.rows.set(k, row);
-      }
-      row.obj.setText(`${this.totals[k]} ${label}`);
-      row.sx = this.stripX(B.counter.at) + (i - (shown.length - 1) / 2) * B.counter.spacing;
-    });
-  }
-
-  // The highest threshold the running damage newly crossed; the lower ones are used up with it.
-  private callout(): void {
-    const list = B.callouts.list;
-    let hit = -1;
-    list.forEach((c, i) => {
-      if (this.totals.damage >= c.at && !this.fired.has(i)) hit = i;
-    });
-    if (hit < 0) return;
-    for (let i = 0; i <= hit; i++) this.fired.add(i);
-    if (this.shownWords >= B.callouts.max) return;
-    this.shownWords++;
-    const c = list[hit];
-    const w = new HudText(this.scene, this.stripX(B.callouts.at), this.stripY(), c.word, B.callouts.size, c.color);
-    this.words.push(w);
-    playSound("callout", 1 + hit * 2);
-    const soft = reducedFlashing(); // a fade instead of a burst
-    w.pump = soft ? 1 : B.callouts.startScale;
-    w.obj.setAlpha(0);
-    this.scene.tweens.add({ targets: w.obj, alpha: 1, duration: scaleTime(B.callouts.fadeInMs) });
-    if (!soft) this.scene.tweens.add({ targets: w, pump: B.callouts.popScale, duration: scaleTime(B.callouts.popMs), ease: "Back.easeOut" });
-    this.scene.tweens.add({
-      targets: w.obj, alpha: 0, delay: scaleTime(B.callouts.ms * B.callouts.holdFraction), duration: scaleTime(B.callouts.ms * (1 - B.callouts.holdFraction)),
-      onComplete: () => w.obj.destroy(),
-    });
-  }
-
-  // The cascade is over (the enemy acts, or the battle ended early): no more build-up, the camera
-  // eases back and the counter fades into the tally.
+  // The cascade is over (the enemy acts, the slam starts, or the battle ended early): no more build-up,
+  // the camera eases back.
   finish(): void {
     if (!this.active) return;
     this.active = false;
     this.token++;
     this.cam.restore(B.camera.restoreMs);
-    const rows = [...this.rows.values()];
-    this.rows.clear();
-    this.fading.push(...rows);
-    this.scene.tweens.add({
-      targets: rows.map((r) => r.obj), alpha: 0, duration: scaleTime(B.counter.fadeMs),
-      onComplete: () => {
-        rows.forEach((r) => r.obj.destroy());
-        this.fading = this.fading.filter((r) => !rows.includes(r));
-      },
-    });
   }
 
   // Everything back to normal at once (a new round, a skipped cascade, the step is over).
@@ -293,35 +189,8 @@ export class Buildup {
     this.steps = 0;
     this.biggest = 0;
     this.big = false;
-    this.shownWords = 0;
-    this.fired.clear();
-    this.totals = { damage: 0, block: 0 };
-    this.rows.forEach((r) => r.obj.destroy());
-    this.rows.clear();
-    this.fading.forEach((r) => r.obj.destroy());
-    this.fading = [];
-    this.words.forEach((w) => w.obj.destroy());
-    this.words = [];
     this.base = { z: 1, c: { x: W / 2, y: H / 2 } };
     this.cam.reset();
-  }
-
-  private sync(): void {
-    const z = this.cam.zoom;
-    this.rows.forEach((r) => r.sync(z));
-    this.fading.forEach((r) => r.sync(z));
-    this.words = this.words.filter((w) => w.obj.active);
-    this.words.forEach((w) => w.sync(z));
-  }
-
-  // The counter and callouts live in the free strip at the top of this screen's board mat.
-  private stripY(): number {
-    return this.frame().y + B.strip / 2;
-  }
-
-  private stripX(at: number): number {
-    const f = this.frame();
-    return f.x + f.w * at;
   }
 
   // The tree's bounds with a margin: every domino and open end.

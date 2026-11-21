@@ -2,11 +2,12 @@ import Phaser from "phaser";
 import { artImage } from "./art";
 import { fxData } from "./presentation";
 
-// Effect textures (F8). fx/spark, fx/slash, fx/bolt and fx/shard are white with brightness as alpha:
-// tinting multiplies a colour into the RGB and keeps the alpha. fx/glow and fx/ring have no art and
-// are always drawn in code. Every id also has a code-drawn fallback, since art can be missing.
+// Effect textures (F8). fx/spark, fx/slash, fx/bolt, fx/shard, fx/flame, fx/sparkle and fx/burst are
+// white with brightness as alpha: tinting multiplies a colour into the RGB and keeps the alpha. fx/glow
+// and fx/ring have no art and are always drawn in code. Every id also has a code-drawn fallback, since
+// art can be missing (flame, sparkle and burst are optional, #234).
 
-export type FxId = "spark" | "slash" | "bolt" | "shard" | "glow" | "ring";
+export type FxId = "spark" | "slash" | "bolt" | "shard" | "flame" | "sparkle" | "burst" | "glow" | "ring";
 const CODE_ONLY: FxId[] = ["glow", "ring"];
 
 const P = (x: number, y: number): Phaser.Math.Vector2 => new Phaser.Math.Vector2(x, y);
@@ -64,6 +65,44 @@ export function fxFallback(scene: Phaser.Scene, id: FxId, x: number, y: number, 
     g.moveTo(-r, 0);
     for (const [px, py] of [[-0.5, -0.3], [-0.2, 0.2], [0.2, -0.25], [0.5, 0.15], [1, 0]]) g.lineTo(px * r, py * r);
     g.strokePath();
+  } else if (id === "flame") {
+    // One teardrop tongue rising, wide at the base, tapering to a curled tip.
+    const left: Phaser.Math.Vector2[] = [];
+    const right: Phaser.Math.Vector2[] = [];
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10;
+      const w = r * 0.62 * Math.pow(1 - t, 0.85) * Math.min(1, 0.5 + t * 5);
+      const cx = r * 0.3 * t * t;
+      left.push(P(cx - w, r - 2 * r * t));
+      right.unshift(P(cx + w, r - 2 * r * t));
+    }
+    g.fillStyle(tint, a);
+    g.fillPoints([...left, ...right], true);
+  } else if (id === "sparkle") {
+    // A thin 4-pointed glint with a bright centre.
+    const pts: Phaser.Math.Vector2[] = [];
+    for (let i = 0; i < 8; i++) {
+      const ang = (i * Math.PI) / 4 - Math.PI / 2;
+      const d = i % 2 === 0 ? r : r * 0.14;
+      pts.push(P(Math.cos(ang) * d, Math.sin(ang) * d));
+    }
+    g.fillStyle(tint, a);
+    g.fillPoints(pts, true);
+    g.fillCircle(0, 0, r * 0.14);
+  } else if (id === "burst") {
+    // A jagged starburst with a soft bright core.
+    const spikes = [1, 0.6, 0.85, 0.5, 1, 0.55, 0.75, 0.6, 0.95, 0.5, 0.8, 0.6];
+    const pts: Phaser.Math.Vector2[] = [];
+    spikes.forEach((d, i) => {
+      const ang = (i * Math.PI * 2) / spikes.length;
+      pts.push(P(Math.cos(ang) * r * d, Math.sin(ang) * r * d));
+      const mid = ang + Math.PI / spikes.length;
+      pts.push(P(Math.cos(mid) * r * 0.32, Math.sin(mid) * r * 0.32));
+    });
+    g.fillStyle(tint, a * 0.8);
+    g.fillPoints(pts, true);
+    g.fillStyle(0xffffff, a * 0.6);
+    g.fillCircle(0, 0, r * 0.28);
   } else {
     // A faceted crystal chunk.
     const pts = [[0, -1], [0.7, -0.3], [0.5, 0.8], [-0.4, 0.9], [-0.8, 0]].map(([px, py]) => P(px * r, py * r));

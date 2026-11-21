@@ -34,7 +34,7 @@ import { FuseBoard, boardArea, chargesInto, liveNumber } from "./fuseBoard";
 import { HandFan, handArea } from "./handFan";
 import { SetOffPreviewUi } from "./setOffPreview";
 import { boardGlow } from "./spectacle";
-import { buildupStrip, litGlowStrength } from "./buildup";
+import { litGlowStrength } from "./buildup";
 import { applyEvent, startShown } from "./shownView";
 import { isDrawEvent, playDraws } from "./drawAnimation";
 import { combatLayoutData, fuseBoardData } from "./presentation";
@@ -166,6 +166,7 @@ export class CombatScene extends Phaser.Scene {
     this.rail = new TurnRail(this.ctx);
     this.anim = new Animator(this);
     this.anim.buildup.frame = () => boardArea(); // the camera frames the tree to the board's area (data)
+    this.anim.redraw = () => this.redraw(); // the slam redraws the table with the real numbers
     this.locked = false;
     this.selected = null;
     this.drag = null;
@@ -550,7 +551,7 @@ export class CombatScene extends Phaser.Scene {
     const text = this.label(layer, x + w / 2, y + h / 2, "", fontSize ?? Math.round(h * 0.6), "#ffffff", 0.5, true);
     const ref = { g, text, x, y, w, h, max, color };
     this.anim.refs.bars.set(key, ref);
-    paintBar(ref, value, this.anim.reactions.ghostOf(key as "party" | "enemy"));
+    paintBar(ref, value + this.anim.owed(key as "party" | "enemy", "health"), this.anim.reactions.ghostOf(key as "party" | "enemy")); // what the cascade still holds back counts until the slam
   }
 
   private shield(layer: Layer, key: string, x: number, y: number, s: number, amount: number): void {
@@ -560,9 +561,10 @@ export class CombatScene extends Phaser.Scene {
     const pts = [[-1, -1], [1, -1], [1, 0.1], [0, 1.1], [-1, 0.1]].map(([a, b]) => new Phaser.Math.Vector2(x + a * s * 0.5, y + b * s * 0.5));
     g.fillPoints(pts, true);
     g.strokePoints(pts, true);
-    const text = this.label(layer, x + s * 0.5 + 8, y, String(amount), Math.round(s * 0.7), "#dbe6f5", 0, true);
+    const shownAmount = amount + this.anim.owed(key as "party" | "enemy", "block");
+    const text = this.label(layer, x + s * 0.5 + 8, y, String(shownAmount), Math.round(s * 0.7), "#dbe6f5", 0, true);
     this.anim.refs.shields.set(key, { text, x, y, s });
-    if (key === "enemy") this.anim.reactions.drawCracks(layer, x, y, s, amount);
+    if (key === "enemy") this.anim.reactions.drawCracks(layer, x, y, s, shownAmount);
   }
 
   // A click area that opens the deck viewer on one player's tab. The viewer shows everyone's deck (#171).
@@ -651,14 +653,14 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- the board (middle) ----
 
-  // The fuse board (fuseBoard.ts): small dominoes joined by fuses, in the area from data. The top strip
-  // of the area is kept free for the cascade counter and callouts (#191).
+  // The fuse board (fuseBoard.ts): small dominoes joined by fuses, in the area from data. The combo
+  // number (comboHype.ts) sits over the middle of it during a cascade.
   private drawBoard(layer: Layer, view: BattleView, active: string, pending: PendingChoice | null): void {
     this.slotBoxes.clear();
     const selected = this.selected !== null ? pending?.plays.find((o) => o.domino === this.selected) : undefined;
     const legal = new Set<number>(selected?.ends ?? []);
     const A = boardArea();
-    const area = { x: A.x, y: A.y + buildupStrip, w: A.w, h: A.h - buildupStrip };
+    const area = { x: A.x, y: A.y, w: A.w, h: A.h };
     const lit = this.shown?.lit ?? new Set<number>();
     const fizzled = this.shown?.fizzled ?? new Set<number>();
     // The charge on the open ends, from the engine (getOpenEnds), for the player acting.
@@ -988,7 +990,7 @@ export class CombatScene extends Phaser.Scene {
     this.anim.clearShots(); // every shot in the air ends before the fast-forward starts
     this.tweens.timeScale = SKIP_SPEED;
     this.time.timeScale = SKIP_SPEED;
-    this.anim.buildup.clear(); // the camera goes back at once and the counter goes
+    this.anim.buildup.clear(); // the camera goes back at once
     this.board?.stopBurns(); // every fuse burnt all the way
     this.fan?.snap();
   }
@@ -1014,6 +1016,8 @@ export class CombatScene extends Phaser.Scene {
     for (let n = 0; n < events.length; n++) {
       const ev = events[n];
       if (this.skipping) {
+        await this.anim.skipEvent(ev, this.shown!.view); // counts the event; the cascade's end plays a short slam
+        if (epoch !== this.epoch) return false;
         applyEvent(this.shown!, ev);
         continue;
       }
@@ -1047,7 +1051,7 @@ export class CombatScene extends Phaser.Scene {
         this.redraw();
       }
       const shown = this.shown;
-      const wait = Math.max(animTime(ev), eventDelay(ev, mem));
+      const wait = this.anim.pace(ev, Math.max(animTime(ev), eventDelay(ev, mem)));
       await this.anim.run(ev, shown.view, () => {
         applyEvent(shown, ev);
         this.redraw();

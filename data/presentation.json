@@ -9,12 +9,10 @@
   "build": { "fullNodes": 10 },
   "step": { "pulseMs": 380 },
   "amp": { "fullChange": 8 },
-  "stack": { "step": 34, "growth": 0.12, "ms": 1400 },
   "shake": { "minCap": 16, "ms": 220, "intensity": 0.004, "perTier": 0.002 },
   "lightning": { "minCap": 40, "ms": 280, "bolts": 3 },
   "slowMotion": { "minCap": 60, "timeScale": 0.35, "holdMs": 400 },
   "effects": { "travelMs": 350, "ms": 450 },
-  "tally": { "countMs": 500, "holdMs": 500, "popMs": 160 },
   "dominoLook": {
     "comment": "Domino drawing (#217), read by src/game/dominoDrawing.ts. Positions are in mockup units (an amplifier bar is 100 high, the whole amplifier 216 wide, the socket on the left edge, the centre line at y 50); the screen size is units times unit. extent is each kind's width and height in units, for layout. Details (owner stripe, rarity gem, upgrade star) are hidden when the domino is shown below minDetailScale of full size; number, sockets and outputs always stay.",
     "unit": 1.1111,
@@ -65,19 +63,9 @@
     "shadow": { "dx": 4, "dy": 8, "alpha": 0.25, "raisedAlpha": 0.35 }
   },
   "buildup": {
-    "comment": "Cascade build-up (#191). pitch.maxSteps: the pitch stops rising after this many cascade steps. glow: strength of the lit dominoes' glow, from litMin (first lit) to litMax (all lit). strip: height of the strip at the top of the board mat kept free for the counter and callouts (the tree is laid out below it); counter.at and callouts.at are where in the mat's width they are centred, so each screen's own mat sets where they go. They stay put on screen whatever the camera does. callouts.list: the running damage that fires each word, once each, at most max per cascade (the highest newly crossed fires; lower ones are used up with it). camera: boards with more than minNodes dominoes ease out (to zoomOut, or what fits the board mat, never below minZoom) and push in on a new biggest cap of at least push.minCap (push.reducedZoom with reduced flashing; no push with screen shake off); the camera never cuts off health, block or the intent card (keep: sizes of the boxes it protects and of an open end). Callouts: holdFraction of ms they stay, then fade; fadeInMs, popMs, startScale, popScale shape the burst. Times are ms at 1x.",
+    "comment": "Cascade build-up (#191). pitch.maxSteps: the pitch stops rising after this many cascade steps. glow: strength of the lit dominoes' glow, from litMin (first lit) to litMax (all lit). camera: boards with more than minNodes dominoes ease out (to zoomOut, or what fits the board mat, never below minZoom) and push in on a new biggest cap of at least push.minCap (push.reducedZoom with reduced flashing; no push with screen shake off); the camera never cuts off health, block or the intent card (keep: sizes of the boxes it protects and of an open end). The running counter and callouts it used to hold are now comboHype. Times are ms at 1x.",
     "pitch": { "maxSteps": 10 },
     "glow": { "litMin": 1.5, "litMax": 4.5 },
-    "strip": 80,
-    "counter": { "at": 0.3, "size": 38, "spacing": 215, "pump": 1.2, "pumpMs": 260, "fadeMs": 250 },
-    "callouts": {
-      "max": 3, "at": 0.78, "size": 48, "ms": 1100, "holdFraction": 0.6, "fadeInMs": 120, "popMs": 220, "startScale": 0.4, "popScale": 1.1,
-      "list": [
-        { "at": 20, "word": "Blaze!", "color": "#ffd23f" },
-        { "at": 50, "word": "Inferno!", "color": "#ff9a3d" },
-        { "at": 100, "word": "Cataclysm!", "color": "#ff5a3d" }
-      ]
-    },
     "keep": { "slot": 40, "shield": { "x": -25, "y": -25, "w": 110, "h": 50 } },
     "camera": {
       "minNodes": 8, "zoomOut": 0.92, "minZoom": 0.7, "pad": 30, "easeMs": 500, "restoreMs": 500,
@@ -100,22 +88,76 @@
     "fallbackAlpha": 0.95
   },
   "projectiles": {
-    "comment": "Effects that fly from a cap to their target (#189). A shot is one trigger of a cap. At most maxOnScreen shots of each kind are in the air at once; further triggers fold into the newest shot of that kind (its x-count and size grow). A shot uses the last tier whose minValue it reaches: size in pixels, travelMs at 1x (bigger is faster), gain (impact loudness 0..1). Colours are 0xRRGGBB strings; sizes are pixels unless a factor of the tier size.",
-    "maxOnScreen": 8,
-    "staggerMs": 110,
-    "tiers": [
-      { "minValue": 1, "size": 56, "travelMs": 430, "gain": 0.45 },
-      { "minValue": 8, "size": 78, "travelMs": 360, "gain": 0.65 },
-      { "minValue": 16, "size": 104, "travelMs": 300, "gain": 0.85 },
-      { "minValue": 30, "size": 136, "travelMs": 240, "gain": 1 }
-    ],
-    "colours": { "damage": "0xff5a4a", "block": "0x7fb2ff" },
-    "flight": { "haloFactor": 2, "passAt": 0.6, "passRingSize": 60, "passRingAlpha": 0.6 },
-    "count": { "size": 26, "colour": "#ffffff", "stroke": "#101010", "dyFactor": 0.55 },
-    "shapes": { "shieldFactor": 0.5, "shieldFill": "0x4a6fa5", "shieldEdge": "0xdbe6f5" },
-    "impact": { "ms": 420, "sizeFactor": 1.5, "ringFactor": 0.7, "burstScale": [0.4, 1.3], "ringScale": [0.5, 1.8], "slashColour": "0xffffff", "softAlpha": 0.5 },
-    "pulse": { "scale": 1.4, "ms": 220 },
+    "comment": "The glow a domino takes in its owner's seat colour as the charge passes it, bigger and longer when a cap goes off (#189, read by seatGlow in src/game/projectiles.ts). The caps' effects now fly into the combo number (comboHype).",
     "seatGlow": { "sizeFactor": 1.5, "ms": 520, "alpha": 0.9, "capFactor": 2.4, "capMs": 700, "reducedAlpha": 0.3, "reducedMs": 800 }
+  },
+  "comboHype": {
+    "comment": "Cascade hype (#234, H1-H9), read by src/game/comboHype.ts. Px on the 1920x1080 table, times in ms at 1x (all go through scaleTime). Arrays are indexed by tier 0..4. tiers: the running damage as a share of the enemy's health when the cascade starts; a threshold reached moves the number up one tier (highest wins when a hit crosses several). The number sits in the board area (combatLayout.board), centred across it and yFraction down it, and is shrunk to maxWidthFraction of the area's width. gap: the pause after each cap fires is start - step * caps, never below min (a depth step waits stepFraction of it). tierJump, lethal, slam and fanfare are the big moments; the slam's charge, flight, impact and fanfare together take about 2 s at the top tier. skip.factor scales the slam's times when a skipped cascade plays its short slam.",
+    "tiers": {
+      "thresholds": [0.1, 0.25, 0.5, 0.75],
+      "colours": ["#ffffff", "#ffe14d", "#ff9a3d", "#ff4d4d", "#b46bff"],
+      "words": ["", "Nice!", "Blazing!", "Inferno!", "Overload!"]
+    },
+    "layout": { "yFraction": 0.46, "maxWidthFraction": 0.8 },
+    "number": {
+      "sizes": [110, 140, 175, 210, 250], "stroke": 12, "strokeColour": "#101010",
+      "hits": { "size": 44, "colour": "#ffffff", "dyFactor": 0.66, "dy": 14 },
+      "block": { "sizeFactor": 0.5, "minSize": 60, "colour": "#7fb8ff", "gap": 90, "shieldColour": "#4a6fa5", "shieldEdge": "#dbe6f5" },
+      "halo": { "colour": "#000000", "layers": 2, "padX": 300, "heightFactor": 1.9 },
+      "rollMs": 260, "punch": { "scale": 1.28, "reducedScale": 1.1, "ms": 260 }, "growMs": 420
+    },
+    "flight": { "ms": 360, "curve": 110, "size": 40, "trailEveryPx": 16, "trailMs": 280, "trailSize": 30, "arrival": { "ringSize": 150, "ringMs": 360, "sparkSize": 130 } },
+    "capBurst": { "size": 110, "ms": 340 },
+    "microFreezeMs": [0, 20, 30, 45, 60],
+    "gap": { "startMs": 520, "stepMs": 40, "minMs": 110, "stepFraction": 0.5 },
+    "tierJump": {
+      "calloutSize": 76, "calloutDy": 50, "calloutMs": 1000, "calloutFrom": 0.4, "calloutTo": 1.15, "calloutPopMs": 240,
+      "ringSize": [0, 500, 600, 720, 840], "burstSize": [0, 380, 460, 540, 640], "fxMs": 520,
+      "flashAlpha": [0, 0.22, 0.28, 0.34, 0.4], "flashMs": 280,
+      "shakeMs": [0, 160, 200, 240, 280], "shakeIntensity": [0, 0.004, 0.006, 0.008, 0.011],
+      "tintAlpha": [0, 0.07, 0.1, 0.13, 0.17], "tintReducedAlpha": 0.05, "tintMs": 600
+    },
+    "lethal": {
+      "word": "LETHAL!", "colour": "#ffd23f", "size": 84, "dy": 50,
+      "gradientTop": "#fff6b0", "gradientBottom": "#ff4a14",
+      "flame": { "size": 130, "rise": 190, "lifeMs": 700, "everyMs": 45, "perTick": 2, "maxAlive": 36, "colour": "#ff8a2a", "alpha": 0.9, "reducedEveryMs": 160, "reducedPerTick": 1, "reducedAlpha": 0.5 },
+      "ringSize": 900, "burstSize": 720, "flashAlpha": 0.5, "shakeMs": 360, "shakeIntensity": 0.013
+    },
+    "slam": {
+      "chargeMs": [240, 320, 400, 460, 520], "swell": 1.3, "tremble": 6,
+      "flightMs": 210, "flightEndScale": 0.35,
+      "hitStopMs": [40, 60, 80, 100, 120], "flashAlpha": [0.35, 0.45, 0.55, 0.65, 0.75], "flashMs": 320,
+      "shakeMs": [200, 260, 320, 380, 440], "shakeIntensity": [0.006, 0.009, 0.012, 0.016, 0.02],
+      "gain": [0.5, 0.65, 0.8, 0.9, 1],
+      "burstSize": [320, 400, 480, 560, 640], "ringSize": [420, 520, 620, 720, 820], "fxMs": 480,
+      "popup": { "size": 120, "blockedSize": 44, "blockedColour": "#9cc4ff", "dy": 90, "ms": 1000 },
+      "block": { "chargeMs": 200, "flightMs": 260 }
+    },
+    "fanfare": {
+      "holdMs": [260, 360, 460, 560, 640], "sparkles": [10, 20, 34, 52, 76], "killMultiplier": 1.5,
+      "size": 48, "fallMs": 1300, "spreadMs": 420, "coinEvery": 3,
+      "colours": ["#ffe14d", "#fff2b0", "#ffb02e"],
+      "shatter": { "shards": 18, "size": 90, "spread": 320, "ms": 800 }
+    },
+    "skip": { "factor": 0.4, "sparkleFactor": 0.5 },
+    "look": {
+      "hitsBump": 1.3,
+      "arrivalShake": { "tier0": 0.002, "tierFactor": 0.4, "ms": 120 },
+      "blockPlaceholderDx": 200,
+      "popup": { "startScale": 0.5, "popMs": 160, "lineGap": 0.7 },
+      "fadeOutMs": 300,
+      "ring": { "startScale": 0.3, "reducedAlpha": 0.5 },
+      "puff": { "startScale": 0.4, "endScale": 2.6 },
+      "capBurstGrow": 1.8,
+      "trailEndScale": 0.3,
+      "haloAlpha2": 0.7,
+      "tremble": { "base": 0.5, "perTier": 0.25 },
+      "numberFadeFraction": { "halo": 0.8, "hits": 0.5 },
+      "chipDx": 40,
+      "fanfareSpawn": { "top": -30, "spread": 80, "sizeMin": 0.5, "sizeMax": 1.2, "fallMin": 0.45, "fallMax": 0.95 },
+      "flame": { "topFraction": 0.42, "shrink": 0.5 },
+      "block": { "shieldWidth": 0.85, "textX": 0.55, "dyFactor": 0.08 }
+    }
   },
   "speedControl": {
     "comment": "Combat playback speed button and its list (#220), read by src/game/speedControl.ts. Px on the 1920x1080 table. Where the button sits comes from combatLayout.footer (#231); the list opens upward, gap above it, and opens downward instead if it would leave the screen.",
