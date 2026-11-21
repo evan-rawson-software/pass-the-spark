@@ -52,6 +52,8 @@ export interface EnemyState {
   health: number;
   maxHealth: number;
   block: number; // gained from an intent; absorbs damage in the next cascade, then resets
+  line: number; // the combo total that staggers the enemy (data)
+  staggered: boolean; // the cascade reached the line this round: each attack hit is halved; clears at round end
   // Copied from the enemy's data, with the state the pattern needs.
   intents: Intent[];
   pattern: Pattern;
@@ -211,6 +213,8 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
       health: enemyHealth,
       maxHealth: enemyHealth,
       block: 0,
+      line: enemyDef.line,
+      staggered: false,
       intents: JSON.parse(JSON.stringify(enemyDef.intents)),
       pattern: JSON.parse(JSON.stringify(enemyDef.pattern)),
       passives: JSON.parse(JSON.stringify(enemyDef.passives)),
@@ -438,13 +442,15 @@ export function previewPlay(input: PendingInput, playerId: string, dominoId: str
 export interface CascadePreview {
   damage: number; // reaching the enemy's health, after its block
   block: number; // gained by the party
+  comboTotal: number; // every hit of the cascade, before enemy block
+  lineReached: boolean; // the combo total reaches the enemy's line
 }
 
 export function previewCascade(input: BattleState | BattleView): CascadePreview {
   const state = { ...JSON.parse(JSON.stringify(input)), rng: 0 } as BattleState;
   const events: GameEvent[] = [];
-  fireCascade(state, events);
-  const result: CascadePreview = { damage: 0, block: 0 };
+  const tally = fireCascade(state, events);
+  const result: CascadePreview = { damage: 0, block: 0, comboTotal: tally.combo, lineReached: state.enemy.staggered };
   for (const e of events) {
     if (e.type === "damage" && e.side === "enemy") result.damage += e.amount;
     else if (e.type === "block" && e.side === "party") result.block += e.amount;
@@ -458,6 +464,8 @@ export function previewCascade(input: BattleState | BattleView): CascadePreview 
 export interface SetOffPreview {
   canSetOff: boolean; // a cap is on the board (without one, damage and block are 0 and only the party side matters)
   damage: number; // reaching the enemy's health, after its block
+  comboTotal: number; // every hit of the cascade, before enemy block
+  lineReached: boolean; // the combo total reaches the enemy's line: the enemy's attack is halved in partyDamage
   enemyBlockUsed: number; // the enemy's block worn down by the cascade
   enemyBlock: number; // its block after the cascade (the Hoarder's gain included)
   enemyHealth: number;
@@ -481,11 +489,13 @@ export function previewSetOff(input: BattleState | BattleView, play?: { player: 
   }
   const events: GameEvent[] = [];
   const before = { enemyHealth: state.enemy.health, partyHealth: state.party.health };
-  const capsFired = fireCascade(state, events);
+  const tally = fireCascade(state, events);
   const enemyBlockUsed = events.reduce((sum, e) => sum + (e.type === "damage" && e.side === "enemy" ? e.blocked : 0), 0);
   const result: SetOffPreview = {
     canSetOff: capCount(state) > 0,
     damage: before.enemyHealth - Math.max(state.enemy.health, 0),
+    comboTotal: tally.combo,
+    lineReached: state.enemy.staggered,
     enemyBlockUsed,
     enemyBlock: state.enemy.block,
     enemyHealth: Math.max(state.enemy.health, 0),
@@ -496,7 +506,7 @@ export function previewSetOff(input: BattleState | BattleView, play?: { player: 
     partyHealth: state.party.health,
   };
   if (!isOver(state)) {
-    longNightGrowth(state, capsFired, events);
+    longNightGrowth(state, tally.caps, events);
     state.enemy.block = 0;
     enemyAct(state, events);
   }
@@ -575,9 +585,9 @@ function addNode(state: BattleState, owner: string, d: Domino, end: number | nul
 // The cascade, then the enemy's action, then the round end.
 function setOff(state: BattleState, events: GameEvent[]): void {
   events.push({ type: "setOff", reason: "ready" });
-  const capsFired = fireCascade(state, events);
+  const tally = fireCascade(state, events);
   if (isOver(state)) return;
-  longNightGrowth(state, capsFired, events);
+  longNightGrowth(state, tally.caps, events);
   // Enemy block from its last intent has had its cascade (even a round where nothing fired).
   state.enemy.block = 0;
   events.push({ type: "blockReset", side: "enemy" });
@@ -586,11 +596,20 @@ function setOff(state: BattleState, events: GameEvent[]): void {
   endRound(state, events);
 }
 
-// Steps by depth from the opener; within a step, nodes in creation order. Open ends fizzle at the end.
-// With no cap on the board nothing fires. Stops the moment the enemy is at 0 health.
-// Returns how many different caps went off (a cap that goes off several times counts once).
-function fireCascade(state: BattleState, events: GameEvent[]): number {
-  if (capCount(state) === 0) return 0;
+// What a cascade added up to: how many different caps went off (a cap that goes off several times counts
+// once) and the combo total, the sum of every hit before enemy block.
+interface Tally {
+  caps: number;
+  combo: number;
+}
+
+// Steps by depth from the opener; within a step, nodes in creation order. Every domino hits as it lights:
+// an amplifier or junction for the charge it passes on, a damage cap for its value per trigger; a block
+// cap gives block instead. Open ends fizzle at the end. With no cap on the board nothing fires.
+// Stops the moment the enemy is at 0 health.
+function fireCascade(state: BattleState, events: GameEvent[]): Tally {
+  const tally: Tally = { caps: 0, combo: 0 };
+  if (capCount(state) === 0) return tally;
   const hoarder = passiveOf(state.enemy, "hoarder");
   if (hoarder && state.board.nodes.length > 0) {
     const amount = state.board.nodes.length * hoarder.multiplier;
@@ -598,7 +617,6 @@ function fireCascade(state: BattleState, events: GameEvent[]): number {
     events.push({ type: "passive", passive: "hoarder", amount });
     events.push({ type: "block", side: "enemy", amount });
   }
-  let capsFired = 0;
   let lastSpark: Spark | null = null; // the intake spark of the cap trigger just before (Auditor)
   const flows = computeFlows(state);
   const { nodes } = state.board;
@@ -609,7 +627,9 @@ function fireCascade(state: BattleState, events: GameEvent[]): number {
       if (node.depth !== depth) continue;
       const d = getDomino(state, node.domino);
       const flow = flows[node.id];
-      events.push({ type: "nodeLit", node: node.id, domino: d.id, owner: node.owner, charge: d.kind === "cap" ? flow.charge : flow.out });
+      const capValueNow = d.kind === "cap" && d.effect ? capValue(d.effect, flow.charge, flow.bonus) : 0;
+      const hit = d.kind !== "cap" ? flow.out : d.effect?.kind === "damage" ? capValueNow : 0;
+      events.push({ type: "nodeLit", node: node.id, domino: d.id, owner: node.owner, charge: d.kind === "cap" ? flow.charge : flow.out, hit });
       for (const charm of flow.charms) events.push({ type: "charm", player: node.owner, charm });
       if (d.kind === "junction") {
         const block = junctionRunnerBlock(state, node.owner);
@@ -619,23 +639,42 @@ function fireCascade(state: BattleState, events: GameEvent[]): number {
           events.push({ type: "block", side: "party", amount: block });
         }
       }
-      if (d.kind === "cap" && d.effect) {
-        capsFired += 1;
+      if (d.kind !== "cap") {
+        hitEnemy(state, hit, false, tally, events);
+        if (isOver(state)) return tally;
+      } else if (d.effect) {
+        tally.caps += 1;
         const spark = state.board.ends[node.end as number].spark;
         const firstRepeats = lastSpark === spark;
         lastSpark = spark;
-        fireCap(state, node, d.effect, capValue(d.effect, flow.charge, flow.bonus), capTriggers(state.config, flow), firstRepeats, events);
-        if (isOver(state)) return capsFired;
+        fireCap(state, node, d.effect, capValueNow, capTriggers(state.config, flow), firstRepeats, tally, events);
+        if (isOver(state)) return tally;
       }
     }
   }
   for (const e of openEnds(state)) events.push({ type: "fizzle", end: e.id, spark: e.spark, charge: flows[e.node].out });
-  return capsFired;
+  return tally;
+}
+
+// One hit on the enemy: block absorbs it (unless it ignores block), the combo total grows by the whole hit,
+// and the first hit that takes the total to the line staggers the enemy for the round. Ends the battle at 0 health.
+function hitEnemy(state: BattleState, value: number, ignoresBlock: boolean, tally: Tally, events: GameEvent[]): void {
+  const { enemy } = state;
+  const blocked = ignoresBlock ? 0 : Math.min(enemy.block, value);
+  enemy.block -= blocked;
+  enemy.health -= value - blocked;
+  events.push({ type: "damage", side: "enemy", amount: value - blocked, blocked });
+  tally.combo += value;
+  if (!enemy.staggered && tally.combo >= enemy.line) {
+    enemy.staggered = true;
+    events.push({ type: "lineReached", total: tally.combo, line: enemy.line });
+  }
+  if (enemy.health <= 0) endBattle(state, "won", events);
 }
 
 // Each trigger counts as a cap going off for the Auditor: the first repeats the spark of the cap before
 // it only if firstRepeats, and every extra (Echo) trigger repeats the cap's own spark.
-function fireCap(state: BattleState, node: BoardNode, effect: CapEffect, value: number, triggers: number, firstRepeats: boolean, events: GameEvent[]): void {
+function fireCap(state: BattleState, node: BoardNode, effect: CapEffect, value: number, triggers: number, firstRepeats: boolean, tally: Tally, events: GameEvent[]): void {
   events.push({ type: "capFired", node: node.id, domino: node.domino, owner: node.owner, effect: effect.kind, value, triggers });
   for (let i = 0; i < triggers; i++) {
     if (i > 0 || firstRepeats) {
@@ -643,14 +682,8 @@ function fireCap(state: BattleState, node: BoardNode, effect: CapEffect, value: 
       if (isOver(state)) return;
     }
     if (effect.kind === "damage") {
-      const blocked = effect.ignoresBlock ? 0 : Math.min(state.enemy.block, value);
-      state.enemy.block -= blocked;
-      state.enemy.health -= value - blocked;
-      events.push({ type: "damage", side: "enemy", amount: value - blocked, blocked });
-      if (state.enemy.health <= 0) {
-        endBattle(state, "won", events);
-        return;
-      }
+      hitEnemy(state, value, effect.ignoresBlock === true, tally, events);
+      if (isOver(state)) return;
     } else if (effect.kind === "block") {
       state.party.block += value;
       events.push({ type: "block", side: "party", amount: value });
@@ -692,10 +725,19 @@ function hitParty(state: BattleState, hit: number, events: GameEvent[]): void {
   if (party.health <= 0) endBattle(state, "lost", events);
 }
 
+// Each attack hit halved, rounded down (the stagger). Block actions stay as they are. Returns a copy.
+export function halvedIntent(intent: Intent): Intent {
+  const copy: Intent = JSON.parse(JSON.stringify(intent));
+  for (const a of copy.actions) if (a.kind === "attack") a.value = Math.floor(a.value / 2);
+  return copy;
+}
+
+// The enemy carries out its intent. A staggered enemy's attack hits are halved last, after growth and the party-size percent.
 function enemyAct(state: BattleState, events: GameEvent[]): void {
   const { intent, enemy } = state;
-  const shown = scaledIntent(state, intent);
-  events.push({ type: "enemyAction", intent: shown });
+  const full = scaledIntent(state, intent);
+  const shown = enemy.staggered ? halvedIntent(full) : full;
+  events.push({ type: "enemyAction", intent: shown, fullIntent: full, staggered: enemy.staggered });
   for (const action of shown.actions) {
     if (action.kind === "block") {
       enemy.block += action.value;
@@ -717,6 +759,7 @@ function endBattle(state: BattleState, result: "won" | "lost", events: GameEvent
 
 // Party block resets, the board goes to its owners' discard piles.
 function endRound(state: BattleState, events: GameEvent[]): void {
+  state.enemy.staggered = false;
   state.party.block = 0;
   events.push({ type: "blockReset", side: "party" });
   for (const node of state.board.nodes) getPlayer(state, node.owner).discard.push(node.domino);
