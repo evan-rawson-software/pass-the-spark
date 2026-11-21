@@ -32,6 +32,7 @@ import { debugPanel } from "./DebugPanel";
 import type { DebugHost } from "./DebugPanel";
 import { SPEEDS, getPlaybackSpeed, onPlaybackSpeedChange, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
 import { Animator, animTime, newRefs, paintBar } from "./animations";
+import { boardGlow } from "./spectacle";
 import { applyEvent, startShown } from "./shownView";
 import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
 import type { ShownTable } from "./shownView";
@@ -73,13 +74,17 @@ const DH = 120;
 const FONT = "Arial, Helvetica, sans-serif";
 
 // Table regions (1920x1080).
-const MAT = { x: 370, y: 400, w: 1180, h: 360 }; // the board
+const MAT = { x: 370, y: 400, w: 1180, h: 360 }; // the board (this.mat: see matFor)
 const HAND = { x: 370, y: 785, w: 1180, h: 265 }; // the active hand
 const LEFT_X = 30;
 const RIGHT_X = 1565;
 const SIDE_W = 310;
 const SIDE_TOP = 330;
 const SIDE_H = 450;
+// The board mat. At 2 players only the left side column holds a hand (W6), so the mat runs on into the right column's room.
+function matFor(players: number): typeof MAT {
+  return players === 2 ? { ...MAT, w: RIGHT_X + SIDE_W - 15 - MAT.x } : MAT;
+}
 
 const GOLD = 0xffe14d;
 const RED = 0xe0443e;
@@ -109,6 +114,10 @@ export class CombatScene extends Phaser.Scene {
   private pings!: PingMarks; // online only: rings from other players' pings
   private pingBoxes = new Map<string, Phaser.GameObjects.Container>(); // pingKey -> that domino or open end
   private anim!: Animator;
+  private totalsShown = [0, 0, 0]; // the "if set off now" numbers as drawn (damage, block, coins), ticking toward the engine's
+  private totalsTarget = [0, 0, 0];
+  private totalLabels: Phaser.GameObjects.Text[] = [];
+  private totalsTween?: Phaser.Tweens.Tween;
   private shown: ShownTable | null = null; // the table part-way through a step; null when idle
   private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
   private inRun = false; // single player inside a run
@@ -137,6 +146,9 @@ export class CombatScene extends Phaser.Scene {
     this.seed = this.inRun ? runSeed() : data.seed ?? dev.seed;
     this.layer = undefined;
     this.shown = null;
+    this.totalsShown = [0, 0, 0];
+    this.totalsTarget = [0, 0, 0];
+    this.totalsTween = undefined;
     this.drawTable();
     this.anim = new Animator(this);
     this.locked = false;
@@ -371,6 +383,7 @@ export class CombatScene extends Phaser.Scene {
     const active = this.online ? this.mySeat() : (this.handSeat ?? now.seat);
     const turn = this.hlSeat ?? now.seat;
 
+    this.drawMat(layer, view);
     this.drawEnemy(layer, view);
     this.drawHud(layer, view, turn);
     this.drawParty(layer, view);
@@ -407,7 +420,7 @@ export class CombatScene extends Phaser.Scene {
 
   private drawTable(): void {
     // With a background image (added first, so behind everything) the frame, felt and pool of light
-    // give way to it; the board mat stays.
+    // give way to it.
     const hasArt = artBackground(this, "combat");
     const g = this.add.graphics();
     if (!hasArt) {
@@ -423,10 +436,16 @@ export class CombatScene extends Phaser.Scene {
       g.fillStyle(0x246b4f, 0.55);
       g.fillEllipse(960, 560, 1500, 700);
     }
+  }
+
+  // The board mat, drawn with the table's contents so it follows the party size.
+  private drawMat(layer: Layer, view: BattleView): void {
+    const m = matFor(view.players.length);
+    const g = this.gfx(layer);
     g.fillStyle(0x174c38, 0.6);
-    g.fillRoundedRect(MAT.x, MAT.y, MAT.w, MAT.h, 60);
+    g.fillRoundedRect(m.x, m.y, m.w, m.h, 60);
     g.lineStyle(3, 0x2f7a5b, 0.7);
-    g.strokeRoundedRect(MAT.x, MAT.y, MAT.w, MAT.h, 60);
+    g.strokeRoundedRect(m.x, m.y, m.w, m.h, 60);
   }
 
   // ---- small helpers ----
@@ -628,9 +647,9 @@ export class CombatScene extends Phaser.Scene {
 
   private drawHud(layer: Layer, view: BattleView, turn: string): void {
     const y = 350;
-    this.label(layer, MAT.x + 10, y, `Round ${view.round}`, 36, "#ffffff", 0, true);
+    this.label(layer, this.mat.x + 10, y, `Round ${view.round}`, 36, "#ffffff", 0, true);
     if (view.result) {
-      this.label(layer, MAT.x + 10, y + 36, view.result === "won" ? "Battle won" : "Battle lost", 22, "#ffe14d", 0, true);
+      this.label(layer, this.mat.x + 10, y + 36, view.result === "won" ? "Battle won" : "Battle lost", 22, "#ffe14d", 0, true);
     }
 
     // Turn order around the table, lead marked.
@@ -686,11 +705,32 @@ export class CombatScene extends Phaser.Scene {
     g.strokeRoundedRect(x, 135, SIDE_W, 170, 40);
     this.label(layer, x + SIDE_W / 2, 164, "IF SET OFF NOW", 21, "#9fd1b8", 0.5, true);
     const cells: [IconKind, number][] = [["damage", total.damage], ["block", total.block], ["coins", coins]];
-    cells.forEach(([kind, value], i) => {
+    this.totalLabels = cells.map(([kind, value], i) => {
       const cx = x + 52 + i * 103;
       this.icon(layer, kind, cx, 212, 0.9);
-      this.label(layer, cx, 266, String(value), 44, value > 0 ? "#ffffff" : "#5f8f7a", 0.5, true);
+      return this.label(layer, cx, 266, String(this.totalsShown[i]), 44, value > 0 ? "#ffffff" : "#5f8f7a", 0.5, true);
     });
+    // The running total ticks up (or down) to the engine's number instead of jumping.
+    const target = cells.map(([, v]) => v);
+    if (target.join() !== this.totalsTarget.join()) {
+      this.totalsTarget = target;
+      const start = [...this.totalsShown];
+      this.totalsTween?.stop();
+      this.totalsTween = this.tweens.addCounter({
+        from: 0, to: 1, duration: scaleTime(450), ease: "Cubic.easeOut",
+        onUpdate: (t) => {
+          const f = t.getValue() ?? 1;
+          target.forEach((v, i) => {
+            this.totalsShown[i] = Math.round(start[i] + (v - start[i]) * f);
+            const l = this.totalLabels[i];
+            if (l?.active) l.setText(String(this.totalsShown[i])).setColor(v > 0 ? "#ffffff" : "#5f8f7a");
+          });
+        },
+        onComplete: () => {
+          this.totalsShown = [...target];
+        },
+      });
+    }
   }
 
   // ---- the board (middle) ----
@@ -706,8 +746,8 @@ export class CombatScene extends Phaser.Scene {
       const k = 0.8;
       const w = DW * k;
       const h = DH * k;
-      const x = MAT.x + 50 + w / 2;
-      const y = MAT.y + MAT.h / 2;
+      const x = this.mat.x + 50 + w / 2;
+      const y = this.mat.y + this.mat.h / 2;
       const g = this.gfx(layer);
       const live = selected !== undefined;
       if (live) this.glow(g, x - w / 2, y - h / 2, w, h, GOLD, 14);
@@ -727,13 +767,13 @@ export class CombatScene extends Phaser.Scene {
     // Largest scale at which the whole tree fits the mat (it shrinks as the tree grows).
     const GAP = 50;
     const VGAP = 24;
-    const availW = MAT.w - 80;
-    const availH = MAT.h - 40;
+    const availW = this.mat.w - 80;
+    const availH = this.mat.h - 40;
     const k = Math.max(0.2, Math.min(0.8, availW / (lay.cols * DW + (lay.cols - 1) * GAP), availH / (lay.rows * DH + (lay.rows - 1) * VGAP)));
     const colW = (DW + GAP) * k;
     const rowH = (DH + VGAP) * k;
-    const left = MAT.x + 40;
-    const top = MAT.y + (MAT.h - ((lay.rows - 1) * rowH + DH * k)) / 2 + (DH * k) / 2;
+    const left = this.mat.x + 40;
+    const top = this.mat.y + (this.mat.h - ((lay.rows - 1) * rowH + DH * k)) / 2 + (DH * k) / 2;
     const s = Math.max(34, DH * k); // an open end's slot is a square this big
     const nodeAt = (id: number) => {
       const p = lay.nodes.get(id)!;
@@ -745,6 +785,11 @@ export class CombatScene extends Phaser.Scene {
     };
     const lit = this.shown?.lit ?? new Set<number>();
     const fizzled = this.shown?.fizzled ?? new Set<number>();
+    // The charge on the open ends, from the engine (getOpenEnds), for the player acting.
+    const opens: OpenEndView[] = getOpenEnds(view, active);
+    // The built tree glows brighter, and hotter in colour, as dominoes and charge pile up.
+    const build = boardGlow(board.nodes.length, Math.max(0, ...opens.map((o) => o.charge)));
+    const hot = this.anim.litColor();
 
     // Paths: from each output to whatever hangs on it (a domino or an open slot), in the spark's colour.
     const g = this.gfx(layer);
@@ -756,6 +801,15 @@ export class CombatScene extends Phaser.Scene {
       const x0 = from.x + (DW * k) / 2;
       const x1 = to.x - (child ? (DW * k) / 2 : s / 2);
       const xm = (x0 + x1) / 2;
+      if (build.strength > 0 && !fizzled.has(e.id)) {
+        g.lineStyle(Math.max(8, 26 * k), build.color, 0.35 * build.strength);
+        g.beginPath();
+        g.moveTo(x0, from.y);
+        g.lineTo(xm, from.y);
+        g.lineTo(xm, to.y);
+        g.lineTo(x1, to.y);
+        g.strokePath();
+      }
       g.lineStyle(Math.max(3, 9 * k), SPARK_STYLE[e.spark].color, fizzled.has(e.id) ? 0.3 : 0.9);
       g.beginPath();
       g.moveTo(x0, from.y);
@@ -765,10 +819,11 @@ export class CombatScene extends Phaser.Scene {
       g.strokePath();
     }
 
-    // The dominoes, a lit one glowing gold.
+    // The dominoes, a lit one glowing in the heat colour.
     for (const n of board.nodes) {
       const { x, y } = nodeAt(n.id);
-      if (lit.has(n.id)) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, GOLD, 14 * k);
+      if (build.strength > 0) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, build.color, 14 * k, build.strength * 2.5);
+      if (lit.has(n.id)) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, hot, 14 * k, 3);
       const c = this.domino(layer, n.domino, k, "normal", x, y, undefined, { zone: "chain", index: n.id });
       this.anim.refs.nodes.set(n.id, { c, pos: { x, y, k } });
       if (k >= 0.45) this.label(layer, x, y + (DH * k) / 2 + 11, this.nameOf(n.owner, true, 10), 15, "#cfe9dc", 0.5, true);
@@ -776,7 +831,6 @@ export class CombatScene extends Phaser.Scene {
 
     // The open ends: a glowing slot in the spark's colour with the charge reaching it. The charge and
     // the triggers a cap placed there would get come from getOpenEnds, for the player acting.
-    const opens: OpenEndView[] = getOpenEnds(view, active);
     for (const o of opens) {
       if (!lay.ends.has(o.end)) continue;
       const { x, y } = slotAt(o.end);
@@ -822,9 +876,9 @@ export class CombatScene extends Phaser.Scene {
   }
 
   // A soft glow round a rounded rectangle.
-  private glow(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, color: number, r: number): void {
+  private glow(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, color: number, r: number, strength = 1): void {
     for (let i = 4; i >= 1; i--) {
-      g.lineStyle(i * 6, color, 0.12);
+      g.lineStyle(i * 6, color, Math.min(1, 0.12 * strength));
       g.strokeRoundedRect(x - i * 2, y - i * 2, w + i * 4, h + i * 4, r + i * 2);
     }
   }
@@ -1120,6 +1174,10 @@ export class CombatScene extends Phaser.Scene {
     this.handSeat = null;
     this.shown = null;
     return true;
+  }
+
+  private get mat(): typeof MAT {
+    return matFor(this.view.players.length);
   }
 
   private get turnSeat(): string {

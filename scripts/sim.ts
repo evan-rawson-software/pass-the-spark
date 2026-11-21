@@ -1,6 +1,6 @@
 // npm run sim [battlesPerEnemy] [seed]
-// Plays random and bot battles against each enemy in data/ with 3 players and again with 4 (runs are
-// 3-4 players and enemy health scales with party size). Prints, per enemy, random and bot side by
+// Plays random and bot battles against each enemy in data/ with 2, 3 and 4 players (enemy health and
+// attack scale with party size). Prints, per enemy, random and bot side by
 // side, then how cascades went.
 //
 // Columns:
@@ -118,7 +118,7 @@ console.log("opts/plays count distinct legal choices per player turn; see the co
 console.log("'>1 opt' counts pass and set off as choices; '>1 play' counts only plays (domino x end).");
 console.log("Board, junc, caps, fizz and dmg are per cascade, averaged over all cascades of the battles.");
 
-for (const partySize of [3, 4]) {
+for (const partySize of [2, 3, 4]) {
   console.log("");
   console.log(`===== ${partySize} PLAYERS =====`);
   console.log("".padEnd(31) + header.map((h, i) => h.padStart(widths[i] + 1)).join(""));

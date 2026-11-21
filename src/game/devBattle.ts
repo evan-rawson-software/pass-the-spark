@@ -10,7 +10,7 @@ export const enemies = content.enemies;
 
 // What the start screen collects. Seat order is names in order; the first name leads.
 export interface GameSettings {
-  names: string[]; // 3 or 4 player names
+  names: string[]; // 2 to 4 player names
   enemyId: string;
 }
 
@@ -22,7 +22,7 @@ export function rememberSettings(settings: GameSettings): void {
 
 // Dev query params (all optional). When the page is opened with any of them the
 // start screen is skipped and the battle starts straight away:
-//   enemy=ogre|brute|warden|auditor|glutton   players=3|4   seed=<number>
+//   enemy=ogre|brute|warden|auditor|glutton   players=2|3|4   seed=<number>
 //   steps=<n>   play n scripted choices (always the first legal play, on its first end)
 //   draw=<n>    players draw n per round
 export const DEV_PARAMS = ["enemy", "players", "seed", "steps", "draw"];
@@ -32,7 +32,8 @@ export function hasDevParams(query: URLSearchParams): boolean {
 }
 
 export function devSettings(query: URLSearchParams): { settings: GameSettings; seed: number } {
-  const count = query.get("players") === "4" ? 4 : 3;
+  const players = Number(query.get("players"));
+  const count = players === 2 || players === 4 ? players : 3;
   return {
     settings: { names: ["Ana", "Ben", "Cy", "Dee"].slice(0, count), enemyId: query.get("enemy") ?? "ogre" },
     seed: Number(query.get("seed") ?? 1),

@@ -18,7 +18,7 @@ import type { SavedRoom } from "./room";
 import type { Connection, Transport } from "./transport";
 
 export const MAX_SEATS = 4;
-export const MIN_SEATS = 3;
+export const MIN_SEATS = 2;
 export const MAX_NAME_LENGTH = 24;
 // How long the game waits for an away player before the host may play for them.
 export const PLAY_FOR_DELAY_MS = 60_000;
