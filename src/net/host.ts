@@ -194,9 +194,8 @@ export async function createHost(options: HostOptions): Promise<Host> {
     const owed = owedSeats()
       .map((seat) => members.find((m) => m.seat === seat))
       .filter((m): m is Member => m !== undefined);
-    // In a battle a seat the host has taken over still counts as away: its Ready is given again after the delay.
-    const inBattle = run.battle !== null && run.phase === "battle";
-    const present = owed.filter((m) => m.connected || (!inBattle && controlled.has(m.seat)));
+    // A seat the host has taken over is never waited on again: when it owes something, the host is on it.
+    const present = owed.filter((m) => m.connected || controlled.has(m.seat));
     const waiting = present.length === 0 ? owed : [];
     const seats = waiting.map((m) => m.seat);
     if (seats.length === 0) clearPause();
@@ -205,7 +204,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
       pauseSeats = seats;
       pauseTimer = setTimeout(() => {
         playForReady = true;
-        if (inBattle) readyForAway(seats);
+        if (run?.battle && run.phase === "battle") readyForAway(seats);
         else sendStatus();
       }, PLAY_FOR_DELAY_MS);
     }
@@ -232,6 +231,16 @@ export async function createHost(options: HostOptions): Promise<Host> {
       if (player !== undefined && !player.ready) apply(seat, { type: "battle", choice: { type: "ready", player: seat, ready: true } }, local);
     }
     if (run !== null) sendStatus();
+  }
+
+  // A new build has begun (a battle opened or a round turned over): every seat the host has taken over
+  // counts as Ready straight away. The host can toggle it off to place or take back, and on again.
+  function readyTakenOver(): void {
+    const local = members.find((m) => m.local)!;
+    for (const seat of controlled) {
+      const player = run?.battle?.players.find((p) => p.id === seat);
+      if (player !== undefined && !player.ready) apply(seat, { type: "battle", choice: { type: "ready", player: seat, ready: true } }, local);
+    }
   }
 
   function lobbyMessage(): HostMessage {
@@ -296,6 +305,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
       const message: HostMessage = { type: "experience", runId: options.roomCode + "-" + Date.now(), gained: runExperience(run) };
       for (const m of members) if (m.connected) deliver(m, message);
     }
+    if (run.battle !== null && run.phase === "battle" && (before.battle === null || before.battle.round !== run.battle.round)) readyTakenOver();
   }
 
   // A choice in a battle's build. `m` is the seat it is for: the choice must name that seat. Choices

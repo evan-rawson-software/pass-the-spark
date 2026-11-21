@@ -72,11 +72,14 @@ test("host and two clients vote, then build a round; two place on the same end a
   const bOptions = options(b);
   const same = options(a).flatMap((x) => bOptions.filter((y) => y.end === x.end).map((y) => [x, y]))[0];
   expect(same).toBeDefined();
+  const updates = () => hostMessages.filter((m) => m.type === "update").length;
+  const updatesBefore = updates();
   const refusedBefore = messages.map((list) => list.filter((m) => m.type === "error").length);
   a.sendChoice({ type: "play", player: a.seat!, domino: same[0].domino, end: same[0].end });
   b.sendChoice({ type: "play", player: b.seat!, domino: same[1].domino, end: same[1].end });
   await flush();
   const errors = messages.map((list) => list.filter((m) => m.type === "error"));
+  expect(updates()).toBe(updatesBefore + 1); // only the first placement reached the table
   expect(errors[0].length).toBe(refusedBefore[0]);
   expect(errors[1].length).toBe(refusedBefore[1] + 1);
   expect(hostMessages.filter((m) => m.type === "error")).toEqual([]);
