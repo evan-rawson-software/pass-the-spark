@@ -11,7 +11,6 @@ import { scaleTime } from "./playbackSpeed";
 // seat's deck stack into its hand, all seats at once, a short stagger apart, and flip face up as they
 // land. Every time goes through scaleTime.
 
-const FONT = "Arial, Helvetica, sans-serif";
 const STACK_K = 0.3; // a deck stack's dominoes, at the scale of a large domino
 const FLY = 250; // one domino sliding in
 const GAP = 70; // between dominoes of one seat
@@ -22,23 +21,6 @@ type Slot = { c: Phaser.GameObjects.Container; pos: Pos };
 
 export function isDrawEvent(ev: GameEvent): boolean {
   return ev.type === "draw" || ev.type === "reshuffle";
-}
-
-// A small face-down stack with the number of dominoes left. Registers itself in refs.decks.
-export function drawDeckStack(scene: Phaser.Scene, layer: Phaser.GameObjects.Container, refs: Refs, seat: string, back: Domino, x: number, y: number, count: number): void {
-  const c = scene.add.container(x, y);
-  const layers = count === 0 ? 1 : Math.min(3, count);
-  for (let i = 0; i < layers; i++) {
-    const d = drawDomino(scene, back, "large", "hidden").setScale(STACK_K).setPosition(i * 2, -i * 4);
-    if (count === 0) d.setAlpha(0.3);
-    c.add(d);
-  }
-  const text = scene.add
-    .text(layers * 2 - 2, -(layers - 1) * 4, String(count), { fontFamily: FONT, fontSize: "26px", color: "#ffffff", fontStyle: "bold", stroke: "#0d2a20", strokeThickness: 6 })
-    .setOrigin(0.5);
-  c.add(text);
-  layer.add(c);
-  refs.decks.set(seat, { c, text, x, y });
 }
 
 type Item = { kind: "shuffle"; count: number } | { kind: "draw"; count: number };
@@ -85,9 +67,9 @@ export async function playDraws(
     for (let i = 0; i < keep; i++) {
       const o = old[i];
       const { c, pos } = slots[i];
-      if (!o || (o.x === pos.x && o.y === pos.y && o.k === pos.k)) continue;
-      c.setPosition(o.x, o.y).setScale(o.k);
-      scene.tweens.add({ targets: c, x: pos.x, y: pos.y, scale: pos.k, duration: scaleTime(FLY), ease: "Cubic.easeOut" });
+      if (!o || (o.x === pos.x && o.y === pos.y && o.k === pos.k && o.angle === pos.angle)) continue;
+      c.setPosition(o.x, o.y).setScale(o.k).setAngle(o.angle ?? 0);
+      scene.tweens.add({ targets: c, x: pos.x, y: pos.y, scale: pos.k, angle: pos.angle ?? 0, duration: scaleTime(FLY), ease: "Cubic.easeOut" });
     }
 
     const from = stack ?? { x: slots[0]?.pos.x ?? 0, y: (slots[0]?.pos.y ?? 0) - 60 };

@@ -2,65 +2,75 @@ import Phaser from "phaser";
 import type { BattleView } from "../engine/view";
 import type { Intent, Passive } from "../engine/types";
 import { drawEffectIcon, drawSparkGlyph } from "./dominoDrawing";
-import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { drawPadlock, drawPassiveIcon } from "./passiveIcon";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import { combatLayoutData, hexColour } from "./presentation";
 import { enemies } from "./devBattle";
 import type { CombatCtx, Layer } from "./combatCtx";
 import { fitText } from "./combatCtx";
+import type { ColumnLayout } from "./columnLayout";
 
-// The enemy as one unit, top centre (#228, L1): portrait over a soft shadow, name and tier to its
-// left, passive chips under the name (full text on hover), the intent in a speech bubble at its head,
-// round chips under the bubble, the health bar and block right under it. Layout only: every value is
-// from the view; positions are in data/presentation.json (combatLayout.enemy).
+// The enemy card at the top of the left column (#231, Spotlight; built in #228): the portrait in a
+// framed card with the tier chip, the name, passive chips (full text on hover), the health bar with
+// the enemy's block to its left, then the intent panel with the round chips and any later intents
+// under it. Layout only: every value is from the view; sizes are in data/presentation.json
+// (combatLayout.enemy) and the places come from columnLayout.ts.
 
 const D = combatLayoutData.enemy;
 const RED = 0xe0443e;
 const FONT = "Arial, Helvetica, sans-serif";
 
-export function drawEnemyUnit(ctx: CombatCtx, layer: Layer, view: BattleView): void {
+export function drawEnemyUnit(ctx: CombatCtx, layer: Layer, view: BattleView, col: ColumnLayout): void {
   const e = view.enemy;
   const def = enemies.find((x) => x.id === e.id);
-  const s = ctx.scene;
 
-  const sh = s.add.graphics();
-  sh.fillStyle(0x000000, D.shadow.alpha);
-  sh.fillEllipse(D.shadow.x, D.shadow.y, D.shadow.rx * 2, D.shadow.ry * 2);
-  layer.add(sh);
-  ctx.drawBody(layer, e.id, def?.tier ?? "basic");
+  // The card: a dark red backdrop with a soft light behind the portrait.
+  const K = D.card;
+  const g = ctx.gfx(layer);
+  g.fillStyle(hexColour(K.fill), 1);
+  g.fillRoundedRect(col.x, col.card.y, col.w, col.card.h, K.r);
+  for (let i = 3; i >= 1; i--) {
+    g.fillStyle(hexColour(K.glow), 0.22);
+    g.fillEllipse(col.x + col.w / 2, col.card.y + col.card.h / 2, (col.w - 2 * K.r) * (i / 3), (col.card.h - 8) * (i / 3 + 0.25));
+  }
+  g.lineStyle(K.strokeWidth, hexColour(K.stroke), 1);
+  g.strokeRoundedRect(col.x, col.card.y, col.w, col.card.h, K.r);
+  const size = Math.min(col.w, col.card.h - 2 * K.artPad);
+  ctx.drawBody(layer, e.id, def?.tier ?? "basic", { x: col.x + col.w / 2, y: col.card.y + col.card.h / 2 + K.artDy, size });
 
-  // Name, right-aligned to the portrait's left; a long name shrinks rather than run into either side.
-  const title = ctx.label(layer, D.name.right, D.name.y, def?.name ?? e.id, D.name.size, D.name.colour, 1, true);
-  fitText(title, D.name.maxW);
   if (def) {
-    const stop = def.tier === "basic" ? "fight" : def.tier;
-    const g = ctx.gfx(layer);
-    g.fillStyle(NODE_STYLE[stop].color, 1);
-    g.fillCircle(D.tier.x, D.tier.y, D.tier.r);
-    g.lineStyle(2, hexColour(D.tier.stroke), 1);
-    g.strokeCircle(D.tier.x, D.tier.y, D.tier.r);
-    drawNodeIcon(g, stop, D.tier.x, D.tier.y, D.tier.r);
-    const hit = s.add.circle(D.tier.x, D.tier.y, D.tier.r, 0, 0);
-    layer.add(hit);
-    ctx.tooltip.attachLines(hit, [{ text: def.tier === "basic" ? "Normal enemy" : NODE_STYLE[stop].name, style: "title" }]);
+    const T = D.tier;
+    const t = ctx.label(layer, col.x + T.x + T.padX, col.card.y + T.y + T.h / 2, def.tier.toUpperCase(), T.size, T.colour, 0, true);
+    t.setLetterSpacing(T.spacing);
+    const w = t.width + 2 * T.padX;
+    const pill = ctx.gfx(layer);
+    pill.fillStyle(hexColour(T.fill), 0.92);
+    pill.fillRoundedRect(col.x + T.x, col.card.y + T.y, w, T.h, T.h / 2);
+    pill.lineStyle(2, hexColour(T.stroke), 0.8);
+    pill.strokeRoundedRect(col.x + T.x, col.card.y + T.y, w, T.h, T.h / 2);
+    layer.bringToTop(t);
   }
 
-  // Passive chips stack under the name; the chip shows the passive's `short` text.
-  e.passives.forEach((p, i) => passiveChip(ctx, layer, p, D.chip.x, D.chip.y + i * (D.chip.h + D.chip.gap)));
+  // The name; a long name shrinks to fit. Passive chips stack under it and show the passive's `short` text.
+  const title = ctx.label(layer, col.x, col.name.y + D.name.h / 2, def?.name ?? e.id, D.name.size, D.name.colour, 0, true);
+  fitText(title, col.w);
+  e.passives.forEach((p, i) => passiveChip(ctx, layer, p, col.x, col.chipsY + i * (D.chip.h + D.chip.gap), col.w));
 
-  intentBubble(ctx, layer, view);
-  roundChips(ctx, layer, view);
+  // The health bar, with the enemy's block (a shield and its number) to its left.
+  const bx = col.x + D.bar.left;
+  ctx.bar(layer, "enemy", bx, col.bar.y, col.w - D.bar.left, D.bar.h, e.health, e.maxHealth, RED, D.bar.fontSize);
+  ctx.shield(layer, "enemy", col.x + D.shield.x, col.bar.y + D.bar.h / 2, D.shield.s, e.block);
 
-  const b = D.bar;
-  ctx.bar(layer, "enemy", b.x, b.y, b.w, b.h, e.health, e.maxHealth, RED, b.fontSize);
-  ctx.shield(layer, "enemy", D.shield.x, D.shield.y, D.shield.s, e.block);
+  intentPanel(ctx, layer, view, col);
+  roundChips(ctx, layer, view, col);
+  laterIntents(ctx, layer, view, col);
 }
 
 type Icon = (g: Phaser.GameObjects.Graphics, cx: number, cy: number) => void;
 
 // A chip: a dark pill with an icon and a short text. The tooltip carries the full text.
-function chip(ctx: CombatCtx, layer: Layer, x: number, y: number, w: number, h: number, text: string, colour: string, icon: Icon, tip: { text: string; style?: "title" | "head" | "dim" }[]): void {
+function chip(ctx: CombatCtx, layer: Layer, x: number, y: number, w: number, text: string, colour: string, icon: Icon, tip: { text: string; style?: "title" | "head" | "dim" }[]): void {
+  const h = D.chip.h;
   const g = ctx.gfx(layer);
   g.fillStyle(hexColour(D.chip.fill), 1);
   g.fillRoundedRect(x, y, w, h, h / 2);
@@ -75,18 +85,17 @@ function chip(ctx: CombatCtx, layer: Layer, x: number, y: number, w: number, h: 
   ctx.tooltip.attachLines(z, tip);
 }
 
-function passiveChip(ctx: CombatCtx, layer: Layer, p: Passive, x: number, y: number): void {
+function passiveChip(ctx: CombatCtx, layer: Layer, p: Passive, x: number, y: number, w: number): void {
   const k = D.chip.iconR / 34;
-  chip(ctx, layer, x, y, D.chip.w, D.chip.h, p.short, D.chip.textColour, (g, cx, cy) => drawPassiveIcon(ctx.scene, g, p, cx, cy, k), [
+  chip(ctx, layer, x, y, w, p.short, D.chip.textColour, (g, cx, cy) => drawPassiveIcon(ctx.scene, g, p, cx, cy, k), [
     { text: p.name, style: "title" },
     ...(p.text ? [{ text: p.text }] : []),
   ]);
 }
 
 // Chips for what is special about this round: the Warden's locked spark and the Spark Shrine's
-// blessing. They sit under the intent bubble and run left to right, wrapping when the row is full.
-function roundChips(ctx: CombatCtx, layer: Layer, view: BattleView): void {
-  const R = D.roundChip;
+// blessing. They sit under the intent panel, one per row.
+function roundChips(ctx: CombatCtx, layer: Layer, view: BattleView, col: ColumnLayout): void {
   const items: { text: string; colour: string; icon: Icon; tip: string }[] = [];
   if (view.locked) {
     const spark = view.locked;
@@ -112,19 +121,14 @@ function roundChips(ctx: CombatCtx, layer: Layer, view: BattleView): void {
       tip: `Every domino attached to the blessed ${b.spark} spark adds +${b.strength} charge.`,
     });
   }
-  const perRow = Math.max(1, Math.floor((1900 - R.x + R.gap) / (R.w + R.gap)));
-  items.forEach((it, i) => {
-    const x = R.x + (i % perRow) * (R.w + R.gap);
-    const y = R.y + Math.floor(i / perRow) * (R.h + R.gap);
-    chip(ctx, layer, x, y, R.w, R.h, it.text, it.colour, it.icon, [{ text: it.text, style: "title" }, { text: it.tip }]);
-  });
+  items.forEach((it, i) => chip(ctx, layer, col.x, col.roundY + i * (D.chip.h + D.chip.gap), col.w, it.text, it.colour, it.icon, [{ text: it.text, style: "title" }, { text: it.tip }]));
 }
 
-// ---- the intent bubble ----
+// ---- the intent panel ----
 
 function intentLabel(intent: Intent): string {
-  const kinds = [...new Set(intent.actions.map((a) => (a.kind === "attack" ? "Attack" : "Block")))];
-  return kinds.length === 0 ? "INTENT" : `INTENT · ${kinds.join(" + ").toUpperCase()}`;
+  const kinds = [...new Set(intent.actions.map((a) => (a.kind === "attack" ? "attacks" : "blocks")))];
+  return kinds.length === 0 ? "NEXT, IT WAITS" : `NEXT, IT ${kinds.join(" AND ").toUpperCase()}`;
 }
 
 // One intent's actions in a row (an icon, the number, ×N for several hits), centred on the container's
@@ -155,42 +159,33 @@ function intentRow(scene: Phaser.Scene, intent: Intent, base: number, maxW: numb
   return row;
 }
 
-function intentBubble(ctx: CombatCtx, layer: Layer, view: BattleView): void {
-  const B = D.bubble;
-  const s = ctx.scene;
+function intentPanel(ctx: CombatCtx, layer: Layer, view: BattleView, col: ColumnLayout): void {
+  const B = D.intent;
+  const { y, h } = col.intent;
   const g = ctx.gfx(layer);
-  const fill = hexColour(B.fill);
-  const stroke = hexColour(B.stroke);
-  g.fillStyle(fill, 1);
-  g.fillRoundedRect(B.x, B.y, B.w, B.h, B.r);
-  g.lineStyle(B.strokeWidth, stroke, 1);
-  g.strokeRoundedRect(B.x, B.y, B.w, B.h, B.r);
-  // The tail points left, to the portrait's head: it covers the bubble's edge, then its two sides are stroked.
-  const T = B.tail;
-  g.fillStyle(fill, 1);
-  g.fillTriangle(B.x + B.strokeWidth, T.fromY, T.tipX, T.tipY, B.x + B.strokeWidth, T.toY);
-  g.lineBetween(B.x, T.fromY, T.tipX, T.tipY);
-  g.lineBetween(T.tipX, T.tipY, B.x, T.toY);
-
-  const A = D.action;
-  const row = intentRow(s, view.intent, 1, B.w - 2 * A.pad).setPosition(B.x + B.w / 2, B.y + B.h / 2);
+  g.fillStyle(hexColour(B.fill), 1);
+  g.fillRoundedRect(col.x, y, col.w, h, B.r);
+  g.lineStyle(B.strokeWidth, hexColour(B.stroke), 1);
+  g.strokeRoundedRect(col.x, y, col.w, h, B.r);
+  const row = intentRow(ctx.scene, view.intent, 1, col.w - 2 * D.action.pad).setPosition(col.x + col.w / 2, y + B.rowY);
   layer.add(row);
   const L = D.label;
-  const label = ctx.label(layer, B.x + B.w / 2, L.y, intentLabel(view.intent), L.size, L.colour, 0.5, true);
-  label.setLetterSpacing(L.spacing);
-  ctx.refs().intent = { x: B.x, y: B.y, w: B.w, h: L.y + L.size - B.y };
+  ctx.label(layer, col.x + col.w / 2, y + B.labelY, intentLabel(view.intent), L.size, L.colour, 0.5, true).setLetterSpacing(L.spacing);
+  ctx.refs().intent = { x: col.x, y, w: col.w, h };
+}
 
-  // Spyglass holders also see the next rounds, small, to the right of the bubble.
-  if (view.upcomingIntents.length > 0) {
-    const U = D.later;
-    ctx.label(layer, U.x, U.y - 26, "Later", U.size, U.colour, 0, true);
-    let x = U.x;
-    for (const intent of view.upcomingIntents) {
-      const r = intentRow(s, intent, U.scale, 1000);
-      const w = r.getBounds().width;
-      r.setPosition(x + w / 2, U.y);
-      layer.add(r);
-      x += w + 24;
-    }
+// Spyglass holders also see the next rounds, small, in a row under the panel.
+function laterIntents(ctx: CombatCtx, layer: Layer, view: BattleView, col: ColumnLayout): void {
+  if (view.upcomingIntents.length === 0) return;
+  const U = D.later;
+  const cy = col.laterY + U.h / 2;
+  const label = ctx.label(layer, col.x, cy, "Later", U.size, U.colour, 0, true);
+  let x = col.x + label.width + 14;
+  for (const intent of view.upcomingIntents) {
+    const r = intentRow(ctx.scene, intent, U.scale, 1000);
+    const w = r.getBounds().width;
+    r.setPosition(x + w / 2, cy);
+    layer.add(r);
+    x += w + 24;
   }
 }

@@ -16,6 +16,7 @@ import { MenuScene } from "./MenuScene";
 import { HostLobbyScene } from "./HostLobbyScene";
 import { JoinScene } from "./JoinScene";
 import { DominoTestScene } from "./DominoTestScene";
+import { BoardPreviewScene } from "./BoardPreviewScene";
 import { SoundTestScene } from "./SoundTestScene";
 import { TitleScene } from "./TitleScene";
 import { DeckScene } from "./deckViewer";
@@ -26,11 +27,12 @@ import { ArtBootScene, readArtManifest } from "./art";
 // The menu is the default; a link with ?room=CODE opens the join screen, or, in the browser that
 // hosts that room, resumes it as host (#35; an unreadable save is dropped there and the page joins instead). Dev query params (see devBattle.ts) skip it and
 // open the combat table directly. ?scene=dominoes opens the domino drawing test
-// page and ?scene=title the title and ?scene=sounds the sound audition page.
+// page, ?scene=board the fuse board and hand preview, ?scene=sounds the sound audition page and ?scene=title the title.
 const query = new URLSearchParams(window.location.search);
 const which = query.get("scene");
 const first =
   which === "dominoes" ? DominoTestScene
+  : which === "board" ? BoardPreviewScene
   : which === "sounds" ? SoundTestScene
   : which === "title" ? TitleScene
   : hasDevParams(query) ? CombatScene
@@ -45,7 +47,7 @@ function isMyRoom(code: string): boolean {
 }
 const scenes = [
   first,
-  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, ActStartScene, TraderScene, EventScene, RunEndScene, DeckScene, TitleScene, DominoTestScene, SoundTestScene].filter(
+  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, ActStartScene, TraderScene, EventScene, RunEndScene, DeckScene, TitleScene, DominoTestScene, BoardPreviewScene, SoundTestScene].filter(
     (s) => s !== first,
   ),
 ];

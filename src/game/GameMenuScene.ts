@@ -3,6 +3,7 @@ import { reducedFlashing, setComfort, shakeEnabled } from "./comfort";
 import { debugPanel } from "./DebugPanel";
 import { deckViewerState } from "./deckViewer";
 import { SPEEDS, getPlaybackSpeed, setPlaybackSpeed } from "./playbackSpeed";
+import { menuButtonSpot, onMenuButtonMove } from "./menuButton";
 import { resetProfile } from "./profile";
 import { leaveRun, onlineRun } from "./runSession";
 import { SOUND_FILES, getSoundSettings, phaserSoundOut, setSoundOut, setSoundSettings, soundKey } from "./sound";
@@ -14,7 +15,7 @@ import { SOUND_FILES, getSoundSettings, phaserSoundOut, setSoundOut, setSoundSet
 
 const FONT = "Arial, Helvetica, sans-serif";
 const BASE = `${import.meta.env.BASE_URL}audio/`;
-const BTN = { x: 1884, y: 36, size: 52 }; // the button's centre; screens keep this corner free
+const BTN = { size: 52 }; // the button's size; where it sits is in menuButton.ts (the top-right corner unless a screen moves it)
 const PX = 1440; // the panel
 const PY = 72;
 const PW = 440;
@@ -26,6 +27,7 @@ type Confirm = "leave" | "reset" | null;
 
 export class GameMenuScene extends Phaser.Scene {
   private button!: Phaser.GameObjects.Graphics;
+  private hit!: Phaser.GameObjects.Zone;
   private panel: Phaser.GameObjects.Container | null = null;
   private confirm: Confirm = null;
 
@@ -41,12 +43,16 @@ export class GameMenuScene extends Phaser.Scene {
   create(): void {
     setSoundOut(phaserSoundOut(this.sound as unknown as Parameters<typeof phaserSoundOut>[0], this.cache.audio));
     this.button = this.add.graphics().setDepth(1000);
-    this.add
-      .zone(BTN.x, BTN.y, BTN.size, BTN.size)
+    this.hit = this.add
+      .zone(menuButtonSpot().x, menuButtonSpot().y, BTN.size, BTN.size)
       .setInteractive({ useHandCursor: true })
       .setDepth(1000)
       .on("pointerdown", () => this.toggle());
     this.drawButton();
+    const stop = onMenuButtonMove(() => {
+      this.hit.setPosition(menuButtonSpot().x, menuButtonSpot().y);
+      this.drawButton();
+    });
     // Escape: the capture phase sees it before the deck viewer's own Escape handler closes the viewer.
     const onKey = (e: KeyboardEvent): void => {
       const el = e.target as HTMLElement | null;
@@ -55,7 +61,10 @@ export class GameMenuScene extends Phaser.Scene {
       this.toggle();
     };
     window.addEventListener("keydown", onKey, true);
-    this.events.once("shutdown", () => window.removeEventListener("keydown", onKey, true));
+    this.events.once("shutdown", () => {
+      window.removeEventListener("keydown", onKey, true);
+      stop();
+    });
   }
 
   private toggle(): void {
@@ -235,7 +244,8 @@ export class GameMenuScene extends Phaser.Scene {
 
   private drawButton(): void {
     const g = this.button;
-    const { x, y, size } = BTN;
+    const { x, y } = menuButtonSpot();
+    const size = BTN.size;
     g.clear();
     g.fillStyle(0x0d2a20, 0.95);
     g.fillRoundedRect(x - size / 2, y - size / 2, size, size, 10);

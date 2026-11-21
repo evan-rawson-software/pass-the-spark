@@ -31,11 +31,12 @@ const B = (presentationJson as unknown as {
 interface Box { x: number; y: number; w: number; h: number }
 interface Pt { x: number; y: number }
 export interface BuildupRefs {
-  nodes: Map<number, { pos: { x: number; y: number; k: number } }>;
+  nodes: Map<number, { pos: { x: number; y: number; k: number; w?: number; h?: number } }>;
   slots: Map<number, { x: number; y: number }>;
   bars: Map<string, { x: number; y: number; w: number; h: number }>;
   shields: Map<string, { x: number; y: number }>;
   intent?: Box;
+  board?: { bounds(): Box }; // the fuse board: the tree's own bounds, rings and badges included
 }
 
 const DW = 240;
@@ -330,7 +331,9 @@ export class Buildup {
       x0 = Math.min(x0, x - w / 2); x1 = Math.max(x1, x + w / 2);
       y0 = Math.min(y0, y - h / 2); y1 = Math.max(y1, y + h / 2);
     };
-    refs.nodes.forEach((n) => grow(n.pos.x, n.pos.y, DW * n.pos.k, DH * n.pos.k));
+    refs.nodes.forEach((n) => grow(n.pos.x, n.pos.y, (n.pos.w ?? DW) * n.pos.k, (n.pos.h ?? DH) * n.pos.k));
+    const bb = refs.board?.bounds();
+    if (bb) grow(bb.x + bb.w / 2, bb.y + bb.h / 2, bb.w, bb.h);
     refs.slots.forEach((s) => grow(s.x, s.y, B.keep.slot, B.keep.slot));
     if (x0 > x1) return this.frame();
     const p = B.camera.pad;

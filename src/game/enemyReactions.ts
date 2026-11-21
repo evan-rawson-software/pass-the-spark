@@ -35,6 +35,7 @@ export class EnemyReactions {
   // The enemy's pose; tweened, and applied to whichever container the last redraw made.
   private pose = { x: 0, y: 0, rot: 0, scale: 1, alpha: 1 };
   private body?: Phaser.GameObjects.Container;
+  private spot = { x: 0, y: 0, size: 250 };
   private motion?: Phaser.Tweens.Tween;
   private boss = false;
   private dead = false;
@@ -50,12 +51,14 @@ export class EnemyReactions {
 
   // ---- the enemy's body ----
 
-  // Draws the portrait (or a code-drawn stand-in) in the table's layer, in the pose it is in now.
-  drawBody(layer: Phaser.GameObjects.Container, id: string, tier: string): void {
+  // Draws the portrait (or a code-drawn stand-in) centred on `spot` in the table's layer, in the pose it
+  // is in now. Every effect on the enemy aims at the spot of the latest draw (the card in the column).
+  drawBody(layer: Phaser.GameObjects.Container, id: string, tier: string, spot: { x: number; y: number; size: number }): void {
     this.boss = tier === "boss";
     this.body = undefined;
+    this.spot = spot;
     if (this.dead) return;
-    const B = R.body;
+    const B = spot;
     const c = this.scene.add.container(B.x, B.y);
     layer.add(c);
     if (!artImage(this.scene, `enemies/${id}`, 0, 0, B.size, B.size, c)) {
@@ -76,11 +79,11 @@ export class EnemyReactions {
     const c = this.body;
     if (!c?.active) return;
     const p = this.pose;
-    c.setPosition(R.body.x + p.x, R.body.y + p.y).setRotation(p.rot).setScale(p.scale).setAlpha(p.alpha);
+    c.setPosition(this.spot.x + p.x, this.spot.y + p.y).setRotation(p.rot).setScale(p.scale).setAlpha(p.alpha);
   }
 
   private centre(): { x: number; y: number } {
-    return { x: R.body.x + this.pose.x, y: R.body.y + this.pose.y };
+    return { x: this.spot.x + this.pose.x, y: this.spot.y + this.pose.y };
   }
 
   private rest(): void {
@@ -116,7 +119,7 @@ export class EnemyReactions {
       k.ms,
       { yoyo: true, repeat: wobble ? R.stagger.wobbles : 0, ease: "Quad.easeOut", onComplete: () => this.rest() },
     );
-    this.glow(hexColour(stagger ? R.stagger.flashColour : R.flinch.flashColour), stagger ? 0.7 : R.flinch.flashAlpha, R.body.size * 1.2, k.ms * 2.5);
+    this.glow(hexColour(stagger ? R.stagger.flashColour : R.flinch.flashColour), stagger ? 0.7 : R.flinch.flashAlpha, this.spot.size * 1.2, k.ms * 2.5);
   }
 
   // ---- ghost bars ----
@@ -219,7 +222,7 @@ export class EnemyReactions {
   // The freeze-frame on the killing blow: everything on the table holds for a moment.
   async freeze(): Promise<void> {
     const c = this.centre();
-    const o = fxObject(this.scene, "glow", c.x, c.y, R.body.size * 1.4, WHITE) as Obj;
+    const o = fxObject(this.scene, "glow", c.x, c.y, this.spot.size * 1.4, WHITE) as Obj;
     o.setDepth(DEPTH).setAlpha(reducedFlashing() ? 0.2 : 0.6);
     this.scene.tweens.timeScale = 0;
     await this.wait(this.boss ? R.freeze.bossMs : R.freeze.ms);
