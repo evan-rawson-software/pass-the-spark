@@ -8,11 +8,9 @@ const SPARKS = ["Ember", "Tide", "Gale", "Storm", "Void", "Rot"];
 const DOMINO_KINDS = ["amplifier", "junction", "cap"];
 const AMP_OPS = ["add", "mul", "echo", "spectrum"];
 const CAP_EFFECT_KINDS = ["damage", "block", "coins"];
-const KINDS_WITH_BASE = ["damage", "block", "heal", "amplify"];
 const TIERS = ["basic", "elite", "boss"];
 const RARITIES = ["common", "uncommon", "rare"];
 const BATTLE_TYPES = ["fight", "elite", "boss"];
-const POOL_KINDS = ["damage", "block", "amplify", "echo", "lookout", "mimic"]; // never heal or reflect
 const PASSIVE_KINDS = ["auditor", "glutton", "hoarder", "smolder", "longNight", "warden"];
 const PASSIVE_AMOUNTS: Record<string, string> = { auditor: "damage", glutton: "heal", hoarder: "multiplier", smolder: "growth", longNight: "growth" };
 const BASIC_SPARKS = ["Ember", "Tide", "Gale"];
@@ -234,55 +232,59 @@ export function validatePools(data: unknown): Pools {
       const allowed = rarity === "rare" ? advanced : basic;
       if (!allowed.includes(sparks[0])) fail(file, pid, `${rarity} intake ${sparks[0]} must be ${rarity === "rare" ? "advanced" : "basic"}`);
     }
-    // Outputs are listed as basic sparks. Only uncommons swap some for advanced ones, by this share.
-    const share = pool.advancedOutputShare;
-    if (!isNumber(share) || (share as number) < 0 || (share as number) > 1) fail(file, pid, `"advancedOutputShare" must be a number from 0 to 1`);
-    if (rarity !== "uncommon" && share !== 0) fail(file, pid, `"advancedOutputShare" must be 0 (advanced outputs are uncommon only)`);
-    const traits = pool.traits;
-    if (!isObject(traits)) fail(file, pid, `"traits" must be an object`);
-    for (const t of ["spectrum", "ignoresBlock"]) {
-      if (!isNumber(traits[t]) || (traits[t] as number) < 0 || (traits[t] as number) > 1) {
-        fail(file, pid, `trait chance "${t}" must be a number from 0 to 1`);
-      }
-      if (rarity === "common" && traits[t] !== 0) fail(file, pid, `trait "${t}" is uncommon and rare only`);
+    // Outputs are single basic sparks. Only uncommons swap some for advanced ones, by this share.
+    if (!Array.isArray(pool.outputs) || pool.outputs.length === 0) fail(file, pid, `"outputs" must be a non-empty list of basic sparks`);
+    for (const spark of pool.outputs as unknown[]) {
+      if (typeof spark !== "string" || !basic.includes(spark)) fail(file, pid, `output ${JSON.stringify(spark)} must be basic (uncommons get advanced ones from "advancedOutputShare")`);
     }
-    if (!Array.isArray(pool.effects) || pool.effects.length === 0) fail(file, pid, `"effects" must be a non-empty list`);
-    (pool.effects as unknown[]).forEach((effect, i) => {
-      const eid = `${rarity} effect #${i}`;
-      if (!isObject(effect)) fail(file, eid, "must be an object");
-      if (typeof effect.kind !== "string" || !POOL_KINDS.includes(effect.kind)) {
-        fail(file, eid, `kind ${JSON.stringify(effect.kind)} is not allowed in pools (no heal, no reflect)`);
-      }
-      if (rarity !== "rare" && effect.kind === "mimic") fail(file, eid, "mimic is rare only");
-      if (rarity === "common" && !["damage", "block"].includes(effect.kind)) fail(file, eid, "common is damage or block only");
-      if (!Array.isArray(effect.names) || effect.names.length === 0 || effect.names.some((n) => typeof n !== "string" || n === "")) {
-        fail(file, eid, `"names" must be a non-empty list of words`);
-      }
-      const range = effect.base;
-      if (KINDS_WITH_BASE.includes(effect.kind)) {
-        if (!Array.isArray(range) || range.length !== 2 || !Number.isInteger(range[0]) || !Number.isInteger(range[1]) || range[0] < 1 || range[0] > range[1]) {
-          fail(file, eid, `"base" must be [min, max], whole numbers, 1 or more, min not above max`);
-        }
-      } else if (range !== undefined) {
-        fail(file, eid, `effect "${effect.kind}" must not have a "base"`);
-      }
-      if (effect.traits !== undefined) {
-        if (!Array.isArray(effect.traits) || effect.traits.some((t) => t !== "spectrum" && t !== "ignoresBlock")) {
-          fail(file, eid, `"traits" must be a list of "spectrum" and "ignoresBlock"`);
-        }
-        if (effect.traits.includes("ignoresBlock") && effect.kind !== "damage") fail(file, eid, `"ignoresBlock" is for damage only`);
-      }
-      if (!Array.isArray(effect.outputs) || effect.outputs.length === 0) fail(file, eid, `"outputs" must be a non-empty list`);
-      for (const out of effect.outputs as unknown[]) {
-        checkSparkList(file, eid, "outputs", out);
-        for (const spark of out as string[]) {
-          if (spark === "Rot") fail(file, eid, "generated dominoes never output Rot");
-          if (!basic.includes(spark as string)) fail(file, eid, `output ${spark} must be basic (uncommons get advanced ones from "advancedOutputShare")`);
-        }
-        if ((out as string[]).length > 2) fail(file, eid, "outputs have at most two sparks");
-        if (rarity === "common" && (out as string[]).length !== 1) fail(file, eid, "common outputs one spark");
+    if ((pool.outputs as string[]).length < 2) fail(file, pid, `"outputs" needs at least two sparks (a junction has two different outputs)`);
+    for (const field of ["advancedOutputShare", "ignoresBlock"]) {
+      const v = pool[field];
+      if (!isNumber(v) || (v as number) < 0 || (v as number) > 1) fail(file, pid, `"${field}" must be a number from 0 to 1`);
+    }
+    if (rarity !== "uncommon" && pool.advancedOutputShare !== 0) fail(file, pid, `"advancedOutputShare" must be 0 (advanced outputs are uncommon only)`);
+    if (rarity === "common" && pool.ignoresBlock !== 0) fail(file, pid, `"ignoresBlock" is uncommon and rare only`);
+    if (!Array.isArray(pool.amplifiers)) fail(file, pid, `"amplifiers" must be a list`);
+    if (!Array.isArray(pool.junctions)) fail(file, pid, `"junctions" must be a list of name words`);
+    if (!Array.isArray(pool.caps)) fail(file, pid, `"caps" must be a list`);
+    const words = (list: unknown, what: string) => {
+      if (!Array.isArray(list) || list.length === 0 || list.some((n) => typeof n !== "string" || n === "")) fail(file, pid, `${what}: "names" must be a non-empty list of words`);
+    };
+    const unlock = (entry: Record<string, unknown>, what: string) => {
+      if (entry.unlock !== undefined && (typeof entry.unlock !== "string" || entry.unlock === "")) fail(file, pid, `${what}: "unlock" must be an unlock id`);
+    };
+    if ((pool.junctions as unknown[]).some((n) => typeof n !== "string" || n === "")) fail(file, pid, `"junctions" must be a list of name words`);
+    (pool.amplifiers as unknown[]).forEach((entry, i) => {
+      const eid = `amplifier #${i}`;
+      if (!isObject(entry)) fail(file, pid, `${eid} must be an object`);
+      words(entry.names, eid);
+      unlock(entry, eid);
+      if (!isObject(entry.amp) || typeof entry.amp.op !== "string" || !AMP_OPS.includes(entry.amp.op)) fail(file, pid, `${eid}: needs "amp": { op, value }`);
+      checkPositive(file, pid, entry.amp, "value");
+    });
+    (pool.caps as unknown[]).forEach((entry, i) => {
+      const eid = `cap #${i}`;
+      if (!isObject(entry)) fail(file, pid, `${eid} must be an object`);
+      words(entry.names, eid);
+      unlock(entry, eid);
+      if (typeof entry.kind !== "string" || !CAP_EFFECT_KINDS.includes(entry.kind)) fail(file, pid, `${eid}: unknown cap kind ${JSON.stringify(entry.kind)}`);
+      const range = entry.base;
+      if (!Array.isArray(range) || range.length !== 2 || !Number.isInteger(range[0]) || !Number.isInteger(range[1]) || range[0] < 1 || range[0] > range[1]) {
+        fail(file, pid, `${eid}: "base" must be [min, max], whole numbers, 1 or more, min not above max`);
       }
     });
+    const weights = pool.kindWeights;
+    if (!isObject(weights)) fail(file, pid, `"kindWeights" must be an object`);
+    const lists: Record<string, number> = { amplifier: pool.amplifiers.length, junction: pool.junctions.length, cap: pool.caps.length };
+    let total = 0;
+    for (const kind of DOMINO_KINDS) {
+      const w = weights[kind];
+      if (!isNumber(w) || (w as number) < 0) fail(file, pid, `kindWeights.${kind} must be a number, 0 or more`);
+      if ((w as number) > 0 && lists[kind] === 0) fail(file, pid, `kindWeights.${kind} is above 0 but nothing of that kind is listed`);
+      total += w as number;
+    }
+    if (total <= 0) fail(file, pid, "kindWeights need some weight");
+    if (rarity === "common" && !(pool.caps as { kind: string }[]).some((c) => c.kind === "damage")) fail(file, pid, "common needs a damage cap");
   }
   return data as unknown as Pools;
 }

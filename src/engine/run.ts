@@ -561,7 +561,7 @@ function applyTraderAction(run: RunState, playerId: string, action: TraderAction
 function blessedStrength(run: RunState): number {
   const shrine = run.content.events.find((e) => e.id === "spark_shrine");
   if (!shrine) throw new Error("no spark_shrine in data/events.json");
-  return shrine.numbers.blessedAnswerStrength;
+  return shrine.numbers.blessedCharge;
 }
 
 function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void {

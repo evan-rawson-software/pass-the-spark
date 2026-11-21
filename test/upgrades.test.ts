@@ -8,10 +8,11 @@ function restSite(run: RunState): RunState {
   return { ...run, phase: "rest", rest: [] };
 }
 
-test("upgrading both sides of a Jab copy changes only that copy, and a third upgrade is rejected", () => {
+test("upgrading both sides of a Strike copy changes only that copy, and a third upgrade is rejected", () => {
   const start = createRun({ players: ["a", "b"], seed: 1, content: loadContent() });
   const first = restSite(start);
-  const [copy, other] = first.decks.a.filter((id) => id.startsWith("jab#"));
+  const copy = first.decks.a.find((id) => id.startsWith("strike_ember#"))!;
+  const other = first.decks.a.find((id) => id.startsWith("strike_tide#"))!;
 
   // Wrong spark (the original) and another player's domino are rejected.
   expect(() => applyRunChoice(first, "a", { type: "upgrade", domino: copy, side: "left", spark: "Ember" })).toThrow();
@@ -22,9 +23,9 @@ test("upgrading both sides of a Jab copy changes only that copy, and a third upg
   const right = applyRunChoice(restSite(left), "a", { type: "upgrade", domino: `${copy}+L`, side: "right" }).run;
 
   const upgraded = right.dominoes.find((d) => d.id === `${copy}+L+R`)!;
-  expect(upgraded).toMatchObject({ name: "Jab+", intake: ["Ember", "Tide"], output: ["Tide"], effect: { kind: "damage", base: 5 } });
+  expect(upgraded).toMatchObject({ name: "Ember Strike+", intake: ["Ember", "Tide"], output: [], effect: { kind: "damage", base: 5 } });
   expect(right.decks.a).toEqual(first.decks.a.map((id) => (id === copy ? `${copy}+L+R` : id)));
-  expect(right.dominoes.find((d) => d.id === other)).toEqual(first.dominoes.find((d) => d.id === other)); // the other Jab is untouched
+  expect(right.dominoes.find((d) => d.id === other)).toEqual(first.dominoes.find((d) => d.id === other)); // the other Strike is untouched
 
   // Both sides are used: a third upgrade of either side is rejected.
   const again = restSite(right);

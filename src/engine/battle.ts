@@ -109,7 +109,7 @@ export interface BattleState {
   enemy: EnemyState;
   result: "won" | "lost" | null;
   nextLead: string | null;
-  blessing: { spark: Spark; strength: number } | null; // set by the run; not used by the cascade rules until #185
+  blessing: { spark: Spark; strength: number } | null; // set by the run (Spark Shrine): a domino attached to this spark adds `strength` charge after its own change
 }
 
 export interface PlayOption {
@@ -255,7 +255,7 @@ export function makeStarterInstances(
 
 // What the read-only functions need. A BattleState or a player's BattleView both fit, so a client
 // can work out what it may play from the view it was sent.
-export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "board" | "config" | "charmDefs" | "locked">;
+export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "board" | "config" | "charmDefs" | "locked" | "blessing">;
 
 export function getPendingChoice(state: PendingInput): PendingChoice | null {
   if (state.phase === "over") return null;
@@ -337,7 +337,7 @@ function capTriggers(config: Config, flow: NodeFlow): number {
 
 // Nodes are in creation order and a parent is always created first, so one pass is enough.
 // Charms of each node's owner are included; caps then get their charm bonuses in cascade order.
-function computeFlows(state: Pick<BattleState, "board" | "dominoes" | "players" | "charmDefs">): NodeFlow[] {
+function computeFlows(state: Pick<BattleState, "board" | "dominoes" | "players" | "charmDefs" | "blessing">): NodeFlow[] {
   const { nodes, ends } = state.board;
   const flows: NodeFlow[] = [];
   for (const node of nodes) {
@@ -354,6 +354,11 @@ function computeFlows(state: Pick<BattleState, "board" | "dominoes" | "players" 
     }
     const through = throughNode(state, node.owner, d, charge, sparks.length, node.end === null);
     const intake = node.end === null ? null : ends[node.end].spark;
+    // Spark Shrine: a domino attached to the blessed spark adds charge after its own change (and after charms). A cap goes off at the boosted charge.
+    if (intake !== null && state.blessing && intake === state.blessing.spark) {
+      if (d.kind === "cap") charge += state.blessing.strength;
+      else through.out += state.blessing.strength;
+    }
     flows.push({ charge, out: through.out, echo: echo + through.echo, sparks, intake, bonus: 0, extra: 0, charms: through.charms });
   }
   const firstDone: string[] = [];
@@ -384,7 +389,7 @@ function openEnds(state: Pick<BattleState, "board">): BoardEnd[] {
 }
 
 // The open ends with the charge reaching each and the triggers a cap placed there by `player` would get.
-export function getOpenEnds(state: Pick<BattleState, "board" | "dominoes" | "config" | "players" | "charmDefs">, player: string): OpenEndView[] {
+export function getOpenEnds(state: Pick<BattleState, "board" | "dominoes" | "config" | "players" | "charmDefs" | "blessing">, player: string): OpenEndView[] {
   return openEnds(state).map((e) => {
     const board: Board = JSON.parse(JSON.stringify(state.board));
     addToBoard(board, player, PROBE, e.id, []);
@@ -412,7 +417,7 @@ export function previewPlay(input: PendingInput, playerId: string, dominoId: str
   if (opener ? end !== undefined || d.kind === "cap" : end === undefined || !legalEnds(input, d, playerId).includes(end)) return null;
   const board: Board = JSON.parse(JSON.stringify(input.board));
   addToBoard(board, playerId, d, end ?? null, outputsOf(input, playerId, d));
-  const flow = computeFlows({ board, dominoes: input.dominoes, players: input.players, charmDefs: input.charmDefs }).pop() as NodeFlow;
+  const flow = computeFlows({ board, dominoes: input.dominoes, players: input.players, charmDefs: input.charmDefs, blessing: input.blessing }).pop() as NodeFlow;
   if (d.kind !== "cap" || !d.effect) return { charge: flow.out, value: 0, triggers: 0, total: 0 };
   const value = capValue(d.effect, flow.charge, flow.bonus);
   const triggers = capTriggers(input.config, flow);

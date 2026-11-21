@@ -18,7 +18,7 @@ function wellRun(seed: number): RunState {
 test("Wishing Well: Tide with the deck at its minimum size pays the fallback coins instead of a removal", () => {
   const run = wellRun(7);
   run.content.run.trader.minDeckSize = run.decks.a.length;
-  for (const id of run.decks.a) run.dominoes.find((d) => d.id === id)!.output = ["Tide"];
+  for (const id of run.decks.a) run.dominoes.find((d) => d.id === id)!.intake = ["Tide"];
   const coins = run.coins.a;
   const size = run.decks.a.length;
   const r = applyRunChoice(run, "a", { type: "event", option: 1 }).run;

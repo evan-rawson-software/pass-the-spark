@@ -39,7 +39,7 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
   });
   const messages: HostMessage[][] = [[], []];
   // What each client's profile says it has unlocked. The first one sends junk and a repeat, which the host cleans.
-  const unlocks = [["lookout", "bogus", "lookout"], [] as string[]];
+  const unlocks = [["boostTwo", "bogus", "boostTwo"], [] as string[]];
   const clients: Client[] = [];
   const joinClient = async (i: number): Promise<Client> =>
     joinRoom({
@@ -51,7 +51,7 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
       unlocks: () => unlocks[i],
       onMessage: (m) => {
         messages[i].push(m);
-        if (m.type === "experience") unlocks[i] = ["lookout", "advancedSparks"]; // the profile has levelled up
+        if (m.type === "experience") unlocks[i] = ["advancedSparks", "boostTwo"]; // the profile has levelled up
       },
     });
   for (let i = 0; i < 2; i++) clients.push(await joinClient(i));
@@ -104,7 +104,7 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
 
   // Each seat's unlocks reached the run: the host's own, the cleaned list, and none.
   const firstRoom = saved as SavedRoom | null;
-  expect(firstRoom!.run!.unlocks).toEqual({ p1: ["echo"], p2: ["lookout"], p3: [] });
+  expect(firstRoom!.run!.unlocks).toEqual({ p1: ["echo"], p2: ["boostTwo"], p3: [] });
 
   // The host reloads in the middle of the battle, with the party one hit from defeat on floor 3.
   // The clients rejoin with other unlocks, but the run keeps the ones it started with.
@@ -123,7 +123,7 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
     buildId: BUILD_ID,
     hostName: "Host",
     content,
-    unlocks: () => ["mimic"],
+    unlocks: () => ["double"],
     onLocalMessage: (m) => hostMessages.push(m),
     onSave: (room) => (saved = room),
     resume: firstRoom!,
@@ -143,7 +143,7 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
     await flush();
   }
   await flush();
-  expect((saved as SavedRoom | null)?.run?.unlocks).toEqual({ p1: ["echo"], p2: ["lookout"], p3: [] });
+  expect((saved as SavedRoom | null)?.run?.unlocks).toEqual({ p1: ["echo"], p2: ["boostTwo"], p3: [] });
   expect(experience()).toEqual([{ type: "experience", runId: expect.any(String), gained: 20 }]);
   for (const list of messages) expect(list.filter((m) => m.type === "experience")).toEqual([experience()[0]]);
 
@@ -151,7 +151,7 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
   host2.backToLobby();
   await flush();
   host2.start(9);
-  expect((saved as SavedRoom | null)?.run?.unlocks).toEqual({ p1: ["mimic"], p2: ["lookout", "advancedSparks"], p3: ["lookout", "advancedSparks"] });
+  expect((saved as SavedRoom | null)?.run?.unlocks).toEqual({ p1: ["double"], p2: ["advancedSparks", "boostTwo"], p3: ["advancedSparks", "boostTwo"] });
   rejoined.forEach((c) => c.close());
   host2.close();
 });
