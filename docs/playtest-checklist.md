@@ -64,6 +64,13 @@ Everyone builds at the same time on a budget of placements; the cascade goes off
 - [ ] A small tree (3 to 4 dominoes) gives a short, clean cascade: charge runs out from the opener step by step, caps pop their numbers, then a quick tally and the enemy's turn.
 - [ ] A large tree with junctions: each junction splits the glow into both branches at once, amplifiers flare (bigger for bigger changes), Echo and Spectrum have their own flare, and the branches fire together.
 - [ ] Big caps shake the screen; only the very biggest add lightning between dominoes and a brief slow motion. Damage numbers stack up above the enemy's health.
+- [ ] Every domino's hit counts: an amplifier or junction sends a small spark into the combo number (it rolls up and punches, a quieter ping climbs the scale), caps send big ones, and the hit count under the number counts every hit ("11 HITS"). Nothing shows the damage total before the cascade starts.
+- [ ] The line meter: shown empty under the board during the build, with a "line N" marker at about three quarters of its width. During the cascade it fills with the combo total and stops at the end if the total passes about 1.3 times the line.
+- [ ] The number's colour and size step up at 25%, 50% and 75% of the line. Reaching the line sets it on fire with "STAGGERED!", the line cue and a burst on the marker, also when the last hit does it (before the slam).
+- [ ] After the slam, a staggered enemy reels (wobble, cool tint, its own sound) and its intent card shows the attack struck through with the halved value beside it ("20 → 10"); its lunge and the party's hit use the halved value. A cascade under the line: no fire, no reel, the full attack.
+- [ ] A lethal cascade: "LETHAL!" and its bigger moment, and no stagger reel.
+- [ ] Skipping jumps to the final number, the meter state and the stagger result. Reduced flashing and screen shake off tone the line crossing down as they do the tier effects.
+- [ ] A 12-domino cascade takes under about 6 seconds to the slam at 1x, and 20 or more hits stay readable at 4x.
 - [ ] The combo counter shows the cascade's damage and block as it goes off (the total is hidden until then), before the enemy acts.
 - [ ] At 4x playback a large cascade finishes in a few seconds; at 0.5x it is still readable.
 - [ ] Online: every screen plays the same cascade, and a slow screen never holds the others up.

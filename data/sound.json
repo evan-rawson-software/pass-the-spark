@@ -35,6 +35,7 @@
     "enemyShield": { "file": "sfx/enemyShield.ogg", "volume": 0.4, "minGapMs": 150, "baseCents": -300 },
     "heal": { "file": "sfx/heal.ogg", "volume": 0.45, "minGapMs": 300, "baseCents": 200 },
     "combo:hit": { "file": "sfx/combo-hit.ogg", "volume": 0.71, "minGapMs": 45, "scale": "majorPentatonic", "maxStep": 14 },
+    "combo:hitSmall": { "file": "sfx/combo-hit.ogg", "volume": 0.4, "minGapMs": 45, "scale": "majorPentatonic", "maxStep": 14 },
     "combo:block": { "file": "sfx/combo-block.ogg", "volume": 0.56, "minGapMs": 45, "baseCents": -500, "scale": "majorPentatonic", "maxStep": 14 },
     "combo:tier1": { "file": "sfx/combo-tier1.ogg", "volume": 0.63, "minGapMs": 300 },
     "combo:tier2": { "file": "sfx/combo-tier2.ogg", "volume": 0.71, "minGapMs": 300 },

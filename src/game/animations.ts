@@ -173,6 +173,10 @@ export class Animator {
       skipping: () => this.skipping,
       impact: (t) => this.slamImpact(t),
       partyBlock: () => this.landBlock(),
+      stagger: () => {
+        this.redraw(); // the intent card now shows the halved attack
+        this.reactions.reel();
+      },
     });
   }
 
@@ -246,7 +250,7 @@ export class Animator {
     this.lastShown = shown;
     if (ev.type === "setOff" && !this.hype.on) {
       this.inCascade = true;
-      this.hype.begin({ health: shown.enemy.health, block: shown.enemy.block });
+      this.hype.begin({ health: shown.enemy.health, block: shown.enemy.block, line: shown.enemy.line });
       this.hype.skip();
     }
     if (!this.inCascade) return;
@@ -260,7 +264,13 @@ export class Animator {
       setSoundHushed(true);
       scene.tweens.timeScale = SKIP_SPEED;
       scene.time.timeScale = SKIP_SPEED;
-    } else this.hype.event(ev);
+    } else {
+      // Hits are counted as when watched: a cap is one hit however many times it triggers, an amplifier or
+      // junction one hit when it passes on something (no sparks fly: the hype is in its quick mode).
+      if (ev.type === "capFired") this.hype.cap(ev, { x: 0, y: 0 }, true);
+      else if (ev.type === "nodeLit" && shown.dominoes.find((d) => d.id === ev.domino)?.kind !== "cap") this.hype.smallHit(ev, { x: 0, y: 0 });
+      this.hype.event(ev);
+    }
   }
 
   // The shots in the air have landed.
@@ -325,7 +335,7 @@ export class Animator {
         floatText(scene, 960, 470, "Everyone is ready", "#ffe14d", 48, 1000);
         this.resetHeat();
         this.inCascade = true;
-        this.hype.begin(after.enemy);
+        this.hype.begin({ ...after.enemy, line: shown.enemy.line });
         this.buildup.begin(refs, shown.board.nodes.length);
         // The whole tree swells with the charge it holds before it goes.
         const glow = boardGlow(shown.board.nodes.length, 0);
@@ -478,6 +488,7 @@ export class Animator {
     this.charges.set(ev.node, ev.charge);
     const d = shown.dominoes.find((x) => x.id === ev.domino);
     const pitch = links;
+    if (d && d.kind !== "cap") this.hype.smallHit(ev, at); // its hit flies into the combo number
     if (d?.kind === "amplifier" && d.amp && was !== undefined) {
       const size = 0.6 + Math.min(1, Math.max(0, ev.charge - was) / P.amp.fullChange);
       if (d.amp.op === "echo") { echo(scene, at); playSound("effect:echo", pitch); }

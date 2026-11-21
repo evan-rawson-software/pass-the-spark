@@ -127,6 +127,19 @@ export class EnemyReactions {
     this.glow(hexColour(stagger ? R.stagger.flashColour : R.flinch.flashColour), stagger ? 0.7 : R.flinch.flashAlpha, this.spot.size * 1.2, k.ms * 2.5);
   }
 
+  // The stagger (#276): after the slam the enemy reels, a wobble and a cool tint, with its own cue.
+  reel(): void {
+    const k = R.reel;
+    const wobble = shakeEnabled();
+    playSound("enemy:stagger");
+    this.move(
+      { x: k.dx, y: k.dy, rot: wobble ? k.rotation : 0 },
+      k.ms,
+      { yoyo: true, repeat: wobble ? k.wobbles : 0, ease: "Quad.easeOut", onComplete: () => this.rest() },
+    );
+    this.glow(hexColour(k.tint), k.tintAlpha, this.spot.size * 1.3, k.tintMs);
+  }
+
   // ---- ghost bars ----
 
   ghostOf(side: Side): number | undefined {
