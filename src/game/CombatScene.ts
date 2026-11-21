@@ -36,6 +36,7 @@ import { scaleTime } from "./playbackSpeed";
 import { SpeedControl } from "./speedControl";
 import { Animator, SKIP_SPEED, animTime, newRefs, paintBar } from "./animations";
 import { boardGlow } from "./spectacle";
+import { buildupStrip, litGlowStrength } from "./buildup";
 import { applyEvent, startShown } from "./shownView";
 import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
 import type { ShownTable } from "./shownView";
@@ -156,6 +157,7 @@ export class CombatScene extends Phaser.Scene {
     this.totalsTween = undefined;
     this.drawTable();
     this.anim = new Animator(this);
+    this.anim.buildup.frame = () => this.mat; // the camera frames the tree to this screen's own board mat
     this.locked = false;
     this.selected = null;
     this.drag = null;
@@ -788,12 +790,12 @@ export class CombatScene extends Phaser.Scene {
     const GAP = 50;
     const VGAP = 24;
     const availW = this.mat.w - 80;
-    const availH = this.mat.h - 40;
+    const availH = this.mat.h - 40 - buildupStrip; // the top of the mat is kept free for the cascade counter and callouts (#191)
     const k = Math.max(0.2, Math.min(0.8, availW / (lay.cols * DW + (lay.cols - 1) * GAP), availH / (lay.rows * DH + (lay.rows - 1) * VGAP)));
     const colW = (DW + GAP) * k;
     const rowH = (DH + VGAP) * k;
     const left = this.mat.x + 40;
-    const top = this.mat.y + (this.mat.h - ((lay.rows - 1) * rowH + DH * k)) / 2 + (DH * k) / 2;
+    const top = this.mat.y + buildupStrip + (this.mat.h - buildupStrip - ((lay.rows - 1) * rowH + DH * k)) / 2 + (DH * k) / 2;
     const s = Math.max(34, DH * k); // an open end's slot is a square this big
     const nodeAt = (id: number) => {
       const p = lay.nodes.get(id)!;
@@ -843,7 +845,7 @@ export class CombatScene extends Phaser.Scene {
     for (const n of board.nodes) {
       const { x, y } = nodeAt(n.id);
       if (build.strength > 0) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, build.color, 14 * k, build.strength * 2.5);
-      if (lit.has(n.id)) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, hot, 14 * k, 3);
+      if (lit.has(n.id)) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, hot, 14 * k, litGlowStrength(lit.size, board.nodes.length));
       const c = this.domino(layer, n.domino, k, "normal", x, y, undefined, { zone: "chain", index: n.id });
       this.anim.refs.nodes.set(n.id, { c, pos: { x, y, k } });
       if (k >= 0.45) this.label(layer, x, y + (DH * k) / 2 + 11, this.nameOf(n.owner, true, 10), 15, "#cfe9dc", 0.5, true);
@@ -1138,6 +1140,7 @@ export class CombatScene extends Phaser.Scene {
     this.anim.clearShots(); // every shot in the air ends before the fast-forward starts
     this.tweens.timeScale = SKIP_SPEED;
     this.time.timeScale = SKIP_SPEED;
+    this.anim.buildup.clear(); // the camera goes back at once and the counter goes
   }
 
   private endSkip(): void {
@@ -1146,6 +1149,7 @@ export class CombatScene extends Phaser.Scene {
     this.anim.skipping = false;
     this.skipHint?.setVisible(false);
     setSoundHushed(false);
+    this.anim.buildup.clear();
     this.tweens.timeScale = 1;
     this.time.timeScale = 1;
   }

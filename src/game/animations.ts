@@ -3,6 +3,7 @@ import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
 import { scaleTime } from "./playbackSpeed";
 import { reducedFlashing } from "./comfort";
+import { Buildup } from "./buildup";
 import { playSound } from "./sound";
 import { EnemyReactions } from "./enemyReactions";
 import { hexColour, reactionData } from "./presentation";
@@ -140,6 +141,7 @@ export class Animator {
   private tally: Tally = { damage: 0, block: 0 };
   private pile: Phaser.GameObjects.Text[] = []; // stacked numbers still on screen
   skipping = false; // the player skipped the cascade: slow motion is off and the fast-forward stays on
+  buildup: Buildup; // counter, callouts and camera (#191)
   private fx: Projectiles; // effects flying from the caps to their targets (#189)
   reactions: EnemyReactions; // the enemy's hit, death and attack reactions (#190)
   // Scene time until which an animation is still in flight. A death waits for it (settle), so it
@@ -159,6 +161,7 @@ export class Animator {
     });
     scene.tweens.timeScale = 1; // a restarted scene never inherits slow motion or a skip
     scene.time.timeScale = 1;
+    this.buildup = new Buildup(scene);
   }
 
   hold(ms: number): void {
@@ -200,6 +203,9 @@ export class Animator {
     // The battle ends only once everything still in flight has landed: the enemy then dies (once),
     // or the party's last hit finishes before the defeat.
     if (ev.type === "battleEnd") {
+      // The camera and counter go back at once, so the freeze-frame (which stops the tweens) and
+      // the death play at normal zoom and nothing of the build-up is left frozen on screen.
+      this.buildup.clear();
       await this.settle();
       if (ev.result === "won") await this.reactions.die();
     } else if (!IN_STEP.includes(ev.type)) {
@@ -209,6 +215,7 @@ export class Animator {
     // The cascade is over when the enemy's block resets (or the battle ends): tally it first.
     if (this.inCascade && (ev.type === "blockReset" || ev.type === "battleEnd")) {
       this.inCascade = false;
+      this.buildup.finish(); // a cascade that wins early stops the build-up here, before the enemy's death
       const total = this.tally;
       this.tally = { damage: 0, block: 0 };
       await showTally(scene, total, this.litColor(), { x: 960, y: 520 });
@@ -248,6 +255,7 @@ export class Animator {
 
     switch (ev.type) {
       case "roundStart":
+        this.buildup.clear();
         this.resetHeat();
         floatText(scene, 960, 470, `Round ${ev.round}`, "#ffffff", 56, 1000);
         break;
@@ -273,6 +281,7 @@ export class Animator {
         this.inCascade = true;
         this.tally = { damage: 0, block: 0 };
         this.pile = [];
+        this.buildup.begin(refs, shown.board.nodes.length);
         // The whole tree swells with the charge it holds before it goes.
         const glow = boardGlow(shown.board.nodes.length, 0);
         refs.nodes.forEach((n) => flash(scene, boxOf(n.pos), glow.color));
@@ -285,9 +294,10 @@ export class Animator {
         this.biggest = Math.max(this.biggest, ev.value);
         this.tier = heatTier(this.lit.length, this.biggest);
         const node = refs.nodes.get(ev.node);
-        playSound(CAP_SOUND[ev.effect], 1 + this.tier * 3);
+        playSound(CAP_SOUND[ev.effect], this.buildup.step());
         if (node) {
           const at = centre(boxOf(node.pos));
+          this.buildup.cap(ev.value, at);
           this.fx.cap(ev, shown, at);
           seatGlow(scene, at, DW * node.pos.k, seatColour(shown.seatOrder, ev.owner), true);
           const text = ev.triggers > 1 ? `${ev.value}×${ev.triggers}` : String(ev.value);
@@ -327,6 +337,7 @@ export class Animator {
         break;
       }
       case "enemyAction":
+        this.buildup.finish();
         if (refs.intent) {
           flash(scene, refs.intent, 0xff3b2f);
           hold = this.reactions.pulseIntent(refs.intent);
@@ -337,7 +348,10 @@ export class Animator {
         const sh = refs.shields.get(key);
         const bar = refs.bars.get(key);
         const stack = ev.side === "enemy" && this.inCascade;
-        if (stack) this.tally.damage += ev.amount;
+        if (stack) {
+          this.tally.damage += ev.amount;
+          this.buildup.add("damage", ev.amount);
+        }
         if (ev.amount > 0 && bar) {
           if (stack) stackedNumber(scene, this.pile, bar.x + bar.w / 2, bar.y - 10, `-${ev.amount}`, "#ff6a5f", this.tier);
           else floatText(scene, bar.x + bar.w / 2, bar.y - 10, `-${ev.amount}`, "#ff6a5f");
@@ -368,7 +382,10 @@ export class Animator {
         if (ev.side === "enemy" && ev.amount > 0) this.reactions.raiseShield();
         const sh = refs.shields.get(ev.side);
         const stack = ev.side === "party" && this.inCascade;
-        if (stack) this.tally.block += ev.amount;
+        if (stack) {
+          this.tally.block += ev.amount;
+          this.buildup.add("block", ev.amount);
+        }
         if (ev.amount > 0 && sh) {
           if (stack) stackedNumber(scene, this.pile, sh.x + 30, sh.y - 10, `+${ev.amount}`, "#9cc4ff", this.tier);
           else floatText(scene, sh.x + 30, sh.y - 10, `+${ev.amount}`, "#9cc4ff");
@@ -409,7 +426,8 @@ export class Animator {
     this.lit.push(ev.node);
     this.tier = heatTier(this.lit.length, this.biggest);
     const color = heatColor(this.tier);
-    playSound("tick", this.lit.length);
+    const links = this.buildup.step(); // the pitch climbs with each cascade step, up to a cap in data
+    playSound("tick", links);
     const node = refs.nodes.get(ev.node);
     if (!node) return;
     const box = boxOf(node.pos);
@@ -425,7 +443,7 @@ export class Animator {
     const was = parent !== undefined ? this.charges.get(parent) : undefined;
     this.charges.set(ev.node, ev.charge);
     const d = shown.dominoes.find((x) => x.id === ev.domino);
-    const pitch = 1 + this.tier * 3;
+    const pitch = links;
     if (d?.kind === "amplifier" && d.amp && was !== undefined) {
       const size = 0.6 + Math.min(1, Math.max(0, ev.charge - was) / P.amp.fullChange);
       if (d.amp.op === "echo") { echo(scene, at); playSound("effect:echo", pitch); }

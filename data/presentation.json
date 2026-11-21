@@ -15,6 +15,26 @@
   "slowMotion": { "minCap": 60, "timeScale": 0.35, "holdMs": 400 },
   "effects": { "travelMs": 350, "ms": 450 },
   "tally": { "countMs": 500, "holdMs": 500, "popMs": 160 },
+  "buildup": {
+    "comment": "Cascade build-up (#191). pitch.maxSteps: the pitch stops rising after this many cascade steps. glow: strength of the lit dominoes' glow, from litMin (first lit) to litMax (all lit). strip: height of the strip at the top of the board mat kept free for the counter and callouts (the tree is laid out below it); counter.at and callouts.at are where in the mat's width they are centred, so each screen's own mat sets where they go. They stay put on screen whatever the camera does. callouts.list: the running damage that fires each word, once each, at most max per cascade (the highest newly crossed fires; lower ones are used up with it). camera: boards with more than minNodes dominoes ease out (to zoomOut, or what fits the board mat, never below minZoom) and push in on a new biggest cap of at least push.minCap (push.reducedZoom with reduced flashing; no push with screen shake off); the camera never cuts off health, block or the intent card (keep: sizes of the boxes it protects and of an open end). Callouts: holdFraction of ms they stay, then fade; fadeInMs, popMs, startScale, popScale shape the burst. Times are ms at 1x.",
+    "pitch": { "maxSteps": 10 },
+    "glow": { "litMin": 1.5, "litMax": 4.5 },
+    "strip": 80,
+    "counter": { "at": 0.3, "size": 38, "spacing": 215, "pump": 1.2, "pumpMs": 260, "fadeMs": 250 },
+    "callouts": {
+      "max": 3, "at": 0.78, "size": 48, "ms": 1100, "holdFraction": 0.6, "fadeInMs": 120, "popMs": 220, "startScale": 0.4, "popScale": 1.1,
+      "list": [
+        { "at": 20, "word": "Blaze!", "color": "#ffd23f" },
+        { "at": 50, "word": "Inferno!", "color": "#ff9a3d" },
+        { "at": 100, "word": "Cataclysm!", "color": "#ff5a3d" }
+      ]
+    },
+    "keep": { "slot": 40, "shield": { "x": -25, "y": -25, "w": 110, "h": 50 } },
+    "camera": {
+      "minNodes": 8, "zoomOut": 0.92, "minZoom": 0.7, "pad": 30, "easeMs": 500, "restoreMs": 500,
+      "push": { "minCap": 16, "zoom": 1.08, "reducedZoom": 1.04, "inMs": 300, "holdMs": 350 }
+    }
+  },
   "seatColours": {
     "comment": "One colour per seat, by seat order. Chosen to differ from each other, from the six spark colours and from the gold turn highlight.",
     "colours": ["#e8364f", "#22d3ee", "#ff7ad9", "#f5f5f5"]
