@@ -27,6 +27,10 @@ export class SpeedControl {
 
   // The scene-level event comes after the zones' own handlers (which redraw, destroying the zone),
   // so the zones raise a flag instead of being looked up in the click's list.
+  isOpen(): boolean {
+    return this.open;
+  }
+
   private onPointer(): void {
     if (this.hit) this.hit = false;
     else this.close();

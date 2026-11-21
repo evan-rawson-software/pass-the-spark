@@ -124,6 +124,7 @@ export class CombatScene extends Phaser.Scene {
   private shown: ShownTable | null = null; // the table part-way through a step; null when idle
   private inCascade = false; // a cascade is playing on this screen: a click or Space may skip it
   private skipping = false; // this player skipped it: the rest of the step is applied at once
+  private speed!: SpeedControl;
   private skipHint?: Phaser.GameObjects.Text;
   private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
   private inRun = false; // single player inside a run
@@ -138,7 +139,6 @@ export class CombatScene extends Phaser.Scene {
   create(data: { settings?: GameSettings; seed?: number; devQuery?: boolean; online?: OnlineData; run?: boolean }): void {
     const query = new URLSearchParams(window.location.search);
     const dev = devSettings(query);
-    new SpeedControl(this); // the quick playback speed control; it follows the menu setting itself
     this.epoch++;
     this.online = data.online ?? null;
     this.inRun = data.run === true;
@@ -164,8 +164,9 @@ export class CombatScene extends Phaser.Scene {
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => this.onDragEnd(p));
     // A click on empty table or Space skips the cascade being played, on this screen only.
     this.input.on("pointerdown", (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
-      if (over.length === 0) this.skipCascade();
+      if (over.length === 0 && !this.speed.isOpen()) this.skipCascade(); // a click that only closes the speed list is not a skip
     });
+    this.speed = new SpeedControl(this); // made after the skip handler, so that one sees the list still open; follows the menu setting itself
     this.input.keyboard?.on("keydown-SPACE", () => this.skipCascade());
     this.inCascade = false;
     this.skipping = false;
