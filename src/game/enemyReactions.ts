@@ -39,6 +39,7 @@ export class EnemyReactions {
   private boss = false;
   private dead = false;
   private shieldMax = 0;
+  private shownBlock = 0; // the block the icon last showed
   private ghosts: Record<Side, Ghost> = { party: { value: 0, on: false }, enemy: { value: 0, on: false } };
 
   constructor(private scene: Phaser.Scene, private host: ReactionHost) {}
@@ -127,7 +128,8 @@ export class EnemyReactions {
 
   // A bar lost health: a lighter ghost stays where it was, then drains down to the real value
   // after a short delay. Hits in a row restart the delay and share the one drain.
-  ghostHit(side: Side, from: number, to: number): void {
+  // `startsIn` is how long until the real bar starts to drop, so the delay counts from then.
+  ghostHit(side: Side, from: number, to: number, startsIn = 0): void {
     if (to >= from) return;
     const g = this.ghosts[side];
     if (!g.on) {
@@ -136,7 +138,7 @@ export class EnemyReactions {
     }
     g.tween?.stop();
     g.call?.remove(false);
-    g.call = this.scene.time.delayedCall(scaleTime(R.ghost.delayMs), () => this.drain(side));
+    g.call = this.scene.time.delayedCall(scaleTime(startsIn + R.ghost.delayMs), () => this.drain(side));
     this.host.repaint(side);
   }
 
@@ -161,6 +163,9 @@ export class EnemyReactions {
 
   // The block icon, cracked by how much of its block is worn down. Called as the icon is drawn.
   drawCracks(layer: Phaser.GameObjects.Container, x: number, y: number, s: number, block: number): void {
+    // A fresh or topped-up shield starts uncracked (a skipped cascade never runs the block reset).
+    if (block > this.shownBlock) this.shieldMax = block;
+    this.shownBlock = block;
     this.shieldMax = Math.max(this.shieldMax, block);
     if (block <= 0) return;
     const worn = 1 - block / this.shieldMax;
