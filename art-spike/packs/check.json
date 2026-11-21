@@ -1,0 +1,12 @@
+{
+ "circle_quiet": {
+  "half_alpha_px": 0,
+  "colours": 2,
+  "off_palette": 0
+ },
+ "circle_blaze": {
+  "half_alpha_px": 0,
+  "colours": 4,
+  "off_palette": 0
+ }
+}

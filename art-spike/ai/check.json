@@ -1,0 +1,42 @@
+{
+ "wizard_idle_top": {
+  "half_alpha_px": 0,
+  "colours": 11,
+  "off_palette": 0
+ },
+ "wizard_idle_robe_plain": {
+  "half_alpha_px": 0,
+  "colours": 13,
+  "off_palette": 0
+ },
+ "wizard_idle_robe_trim": {
+  "half_alpha_px": 0,
+  "colours": 13,
+  "off_palette": 0
+ },
+ "wizard_cast_attempts": {
+  "half_alpha_px": 0,
+  "colours": 17,
+  "off_palette": 0
+ },
+ "fireball_fly": {
+  "half_alpha_px": 0,
+  "colours": 16,
+  "off_palette": 0
+ },
+ "fireball_impact": {
+  "half_alpha_px": 0,
+  "colours": 12,
+  "off_palette": 0
+ },
+ "circle_blaze": {
+  "half_alpha_px": 0,
+  "colours": 16,
+  "off_palette": 0
+ },
+ "circle_quiet": {
+  "half_alpha_px": 0,
+  "colours": 2,
+  "off_palette": 0
+ }
+}
