@@ -3,7 +3,7 @@
 import type { ProgressionData } from "./types";
 
 const FILE = "data/progression.json";
-export const UNLOCK_IDS = ["advancedSparks", "echo", "boostTwo", "coinCaps", "ignoresBlock", "spectrum", "double", "anyIntake"];
+export const UNLOCK_IDS = ["advancedSparks", "echo", "boostTwo", "ignoresBlock", "spectrum", "double", "anyIntake"];
 
 function fail(id: string, problem: string): never {
   throw new Error(`${FILE}: ${id}: ${problem}`);

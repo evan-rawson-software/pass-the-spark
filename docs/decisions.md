@@ -443,3 +443,14 @@ From the research page "Domino Looks" (how other roguelike deckbuilders draw car
 - **Next player's highlight (restored):** while you hover or drag a domino, the next player's hand highlights what they could play after it, as in the old game. This replaces the line in #186 that dropped it. The engine answers which dominoes are playable.
 - **Art:** dominoes are drawn in code. The face art `tiles/starter`, `common`, `uncommon` and `rare` retires in #217; `tiles/hidden` stays for face-down piles.
 - **Playback speed control (#220):** in combat, the four speed buttons become one small button showing the current speed, which opens a list of speeds. The menu setting is unchanged.
+
+## 2026-11-21: Coin caps removed; set-off preview on the health bars
+- **Coin caps removed (#221):** players don't gain coins during a battle. Gold comes only from outside combat (battle rewards, events, the Trader). Coin caps leave the generation pools and the unlock order (the other unlocks keep their thresholds). This overrides the coin caps in `docs/design-branching-cascade.md`. A small rules change inside M10, by exception.
+- **Set-off preview (#222):** the "If set off now" widget is removed. Instead:
+  - **P1:** the enemy's health bar shows the damage as a ghost segment with the number, and its block is used up first;
+  - **P2:** a lethal chain shows a skull marker and a glowing Set off button;
+  - **P3:** the party's block counter shows the projected gain, and the party health bar shows a ghost of the damage still taken from the intent;
+  - **P5:** all of it updates live while a domino is hovered or dragged over an end;
+  - **P6:** the numbers come from the engine's preview;
+  - **P7:** a new M10 issue.
+  - (P4, coins by name plates, was dropped with coin caps.)
