@@ -515,3 +515,11 @@ From the sim results on #245 and the sound spike (`docs/sound-spike.md`), where 
 - **R3 Scope:** all the game's sound cues, in one consistent style made with the layered jsfxr recipe. The Kenney files and the earlier generated clips are deleted once nothing uses them, and `public/audio/CREDITS.md` is updated.
 - **R4 Two picking rounds:** first combat (every cue except the menu and run ones), then the menu and run cues (`click`, `voteRoll`, `coins`, `buy`, `rest`). Each round puts two candidates per cue in the picker on the `sound-spike` branch; the designer picks; a PR ships the picks.
 - **R5 Loudness:** every clip is matched to −14 LUFS (as in the spike), and the volumes in `data/sound.json` are reset so the mix is balanced.
+
+## 2026-11-21: Your hand as a straight row (N1–N5)
+Playtest: in the fanned hand the dominoes overlap, so their output runes are hard to see. All as recommended. Built in M11. This replaces the fan from #229 (L5, D7); sorting, hover and drag stay.
+- **N1 Straight row:** no fan, no tilt and no overlap. The hand is a straight row with a fixed gap between dominoes, sorted by kind as now.
+- **N2 More room:** the deck and discard piles leave the hand row. Your seat tab already shows both counts, and clicking it opens your deck and discard, as the piles did. New draws slide in from the left edge. The row runs from the left column to the Pass button.
+- **N3 Big hands:** when the hand doesn't fit at its normal size, every domino shrinks evenly, but never below about 80% of the normal size. Past that, the hand wraps into a second row above the first, clear of the board. Sizes in data.
+- **N4 Same rule everywhere:** teammates' small dominoes in the seat tabs never overlap either; they shrink, then wrap.
+- **N5 Hover:** the hovered domino still grows and lifts, and draws on top; the others don't move.
