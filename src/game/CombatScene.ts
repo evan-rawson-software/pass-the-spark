@@ -1,9 +1,9 @@
 import Phaser from "phaser";
-import { getOpenEnds, getPendingChoice, previewPlay, previewSetOff, step } from "../engine/battle";
+import { getOpenEnds, getPendingChoice, previewNextPlayer, previewPlay, previewSetOff, step } from "../engine/battle";
 import type { Board, BattleState, Choice, PendingChoice } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView, OpenEndView } from "../engine/view";
-import type { Domino, Intent, Passive } from "../engine/types";
+import type { Domino } from "../engine/types";
 import type { GameEvent } from "../engine/events";
 import type { Client } from "../net/client";
 import type { Host } from "../net/host";
@@ -12,22 +12,20 @@ import { relay } from "./relay";
 import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
 import { applyRunChoice } from "../engine/run";
-import { artBackground, artImage } from "./art";
+import { artBackground } from "./art";
 import { drawDomino, drawEffectIcon, drawSparkGlyph, iconOf } from "./dominoDrawing";
 import type { DominoState, IconKind } from "./dominoDrawing";
 import { SPARK_STYLE } from "./sparks";
 import { seatColour } from "./seatColours";
 import { drawBlessedGlow } from "./sparkShrineArt";
-import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { Tooltip } from "./tooltip";
 import type { TipPreview } from "./tooltip";
-import { charmWithTip, charmsByIds } from "./charmUi";
-import { drawPadlock, drawPassiveIcon } from "./passiveIcon";
+import { drawPadlock } from "./passiveIcon";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
 import { setSoundHushed } from "./sound";
 import { PingMarks, attachHold, pingKey } from "./ping";
-import { devSettings, enemies, startBattle } from "./devBattle";
+import { devSettings, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
 import { eventDelay, newLogMemory, trackEvent } from "./eventLog";
 import { debugPanel } from "./DebugPanel";
@@ -40,6 +38,11 @@ import { boardGlow } from "./spectacle";
 import { buildupStrip, litGlowStrength } from "./buildup";
 import { applyEvent, startShown } from "./shownView";
 import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
+import { combatLayoutData } from "./presentation";
+import type { CombatCtx } from "./combatCtx";
+import { drawEnemyUnit } from "./enemyUnit";
+import { TurnRail } from "./turnRail";
+import { drawActions, drawBackdrop, drawPartyBar, drawUtilities } from "./combatHud";
 import type { ShownTable } from "./shownView";
 
 // The combat table. Draws everything from getView (and getPendingChoice for
@@ -57,7 +60,7 @@ import type { ShownTable } from "./shownView";
 // Online, the scene never has a BattleState: it holds the latest BattleView and plays back the
 // events the host sends, on the host's machine too (the host's own player gets its messages by
 // the same path). Choices go to the host, which checks them; the table stays locked until its
-// reply (an update, or an error) arrives. Your own hand is in front; teammates are at the sides.
+// reply (an update, or an error) arrives. Your own hand is in front; teammates are in the turn-order rail on the left.
 
 // What the lobby hands over to start an online battle.
 export interface OnlineData {
@@ -78,21 +81,12 @@ const DW = 240; // a domino at scale 1 (see dominoDrawing.ts)
 const DH = 120;
 const FONT = "Arial, Helvetica, sans-serif";
 
-// Table regions (1920x1080).
-const MAT = { x: 370, y: 400, w: 1180, h: 360 }; // the board (this.mat: see matFor)
-const HAND = { x: 370, y: 785, w: 1180, h: 265 }; // the active hand
-const LEFT_X = 30;
-const RIGHT_X = 1565;
-const SIDE_W = 310;
-const SIDE_TOP = 330;
-const SIDE_H = 450;
-// The board mat. At 2 players only the left side column holds a hand (W6), so the mat runs on into the right column's room.
-function matFor(players: number): typeof MAT {
-  return players === 2 ? { ...MAT, w: RIGHT_X + SIDE_W - 15 - MAT.x } : MAT;
-}
+// Table regions (1920x1080), from data/presentation.json (combatLayout).
+const MAT = combatLayoutData.board; // the board: between the enemy bar and the party bar, right of the rail
+const HAND = combatLayoutData.hand; // the active hand, below the party bar
+const ACTIONS = combatLayoutData.actions;
 
 const GOLD = 0xffe14d;
-const RED = 0xe0443e;
 
 export class CombatScene extends Phaser.Scene {
   private state: BattleState | null = null; // single player only
@@ -126,6 +120,9 @@ export class CombatScene extends Phaser.Scene {
   private inCascade = false; // a cascade is playing on this screen: a click or Space may skip it
   private skipping = false; // this player skipped it: the rest of the step is applied at once
   private speed!: SpeedControl;
+  private rail!: TurnRail; // the turn-order rail (turnRail.ts)
+  private ctx!: CombatCtx; // what enemyUnit.ts, turnRail.ts and combatHud.ts draw with
+  private hoverId: string | null = null; // the playable hand domino under the pointer (for the next player's highlight)
   private skipHint?: Phaser.GameObjects.Text;
   private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
   private inRun = false; // single player inside a run
@@ -156,6 +153,8 @@ export class CombatScene extends Phaser.Scene {
     this.previewUi?.clear();
     this.previewUi = new SetOffPreviewUi(this);
     this.drawTable();
+    this.ctx = this.makeCtx();
+    this.rail = new TurnRail(this.ctx);
     this.anim = new Animator(this);
     this.anim.buildup.frame = () => this.mat; // the camera frames the tree to this screen's own board mat
     this.locked = false;
@@ -172,12 +171,12 @@ export class CombatScene extends Phaser.Scene {
     this.input.keyboard?.on("keydown-SPACE", () => this.skipCascade());
     this.inCascade = false;
     this.skipping = false;
-    this.skipHint = this.add.text(960, 1050, "Click to skip", { fontFamily: FONT, fontSize: "24px", color: "#cfe9dc", stroke: "#101010", strokeThickness: 4 }).setOrigin(0.5).setDepth(700).setVisible(false);
+    this.skipHint = this.add.text(combatLayoutData.skipHint.x, combatLayoutData.skipHint.y, "Click to skip", { fontFamily: FONT, fontSize: "24px", color: "#cfe9dc", stroke: "#101010", strokeThickness: 4 }).setOrigin(0.5).setDepth(700).setVisible(false);
     setSoundHushed(false);
     this.hlSeat = null;
     this.handSeat = null;
     this.tooltip = new Tooltip(this);
-    this.tooltip.avoid = { x: HAND.x + HAND.w - 340, y: HAND.y - 30, w: 340, h: 60 }; // Pass and Set off
+    this.tooltip.avoid = { x: ACTIONS.pass.x, y: ACTIONS.turn.y - 20, w: ACTIONS.pass.w, h: ACTIONS.setOff.y + ACTIONS.setOff.h - ACTIONS.turn.y + 20 }; // Pass and Set off
     this.pings = new PingMarks(this);
     if (this.online) {
       this.setView(this.online.view);
@@ -329,11 +328,6 @@ export class CombatScene extends Phaser.Scene {
     return relay.roster?.players.find((p) => p.seat === seat)?.away === true;
   }
 
-  // A seat's name for its plate on the table, marked when the player is away.
-  private plateName(seat: string, max = 12): string {
-    return this.nameOf(seat, true, max) + (this.online && this.isAway(seat) ? " (away)" : "");
-  }
-
   // The pause across the top: everyone sees who the game is waiting for; the host may get a button.
   private drawPause(): void {
     this.pauseUi.forEach((o) => o.destroy());
@@ -341,12 +335,12 @@ export class CombatScene extends Phaser.Scene {
     const paused = relay.paused;
     if (!this.online || !paused || paused.waitingFor === null) return;
     const style = { fontFamily: FONT, fontSize: "30px", color: "#ffd0cc", fontStyle: "bold", backgroundColor: "#0d2a20", padding: { x: 24, y: 10 } };
-    this.pauseUi.push(this.add.text(900, 268, `Waiting for ${paused.waitingFor} to reconnect...`, style).setOrigin(0.5).setDepth(900));
+    this.pauseUi.push(this.add.text(1130, combatLayoutData.pause.y, `Waiting for ${paused.waitingFor} to reconnect...`, style).setOrigin(0.5).setDepth(900));
     const seat = paused.playFor;
     const host = this.online.host;
     if (host && seat) {
       const name = relay.roster?.players.find((p) => p.seat === seat)?.name ?? seat;
-      this.pauseUi.push(button(this, 1400, 268, `Play for ${name}`, () => host.playFor(seat), { size: 30, origin: 0.5 }).setDepth(900));
+      this.pauseUi.push(button(this, 1500, combatLayoutData.pause.y, `Play for ${name}`, () => host.playFor(seat), { size: 30, origin: 0.5 }).setDepth(900));
     }
   }
 
@@ -402,27 +396,15 @@ export class CombatScene extends Phaser.Scene {
     const active = this.online ? this.mySeat() : (this.handSeat ?? now.seat);
     const turn = this.hlSeat ?? now.seat;
 
-    this.drawMat(layer, view);
-    this.drawEnemy(layer, view);
-    this.drawHud(layer, view, turn);
-    this.drawParty(layer, view);
+    const ctx = this.ctx;
+    this.rail.draw(layer, view, active, turn);
+    drawUtilities(ctx, layer, view.round);
+    drawEnemyUnit(ctx, layer, view);
+    drawPartyBar(ctx, layer, view);
     this.drawBoard(layer, view, active, pending);
     this.drawActiveHand(layer, view, active, pending, turn);
+    this.drawActionButtons(layer, view, pending, turn);
     if (this.selected !== null) this.showHints(layer, this.selected);
-    let others = view.players.filter((p) => p.id !== active);
-    if (this.online) {
-      // Teammates in seat order, starting with the one after you.
-      const i = view.players.findIndex((p) => p.id === active);
-      others = [...view.players.slice(i + 1), ...view.players.slice(0, i)];
-    }
-    others.forEach((p, i) => {
-      // Left column takes the 1st and 3rd teammate, the right column the 2nd.
-      const left = i !== 1;
-      const sharing = left && others.length > 2;
-      const h = sharing ? SIDE_H / 2 : SIDE_H;
-      const y = SIDE_TOP + (sharing && i === 2 ? SIDE_H / 2 : 0);
-      this.drawTeammate(layer, view, p.id, left ? LEFT_X : RIGHT_X, y, h);
-    });
     this.pings.place(this.pingBoxes);
     this.previewLayer = this.add.container(0, 0);
     layer.add(this.previewLayer);
@@ -456,16 +438,7 @@ export class CombatScene extends Phaser.Scene {
       g.fillStyle(0x246b4f, 0.55);
       g.fillEllipse(960, 560, 1500, 700);
     }
-  }
-
-  // The board mat, drawn with the table's contents so it follows the party size.
-  private drawMat(layer: Layer, view: BattleView): void {
-    const m = matFor(view.players.length);
-    const g = this.gfx(layer);
-    g.fillStyle(0x174c38, 0.6);
-    g.fillRoundedRect(m.x, m.y, m.w, m.h, 60);
-    g.lineStyle(3, 0x2f7a5b, 0.7);
-    g.strokeRoundedRect(m.x, m.y, m.w, m.h, 60);
+    drawBackdrop(this); // dims the table and darkens the edges: the middle is the brightest (L4)
   }
 
   // ---- small helpers ----
@@ -495,7 +468,7 @@ export class CombatScene extends Phaser.Scene {
     return this.view.dominoes.find((q) => q.id === id) ?? this.view.dominoes[0];
   }
 
-  private domino(layer: Layer, id: string, k: number, state: DominoState, x: number, y: number, onClick?: () => void, ping?: PingTarget, owner?: string): Phaser.GameObjects.Container {
+  private domino(layer: Layer, id: string, k: number, state: DominoState, x: number, y: number, onClick?: () => void, ping?: PingTarget, owner?: string, tip = true): Phaser.GameObjects.Container {
     const d = this.dominoOf(id);
     const c = drawDomino(this, d, "large", state, { scale: k, owner: owner === undefined ? undefined : seatColour(this.view.seatOrder, owner) });
     c.setScale(k);
@@ -503,7 +476,7 @@ export class CombatScene extends Phaser.Scene {
     layer.add(c);
     // Every face-up domino has a tooltip. Only a playable domino in the active hand gets the
     // engine's "if played now" numbers, worked out from the view (online players have nothing else).
-    this.tooltip.attach(c, d, state === "playable" ? () => this.tipPreviews(d.id) : undefined);
+    if (tip) this.tooltip.attach(c, d, state === "playable" ? () => this.tipPreviews(d.id) : undefined);
     if (this.online && ping) {
       // Online, a visible domino can be pinged by holding on it. A tap (the normal click) then
       // fires on release instead of on press, so a hold never also plays the domino.
@@ -533,9 +506,9 @@ export class CombatScene extends Phaser.Scene {
     return out;
   }
 
-  private bar(layer: Layer, key: string, x: number, y: number, w: number, h: number, value: number, max: number, color: number): void {
+  private bar(layer: Layer, key: string, x: number, y: number, w: number, h: number, value: number, max: number, color: number, fontSize?: number): void {
     const g = this.gfx(layer);
-    const text = this.label(layer, x + w / 2, y + h / 2, "", Math.round(h * 0.6), "#ffffff", 0.5, true);
+    const text = this.label(layer, x + w / 2, y + h / 2, "", fontSize ?? Math.round(h * 0.6), "#ffffff", 0.5, true);
     const ref = { g, text, x, y, w, h, max, color };
     this.anim.refs.bars.set(key, ref);
     paintBar(ref, value, this.anim.reactions.ghostOf(key as "party" | "enemy"));
@@ -553,169 +526,34 @@ export class CombatScene extends Phaser.Scene {
     if (key === "enemy") this.anim.reactions.drawCracks(layer, x, y, s, amount);
   }
 
-  // A seat's name plate; the seat on turn glows.
-  // A seat id as `deckSeat` makes the plate open that player's deck (#171).
-  private plate(layer: Layer, cx: number, cy: number, text: string, onTurn: boolean, fontSize = 26, deckSeat?: string, colour?: number): void {
-    const t = this.label(layer, cx, cy, text, fontSize, onTurn ? "#2a2200" : "#ffffff", 0.5, true);
-    const w = t.width + 36;
-    const h = fontSize + 18;
-    const g = this.add.graphics();
-    if (onTurn) {
-      for (let i = 4; i >= 1; i--) {
-        g.lineStyle(i * 5, colour ?? GOLD, 0.14);
-        g.strokeRoundedRect(cx - w / 2 - i * 2, cy - h / 2 - i * 2, w + i * 4, h + i * 4, h / 2 + i * 2);
-      }
-    }
-    g.fillStyle(onTurn ? GOLD : 0x0d2a20, 0.95);
-    g.fillRoundedRect(cx - w / 2, cy - h / 2, w, h, h / 2);
-    if (colour !== undefined) {
-      // The seat's colour rims the plate (thicker on the seat on turn).
-      g.lineStyle(onTurn ? 5 : 3, colour, 1);
-      g.strokeRoundedRect(cx - w / 2, cy - h / 2, w, h, h / 2);
-    }
-    layer.add(g);
-    layer.bringToTop(t);
-    if (deckSeat !== undefined) this.deckZone(layer, cx, cy, w, h, deckSeat);
-  }
-
-  // A click area that opens the deck viewer on one player's tab. The viewer shows everyone's deck.
+  // A click area that opens the deck viewer on one player's tab. The viewer shows everyone's deck (#171).
   private deckZone(layer: Layer, cx: number, cy: number, w: number, h: number, seat: string): void {
     const z = this.add.zone(cx, cy, w, h).setInteractive({ useHandCursor: true });
     z.on("pointerdown", () => openDeckViewer(this, battleDeckPlayers(this.view, (id) => this.nameOf(id, false)), seat));
     layer.add(z);
   }
 
-  // A seat's charm icons in a row centred under its name plate (#108, #155); nothing when it holds none.
-  // The icons register with the animator so the charm flash plays on them.
-  private plateCharms(layer: Layer, seat: string, ids: string[], cx: number, y: number, size: number, centred = true): void {
-    const charms = charmsByIds(ids);
-    const step = Math.min(size + 6, (SIDE_W - size) / Math.max(1, charms.length - 1));
-    const x0 = centred ? cx - ((charms.length - 1) * step) / 2 : cx;
-    charms.forEach((ch, i) => {
-      const c = charmWithTip(this, this.tooltip, ch, size, x0 + i * step, y);
-      layer.add(c);
-      this.anim.refs.charms.set(`${seat}:${ch.id}`, { x: x0 + i * step, y });
-    });
-  }
-
-  // ---- enemy (top) ----
-
-  private drawEnemy(layer: Layer, view: BattleView): void {
-    const e = view.enemy;
-    const def = enemies.find((x) => x.id === e.id);
-    // The portrait, if there is one, fills the free space on the right of the panel.
-    this.anim.reactions.drawBody(layer, e.id, def?.tier ?? "basic");
-    // The tier is an icon (the map's stop icons) beside the name; long names shrink to leave it room.
-    const ICON = 48;
-    const title = this.label(layer, 60 + ICON + 12, 62, def?.name ?? e.id, 48, "#ffffff", 0, true);
-    if (title.width > 450 - ICON - 12) title.setFontSize(Math.floor((48 * (450 - ICON - 12)) / title.width)); // stays clear of the intent card
-    if (def) {
-      const stop = def.tier === "basic" ? "fight" : def.tier;
-      const g = this.gfx(layer);
-      g.fillStyle(NODE_STYLE[stop].color, 1);
-      g.fillCircle(60 + ICON / 2, 62, ICON / 2);
-      g.lineStyle(2, 0xf4ecd8, 1);
-      g.strokeCircle(60 + ICON / 2, 62, ICON / 2);
-      drawNodeIcon(g, stop, 60 + ICON / 2, 62, ICON / 2);
-      const hit = this.add.circle(60 + ICON / 2, 62, ICON / 2, 0, 0);
-      layer.add(hit);
-      this.tooltip.attachLines(hit, [{ text: def.tier === "basic" ? "Normal enemy" : NODE_STYLE[stop].name, style: "title" }]);
-    }
-    this.bar(layer, "enemy", 60, 112, 400, 40, e.health, e.maxHealth, RED);
-    this.shield(layer, "enemy", 80, 208, 40, e.block);
-    e.passives.forEach((p, i) => this.drawPassive(layer, p, 230 + i * 130, 245));
-    e.passives.forEach((p) => {
-      // Wrapped to stay left of the intent card.
-      if (p.text) this.label(layer, 60, 284, p.text, 18, "#ffe14d", 0, false).setOrigin(0, 0).setWordWrapWidth(440);
-    });
-    this.drawIntent(layer, view);
-  }
-
-  // The enemy's intent, Slay the Spire style: an icon and a number for each action (a sword for an
-  // attack, ×N for several hits, a shield for block). Spyglass holders also see the next rounds, smaller.
-  private drawIntent(layer: Layer, view: BattleView): void {
-    const card = { x: 540, y: 40, w: 720, h: 200 };
-    const g = this.gfx(layer);
-    g.fillStyle(0x0d2a20, 0.8);
-    g.fillRoundedRect(card.x, card.y, card.w, card.h, 40);
-    g.lineStyle(4, RED, 0.9);
-    g.strokeRoundedRect(card.x, card.y, card.w, card.h, 40);
-    this.label(layer, card.x + 36, card.y + 30, "INTENT", 22, "#ff9a94", 0, true);
-    this.anim.refs.intent = { x: card.x, y: card.y, w: card.w, h: card.h };
-    const widthOf = (intent: Intent, s: number) => intent.actions.length * 230 * s;
-    this.intentItems(layer, view.intent, card.x + (card.w - widthOf(view.intent, 1)) / 2, card.y + 115, 1);
-    if (view.upcomingIntents.length > 0) {
-      let x = card.x;
-      this.label(layer, x - 10, 282, "Later", 20, "#9fd1b8", 1, true);
-      for (const intent of view.upcomingIntents) {
-        this.intentItems(layer, intent, x + 20, 282, 0.5);
-        x += widthOf(intent, 0.5) + 40;
-      }
-    }
-  }
-
-  // One intent's actions laid out from x, centred on y, at `s` times full size.
-  private intentItems(layer: Layer, intent: Intent, x: number, y: number, s: number): void {
-    intent.actions.forEach((a, i) => {
-      const cx = x + i * 230 * s;
-      this.icon(layer, a.kind === "attack" ? "damage" : "block", cx + 50 * s, y, 1.6 * s);
-      const num = this.label(layer, cx + 110 * s, y, String(a.value), Math.round(76 * s), "#ffffff", 0, true);
-      if (a.kind === "attack" && (a.hits ?? 1) > 1) this.label(layer, num.x + num.width + 6 * s, y + 10 * s, `×${a.hits}`, Math.round(48 * s), "#ffd9a0", 0, true);
-    });
-  }
-
-  private drawPassive(layer: Layer, p: Passive, x: number, y: number): void {
-    drawPassiveIcon(this, this.gfx(layer), p, x, y);
-    this.label(layer, x - 44, y, p.name, 24, "#ffe14d", 1, true);
-  }
-
-  // ---- HUD (band under the enemy) ----
-
-  private drawHud(layer: Layer, view: BattleView, turn: string): void {
-    const y = 350;
-    this.label(layer, this.mat.x + 10, y, `Round ${view.round}`, 36, "#ffffff", 0, true);
-    if (view.result) {
-      this.label(layer, this.mat.x + 10, y + 36, view.result === "won" ? "Battle won" : "Battle lost", 22, "#ffe14d", 0, true);
-    }
-
-    // Turn order around the table, lead marked.
-    const n = view.seatOrder.length;
-    const step = 150;
-    const x0 = 900 - ((n - 1) * step) / 2;
-    const g = this.gfx(layer);
-    view.seatOrder.forEach((seat, i) => {
-      const x = x0 + i * step;
-      this.plate(layer, x, y - 6, this.nameOf(seat, true, 9), seat === turn && view.phase !== "over", 24, undefined, seatColour(view.seatOrder, seat));
-      if (seat === view.lead) this.label(layer, x, y + 28, "LEAD", 16, "#ffe14d", 0.5, true);
-      if (i < n - 1) {
-        g.fillStyle(0x9fd1b8, 1);
-        g.fillTriangle(x + step / 2 - 6, y - 14, x + step / 2 - 6, y + 2, x + step / 2 + 6, y - 6);
-      }
-    });
-
-    // The Warden's locked spark and the Spark Shrine's blessing.
-    const sg = this.gfx(layer);
-    let ly = y - 6;
-    if (view.locked) {
-      drawSparkGlyph(sg, view.locked, 1342, ly, 12);
-      drawPadlock(this, sg, 1346, ly + 2, 0.6);
-      this.label(layer, 1372, ly, `${view.locked} locked`, 20, "#ff8a8a", 0, true);
-      ly += 48;
-    }
-    if (view.blessing) {
-      drawBlessedGlow(sg, view.blessing.spark, 1342, ly, 12);
-      drawSparkGlyph(sg, view.blessing.spark, 1342, ly, 12);
-      this.label(layer, 1372, ly, `Blessed ${view.blessing.spark}: +${view.blessing.strength}`, 20, "#ffe14d", 0, true);
-    }
-  }
-
-  // ---- party health (top right) and the running total ----
-
-  private drawParty(layer: Layer, view: BattleView): void {
-    const p = view.party;
-    this.label(layer, RIGHT_X, 48, "Party", 24, "#9fd1b8", 0, true);
-    this.bar(layer, "party", RIGHT_X, 68, 190, 34, p.health, p.maxHealth, 0x3fae68);
-    this.shield(layer, "party", RIGHT_X + 212, 85, 34, p.block);
+  // What the layout files draw with: this scene's helpers, registered with the animator.
+  private makeCtx(): CombatCtx {
+    const scene = this;
+    return {
+      scene: this,
+      get tooltip() {
+        return scene.tooltip; // made after this context
+      },
+      refs: () => this.anim.refs,
+      label: (...a) => this.label(...a),
+      gfx: (l) => this.gfx(l),
+      bar: (...a) => this.bar(...a),
+      shield: (...a) => this.shield(...a),
+      drawBody: (l, id, tier) => this.anim.reactions.drawBody(l, id, tier),
+      domino: (...a) => this.domino(...a),
+      slots: (seat) => this.slotsOf(seat),
+      nameOf: (seat, forPlate, max) => this.nameOf(seat, forPlate, max),
+      isAway: (seat) => this.online !== null && this.isAway(seat),
+      deckStack: (l, seat, x, y, count) => drawDeckStack(this, l, this.anim.refs, seat, this.view.dominoes[0], x, y, count),
+      openDeck: (seat) => openDeckViewer(this, battleDeckPlayers(this.view, (id) => this.nameOf(id, false)), seat),
+    };
   }
 
   // ---- set-off preview (#222) ----
@@ -723,6 +561,7 @@ export class CombatScene extends Phaser.Scene {
   // The preview over the health bars, from the engine's previewSetOff on the current board, or on the
   // board after the hovered play. Hidden while a step plays back; the real bars take over.
   private refreshPreview(): void {
+    this.refreshNext();
     const into = this.previewLayer;
     if (!into?.active) return;
     const view = this.view;
@@ -735,6 +574,21 @@ export class CombatScene extends Phaser.Scene {
     const p = (hover ? previewSetOff(view, hover) : null) ?? previewSetOff(view);
     const mine = !!pending && (!this.online || pending.player === this.mySeat());
     this.previewUi.draw(into, view, p, !!p?.lethal && (hover !== null || (mine && pending!.canSetOff)));
+  }
+
+  // The NEXT seat's highlight in the rail (#228): while a hand domino is hovered, picked or dragged,
+  // previewNextPlayer says what that seat could play after it (after a play on the hovered end, or
+  // after any of your legal plays with it). Nothing is shown while a step plays or it is not your turn.
+  private refreshNext(): void {
+    const view = this.view;
+    const pending = this.locked || this.waiting || this.shown ? null : getPendingChoice(view);
+    const id = this.hoverPlay?.domino ?? this.hoverId ?? this.selected;
+    if (!pending || id === null || (this.online && pending.player !== this.mySeat())) {
+      this.rail.setNext(null);
+      return;
+    }
+    const end = this.hoverPlay?.domino === id ? this.hoverPlay.end : undefined;
+    this.rail.setNext(previewNextPlayer(view, pending.player, id, end));
   }
 
   // A hand domino hovered, picked or dragged over a legal end: preview the board with it there.
@@ -955,38 +809,37 @@ export class CombatScene extends Phaser.Scene {
         g.strokeRoundedRect(HAND.x - i * 2, HAND.y - i * 2, HAND.w + i * 4, HAND.h + i * 4, 50 + i * 2);
       }
     }
-    const you = this.online ? (p.id === this.online.seat ? " (you)" : " (playing for)") : "";
-    // The plate sits on the hand's top edge so its charm row fits between it and the dominoes. The row
-    // starts at the plate's left edge, leaving the area left of the hand free.
-    this.plate(layer, HAND.x + 110, HAND.y - 2, this.nameOf(p.id, true, 9) + you, onTurn, 28, p.id, seatColour(view.seatOrder, p.id));
-    this.plateCharms(layer, p.id, p.charms, HAND.x + 70, HAND.y + 32, 20, false);
+    // The name, charms and counts are in the turn-order rail now; what is left here is the prompt.
     let hint = pending === null ? "" : pending.opener ? "Play an opener" : this.selected !== null ? "Pick an open end" : "Play, pass or set off";
-    if (this.online && view.phase !== "over" && !this.locked) {
-      if (this.waiting) hint = "Waiting for the host";
-      else if (pending === null) hint = `Waiting for ${this.nameOf(turn, true, 14)}`;
-    }
-    this.label(layer, HAND.x + 240, HAND.y - 2, `${hint}${hint ? "   ·   " : ""}Discard ${p.discard.length}`, 22, "#cfe9dc", 0);
-    // Pass and Set off, on the right of the header row. Set off needs a cap on the board.
-    this.actionButton(layer, HAND.x + HAND.w - 330, HAND.y - 2, 130, "Pass", pending !== null, () => this.submit({ type: "pass" }));
-    this.actionButton(layer, HAND.x + HAND.w - 170, HAND.y - 2, 150, "Set off", pending?.canSetOff === true, () => this.submit({ type: "setOff" }));
+    if (this.online && view.phase !== "over" && !this.locked && this.waiting) hint = "Waiting for the host";
+    const H = HAND.hint;
+    if (hint) this.label(layer, HAND.x + HAND.w / 2, H.y, hint, H.size, H.colour, 0.5);
     // The deck pile, face down to the left of the hand (#171); clicking it opens this player's deck.
-    drawDeckStack(this, layer, this.anim.refs, p.id, this.view.dominoes[0], HAND.x - 75, HAND.y + 110, p.deck.length);
-    this.deckZone(layer, HAND.x - 75, HAND.y + 100, 110, 80, p.id);
+    const D = HAND.deck;
+    drawDeckStack(this, layer, this.anim.refs, p.id, this.view.dominoes[0], D.x, D.y, p.deck.length);
+    this.deckZone(layer, D.x, D.y - 10, 110, 80, p.id);
+    this.label(layer, D.x, D.discardY, `Discard ${p.discard.length}`, D.size, D.colour, 0.5);
     if (p.hand.length === 0) {
-      this.label(layer, HAND.x + HAND.w / 2, HAND.y + 130, "No dominoes in hand", 28, "#7fb59b", 0.5);
+      this.label(layer, HAND.x + HAND.w / 2, HAND.y + HAND.h / 2, "No dominoes in hand", 28, "#7fb59b", 0.5);
       return;
     }
-    const k = 0.8;
+    // The largest scale at which the whole hand fits the area.
+    let k = 0.4;
+    for (const s2 of [0.7, 0.6, 0.5, 0.4]) {
+      k = s2;
+      if (Math.floor(HAND.w / (DW * s2 + 4)) * Math.floor(HAND.h / (DH * s2 + 12)) >= p.hand.length) break;
+    }
     const step = DW * k + 4;
-    const perRow = Math.floor(HAND.w / step);
+    const perRow = Math.max(1, Math.floor(HAND.w / step));
     const rows = Math.ceil(p.hand.length / perRow);
+    const top = HAND.y + (HAND.h - (rows * (DH * k + 12) - 12)) / 2 + (DH * k) / 2;
     for (let r = 0; r < rows; r++) {
       const inRow = p.hand.slice(r * perRow, (r + 1) * perRow);
       const x0 = HAND.x + (HAND.w - inRow.length * step) / 2 + step / 2;
       inRow.forEach((id, i) => {
         const state: DominoState = !onTurn ? "normal" : playable.has(id) ? "playable" : "notPlayable";
         const hx = x0 + i * step;
-        const hy = HAND.y + 100 + r * (DH * k + 12);
+        const hy = top + r * (DH * k + 12);
         const c = this.domino(layer, id, k, state, hx, hy, state === "playable" ? () => this.onHandTap(id) : undefined, { zone: "hand", seat: p.id, index: r * perRow + i }, p.id);
         if (state === "playable") this.handInput(layer, c, id);
         if (id === this.selected) {
@@ -1000,16 +853,19 @@ export class CombatScene extends Phaser.Scene {
     }
   }
 
-  // A pill button in the hand's header row; dimmed and dead when it is not available.
-  private actionButton(layer: Layer, x: number, y: number, w: number, text: string, enabled: boolean, onClick: () => void): void {
-    const g = this.gfx(layer);
-    g.fillStyle(enabled ? GOLD : 0x0d2a20, enabled ? 0.95 : 0.7);
-    g.fillRoundedRect(x, y - 22, w, 44, 22);
-    this.label(layer, x + w / 2, y, text, 26, enabled ? "#2a2200" : "#5f8f7a", 0.5, true);
-    if (!enabled) return;
-    const z = this.add.zone(x + w / 2, y, w, 44).setInteractive({ useHandCursor: true });
-    z.on("pointerdown", onClick);
-    layer.add(z);
+  // The actions bottom right (L7): "Your turn" over Set off and Pass, or just whose turn it is.
+  private drawActionButtons(layer: Layer, view: BattleView, pending: PendingChoice | null, turn: string): void {
+    let text = `${this.nameOf(turn, true, 14)}'s turn`;
+    if (view.result) text = view.result === "won" ? "Battle won" : "Battle lost";
+    else if (this.waiting) text = "Waiting for the host";
+    else if (pending !== null) text = "Your turn";
+    drawActions(this.ctx, layer, {
+      mine: pending !== null && view.phase !== "over",
+      canSetOff: pending?.canSetOff === true,
+      text,
+      onPass: () => this.submit({ type: "pass" }),
+      onSetOff: () => this.submit({ type: "setOff" }),
+    });
   }
 
   // Hover on a playable hand domino shows where it fits and what it would do there; pressing it can
@@ -1018,6 +874,8 @@ export class CombatScene extends Phaser.Scene {
     c.on("pointerover", () => {
       if (this.selected === id || this.drag?.ghost) return;
       this.clearHover();
+      this.hoverId = id;
+      this.refreshNext();
       this.hoverUi = this.add.container(0, 0).setDepth(500);
       this.showHints(this.hoverUi, id);
       // A domino with one place to go previews that play.
@@ -1026,7 +884,9 @@ export class CombatScene extends Phaser.Scene {
     });
     c.on("pointerout", () => {
       this.clearHover();
+      this.hoverId = null;
       this.setHoverPlay(null);
+      this.refreshNext();
     });
     c.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       this.drag = { id, x: pointer.worldX, y: pointer.worldY };
@@ -1228,42 +1088,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private get mat(): typeof MAT {
-    return matFor(this.view.players.length);
-  }
-
-  private get turnSeat(): string {
-    return this.hlSeat ?? this.view.seat;
-  }
-
-  private drawTeammate(layer: Layer, view: BattleView, id: string, x: number, y: number, h: number): void {
-    const p = view.players.find((q) => q.id === id);
-    if (!p) return;
-    this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), view.phase !== "over" && this.turnSeat === p.id, 26, p.id, seatColour(view.seatOrder, p.id));
-    // A row of charm icons under the plate pushes the discard line, the deck pile and the hand down.
-    const extra = p.charms.length > 0 ? 28 : 0;
-    this.plateCharms(layer, p.id, p.charms, x + SIDE_W / 2, y + 58, 22);
-    this.label(layer, x + SIDE_W / 2 + 40, y + 62 + extra, `Discard ${p.discard.length}`, 20, "#cfe9dc", 0.5);
-    drawDeckStack(this, layer, this.anim.refs, id, this.view.dominoes[0], x + 50, y + 66 + extra, p.deck.length);
-    const top = y + 90 + extra;
-    const avail = h - 100 - extra;
-    // Largest scale at which the whole hand fits.
-    let k = 0.33;
-    for (const s of [0.5, 0.4, 0.33]) {
-      const per = Math.floor(SIDE_W / (DW * s + 6));
-      const rows = Math.floor(avail / (DH * s + 6));
-      k = s;
-      if (per * rows >= p.hand.length) break;
-    }
-    const stepX = DW * k + 6;
-    const per = Math.floor(SIDE_W / stepX);
-    p.hand.forEach((did, i) => {
-      const row = Math.floor(i / per);
-      const inRow = Math.min(per, p.hand.length - row * per);
-      const x0 = x + (SIDE_W - inRow * stepX) / 2 + stepX / 2;
-      const c = this.domino(layer, did, k, "normal", x0 + (i % per) * stepX, top + (DH * k) / 2 + row * (DH * k + 6), undefined, { zone: "hand", seat: id, index: i }, id);
-      this.slotsOf(id)[i] = { c, pos: { x: x0 + (i % per) * stepX, y: top + (DH * k) / 2 + row * (DH * k + 6), k } };
-    });
-    if (p.hand.length === 0) this.label(layer, x + SIDE_W / 2, top + 20, "No dominoes", 20, "#7fb59b", 0.5);
+    return MAT;
   }
 }
 

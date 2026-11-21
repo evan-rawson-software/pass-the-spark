@@ -113,6 +113,7 @@ export function validateEnemies(data: unknown): Enemy[] {
         fail(file, id, `unknown passive ${JSON.stringify(passive)}`);
       }
       if (typeof passive.name !== "string" || passive.name === "") fail(file, id, `passive "name" must be a non-empty string`);
+      if (typeof passive.short !== "string" || passive.short === "") fail(file, id, `passive "short" must be a non-empty string`);
       if (passive.text !== undefined && typeof passive.text !== "string") fail(file, id, `passive "text" must be a string`);
       const amount = PASSIVE_AMOUNTS[passive.kind];
       if (amount !== undefined) checkWhole(file, id, passive, amount);
