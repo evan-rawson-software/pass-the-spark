@@ -346,12 +346,12 @@ export class CombatScene extends Phaser.Scene {
     const paused = relay.paused;
     if (!this.online || !paused || paused.waitingFor === null) return;
     const style = { fontFamily: FONT, fontSize: "30px", color: "#ffd0cc", fontStyle: "bold", backgroundColor: "#0d2a20", padding: { x: 24, y: 10 } };
-    this.pauseUi.push(this.add.text(1130, combatLayoutData.pause.y, `Waiting for ${paused.waitingFor} to reconnect...`, style).setOrigin(0.5).setDepth(900));
+    this.pauseUi.push(this.add.text(combatLayoutData.pause.x, combatLayoutData.pause.y, `Waiting for ${paused.waitingFor} to reconnect...`, style).setOrigin(0.5).setDepth(900));
     const seat = paused.playFor;
     const host = this.online.host;
     if (host && seat) {
       const name = relay.roster?.players.find((p) => p.seat === seat)?.name ?? seat;
-      this.pauseUi.push(button(this, 1500, combatLayoutData.pause.y, `Play for ${name}`, () => host.playFor(seat), { size: 30, origin: 0.5 }).setDepth(900));
+      this.pauseUi.push(button(this, combatLayoutData.pause.buttonX, combatLayoutData.pause.y, `Play for ${name}`, () => host.playFor(seat), { size: 30, origin: 0.5 }).setDepth(900));
     }
   }
 
@@ -419,6 +419,11 @@ export class CombatScene extends Phaser.Scene {
     this.drawBoard(layer, view, active, pending);
     this.drawActiveHand(layer, view, active, pending, turn);
     this.drawActionButtons(layer, view, pending);
+    if (this.online && this.waiting && view.phase !== "over") {
+      // The host has not answered the choice just sent (the line over the buttons used to say so).
+      const W = combatLayoutData.waiting;
+      this.label(layer, W.x, W.y, W.text, W.size, W.colour, 0.5, true);
+    }
     this.pings.place(this.pingBoxes);
     this.previewLayer = this.add.container(0, 0);
     layer.add(this.previewLayer);

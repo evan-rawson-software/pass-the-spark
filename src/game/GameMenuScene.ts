@@ -6,7 +6,7 @@ import { SPEEDS, getPlaybackSpeed, setPlaybackSpeed } from "./playbackSpeed";
 import { menuButtonSpot, onMenuButtonMove } from "./menuButton";
 import { resetProfile } from "./profile";
 import { leaveRun, onlineRun } from "./runSession";
-import { SOUND_FILES, getSoundSettings, setSoundOut, setSoundSettings, soundKey } from "./sound";
+import { SOUND_FILES, getSoundSettings, phaserSoundOut, setSoundOut, setSoundSettings, soundKey } from "./sound";
 
 // The game menu (#170, replacing the Sound button of #137). Always on top of every screen (it starts
 // with the game and never stops): loads the sound files, draws the menu button in the top-right
@@ -41,10 +41,7 @@ export class GameMenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    setSoundOut({
-      play: (key, config) => this.sound.play(key, config),
-      has: (key) => this.cache.audio.exists(key),
-    });
+    setSoundOut(phaserSoundOut(this.sound as unknown as Parameters<typeof phaserSoundOut>[0], this.cache.audio));
     this.button = this.add.graphics().setDepth(1000);
     this.hit = this.add
       .zone(menuButtonSpot().x, menuButtonSpot().y, BTN.size, BTN.size)
