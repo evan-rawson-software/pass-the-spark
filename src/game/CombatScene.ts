@@ -1,9 +1,9 @@
 import Phaser from "phaser";
-import { ENEMY_SEAT, answerHighlights, getPendingChoice, ignoresLap, previewPlay, step } from "../engine/battle";
-import type { BattleState, Choice, PendingChoice } from "../engine/battle";
+import { getOpenEnds, getPendingChoice, previewCascade, previewPlay, step } from "../engine/battle";
+import type { Board, BattleState, Choice, PendingChoice } from "../engine/battle";
 import { getView } from "../engine/view";
-import type { BattleView } from "../engine/view";
-import type { Domino, Passive, Spark } from "../engine/types";
+import type { BattleView, OpenEndView } from "../engine/view";
+import type { Domino, Intent, Passive } from "../engine/types";
 import type { GameEvent } from "../engine/events";
 import type { Client } from "../net/client";
 import type { Host } from "../net/host";
@@ -13,33 +13,34 @@ import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
 import { applyRunChoice } from "../engine/run";
 import { artBackground, artImage } from "./art";
-import { addNoLapSymbol, drawDomino, drawSparkGlyph } from "./dominoDrawing";
+import { drawDomino, drawEffectIcon, drawSparkGlyph, iconOf } from "./dominoDrawing";
+import type { DominoState, IconKind } from "./dominoDrawing";
 import { SPARK_STYLE } from "./sparks";
 import { drawBlessedGlow } from "./sparkShrineArt";
-import type { DominoState } from "./dominoDrawing";
 import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { Tooltip } from "./tooltip";
+import type { TipPreview } from "./tooltip";
 import { charmWithTip, charmsByIds } from "./charmUi";
 import { drawPadlock, drawPassiveIcon } from "./passiveIcon";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
 import { PingMarks, attachHold, pingKey } from "./ping";
-import { devSettings, dominoes, enemies, startBattle } from "./devBattle";
+import { devSettings, enemies, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
 import { eventDelay, newLogMemory, trackEvent } from "./eventLog";
 import { debugPanel } from "./DebugPanel";
 import type { DebugHost } from "./DebugPanel";
 import { SPEEDS, getPlaybackSpeed, onPlaybackSpeedChange, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
-import { Animator, COMBO_METER_FULL, animTime, comboLook, hexString, newRefs, paintBar } from "./animations";
-import { activeTiers, heatColor } from "./heat";
-import { applyEvent, deckCount, startShown } from "./shownView";
+import { Animator, animTime, newRefs, paintBar } from "./animations";
+import { applyEvent, startShown } from "./shownView";
 import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
 import type { ShownTable } from "./shownView";
 
 // The combat table. Draws everything from getView (and getPendingChoice for
-// whose turn it is and which dominoes are playable). No rules live here.
-// Clicking submits only choices getPendingChoice offers, then the step's events play back in
-// order (see playback below), animated by animations.ts. Tooltips come from tooltip.ts.
+// whose turn it is and which dominoes are playable, getOpenEnds for the charge on each open end,
+// previewPlay and previewCascade for the previews). No rules live here: layout only.
+// Clicking (or dragging) submits only choices getPendingChoice offers, then the step's events play back
+// in order (see playback below), animated by animations.ts. Tooltips come from tooltip.ts.
 //
 // Run mode (#50): started with { run: true }, the battle is the current run's. Choices go to
 // applyRunChoice, and when the battle is over the run's phase says which screen opens next.
@@ -65,13 +66,14 @@ export interface OnlineData {
 type Update = Extract<HostMessage, { type: "update" }>;
 
 type Layer = Phaser.GameObjects.Container;
+interface Box { x: number; y: number; w: number; h: number } // centred on x, y
 
 const DW = 240; // a domino at scale 1 (see dominoDrawing.ts)
 const DH = 120;
 const FONT = "Arial, Helvetica, sans-serif";
 
 // Table regions (1920x1080).
-const MAT = { x: 370, y: 400, w: 1180, h: 360 }; // the chain
+const MAT = { x: 370, y: 400, w: 1180, h: 360 }; // the board
 const HAND = { x: 370, y: 785, w: 1180, h: 265 }; // the active hand
 const LEFT_X = 30;
 const RIGHT_X = 1565;
@@ -92,7 +94,11 @@ export class CombatScene extends Phaser.Scene {
   private pauseUi: Phaser.GameObjects.GameObject[] = []; // online: "Waiting for [name]" and "Play for [name]"
   private layer?: Layer;
   private locked = false; // true while events play back: no input
-  private sparkPrompt: string | null = null; // a clicked domino that answers both sparks of the set
+  private selected: string | null = null; // a clicked hand domino, waiting for an open end
+  private hoverUi?: Phaser.GameObjects.Container; // the end highlights and previews of the hovered hand domino
+  private slotBoxes = new Map<number | "opener", Box>(); // where each open end (and the opener slot) is drawn, for hints and drops
+  private drag: { id: string; x: number; y: number; ghost?: Phaser.GameObjects.Container } | null = null; // a hand domino pressed (and maybe being dragged)
+  private dragMoved = false; // the last press turned into a drag: it is not a tap
   // During playback the table keeps showing the state from before the step; these two follow the
   // events: the seat that is highlighted, and the player whose hand is in front.
   private hlSeat: string | null = null;
@@ -101,9 +107,7 @@ export class CombatScene extends Phaser.Scene {
   private seed = 0;
   private tooltip!: Tooltip;
   private pings!: PingMarks; // online only: rings from other players' pings
-  private pingBoxes = new Map<string, Phaser.GameObjects.Container>(); // pingKey -> that domino
-  private tipPlayer = ""; // whose playable dominoes get an "if played now" preview
-  private seatBoxes = new Map<string, Phaser.GameObjects.Container>(); // "seat:hand position" -> that domino, for the hover highlight
+  private pingBoxes = new Map<string, Phaser.GameObjects.Container>(); // pingKey -> that domino or open end
   private anim!: Animator;
   private shown: ShownTable | null = null; // the table part-way through a step; null when idle
   private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
@@ -133,10 +137,14 @@ export class CombatScene extends Phaser.Scene {
     this.seed = this.inRun ? runSeed() : data.seed ?? dev.seed;
     this.layer = undefined;
     this.shown = null;
-    const dim = this.drawTable();
-    this.anim = new Animator(this, dominoes, dim);
+    this.drawTable();
+    this.anim = new Animator(this);
     this.locked = false;
-    this.sparkPrompt = null;
+    this.selected = null;
+    this.drag = null;
+    this.dragMoved = false;
+    this.input.on("pointermove", (p: Phaser.Input.Pointer) => this.onDragMove(p));
+    this.input.on("pointerup", (p: Phaser.Input.Pointer) => this.onDragEnd(p));
     this.hlSeat = null;
     this.handSeat = null;
     this.tooltip = new Tooltip(this);
@@ -192,23 +200,20 @@ export class CombatScene extends Phaser.Scene {
   // from the view: every hand starts empty and fills from its deck stack.
   private async introDraw(): Promise<void> {
     const view = this.view;
-    if (view.round !== 1 || view.result || view.chain.played.length > 0 || view.players.some((p) => p.discard.length > 0)) return;
+    if (view.round !== 1 || view.result || view.board.nodes.length > 0 || view.players.some((p) => p.discard.length > 0)) return;
     const empty = JSON.parse(JSON.stringify(view)) as BattleView;
     const events: GameEvent[] = [];
     for (const p of empty.players) {
-      events.push({ type: "draw", seat: p.id, count: p.hand.length, dominoes: p.hand });
+      events.push({ type: "draw", player: p.id, count: p.hand.length, dominoes: p.hand });
       p.deck = p.hand.concat(p.deck);
       p.hand = [];
     }
-    events.push({ type: "draw", seat: ENEMY_SEAT, count: empty.enemy.hand.length });
-    empty.enemy.deckCount += empty.enemy.hand.length;
-    empty.enemy.hand = [];
     const epoch = this.epoch;
     // The intro holds the same lock as a playback (draining), so an update that arrives meanwhile
     // waits in the queue and is played right after.
     this.draining = true;
     this.locked = true;
-    this.shown = startShown(empty, []);
+    this.shown = startShown(empty);
     this.redraw();
     await playDraws(this, () => this.anim.refs, view.dominoes, events, this.shown, () => this.redraw());
     if (epoch !== this.epoch) return;
@@ -228,7 +233,6 @@ export class CombatScene extends Phaser.Scene {
   // The one entry point for a new view (single player: from setState; online: from the host).
   private setView(view: BattleView): void {
     this.view = view;
-    this.anim.dominoes = view.dominoes; // run dominoes (instances, generated) are not in data/dominoes.json
     this.redraw();
     debugPanel.stateChanged();
     if (view.result) {
@@ -252,14 +256,8 @@ export class CombatScene extends Phaser.Scene {
 
   // A seat's display name. Online it is the player's name; single player the seat id is the name.
   private nameOf(seat: string, forPlate = true, max = 12): string {
-    if (seat === ENEMY_SEAT) return "Enemy";
     const name = this.online?.names[seat] ?? seat;
     return forPlate && name.length > max ? name.slice(0, max - 1) + "…" : name;
-  }
-
-  // The true enemy hand, for the debug "show enemy hand" only: single player, or the host.
-  private trueEnemyHand(): string[] | null {
-    return (this.state ?? this.online?.host?.getState())?.enemy.hand ?? null;
   }
 
   // ---- online: messages from the host ----
@@ -355,6 +353,7 @@ export class CombatScene extends Phaser.Scene {
 
   private redraw(): void {
     this.tooltip.hide();
+    this.clearHover();
     this.layer?.destroy(true);
     const layer = this.add.container(0, 0);
     this.layer = layer;
@@ -362,21 +361,22 @@ export class CombatScene extends Phaser.Scene {
     const view = this.shown?.view ?? now;
     this.anim.refs = newRefs();
     this.anim.refs.layer = layer;
-    this.seatBoxes.clear();
     this.pingBoxes = new Map();
     let pending = this.locked || this.waiting ? null : getPendingChoice(now);
     // Online, only the player whose turn it is gets anything to click.
     if (this.online && pending !== null && pending.player !== this.mySeat()) pending = null;
+    if (this.selected !== null && !pending?.plays.some((o) => o.domino === this.selected)) this.selected = null;
     // Single player: the front hand follows whoever's turn it is. Online: it is always your own.
-    const active = this.online ? this.mySeat() : (this.handSeat ?? (now.seat === ENEMY_SEAT ? now.lead : now.seat));
+    const active = this.online ? this.mySeat() : (this.handSeat ?? now.seat);
     const turn = this.hlSeat ?? now.seat;
-    this.tipPlayer = pending === null ? "" : pending.player;
 
-    this.drawEnemy(layer, view, turn);
+    this.drawEnemy(layer, view);
     this.drawHud(layer, view, turn);
     this.drawParty(layer, view);
-    this.drawChain(layer, view);
+    this.drawTotals(layer, view);
+    this.drawBoard(layer, view, active, pending);
     this.drawActiveHand(layer, view, active, pending, turn);
+    if (this.selected !== null) this.showHints(layer, this.selected);
     this.drawSpeedControl(layer);
     let others = view.players.filter((p) => p.id !== active);
     if (this.online) {
@@ -404,10 +404,9 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- table (drawn once) ----
 
-  // Returns the rectangle that dims the room at lap 2+ (heat ladder, #133): above the felt, below the dominoes.
-  private drawTable(): Phaser.GameObjects.Rectangle {
+  private drawTable(): void {
     // With a background image (added first, so behind everything) the frame, felt and pool of light
-    // give way to it; the chain mat stays.
+    // give way to it; the board mat stays.
     const hasArt = artBackground(this, "combat");
     const g = this.add.graphics();
     if (!hasArt) {
@@ -419,7 +418,7 @@ export class CombatScene extends Phaser.Scene {
       g.fillRoundedRect(28, 28, 1864, 1024, 130);
       g.lineStyle(4, 0x2f7a5b, 1);
       g.strokeRoundedRect(44, 44, 1832, 992, 116);
-      // A soft pool of light and the chain mat: felt markings, not boxes.
+      // A soft pool of light and the board mat: felt markings, not boxes.
       g.fillStyle(0x246b4f, 0.55);
       g.fillEllipse(960, 560, 1500, 700);
     }
@@ -427,7 +426,6 @@ export class CombatScene extends Phaser.Scene {
     g.fillRoundedRect(MAT.x, MAT.y, MAT.w, MAT.h, 60);
     g.lineStyle(3, 0x2f7a5b, 0.7);
     g.strokeRoundedRect(MAT.x, MAT.y, MAT.w, MAT.h, 60);
-    return this.add.rectangle(960, 540, 1920, 1080, 0x000000, 1).setAlpha(0);
   }
 
   // ---- small helpers ----
@@ -446,22 +444,27 @@ export class CombatScene extends Phaser.Scene {
     return g;
   }
 
-  private domino(layer: Layer, id: string | null, k: number, state: DominoState, x: number, y: number, onClick?: () => void, ping?: PingTarget, byEnemy = false): Phaser.GameObjects.Container {
-    const d: Domino = this.view.dominoes.find((q) => q.id === id) ?? this.view.dominoes[0];
+  // A code-drawn effect icon centred on x, y, `s` times its natural size (about 52 units across).
+  private icon(layer: Layer, kind: IconKind, x: number, y: number, s: number): void {
+    const g = this.add.graphics().setPosition(x, y).setScale(s);
+    drawEffectIcon(g, kind);
+    layer.add(g);
+  }
+
+  private dominoOf(id: string): Domino {
+    return this.view.dominoes.find((q) => q.id === id) ?? this.view.dominoes[0];
+  }
+
+  private domino(layer: Layer, id: string, k: number, state: DominoState, x: number, y: number, onClick?: () => void, ping?: PingTarget): Phaser.GameObjects.Container {
+    const d = this.dominoOf(id);
     const c = drawDomino(this, d, "large", state);
     c.setScale(k);
     c.setPosition(x, y);
     layer.add(c);
-    // Every face-up domino has a tooltip; hidden enemy dominoes have none. Only a playable
-    // domino in the active hand gets the engine's "if played now" numbers, worked out from the
-    // view (online players have nothing else).
-    if (state !== "hidden") {
-      const preview = state === "playable" ? () => previewPlay(this.view, this.tipPlayer, d.id) : undefined;
-      const noLap = ignoresLap(this.view, d, byEnemy); // the engine says which effects ignore the lap
-      if (noLap) addNoLapSymbol(this, c);
-      this.tooltip.attach(c, d, preview, noLap);
-    }
-    if (this.online && ping && state !== "hidden") {
+    // Every face-up domino has a tooltip. Only a playable domino in the active hand gets the
+    // engine's "if played now" numbers, worked out from the view (online players have nothing else).
+    this.tooltip.attach(c, d, state === "playable" ? () => this.tipPreviews(d.id) : undefined);
+    if (this.online && ping) {
       // Online, a visible domino can be pinged by holding on it. A tap (the normal click) then
       // fires on release instead of on press, so a hold never also plays the domino.
       this.pingBoxes.set(pingKey(ping), c);
@@ -473,6 +476,21 @@ export class CombatScene extends Phaser.Scene {
       c.on("pointerdown", onClick);
     }
     return c;
+  }
+
+  // What playing a hand domino would do on each end it fits, for its tooltip. All numbers come from
+  // previewPlay, with the player whose turn it is (their charms count).
+  private tipPreviews(id: string): TipPreview[] {
+    const pending = getPendingChoice(this.view);
+    const option = pending?.plays.find((o) => o.domino === id);
+    if (!pending || !option) return [];
+    const targets: (number | undefined)[] = pending.opener ? [undefined] : option.ends;
+    const out: TipPreview[] = [];
+    for (const end of targets) {
+      const preview = previewPlay(this.view, pending.player, id, end);
+      if (preview) out.push({ where: end === undefined ? "Opener" : `${this.view.board.ends[end].spark} end`, preview });
+    }
+    return out;
   }
 
   private bar(layer: Layer, key: string, x: number, y: number, w: number, h: number, value: number, max: number, color: number): void {
@@ -521,8 +539,6 @@ export class CombatScene extends Phaser.Scene {
     layer.add(z);
   }
 
-  // ---- enemy (top) ----
-
   // A seat's charm icons in a row centred under its name plate (#108, #155); nothing when it holds none.
   // The icons register with the animator so the charm flash plays on them.
   private plateCharms(layer: Layer, seat: string, ids: string[], cx: number, y: number, size: number, centred = true): void {
@@ -536,23 +552,17 @@ export class CombatScene extends Phaser.Scene {
     });
   }
 
-  private drawEnemy(layer: Layer, view: BattleView, turn: string): void {
+  // ---- enemy (top) ----
+
+  private drawEnemy(layer: Layer, view: BattleView): void {
     const e = view.enemy;
     const def = enemies.find((x) => x.id === e.id);
-    const onTurn = turn === ENEMY_SEAT;
-    if (onTurn) {
-      const g = this.gfx(layer);
-      for (let i = 5; i >= 1; i--) {
-        g.lineStyle(i * 5, GOLD, 0.12);
-        g.strokeRoundedRect(60 - i * 2, 30 - i * 2, 1480 + i * 4, 270 + i * 4, 60 + i * 2);
-      }
-    }
     // The portrait, if there is one, fills the free space on the right of the panel.
     artImage(this, `enemies/${e.id}`, 1410, 165, 250, 250, layer);
     // The tier is an icon (the map's stop icons) beside the name; long names shrink to leave it room.
     const ICON = 48;
-    const title = this.label(layer, 60 + ICON + 12, 62, def?.name ?? e.id, 48, onTurn ? "#ffe14d" : "#ffffff", 0, true);
-    if (title.width > 450 - ICON - 12) title.setFontSize(Math.floor((48 * (450 - ICON - 12)) / title.width)); // stays clear of the "Hand" label
+    const title = this.label(layer, 60 + ICON + 12, 62, def?.name ?? e.id, 48, "#ffffff", 0, true);
+    if (title.width > 450 - ICON - 12) title.setFontSize(Math.floor((48 * (450 - ICON - 12)) / title.width)); // stays clear of the intent card
     if (def) {
       const stop = def.tier === "basic" ? "fight" : def.tier;
       const g = this.gfx(layer);
@@ -569,55 +579,48 @@ export class CombatScene extends Phaser.Scene {
     this.shield(layer, "enemy", 80, 208, 40, e.block);
     e.passives.forEach((p, i) => this.drawPassive(layer, p, 230 + i * 130, 245));
     e.passives.forEach((p) => {
-      // Wrapped to stay left of the "Played" label.
+      // Wrapped to stay left of the intent card.
       if (p.text) this.label(layer, 60, 284, p.text, 18, "#ffe14d", 0, false).setOrigin(0, 0).setWordWrapWidth(440);
     });
-
-    // The enemy's hand, oldest on the left.
-    const rowX = 600;
-    const trueHand = this.trueEnemyHand(); // null for a joined client, which never has it
-    const debug = debugPanel.showEnemyHand && trueHand !== null;
-    this.label(layer, rowX - 20, 70, "Hand", 22, "#9fd1b8", 1);
-    e.hand.forEach((slot, i) => {
-      const x = rowX + 60 + i * 130; // 7 slots (the largest handLimit) end at x 1500, left of the party bar
-      const c = slot.revealed
-        ? this.domino(layer, slot.domino, 0.5, "revealed", x, 70, undefined, { zone: "enemy", index: i }, true)
-        : debug
-          ? this.domino(layer, this.shown?.enemyIds[i] || trueHand![i], 0.5, "revealed", x, 70, undefined, undefined, true) // debug only: the true domino, with a red mark
-          : this.domino(layer, null, 0.5, "hidden", x, 70);
-      if (!slot.revealed && debug) this.label(layer, x, 112, "DEBUG", 14, "#ff6b64", 0.5, true);
-      this.anim.refs.enemyHand.push({ c, pos: { x, y: 70, k: 0.5 } });
-      if (slot.revealed) this.seatBoxes.set(`${ENEMY_SEAT}:${i}`, c);
-    });
-    if (debug) this.label(layer, rowX - 20, 100, "(debug view)", 16, "#ff6b64", 1, true);
-    drawDeckStack(this, layer, this.anim.refs, ENEMY_SEAT, this.view.dominoes[0], 545, 112, deckCount(view, ENEMY_SEAT));
-    // Its whole deck, and what it has played since the last reshuffle.
-    const y = this.smallRow(layer, "Deck", e.deckList, "normal", rowX, 158);
-    this.smallRow(layer, "Played", e.faceUp, "playedFaceUp", rowX, y + 8);
+    this.drawIntent(layer, view);
   }
 
-  // Small dominoes in rows that wrap. Returns the y for the row below.
-  private smallRow(layer: Layer, name: string, ids: string[], state: DominoState, x: number, y: number): number {
-    this.label(layer, x - 20, y, name, 22, "#9fd1b8", 1);
-    if (ids.length === 0) {
-      this.label(layer, x + 10, y, "none yet", 18, "#7fb59b", 0);
-      return y + 34;
+  // The enemy's intent, Slay the Spire style: an icon and a number for each action (a sword for an
+  // attack, ×N for several hits, a shield for block). Spyglass holders also see the next rounds, smaller.
+  private drawIntent(layer: Layer, view: BattleView): void {
+    const card = { x: 540, y: 40, w: 720, h: 200 };
+    const g = this.gfx(layer);
+    g.fillStyle(0x0d2a20, 0.8);
+    g.fillRoundedRect(card.x, card.y, card.w, card.h, 40);
+    g.lineStyle(4, RED, 0.9);
+    g.strokeRoundedRect(card.x, card.y, card.w, card.h, 40);
+    this.label(layer, card.x + 36, card.y + 30, "INTENT", 22, "#ff9a94", 0, true);
+    this.anim.refs.intent = { x: card.x, y: card.y, w: card.w, h: card.h };
+    const widthOf = (intent: Intent, s: number) => intent.actions.length * 230 * s;
+    this.intentItems(layer, view.intent, card.x + (card.w - widthOf(view.intent, 1)) / 2, card.y + 115, 1);
+    if (view.upcomingIntents.length > 0) {
+      let x = card.x;
+      this.label(layer, x - 10, 282, "Later", 20, "#9fd1b8", 1, true);
+      for (const intent of view.upcomingIntents) {
+        this.intentItems(layer, intent, x + 20, 282, 0.5);
+        x += widthOf(intent, 0.5) + 40;
+      }
     }
-    const perRow = 8;
-    ids.forEach((id, i) => {
-      this.domino(layer, id, 0.4, state, x + 50 + (i % perRow) * 104, y + Math.floor(i / perRow) * 54, undefined, undefined, true);
+  }
+
+  // One intent's actions laid out from x, centred on y, at `s` times full size.
+  private intentItems(layer: Layer, intent: Intent, x: number, y: number, s: number): void {
+    intent.actions.forEach((a, i) => {
+      const cx = x + i * 230 * s;
+      this.icon(layer, a.kind === "attack" ? "damage" : "block", cx + 50 * s, y, 1.6 * s);
+      const num = this.label(layer, cx + 110 * s, y, String(a.value), Math.round(76 * s), "#ffffff", 0, true);
+      if (a.kind === "attack" && (a.hits ?? 1) > 1) this.label(layer, num.x + num.width + 6 * s, y + 10 * s, `×${a.hits}`, Math.round(48 * s), "#ffd9a0", 0, true);
     });
-    return y + Math.floor((ids.length - 1) / perRow) * 54 + 54;
   }
 
   private drawPassive(layer: Layer, p: Passive, x: number, y: number): void {
     drawPassiveIcon(this, this.gfx(layer), p, x, y);
     this.label(layer, x - 44, y, p.name, 24, "#ffe14d", 1, true);
-  }
-
-  // A padlock centred on x, y (about 30 wide at scale 1).
-  private drawPadlock(g: Phaser.GameObjects.Graphics, x: number, y: number, scale: number): void {
-    drawPadlock(this, g, x, y, scale);
   }
 
   // ---- HUD (band under the enemy) ----
@@ -629,7 +632,7 @@ export class CombatScene extends Phaser.Scene {
       this.label(layer, MAT.x + 10, y + 36, view.result === "won" ? "Battle won" : "Battle lost", 22, "#ffe14d", 0, true);
     }
 
-    // Turn order around the table, enemy included, lead marked.
+    // Turn order around the table, lead marked.
     const n = view.seatOrder.length;
     const step = 150;
     const x0 = 900 - ((n - 1) * step) / 2;
@@ -644,12 +647,12 @@ export class CombatScene extends Phaser.Scene {
       }
     });
 
-    // The Warden's locked spark and the Spark Shrine's blessing (the sparks themselves show in the chain's empty slot).
+    // The Warden's locked spark and the Spark Shrine's blessing.
     const sg = this.gfx(layer);
     let ly = y - 6;
     if (view.locked) {
       drawSparkGlyph(sg, view.locked, 1342, ly, 12);
-      this.drawPadlock(sg, 1346, ly + 2, 0.6);
+      drawPadlock(this, sg, 1346, ly + 2, 0.6);
       this.label(layer, 1372, ly, `${view.locked} locked`, 20, "#ff8a8a", 0, true);
       ly += 48;
     }
@@ -660,127 +663,214 @@ export class CombatScene extends Phaser.Scene {
     }
   }
 
-  // ---- party health (top right) and combo meter ----
+  // ---- party health (top right) and the running total ----
 
   private drawParty(layer: Layer, view: BattleView): void {
     const p = view.party;
     this.label(layer, RIGHT_X, 48, "Party", 24, "#9fd1b8", 0, true);
     this.bar(layer, "party", RIGHT_X, 68, 190, 34, p.health, p.maxHealth, 0x3fae68);
     this.shield(layer, "party", RIGHT_X + 212, 85, 34, p.block);
-    // Combo meter: strength x lap.
-    const { strength, lap } = view.chain;
-    const total = strength * lap;
+  }
+
+  // What setting the chain off now would do, from the engine's previewCascade: damage (after the
+  // enemy's block), block for the party, and coins. Always visible.
+  private drawTotals(layer: Layer, view: BattleView): void {
+    const total = view.phase === "over" ? { damage: 0, block: 0, coins: {} as Record<string, number> } : previewCascade(this.view);
+    const coins = Object.values(total.coins).reduce((a, b) => a + b, 0);
     const x = RIGHT_X;
     const g = this.gfx(layer);
     g.fillStyle(0x174c38, 0.6);
     g.fillRoundedRect(x, 135, SIDE_W, 170, 40);
-    // Hotter chains light the meter's border in the heat colour, thicker with each tier.
-    const tiers = activeTiers(strength, lap).length;
-    g.lineStyle(3 + tiers * 2, tiers > 1 ? heatColor(strength, lap) : 0x2f7a5b, tiers > 1 ? 1 : 0.7);
+    g.lineStyle(3, 0x2f7a5b, 0.7);
     g.strokeRoundedRect(x, 135, SIDE_W, 170, 40);
-    this.label(layer, x + SIDE_W / 2, 160, `STRENGTH ${strength}  ×  LAP ${lap}`, 21, "#9fd1b8", 0.5, true);
-    const look = comboLook(total);
-    const num = this.label(layer, x + SIDE_W / 2, 220, String(total), 84, total > 0 ? hexString(look.color) : "#5f8f7a", 0.5, true);
-    num.setScale(look.scale);
-    this.anim.refs.meter = { text: num, rect: { x, y: 135, w: SIDE_W, h: 170 }, scale: look.scale };
-    const f = Math.min(1, total / COMBO_METER_FULL);
-    g.fillStyle(0x0d2a20, 1);
-    g.fillRoundedRect(x + 24, 272, SIDE_W - 48, 18, 9);
-    if (f > 0) {
-      g.fillStyle(look.color, 1);
-      g.fillRoundedRect(x + 24, 272, Math.max(18, (SIDE_W - 48) * f), 18, 9);
+    this.label(layer, x + SIDE_W / 2, 164, "IF SET OFF NOW", 21, "#9fd1b8", 0.5, true);
+    const cells: [IconKind, number][] = [["damage", total.damage], ["block", total.block], ["coins", coins]];
+    cells.forEach(([kind, value], i) => {
+      const cx = x + 52 + i * 103;
+      this.icon(layer, kind, cx, 212, 0.9);
+      this.label(layer, cx, 266, String(value), 44, value > 0 ? "#ffffff" : "#5f8f7a", 0.5, true);
+    });
+  }
+
+  // ---- the board (middle) ----
+
+  private drawBoard(layer: Layer, view: BattleView, active: string, pending: PendingChoice | null): void {
+    const board = view.board;
+    this.slotBoxes.clear();
+    const selected = this.selected !== null ? pending?.plays.find((o) => o.domino === this.selected) : undefined;
+    const legal = new Set<number>(selected?.ends ?? []);
+
+    if (board.nodes.length === 0) {
+      // The opener goes in the middle-left slot.
+      const k = 0.8;
+      const w = DW * k;
+      const h = DH * k;
+      const x = MAT.x + 50 + w / 2;
+      const y = MAT.y + MAT.h / 2;
+      const g = this.gfx(layer);
+      const live = selected !== undefined;
+      if (live) this.glow(g, x - w / 2, y - h / 2, w, h, GOLD, 14);
+      g.fillStyle(GOLD, 0.12);
+      g.fillRoundedRect(x - w / 2, y - h / 2, w, h, 14);
+      g.lineStyle(4, GOLD, 1);
+      g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 14);
+      this.label(layer, x, y, "OPENER", 34, "#ffe14d", 0.5, true);
+      this.slotBoxes.set("opener", { x, y, w, h });
+      const z = this.add.zone(x, y, w, h).setInteractive({ useHandCursor: true });
+      z.on("pointerdown", () => this.onSlotClick("opener"));
+      layer.add(z);
+      return;
+    }
+
+    const lay = layoutBoard(board);
+    // Largest scale at which the whole tree fits the mat (it shrinks as the tree grows).
+    const GAP = 50;
+    const VGAP = 24;
+    const availW = MAT.w - 80;
+    const availH = MAT.h - 40;
+    const k = Math.max(0.2, Math.min(0.8, availW / (lay.cols * DW + (lay.cols - 1) * GAP), availH / (lay.rows * DH + (lay.rows - 1) * VGAP)));
+    const colW = (DW + GAP) * k;
+    const rowH = (DH + VGAP) * k;
+    const left = MAT.x + 40;
+    const top = MAT.y + (MAT.h - ((lay.rows - 1) * rowH + DH * k)) / 2 + (DH * k) / 2;
+    const s = Math.max(34, DH * k); // an open end's slot is a square this big
+    const nodeAt = (id: number) => {
+      const p = lay.nodes.get(id)!;
+      return { x: left + p.col * colW + (DW * k) / 2, y: top + p.row * rowH };
+    };
+    const slotAt = (id: number) => {
+      const p = lay.ends.get(id)!;
+      return { x: left + p.col * colW + s / 2, y: top + p.row * rowH };
+    };
+    const lit = this.shown?.lit ?? new Set<number>();
+    const fizzled = this.shown?.fizzled ?? new Set<number>();
+
+    // Paths: from each output to whatever hangs on it (a domino or an open slot), in the spark's colour.
+    const g = this.gfx(layer);
+    for (const e of board.ends) {
+      const from = nodeAt(e.node);
+      const child = board.nodes.find((n) => n.end === e.id);
+      const to = child ? nodeAt(child.id) : lay.ends.has(e.id) ? slotAt(e.id) : null;
+      if (!to) continue;
+      const x0 = from.x + (DW * k) / 2;
+      const x1 = to.x - (child ? (DW * k) / 2 : s / 2);
+      const xm = (x0 + x1) / 2;
+      g.lineStyle(Math.max(3, 9 * k), SPARK_STYLE[e.spark].color, fizzled.has(e.id) ? 0.3 : 0.9);
+      g.beginPath();
+      g.moveTo(x0, from.y);
+      g.lineTo(xm, from.y);
+      g.lineTo(xm, to.y);
+      g.lineTo(x1, to.y);
+      g.strokePath();
+    }
+
+    // The dominoes, a lit one glowing gold.
+    for (const n of board.nodes) {
+      const { x, y } = nodeAt(n.id);
+      if (lit.has(n.id)) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, GOLD, 14 * k);
+      const c = this.domino(layer, n.domino, k, "normal", x, y, undefined, { zone: "chain", index: n.id });
+      this.anim.refs.nodes.set(n.id, { c, pos: { x, y, k } });
+      if (k >= 0.45) this.label(layer, x, y + (DH * k) / 2 + 11, this.nameOf(n.owner, true, 10), 15, "#cfe9dc", 0.5, true);
+    }
+
+    // The open ends: a glowing slot in the spark's colour with the charge reaching it. The charge and
+    // the triggers a cap placed there would get come from getOpenEnds, for the player acting.
+    const opens: OpenEndView[] = getOpenEnds(view, active);
+    for (const o of opens) {
+      if (!lay.ends.has(o.end)) continue;
+      const { x, y } = slotAt(o.end);
+      const color = SPARK_STYLE[o.spark].color;
+      const dim = fizzled.has(o.end);
+      const isLegal = legal.has(o.end);
+      const sg = this.gfx(layer);
+      if (dim) sg.setAlpha(0.35);
+      if (isLegal) this.glow(sg, x - s / 2 - 4, y - s / 2 - 4, s + 8, s + 8, GOLD, 14);
+      if (!dim) this.glow(sg, x - s / 2, y - s / 2, s, s, color, 12);
+      sg.fillStyle(0x0d2a20, 0.85);
+      sg.fillRoundedRect(x - s / 2, y - s / 2, s, s, 12);
+      sg.lineStyle(isLegal ? 6 : 4, isLegal ? GOLD : color, 1);
+      sg.strokeRoundedRect(x - s / 2, y - s / 2, s, s, 12);
+      if (o.spark === view.blessing?.spark) drawBlessedGlow(sg, o.spark, x, y, s * 0.28);
+      drawSparkGlyph(sg, o.spark, x, y, s * 0.26);
+      if (o.spark === view.locked) drawPadlock(this, sg, x + s * 0.22, y + s * 0.2, Math.max(0.5, s / 90));
+      if (!dim) {
+        // The charge, a small number in a badge at the corner; ×N when a cap here would go off several times.
+        const r = Math.max(12, s * 0.2);
+        sg.fillStyle(0xffe14d, 1);
+        sg.fillCircle(x + s / 2 - 4, y - s / 2 + 4, r);
+        sg.lineStyle(2, 0x2a2200, 1);
+        sg.strokeCircle(x + s / 2 - 4, y - s / 2 + 4, r);
+        this.label(layer, x + s / 2 - 4, y - s / 2 + 4, String(o.charge), Math.round(r * 1.3), "#2a2200", 0.5, true);
+        if (o.triggers > 1) this.label(layer, x, y + s / 2 + 12, `fires ×${o.triggers}`, 15, "#ffe14d", 0.5, true);
+      }
+      this.anim.refs.slots.set(o.end, { x, y, k });
+      this.slotBoxes.set(o.end, { x, y, w: s, h: s });
+      // Click (with a domino picked) or drop onto it; online, hold to ping it.
+      const hit = this.add.container(x, y).setSize(s, s);
+      layer.add(hit);
+      if (this.online) {
+        this.pingBoxes.set(pingKey({ zone: "end", index: o.end }), hit);
+        hit.setInteractive();
+        attachHold(this, hit, () => this.sendPing({ zone: "end", index: o.end }), isLegal ? () => this.onSlotClick(o.end) : undefined);
+        if (isLegal) hit.input!.cursor = "pointer";
+      } else if (isLegal) {
+        hit.setInteractive({ useHandCursor: true });
+        hit.on("pointerdown", () => this.onSlotClick(o.end));
+      }
     }
   }
 
-  // ---- the chain (middle) ----
-
-  private drawChain(layer: Layer, view: BattleView): void {
-    const played = view.chain.played;
-    this.anim.heat.syncRoom(view.chain.strength, view.chain.lap);
-    const hasSlot = view.phase !== "over";
-    const innerW = MAT.w - 100;
-    const innerH = MAT.h - 40;
-    // Largest scale at which every domino (plus the empty slot) fits.
-    const scales = [0.75, 0.6, 0.5, 0.4, 0.32, 0.26];
-    let k = scales[scales.length - 1];
-    let perRow = 1;
-    let rows = 1;
-    for (const s of scales) {
-      perRow = Math.floor(innerW / (DW * s));
-      rows = Math.floor(innerH / (DH * s + (s >= 0.5 ? 24 : 8)));
-      k = s;
-      if (perRow * rows >= played.length + (hasSlot ? 1 : 0)) break;
+  // A soft glow round a rounded rectangle.
+  private glow(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, color: number, r: number): void {
+    for (let i = 4; i >= 1; i--) {
+      g.lineStyle(i * 6, color, 0.12);
+      g.strokeRoundedRect(x - i * 2, y - i * 2, w + i * 4, h + i * 4, r + i * 2);
     }
-    // If it still does not fit, show the latest dominoes and say how many are off the table.
-    const capacity = perRow * rows - (hasSlot ? 1 : 0);
-    const hidden = Math.max(0, played.length - capacity);
-    const shown = played.slice(hidden);
-    const rowH = DH * k + (k >= 0.5 ? 24 : 8);
-    const w = DW * k;
-    const x0 = MAT.x + (MAT.w - perRow * w) / 2;
-    const slots = shown.length + (hasSlot ? 1 : 0);
-    const usedRows = Math.ceil(slots / perRow);
-    const y0 = MAT.y + (MAT.h - usedRows * rowH) / 2 + rowH / 2 - (k >= 0.5 ? 6 : 0);
-    const g = this.gfx(layer);
-    const pos = (i: number) => ({ x: x0 + (i % perRow) * w + w / 2, y: y0 + Math.floor(i / perRow) * rowH });
+  }
 
-    shown.forEach((p, i) => {
-      const { x, y } = pos(i);
-      const enemy = p.seat === ENEMY_SEAT;
-      if (enemy) {
-        g.fillStyle(RED, 0.7);
-        g.fillRoundedRect(x - w / 2 - 5, y - (DH * k) / 2 - 5, w + 10, DH * k + 10, 14 * k + 5);
-      }
-      const c = this.domino(layer, p.domino, k, enemy ? "playedFaceUp" : "normal", x, y, undefined, { zone: "chain", index: i + hidden }, enemy);
-      this.anim.refs.chain.push({ c, pos: { x, y, k } });
-      this.anim.heat.decorate(c, view.chain.strength, view.chain.lap); // heat ladder: glowing dominoes
-      if (k >= 0.5) {
-        const tag = this.nameOf(p.seat, true, 10) + (i + hidden === 0 ? " (opener)" : "");
-        this.label(layer, x, y + (DH * k) / 2 + 13, tag, 16, enemy ? "#ff9a94" : "#cfe9dc", 0.5, true);
-      }
-      // Row breaks: a small arrow at the row's end and one at the next row's start.
-      if (i % perRow === perRow - 1 && i < slots - 1) {
-        const next = pos(i + 1);
-        g.fillStyle(0x9fd1b8, 1);
-        g.fillTriangle(x + w / 2 + 6, y - 9, x + w / 2 + 6, y + 9, x + w / 2 + 20, y);
-        g.fillTriangle(next.x - w / 2 - 20, next.y - 9, next.x - w / 2 - 20, next.y + 9, next.x - w / 2 - 6, next.y);
-      }
-    });
-    if (hidden > 0) this.label(layer, MAT.x + MAT.w / 2, MAT.y + 18, `+ ${hidden} earlier`, 18, "#9fd1b8", 0.5);
-
-    // The empty slot where the next domino goes.
-    if (hasSlot) {
-      const { x, y } = pos(shown.length);
-      const sh = DH * k;
-      for (let i = 4; i >= 1; i--) {
-        g.lineStyle(i * 6, GOLD, 0.12);
-        g.strokeRoundedRect(x - w / 2 - i * 2, y - sh / 2 - i * 2, w + i * 4, sh + i * 4, 14 * k + i * 2);
-      }
-      g.fillStyle(GOLD, 0.12);
-      g.fillRoundedRect(x - w / 2, y - sh / 2, w, sh, 14 * k);
-      g.lineStyle(4, GOLD, 1);
-      g.strokeRoundedRect(x - w / 2, y - sh / 2, w, sh, 14 * k);
-      // The spark(s) it must answer sit in the intake half.
-      const sparks = view.chain.sparks;
-      if (sparks.length === 0) this.label(layer, x, y, "OPENER", Math.round(40 * k + 6), "#ffe14d", 0.5, true);
-      sparks.forEach((s, i) => {
-        const gy = sparks.length === 1 ? y : y + (i === 0 ? -1 : 1) * 27 * k;
-        const gx = x - 80 * k;
-        const gr = (sparks.length === 1 ? 24 : 16) * k;
-        if (s === view.blessing?.spark) drawBlessedGlow(g, s, gx, gy, gr);
-        drawSparkGlyph(g, s, gx, gy, gr);
-        if (s === view.locked) this.drawPadlock(g, gx + gr * 0.5, gy + gr * 0.3, Math.max(0.5, gr / 34));
-      });
+  // The ends a hand domino fits, each with the engine's preview of playing it there: the charge it
+  // passes on, or what the cap would do. Shown while the domino is hovered, picked or dragged.
+  private showHints(layer: Layer, id: string): void {
+    const pending = getPendingChoice(this.view);
+    const option = pending?.plays.find((o) => o.domino === id);
+    if (!pending || !option) return;
+    const d = this.dominoOf(id);
+    const kind = iconOf(d);
+    const targets: (number | "opener")[] = pending.opener ? ["opener"] : option.ends;
+    for (const t of targets) {
+      const box = this.slotBoxes.get(t);
+      // The acting player's own charms: previewPlay with their id, never another seat's view.openEnds.
+      const p = previewPlay(this.view, pending.player, id, t === "opener" ? undefined : t);
+      if (!box || !p) continue;
+      const g = this.gfx(layer);
+      this.glow(g, box.x - box.w / 2 - 4, box.y - box.h / 2 - 4, box.w + 8, box.h + 8, GOLD, 14);
+      g.lineStyle(5, GOLD, 1);
+      g.strokeRoundedRect(box.x - box.w / 2 - 4, box.y - box.h / 2 - 4, box.w + 8, box.h + 8, 14);
+      const text = d.kind === "cap" ? (p.triggers > 1 ? `${p.value}×${p.triggers}` : String(p.value)) : `→ ${p.charge}`;
+      // To the right of the slot, where nothing else is drawn.
+      const t1 = this.label(layer, box.x + box.w / 2 + 12 + 56, box.y, text, 30, "#ffffff", 0.5, true);
+      const w = t1.width + 76;
+      const lx = box.x + box.w / 2 + 12 + w / 2;
+      t1.setX(lx + 16);
+      const bg = this.gfx(layer);
+      bg.fillStyle(0x0d2a20, 0.95);
+      bg.fillRoundedRect(lx - w / 2, box.y - 24, w, 48, 24);
+      bg.lineStyle(3, GOLD, 1);
+      bg.strokeRoundedRect(lx - w / 2, box.y - 24, w, 48, 24);
+      if (kind) this.icon(layer, kind, lx - w / 2 + 28, box.y, 0.5);
+      layer.bringToTop(t1);
     }
+  }
+
+  private clearHover(): void {
+    this.hoverUi?.destroy(true);
+    this.hoverUi = undefined;
   }
 
   // ---- hands ----
 
   private drawActiveHand(layer: Layer, view: BattleView, active: string, pending: PendingChoice | null, turn: string): void {
-    const playable = new Set<string>(
-      pending === null ? [] : pending.type === "opener" ? pending.dominoes : pending.options.map((o) => o.domino),
-    );
-    const pendingType = pending?.type ?? null;
+    const playable = new Set<string>(pending === null ? [] : pending.plays.map((o) => o.domino));
     const p = view.players.find((x) => x.id === active);
     if (!p) return;
     // Online, the hand is only lit up (and clickable) while it is your seat's turn.
@@ -797,17 +887,15 @@ export class CombatScene extends Phaser.Scene {
     // starts at the plate's left edge, leaving the area left of the hand free.
     this.plate(layer, HAND.x + 110, HAND.y - 2, this.nameOf(p.id, true, 9) + you, onTurn, 28, p.id);
     this.plateCharms(layer, p.id, p.charms, HAND.x + 70, HAND.y + 32, 20, false);
-    let hint = pendingType === "opener" ? "Play an opener" : pendingType === "answer" ? "Answer the spark" : "";
+    let hint = pending === null ? "" : pending.opener ? "Play an opener" : this.selected !== null ? "Pick an open end" : "Play, pass or set off";
     if (this.online && view.phase !== "over" && !this.locked) {
       if (this.waiting) hint = "Waiting for the host";
       else if (pending === null) hint = `Waiting for ${this.nameOf(turn, true, 14)}`;
     }
-    const prompt = pending?.type === "answer" && this.sparkPrompt ? pending.options.find((o) => o.domino === this.sparkPrompt) : undefined;
-    if (prompt) {
-      this.drawSparkPrompt(layer, prompt.domino, prompt.sparks);
-    } else {
-      this.label(layer, HAND.x + 240, HAND.y - 2, `${hint}${hint ? "   ·   " : ""}Discard ${p.discard.length}`, 22, "#cfe9dc", 0);
-    }
+    this.label(layer, HAND.x + 240, HAND.y - 2, `${hint}${hint ? "   ·   " : ""}Discard ${p.discard.length}`, 22, "#cfe9dc", 0);
+    // Pass and Set off, on the right of the header row. Set off needs a cap on the board.
+    this.actionButton(layer, HAND.x + HAND.w - 330, HAND.y - 2, 130, "Pass", pending !== null, () => this.submit({ type: "pass" }));
+    this.actionButton(layer, HAND.x + HAND.w - 170, HAND.y - 2, 150, "Set off", pending?.canSetOff === true, () => this.submit({ type: "setOff" }));
     // The deck pile, face down to the left of the hand (#171); clicking it opens this player's deck.
     drawDeckStack(this, layer, this.anim.refs, p.id, this.view.dominoes[0], HAND.x - 75, HAND.y + 110, p.deck.length);
     this.deckZone(layer, HAND.x - 75, HAND.y + 100, 110, 80, p.id);
@@ -824,101 +912,111 @@ export class CombatScene extends Phaser.Scene {
       const x0 = HAND.x + (HAND.w - inRow.length * step) / 2 + step / 2;
       inRow.forEach((id, i) => {
         const state: DominoState = !onTurn ? "normal" : playable.has(id) ? "playable" : "notPlayable";
-        const click = state === "playable" ? () => this.onHandClick(id) : undefined;
         const hx = x0 + i * step;
         const hy = HAND.y + 100 + r * (DH * k + 12);
-        const c = this.domino(layer, id, k, state, hx, hy, click, { zone: "hand", seat: p.id, index: r * perRow + i });
-        if (state === "playable") this.hoverHighlight(layer, c, p.id, id);
+        const c = this.domino(layer, id, k, state, hx, hy, state === "playable" ? () => this.onHandTap(id) : undefined, { zone: "hand", seat: p.id, index: r * perRow + i });
+        if (state === "playable") this.handInput(layer, c, id);
+        if (id === this.selected) {
+          const sel = this.gfx(layer);
+          sel.lineStyle(6, 0xffffff, 1);
+          sel.strokeRoundedRect(hx - (DW * k) / 2 - 4, hy - (DH * k) / 2 - 18, DW * k + 8, DH * k + 8, 12);
+        }
         if (!this.anim.refs.hand.has(id)) this.anim.refs.hand.set(id, { x: hx, y: hy, k });
         this.slotsOf(p.id)[r * perRow + i] = { c, pos: { x: hx, y: hy, k } };
       });
     }
   }
 
-  // While the pointer is on a playable domino, outline the next seat's dominoes that could answer it
-  // (the engine says which; the pass-through ones past the enemy are fainter).
-  private hoverHighlight(layer: Layer, target: Phaser.GameObjects.Container, player: string, domino: string): void {
-    let glow: Phaser.GameObjects.Graphics | undefined;
-    const clear = () => {
-      if (glow?.scene) glow.destroy();
-      glow = undefined;
-    };
-    target.on("pointerover", () => {
-      clear();
-      const d = this.view.dominoes.find((q) => q.id === domino);
-      if (!d) return;
-      const color = SPARK_STYLE[d.output[0]].color;
-      glow = this.gfx(layer);
-      glow.setDepth(500);
-      for (const h of answerHighlights(this.view, player, domino)) {
-        for (const pos of h.positions) {
-          const c = this.seatBoxes.get(`${h.seat}:${pos}`);
-          if (!c) continue;
-          const w = c.width * c.scaleX + 10;
-          const ht = c.height * c.scaleY + 10;
-          const alpha = h.faint ? 0.35 : 1;
-          glow.lineStyle(10, color, alpha * 0.35);
-          glow.strokeRoundedRect(c.x - w / 2 - 4, c.y - ht / 2 - 4, w + 8, ht + 8, 14);
-          glow.lineStyle(4, color, alpha);
-          glow.strokeRoundedRect(c.x - w / 2, c.y - ht / 2, w, ht, 10);
-        }
-      }
+  // A pill button in the hand's header row; dimmed and dead when it is not available.
+  private actionButton(layer: Layer, x: number, y: number, w: number, text: string, enabled: boolean, onClick: () => void): void {
+    const g = this.gfx(layer);
+    g.fillStyle(enabled ? GOLD : 0x0d2a20, enabled ? 0.95 : 0.7);
+    g.fillRoundedRect(x, y - 22, w, 44, 22);
+    this.label(layer, x + w / 2, y, text, 26, enabled ? "#2a2200" : "#5f8f7a", 0.5, true);
+    if (!enabled) return;
+    const z = this.add.zone(x + w / 2, y, w, 44).setInteractive({ useHandCursor: true });
+    z.on("pointerdown", onClick);
+    layer.add(z);
+  }
+
+  // Hover on a playable hand domino shows where it fits and what it would do there; pressing it can
+  // turn into a drag (see onDragMove).
+  private handInput(layer: Layer, c: Phaser.GameObjects.Container, id: string): void {
+    c.on("pointerover", () => {
+      if (this.selected === id || this.drag?.ghost) return;
+      this.clearHover();
+      this.hoverUi = this.add.container(0, 0).setDepth(500);
+      this.showHints(this.hoverUi, id);
     });
-    target.on("pointerout", clear);
-    target.on("destroy", clear);
+    c.on("pointerout", () => this.clearHover());
+    c.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      this.drag = { id, x: pointer.worldX, y: pointer.worldY };
+    });
   }
 
   // ---- input ----
 
-  // A click on a playable domino. Playable means the engine offered it in getPendingChoice.
-  private onHandClick(id: string): void {
-    if (this.locked || this.waiting) return;
+  // A tap on a playable hand domino picks it (or puts it back); then the open end is clicked.
+  private onHandTap(id: string): void {
+    if (this.locked || this.waiting || this.dragMoved) return;
     const pending = getPendingChoice(this.view);
     if (pending === null) return;
     if (this.online && pending.player !== this.mySeat()) return; // not your turn
-    if (pending.type === "opener") {
-      if (pending.dominoes.includes(id)) this.submit({ type: "opener", domino: id });
-      return;
-    }
-    const option = pending.options.find((o) => o.domino === id);
-    if (!option) return;
-    if (option.sparks.length > 1) {
-      // The engine says this domino answers both sparks of the set: ask which one.
-      this.sparkPrompt = id;
-      this.redraw();
-    } else {
-      this.submit({ type: "answer", domino: id, spark: option.sparks[0] });
+    if (!pending.plays.some((o) => o.domino === id)) return;
+    this.selected = this.selected === id ? null : id;
+    this.redraw();
+  }
+
+  // A click on an open end (or the opener slot) with a domino picked. Only plays the engine offered.
+  private onSlotClick(target: number | "opener"): void {
+    if (this.locked || this.waiting || this.selected === null) return;
+    this.play(this.selected, target);
+  }
+
+  private play(id: string, target: number | "opener"): void {
+    const pending = getPendingChoice(this.view);
+    const option = pending?.plays.find((o) => o.domino === id);
+    if (!pending || !option) return;
+    if (this.online && pending.player !== this.mySeat()) return;
+    if (target === "opener") {
+      if (pending.opener) this.submit({ type: "play", domino: id });
+    } else if (option.ends.includes(target)) {
+      this.submit({ type: "play", domino: id, end: target });
     }
   }
 
-  // The inline question in the hand's header row: one button per spark the engine listed.
-  private drawSparkPrompt(layer: Layer, id: string, sparks: Spark[]): void {
-    const y = HAND.y - 2;
-    const name = dominoes.find((d) => d.id === id)?.name ?? id;
-    const t = this.label(layer, HAND.x + 240, y, `Which spark does ${name} answer?`, 22, "#ffe14d", 0, true);
-    let x = HAND.x + 240 + t.width + 24;
-    const button = (w: number, onClick: () => void): Phaser.GameObjects.Graphics => {
-      const g = this.gfx(layer);
-      g.fillStyle(0x0d2a20, 0.95);
-      g.fillRoundedRect(x, y - 20, w, 40, 20);
-      g.lineStyle(3, GOLD, 1);
-      g.strokeRoundedRect(x, y - 20, w, 40, 20);
-      const z = this.add.zone(x + w / 2, y, w, 40).setInteractive({ useHandCursor: true });
-      z.on("pointerdown", onClick);
-      layer.add(z);
-      return g;
-    };
-    for (const s of sparks) {
-      const g = button(150, () => this.submit({ type: "answer", domino: id, spark: s }));
-      drawSparkGlyph(g, s, x + 26, y, 14);
-      this.label(layer, x + 50, y, s, 22, "#ffffff", 0, true);
-      x += 162;
+  // A pressed hand domino that moves far enough becomes a ghost domino following the pointer.
+  private onDragMove(pointer: Phaser.Input.Pointer): void {
+    const drag = this.drag;
+    if (!drag || !pointer.isDown) return;
+    if (!drag.ghost) {
+      if (Math.hypot(pointer.worldX - drag.x, pointer.worldY - drag.y) < 16) return;
+      this.dragMoved = true;
+      this.clearHover();
+      this.tooltip.hide();
+      drag.ghost = drawDomino(this, this.dominoOf(drag.id), "large", "normal").setScale(0.55).setDepth(800).setAlpha(0.9);
+      if (this.selected !== drag.id) {
+        this.selected = drag.id;
+        this.redraw();
+      }
     }
-    button(100, () => {
-      this.sparkPrompt = null;
-      this.redraw();
-    });
-    this.label(layer, x + 50, y, "Cancel", 20, "#cfe9dc", 0.5);
+    drag.ghost.setPosition(pointer.worldX, pointer.worldY);
+  }
+
+  // Dropping on an open end (or the opener slot) plays there; anywhere else puts the domino back.
+  private onDragEnd(pointer: Phaser.Input.Pointer): void {
+    const drag = this.drag;
+    this.drag = null;
+    if (!drag?.ghost) return;
+    drag.ghost.destroy();
+    this.time.delayedCall(0, () => (this.dragMoved = false)); // after the release has also reached the domino (it is not a tap)
+    const near = 24;
+    for (const [target, b] of this.slotBoxes) {
+      if (Math.abs(pointer.worldX - b.x) <= b.w / 2 + near && Math.abs(pointer.worldY - b.y) <= b.h / 2 + near) {
+        if (!this.locked && !this.waiting) this.play(drag.id, target);
+        return;
+      }
+    }
   }
 
   private drawSpeedControl(layer: Layer): void {
@@ -945,7 +1043,7 @@ export class CombatScene extends Phaser.Scene {
 
   private submit(choice: Choice): void {
     if (this.locked || this.waiting) return;
-    this.sparkPrompt = null;
+    this.selected = null;
     const online = this.online;
     if (online) {
       // Send the choice to the host and lock the table until it answers (an update or an error).
@@ -973,15 +1071,11 @@ export class CombatScene extends Phaser.Scene {
   // Returns false if the scene was left meanwhile.
   private async playback(events: GameEvent[]): Promise<boolean> {
     this.locked = true;
-    const before = this.view;
-    // The enemy's hand by position; online the hidden ones are not known, only the revealed.
-    const enemyIds = this.state ? this.state.enemy.hand.slice() : before.enemy.hand.map((slot) => (slot.revealed ? slot.domino : ""));
-    this.shown = startShown(JSON.parse(JSON.stringify(before)) as BattleView, enemyIds);
+    this.shown = startShown(JSON.parse(JSON.stringify(this.view)) as BattleView);
     this.redraw();
     debugPanel.stateChanged();
     const mem = newLogMemory();
     const epoch = this.epoch;
-    const isPlayer = (seat: string) => seat !== ENEMY_SEAT;
     for (let n = 0; n < events.length; n++) {
       const ev = events[n];
       if (isDrawEvent(ev)) {
@@ -1000,11 +1094,8 @@ export class CombatScene extends Phaser.Scene {
       let hand: string | null = this.handSeat;
       switch (ev.type) {
         case "roundStart": hl = ev.lead; hand = ev.lead; break;
-        case "draw": hl = ev.seat; break;
-        case "opener": hl = ev.player; hand = ev.player; break;
-        case "pass": hl = ev.to; if (isPlayer(ev.to)) hand = ev.to; break;
-        case "play": hl = ev.seat; if (isPlayer(ev.seat)) hand = ev.seat; break;
-        case "enemyDiscard": case "enemyNoReaction": case "leftover": hl = ENEMY_SEAT; break;
+        case "play": case "pass": hl = ev.player; hand = ev.player; break;
+        default: break;
       }
       trackEvent(ev, mem);
       if (hl !== this.hlSeat || hand !== this.handSeat) {
@@ -1013,8 +1104,7 @@ export class CombatScene extends Phaser.Scene {
         this.redraw();
       }
       const shown = this.shown;
-      const delay = eventDelay(ev, mem);
-      const wait = ev.type === "chainEnd" ? delay : Math.max(animTime(ev, before.dominoes), delay);
+      const wait = Math.max(animTime(ev), eventDelay(ev, mem));
       await this.anim.run(ev, shown.view, () => {
         applyEvent(shown, ev);
         this.redraw();
@@ -1038,7 +1128,7 @@ export class CombatScene extends Phaser.Scene {
   private drawTeammate(layer: Layer, view: BattleView, id: string, x: number, y: number, h: number): void {
     const p = view.players.find((q) => q.id === id);
     if (!p) return;
-    this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), this.online !== null && view.phase !== "over" && this.turnSeat === p.id, 26, p.id);
+    this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), view.phase !== "over" && this.turnSeat === p.id, 26, p.id);
     // A row of charm icons under the plate pushes the discard line, the deck pile and the hand down.
     const extra = p.charms.length > 0 ? 28 : 0;
     this.plateCharms(layer, p.id, p.charms, x + SIDE_W / 2, y + 58, 22);
@@ -1061,9 +1151,52 @@ export class CombatScene extends Phaser.Scene {
       const inRow = Math.min(per, p.hand.length - row * per);
       const x0 = x + (SIDE_W - inRow * stepX) / 2 + stepX / 2;
       const c = this.domino(layer, did, k, "normal", x0 + (i % per) * stepX, top + (DH * k) / 2 + row * (DH * k + 6), undefined, { zone: "hand", seat: id, index: i });
-      this.seatBoxes.set(`${id}:${i}`, c);
       this.slotsOf(id)[i] = { c, pos: { x: x0 + (i % per) * stepX, y: top + (DH * k) / 2 + row * (DH * k + 6), k } };
     });
     if (p.hand.length === 0) this.label(layer, x + SIDE_W / 2, top + 20, "No dominoes", 20, "#7fb59b", 0.5);
   }
+}
+
+// ---- board layout (geometry only) ----
+
+interface BoardLayout {
+  nodes: Map<number, { col: number; row: number }>;
+  ends: Map<number, { col: number; row: number }>; // the open ends
+  cols: number;
+  rows: number;
+}
+
+// Where each domino and open end sits in a grid: the opener in column 0, each step one column
+// right, branches fanning into their own rows (a junction sits between its branches, a straight run
+// stays on one row). Rows may be fractional. No rules: the tree is whatever the board holds.
+function layoutBoard(board: Board): BoardLayout {
+  const child = new Map<number, number>(); // end id -> the node attached to it
+  for (const n of board.nodes) if (n.end !== null) child.set(n.end, n.id);
+  const outs = (node: number) => board.ends.filter((e) => e.node === node);
+  const span = (node: number): number =>
+    Math.max(1, outs(node).reduce((total, e) => total + (child.has(e.id) ? span(child.get(e.id)!) : 1), 0));
+  const lay: BoardLayout = { nodes: new Map(), ends: new Map(), cols: 1, rows: 1 };
+  const place = (node: number, col: number, top: number): number => {
+    lay.cols = Math.max(lay.cols, col + 1);
+    const rows: number[] = [];
+    let cursor = top;
+    for (const e of outs(node)) {
+      const c = child.get(e.id);
+      if (c === undefined) {
+        lay.ends.set(e.id, { col: col + 1, row: cursor });
+        lay.cols = Math.max(lay.cols, col + 2);
+        rows.push(cursor);
+        cursor += 1;
+      } else {
+        rows.push(place(c, col + 1, cursor));
+        cursor += span(c);
+      }
+    }
+    const row = rows.length > 0 ? (rows[0] + rows[rows.length - 1]) / 2 : top;
+    lay.nodes.set(node, { col, row });
+    return row;
+  };
+  place(0, 0, 0);
+  lay.rows = span(0);
+  return lay;
 }

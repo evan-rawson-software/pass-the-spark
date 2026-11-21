@@ -1,26 +1,25 @@
-import { ENEMY_SEAT } from "../engine/battle";
+import { outputsOf } from "../engine/battleCharms";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
 
 // The table as it looks part-way through a step's events. It starts as the view from before the
-// step and each event nudges it using only the numbers the event carries. No rules: the scene
-// redraws from getView once the step is done, so anything missed here is corrected then.
+// step and each event nudges it using only the numbers the event carries (and, for a played domino's
+// new open ends, the engine's own outputsOf). No rules: the scene redraws from getView once the
+// step is done, so anything missed here is corrected then.
 
 export interface ShownTable {
   view: BattleView;
-  enemyIds: string[]; // the enemy's hand by position (used to place a flip; never shown while hidden)
+  lit: Set<number>; // board nodes the cascade has lit so far
+  fizzled: Set<number>; // open ends the cascade has left dim
 }
 
-// enemyIds: the enemy's hand by position. Where a domino is not known to this player (online, a
-// hidden one) it is "".
-export function startShown(view: BattleView, enemyIds: string[]): ShownTable {
-  return { view, enemyIds };
+export function startShown(view: BattleView): ShownTable {
+  return { view, lit: new Set(), fizzled: new Set() };
 }
 
-// How many dominoes are left in a seat's deck. Both come from the view, and applyEvent keeps them
-// (and the discard piles) in step with the engine as the events play.
+// How many dominoes are left in a seat's deck. applyEvent keeps it (and the discard piles) in step
+// with the engine as the events play.
 export function deckCount(v: BattleView, seat: string): number {
-  if (seat === ENEMY_SEAT) return v.enemy.deckCount;
   return v.players.find((p) => p.id === seat)?.deck.length ?? 0;
 }
 
@@ -28,93 +27,51 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
   const v = s.view;
   const side = (x: "party" | "enemy") => (x === "party" ? v.party : v.enemy);
   switch (ev.type) {
-    case "sparkLocked":
-      v.locked = ev.spark;
-      break;
     case "roundStart":
+      // The finished board goes to its owners' discard piles.
+      for (const node of v.board.nodes) v.players.find((p) => p.id === node.owner)?.discard.push(node.domino);
       v.round = ev.round;
-      v.chain = { ...v.chain, strength: 0, lap: 1, sparks: [], played: [] };
+      v.lead = ev.lead;
+      v.seat = ev.lead;
+      v.board = { nodes: [], ends: [] };
+      v.passes = 0;
+      v.locked = null;
+      s.lit.clear();
+      s.fizzled.clear();
       break;
-    case "draw":
-      if (ev.seat === ENEMY_SEAT) {
-        for (let i = 0; i < ev.count; i++) {
-          v.enemy.hand.push({ revealed: false });
-          s.enemyIds.push("");
-        }
-      } else {
-        const p = v.players.find((q) => q.id === ev.seat);
-        p?.hand.push(...(ev.dominoes ?? []));
-        p?.deck.splice(0, ev.count);
-      }
-      if (ev.seat === ENEMY_SEAT) v.enemy.deckCount -= ev.count;
+    case "intent":
+      v.intent = ev.intent;
       break;
-    case "enemyDiscard":
-      v.enemy.hand.shift();
-      s.enemyIds.shift();
-      v.enemy.discard.push(ev.domino);
-      v.enemy.faceUp.push(ev.domino);
+    case "draw": {
+      const p = v.players.find((q) => q.id === ev.player);
+      p?.hand.push(...ev.dominoes);
+      p?.deck.splice(0, ev.count);
       break;
+    }
     case "reshuffle": {
       // Only the counts matter on screen: the discard pile becomes the deck.
-      if (ev.seat === ENEMY_SEAT) {
-        v.enemy.deckCount += v.enemy.discard.length;
-        v.enemy.discard = [];
-        v.enemy.faceUp = [];
-      } else {
-        const p = v.players.find((q) => q.id === ev.seat);
-        if (p) {
-          p.deck = p.deck.concat(p.discard);
-          p.discard = [];
-        }
+      const p = v.players.find((q) => q.id === ev.player);
+      if (p) {
+        p.deck = p.deck.concat(p.discard);
+        p.discard = [];
       }
       break;
     }
-    case "opener": {
+    case "play": {
       const player = v.players.find((p) => p.id === ev.player);
-      if (player) {
-        removeOne(player.hand, ev.domino);
-        player.discard.push(ev.domino);
+      const d = v.dominoes.find((x) => x.id === ev.domino);
+      if (player) removeOne(player.hand, ev.domino);
+      if (d) {
+        v.board.nodes.push({ id: ev.node, domino: ev.domino, owner: ev.player, end: ev.end, depth: ev.depth });
+        outputsOf(v, ev.player, d).forEach((spark, index) => v.board.ends.push({ id: v.board.ends.length, node: ev.node, index, spark }));
       }
-      v.chain.played.push({ seat: ev.player, domino: ev.domino });
-      v.chain.sparks = ev.sparks.slice();
       break;
     }
-    case "pass":
-      v.chain.sparks = ev.sparks.slice();
+    case "nodeLit":
+      s.lit.add(ev.node);
       break;
-    case "lapUp":
-      v.chain.lap = ev.lap;
-      break;
-    case "play":
-      v.chain.strength = ev.strength;
-      v.chain.lap = ev.lap;
-      v.chain.played.push({ seat: ev.seat, domino: ev.domino });
-      if (ev.seat === ENEMY_SEAT) {
-        let i = s.enemyIds.indexOf(ev.domino);
-        // Online, a hidden domino has no id here: take the first hidden slot (the redraw after the
-        // step puts the real hand back).
-        if (i < 0) i = v.enemy.hand.findIndex((slot) => !slot.revealed);
-        if (i >= 0) {
-          v.enemy.hand.splice(i, 1);
-          s.enemyIds.splice(i, 1);
-        }
-        v.enemy.discard.push(ev.domino);
-        v.enemy.faceUp.push(ev.domino);
-      } else {
-        const player = v.players.find((p) => p.id === ev.seat);
-        if (player) {
-          removeOne(player.hand, ev.domino);
-          player.discard.push(ev.domino);
-        }
-      }
-      break;
-    case "amplify":
-      v.chain.strength = ev.strength;
-      break;
-    case "reveal":
-      for (const p of ev.positions) {
-        if (s.enemyIds[p]) v.enemy.hand[p] = { revealed: true, domino: s.enemyIds[p] };
-      }
+    case "fizzle":
+      s.fizzled.add(ev.end);
       break;
     case "damage": {
       const t = side(ev.side);
@@ -125,20 +82,18 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
     case "block":
       side(ev.side).block += ev.amount;
       break;
-    case "heal":
-      side(ev.side).health += ev.amount;
+    case "coinsGained": {
+      const p = v.players.find((q) => q.id === ev.player);
+      if (p) p.coins += ev.amount;
       break;
-    case "hoarder":
-      break; // its block arrives as an ordinary block event
-    case "glutton":
-      v.enemy.health += ev.heal;
+    }
+    case "passive":
+      if (ev.passive === "warden") v.locked = ev.spark ?? null;
+      else if (ev.passive === "glutton") v.enemy.health += ev.amount ?? 0;
+      else if (ev.passive === "longNight") for (const a of v.intent.actions) if (a.kind === "attack") a.value += ev.amount ?? 0;
       break;
     case "blockReset":
-      v.party.block = 0;
-      v.enemy.block = 0;
-      break;
-    case "chainEnd":
-      v.chain = { ...v.chain, strength: 0, lap: 1, sparks: [], played: [] };
+      side(ev.side).block = 0;
       break;
     default:
       break;

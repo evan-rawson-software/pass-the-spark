@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import type { PlayPreview } from "../engine/battle";
-import type { Domino, Effect } from "../engine/types";
+import type { Domino } from "../engine/types";
 import { coinLine, coinParts, hasCoins } from "./coinIcon";
 
 // Domino tooltips. No rules here: it formats the domino's static data and, for a
@@ -11,21 +11,18 @@ const WIDTH = 440;
 const PAD = 16;
 const SCREEN = { w: 1920, h: 1080 };
 
-const KIND_NAME: Record<Effect["kind"], string> = {
-  damage: "Damage",
-  block: "Block",
-  heal: "Heal",
-  amplify: "Amplify",
-  echo: "Echo",
-  mimic: "Mimic",
-  reflect: "Reflect",
-  lookout: "Lookout",
-};
+const KIND_NAME = { amplifier: "Amplifier", junction: "Junction", cap: "Cap" };
+const EFFECT_NAME = { damage: "Damage", block: "Block", coins: "Coins" };
 
-function effectText(e: Effect): string {
-  if (e.kind === "amplify") return `Amplify +${e.base ?? 0}`;
-  if (e.base !== undefined) return `${KIND_NAME[e.kind]} ${e.base}`;
-  return KIND_NAME[e.kind];
+function effectText(d: Domino): string {
+  if (d.kind === "junction") return "Splits the path: both branches carry the full charge";
+  if (d.kind === "cap" && d.effect) return `${EFFECT_NAME[d.effect.kind]} ${d.effect.base} × charge`;
+  if (!d.amp) return "";
+  const v = d.amp.value;
+  if (d.amp.op === "add") return `Boost: charge +${v}`;
+  if (d.amp.op === "mul") return `Double: charge ×${v}`;
+  if (d.amp.op === "echo") return `Echo: caps further along go off ${v} more time${v === 1 ? "" : "s"}`;
+  return `Spectrum: charge +${v} per different spark on the path`;
 }
 
 export interface TipLine {
@@ -33,46 +30,34 @@ export interface TipLine {
   style?: "title" | "head" | "dim";
 }
 
-// The preview of one option, as lines.
-function previewLines(domino: Domino, p: PlayPreview): string[] {
-  if (p.opener) return ["Opener: starts the chain. Its effect does not trigger."];
-  const lines: string[] = [];
-  const e = p.effect?.effect;
-  if (!e) {
-    lines.push("Nothing to copy yet.");
-  } else {
-    const copied = domino.effect.kind === "mimic" || domino.effect.kind === "reflect";
-    const times = p.triggers > 1 ? ` × ${p.triggers}` : "";
-    let what: string;
-    if (e.kind === "damage" || e.kind === "block" || e.kind === "heal") what = `${KIND_NAME[e.kind]} ${p.value}${times}`;
-    else if (e.kind === "amplify") what = `Amplify +${p.value}${times}`;
-    else if (e.kind === "lookout") what = `Lookout: reveals ${p.lookoutReveals}`;
-    else what = `${KIND_NAME[e.kind]}${times}`;
-    lines.push((copied ? "Copies " : "") + what);
-    if (e.kind === "damage" || e.kind === "block" || e.kind === "heal") lines.push(`at strength ${p.strength}, lap ${p.lap}`);
-    if (p.spectrumBonus > 0) lines.push(`Spectrum: +${p.spectrumBonus} strength`);
-  }
-  if (p.auditorDamage > 0) lines.push(`Auditor: party takes ${p.auditorDamage}`);
-  return lines;
+// One "if played now" result: where (the end's spark, or the opener) and what previewPlay says.
+export interface TipPreview {
+  where: string;
+  preview: PlayPreview;
 }
 
-// Everything the tooltip says. `previews` is previewPlay's result for a playable domino
+function previewText(domino: Domino, p: PlayPreview): string {
+  if (domino.kind !== "cap" || !domino.effect) return `charge becomes ${p.charge}`;
+  const times = p.triggers > 1 ? ` × ${p.triggers}` : "";
+  return `${EFFECT_NAME[domino.effect.kind]} ${p.value}${times} (charge ${p.charge})`;
+}
+
+// Everything the tooltip says. `previews` are previewPlay's results for a playable domino
 // in the active hand, or undefined.
-export function tipLines(domino: Domino, previews?: PlayPreview[], noLap = false): TipLine[] {
+export function tipLines(domino: Domino, previews?: TipPreview[]): TipLine[] {
   const lines: TipLine[] = [{ text: domino.name, style: "title" }];
+  lines.push({ text: KIND_NAME[domino.kind], style: "dim" });
   lines.push({ text: `Intake: ${domino.intake === "any" ? "any spark" : domino.intake.join(" or ")}` });
-  lines.push({ text: `Effect: ${effectText(domino.effect)}` });
-  lines.push({ text: `Output: ${domino.output.join(" or ")}` });
-  const flags: string[] = [];
-  if (domino.effect.spectrum) flags.push("spectrum");
-  if (domino.effect.ignoresBlock) flags.push("ignoresBlock");
-  if (flags.length > 0) lines.push({ text: `Flags: ${flags.join(", ")}`, style: "dim" });
-  if (noLap) lines.push({ text: "Does not scale with lap", style: "dim" });
+  lines.push({ text: effectText(domino) });
+  if (domino.output.length > 0) lines.push({ text: `Output: ${domino.output.join(" and ")}` });
+  if (domino.effect?.ignoresBlock) lines.push({ text: "Ignores block", style: "dim" });
   if (previews && previews.length > 0) {
     lines.push({ text: "If played now", style: "head" });
-    for (const p of previews) {
-      if (previews.length > 1 && p.spark) lines.push({ text: `Answering ${p.spark}:`, style: "dim" });
-      for (const t of previewLines(domino, p)) lines.push({ text: t });
+    const seen = new Set<string>();
+    for (const { where, preview } of previews) {
+      const text = `${where}: ${previewText(domino, preview)}`;
+      if (!seen.has(text)) lines.push({ text });
+      seen.add(text);
     }
   }
   return lines;
@@ -85,9 +70,9 @@ export class Tooltip {
 
   constructor(private scene: Phaser.Scene) {}
 
-  attach(target: Phaser.GameObjects.Container, domino: Domino, previews?: () => PlayPreview[], noLap = false): void {
+  attach(target: Phaser.GameObjects.Container, domino: Domino, previews?: () => TipPreview[]): void {
     target.setInteractive();
-    target.on("pointerover", (pointer: Phaser.Input.Pointer) => this.show(tipLines(domino, previews?.(), noLap), pointer));
+    target.on("pointerover", (pointer: Phaser.Input.Pointer) => this.show(tipLines(domino, previews?.()), pointer));
     target.on("pointermove", (pointer: Phaser.Input.Pointer) => this.move(pointer));
     target.on("pointerout", () => this.hide());
     target.on("destroy", () => this.hide());
