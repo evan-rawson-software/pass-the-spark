@@ -6,7 +6,7 @@ import { reducedFlashing } from "./comfort";
 import { playSound } from "./sound";
 import { EnemyReactions } from "./enemyReactions";
 import { hexColour, reactionData } from "./presentation";
-import { amplify, boardGlow, centre, charm, coins, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
+import { amplify, boardGlow, centre, charm, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
 import type { Tally } from "./spectacle";
 import { Projectiles, seatGlow } from "./projectiles";
 import { seatColour } from "./seatColours";
@@ -103,11 +103,11 @@ function boxOf(p: Pos): Box {
   return { x: p.x - (DW * p.k) / 2, y: p.y - (DH * p.k) / 2, w: DW * p.k, h: DH * p.k };
 }
 
-const CAP_COLOR = { damage: "#ff6a5f", block: "#9cc4ff", coins: "#ffd23f" };
-const CAP_SOUND = { damage: "effect:damage", block: "effect:block", coins: "coins" };
+const CAP_COLOR = { damage: "#ff6a5f", block: "#9cc4ff" };
+const CAP_SOUND = { damage: "effect:damage", block: "effect:block" };
 // Events that belong to the step already under way: what is still flying keeps flying. Any other
 // event waits for it to land first.
-const IN_STEP: GameEvent["type"][] = ["nodeLit", "capFired", "damage", "block", "coinsGained", "charm", "fizzle", "passive"];
+const IN_STEP: GameEvent["type"][] = ["nodeLit", "capFired", "damage", "block", "charm", "fizzle", "passive"];
 
 // ---- the animator ----
 
@@ -137,7 +137,7 @@ export class Animator {
   private biggest = 0;
   private tier = -1;
   private inCascade = false;
-  private tally: Tally = { damage: 0, block: 0, coins: 0 };
+  private tally: Tally = { damage: 0, block: 0 };
   private pile: Phaser.GameObjects.Text[] = []; // stacked numbers still on screen
   skipping = false; // the player skipped the cascade: slow motion is off and the fast-forward stays on
   private fx: Projectiles; // effects flying from the caps to their targets (#189)
@@ -145,6 +145,7 @@ export class Animator {
   // Scene time until which an animation is still in flight. A death waits for it (settle), so it
   // never lands before the hit that caused it. Animations that must be waited for call hold().
   private busyUntil = 0;
+  private pending = new Set<Promise<void>>(); // events held for a landing, still animating (a freeze, a lunge)
 
   constructor(private scene: Phaser.Scene) {
     this.fx = new Projectiles(scene, () => this.refs);
@@ -164,10 +165,17 @@ export class Animator {
     this.busyUntil = Math.max(this.busyUntil, this.scene.time.now + scaleTime(ms));
   }
 
-  // Waits for the shots in the air and for anything held.
-  private async settle(): Promise<void> {
+  // Waits for the shots in the air to land, then for the animations of the events they carried
+  // (a killing blow's freeze, the lunge), so the order is: land, react, then whatever comes next.
+  private async landedAll(): Promise<void> {
     await this.fx.landed();
     this.fx.reset();
+    while (this.pending.size > 0) await Promise.all([...this.pending]);
+  }
+
+  // Waits for the shots, their reactions and anything held.
+  private async settle(): Promise<void> {
+    await this.landedAll();
     const left = this.busyUntil - this.scene.time.now;
     if (left > 0) await new Promise<void>((resolve) => this.scene.time.delayedCall(left, resolve));
   }
@@ -195,21 +203,23 @@ export class Animator {
       await this.settle();
       if (ev.result === "won") await this.reactions.die();
     } else if (!IN_STEP.includes(ev.type)) {
-      // Shots in the air land before the next step starts.
-      await this.fx.landed();
-      this.fx.reset();
+      // Shots in the air land, and react, before the next step starts.
+      await this.landedAll();
     }
     // The cascade is over when the enemy's block resets (or the battle ends): tally it first.
     if (this.inCascade && (ev.type === "blockReset" || ev.type === "battleEnd")) {
       this.inCascade = false;
       const total = this.tally;
-      this.tally = { damage: 0, block: 0, coins: 0 };
+      this.tally = { damage: 0, block: 0 };
       await showTally(scene, total, this.litColor(), { x: 960, y: 520 });
     }
     // The table's numbers change on impact: an enemy damage or party block event waits for its shot.
     const kind = ev.type === "damage" && ev.side === "enemy" ? "damage" : ev.type === "block" && ev.side === "party" ? "block" : undefined;
     if (kind) {
-      this.fx.whenLanded(kind, () => void this.play(ev, shown, apply));
+      this.fx.whenLanded(kind, () => {
+        const done = this.play(ev, shown, apply).finally(() => this.pending.delete(done));
+        this.pending.add(done);
+      });
       return;
     }
     await this.play(ev, shown, apply);
@@ -261,7 +271,7 @@ export class Animator {
         floatText(scene, 960, 470, why, "#ffe14d", 48, 1000);
         this.resetHeat();
         this.inCascade = true;
-        this.tally = { damage: 0, block: 0, coins: 0 };
+        this.tally = { damage: 0, block: 0 };
         this.pile = [];
         // The whole tree swells with the charge it holds before it goes.
         const glow = boardGlow(shown.board.nodes.length, 0);
@@ -278,10 +288,7 @@ export class Animator {
         playSound(CAP_SOUND[ev.effect], 1 + this.tier * 3);
         if (node) {
           const at = centre(boxOf(node.pos));
-          if (ev.effect === "coins") {
-            // Coin caps are on their way out (#221): the old discs popping up at the cap.
-            for (let i = 0; i < Math.min(ev.triggers, 4); i++) scene.time.delayedCall(scaleTime(i * 110), () => coins(scene, at));
-          } else this.fx.cap({ ...ev, effect: ev.effect }, shown, at);
+          this.fx.cap(ev, shown, at);
           seatGlow(scene, at, DW * node.pos.k, seatColour(shown.seatOrder, ev.owner), true);
           const text = ev.triggers > 1 ? `${ev.value}×${ev.triggers}` : String(ev.value);
           floatText(scene, node.pos.x, node.pos.y, text, CAP_COLOR[ev.effect], Math.max(30, Math.round(60 * node.pos.k + 18 + this.tier * 6)), 1000);
@@ -369,10 +376,6 @@ export class Animator {
         this.tweenHealth(ev.side, before, after);
         break;
       }
-      case "coinsGained":
-        if (this.inCascade) this.tally.coins += ev.amount;
-        floatText(scene, 960, 600, `${ev.player}: +${ev.amount} coins`, "#ffd23f", 40, 1000);
-        break;
       case "passive": {
         const bar = refs.bars.get(ev.passive === "auditor" ? "party" : "enemy");
         if (ev.passive === "warden") floatText(scene, 960, 470, `Warden locks ${ev.spark}`, "#ff8a8a", 40, 1100);
