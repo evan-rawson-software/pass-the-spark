@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound Spike Picker</title>
+<style>
+:root {
+  --bg: #121417; --panel: #1b1e23; --panel2: #23272e; --ink: #eceae4; --muted: #a7abb3; --line: #2c3139;
+  --gold: #ffd54a; --pick: #3fbf62; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 28px 16px 64px; display: grid; gap: 20px; }
+h1 { margin: 0; font-size: 1.8rem; color: var(--gold); }
+h2 { margin: 0 0 4px; font-size: 1.25rem; }
+p { margin: 0; max-width: 72ch; }
+.muted { color: var(--muted); }
+.bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+.need { color: var(--muted); font-size: .92rem; }
+.row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.row.picked { border-color: var(--pick); box-shadow: 0 0 0 1px var(--pick) inset; }
+.name { font-weight: 600; }
+.meta { color: var(--muted); font-size: .85rem; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+button { font: 600 14px system-ui, sans-serif; border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer; background: var(--gold); color: #22201c; }
+button.alt { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+button.pick { background: transparent; color: var(--pick); border: 1px solid var(--pick); }
+.row.picked button.pick { background: var(--pick); color: #0d1a10; }
+button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+details { grid-column: 2 / 4; font-size: .88rem; color: var(--muted); }
+details ul { margin: 6px 0 0; padding-left: 18px; }
+summary { cursor: pointer; }
+textarea { width: 100%; min-height: 110px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 13px ui-monospace, Consolas, monospace; }
+@media (max-width: 640px) {
+  .row { grid-template-columns: 1fr; }
+  .btns { justify-content: flex-start; }
+  details { grid-column: 1; }
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header style="display:grid;gap:8px">
+    <h1>Sound spike picker</h1>
+    <p class="muted">Issue #244. Every candidate is matched to the same loudness (−14 LUFS, loudest 400 ms) so the loudest doesn't win by default. "Current" is what the game plays today. Use headphones or decent speakers, and turn on blind mode to hide which method made what.</p>
+    <div class="bar">
+      <label><input type="checkbox" id="blind"> Blind mode</label>
+      <label>Volume <input type="range" id="vol" min="0" max="1" step="0.05" value="0.8"></label>
+      <button class="alt" id="stop">Stop all</button>
+    </div>
+  </header>
+  <div id="cues"></div>
+  <section>
+    <h2>Not tested</h2>
+    <p class="need">These methods need an account, which was skipped this session: <b>Stable Audio Open</b> (local AI; the Hugging Face model is gated behind accepting its licence), <b>Freesound CC0</b> (needs an API key), <b>ElevenLabs</b> (needs a free-tier sign-up) and the <b>Sonniss GDC bundle</b> (20–30 GB and blocks scripts). The report says what each would take.</p>
+  </section>
+  <section>
+    <h2>Your picks</h2>
+    <p class="muted">Press "Pick" on your favourite for each cue, then copy this and send it back.</p>
+    <textarea id="out" readonly></textarea>
+    <div class="bar"><button id="copy">Copy</button></div>
+  </section>
+</main>
+<script>
+const DATA = __DATA__;
+const CUES = [
+  ["combo-hit", "combo:hit", "Bright, punchy, satisfying. Plays up to 15 times in a row, climbing the pentatonic scale."],
+  ["combo-tier3", "combo:tier3", "An exciting rising stinger: \"Inferno!\""],
+  ["combo-slam", "combo:slam", "A huge, deep impact with weight."],
+  ["combo-fanfareLethal", "combo:fanfareLethal", "The biggest reward in the game: 2–3 s, triumphant, sparkling."],
+];
+const METHOD = { current: "Current game sound", jsfxr: "jsfxr", library: "CC0 library" };
+const PENTA = [0, 2, 4, 7, 9];
+const step = (i) => PENTA[i % 5] + 12 * Math.floor(i / 5);
+const $ = (id) => document.getElementById(id);
+let playing = [], timers = [];
+let picks = {};
+try { picks = JSON.parse(localStorage.getItem("spikePicks") || "{}"); } catch (e) {}
+
+function stopAll() { playing.forEach((a) => a.pause()); playing = []; timers.forEach(clearTimeout); timers = []; }
+function play(file, semis = 0) {
+  const a = new Audio(file);
+  a.preservesPitch = false; a.mozPreservesPitch = false; a.webkitPreservesPitch = false;
+  a.playbackRate = Math.pow(2, semis / 12);
+  a.volume = +$("vol").value;
+  a.play(); playing.push(a);
+  a.onended = () => { playing = playing.filter((x) => x !== a); };
+}
+function run(file, n) {
+  stopAll();
+  // the demo's gap: starts at 380 ms and tightens by 22 ms per hit, never under 170 ms
+  let t = 0;
+  for (let i = 0; i < n; i++) {
+    timers.push(setTimeout(() => play(file, step(Math.min(i, 14))), t));
+    t += Math.max(170, 380 - i * 22);
+  }
+}
+function label(c, idx) { return $("blind").checked ? `Candidate ${String.fromCharCode(65 + idx)}` : `${METHOD[c.method]} ${c.method === "current" ? "" : c.n}`; }
+
+function render() {
+  const box = $("cues"); box.innerHTML = "";
+  for (const [key, name, want] of CUES) {
+    let list = DATA.filter((c) => c.cue === key);
+    if ($("blind").checked) list = list.map((c) => [c, (c.file.length * 7 + c.n * 13) % 97]).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
+    const sec = document.createElement("section");
+    sec.innerHTML = `<div><h2>${name}</h2><p class="muted">${want}</p></div>`;
+    list.forEach((c, i) => {
+      const row = document.createElement("div");
+      row.className = "row" + (picks[key] === c.file ? " picked" : "");
+      const hit = key === "combo-hit";
+      row.innerHTML = `
+        <button data-a="play" aria-label="Play">▶</button>
+        <div><div class="name">${label(c, i)}</div><div class="meta">${c.seconds} s</div></div>
+        <div class="btns">
+          ${hit ? '<button class="alt" data-a="run8">Run ×8</button><button class="alt" data-a="run15">×15</button><button class="alt" data-a="up12">+12</button>' : ""}
+          <button class="pick" data-a="pick">Pick</button>
+        </div>
+        <details><summary>How it was made</summary><ul>${c.steps.map((s) => `<li>${s}</li>`).join("")}${c.sources.map((s) => `<li>Source: ${s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:var(--gold)">$1</a>').replace(/`([^`]+)`/g, "<code>$1</code>")}</li>`).join("")}</ul></details>`;
+      if ($("blind").checked) row.querySelector("details").hidden = true;
+      row.addEventListener("click", (e) => {
+        const a = e.target.dataset.a; if (!a) return;
+        if (a === "play") { stopAll(); play(c.file); }
+        if (a === "run8") run(c.file, 8);
+        if (a === "run15") run(c.file, 15);
+        if (a === "up12") { stopAll(); play(c.file, 12); }
+        if (a === "pick") { picks[key] = c.file; try { localStorage.setItem("spikePicks", JSON.stringify(picks)); } catch (err) {} render(); }
+      });
+      sec.appendChild(row);
+    });
+    box.appendChild(sec);
+  }
+  $("out").value = CUES.map(([k, n]) => `${n}: ${picks[k] ? picks[k].replace(".ogg", "") : "(none yet)"}`).join("\n");
+}
+$("blind").addEventListener("change", render);
+$("stop").addEventListener("click", stopAll);
+$("copy").addEventListener("click", () => { $("out").select(); navigator.clipboard?.writeText($("out").value); });
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,484 @@
+[
+ {
+  "method": "jsfxr",
+  "cue": "combo-hit",
+  "n": 1,
+  "file": "jsfxr/combo-hit_1.ogg",
+  "seconds": 0.4,
+  "lufs": -14.0,
+  "peak_db": -2.0,
+  "steps": [
+   "jsfxr square 'coin' blip at C6 with punch and an upward arpeggio jump",
+   "layered with a short high-passed jsfxr noise click (-9 dB)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "jsfxr",
+  "cue": "combo-hit",
+  "n": 2,
+  "file": "jsfxr/combo-hit_2.ogg",
+  "seconds": 0.21,
+  "lufs": -14.1,
+  "peak_db": -1.2,
+  "steps": [
+   "jsfxr narrow square that snaps down a fifth onto C6",
+   "layered with a sine thump (260 Hz falling, -4 dB) and a noise click (-10 dB)",
+   "compressed (4:1 at -16 dB)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "jsfxr",
+  "cue": "combo-hit",
+  "n": 3,
+  "file": "jsfxr/combo-hit_3.ogg",
+  "seconds": 0.54,
+  "lufs": -14.0,
+  "peak_db": -2.1,
+  "steps": [
+   "jsfxr saw at C6 with a closing low-pass, plus a sine an octave up (-3 dB) for a bell-like top",
+   "a noise click (-12 dB)",
+   "short room reverb (0.5 s, 18 % wet)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "jsfxr",
+  "cue": "combo-tier3",
+  "n": 1,
+  "file": "jsfxr/combo-tier3_1.ogg",
+  "seconds": 1.41,
+  "lufs": -14.3,
+  "peak_db": -6.6,
+  "steps": [
+   "seven jsfxr square notes running up the pentatonic scale 55 ms apart, the last held with vibrato",
+   "a rising jsfxr noise whoosh under it (-8 dB)",
+   "room reverb (0.9 s, 22 % wet)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "jsfxr",
+  "cue": "combo-tier3",
+  "n": 2,
+  "file": "jsfxr/combo-tier3_2.ogg",
+  "seconds": 1.08,
+  "lufs": -14.1,
+  "peak_db": -3.0,
+  "steps": [
+   "jsfxr 'power-up' staircase (square, rising slide with repeat)",
+   "doubled an octave up with a filtered saw (-6 dB)",
+   "a noise crash on the top step (-6 dB)",
+   "reverb (0.8 s, 20 %), compressed 3:1",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "jsfxr",
+  "cue": "combo-tier3",
+  "n": 3,
+  "file": "jsfxr/combo-tier3_3.ogg",
+  "seconds": 1.6,
+  "lufs": -14.0,
+  "peak_db": -3.1,
+  "steps": [
+   "seven jsfxr saw notes arpeggiating a C major chord up two octaves, 60 ms apart, with jsfxr's flanger",
+   "high shelf +3 dB at 3 kHz",
+   "reverb (1.1 s, 28 % wet)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "jsfxr",
+  "cue": "combo-slam",
+  "n": 1,
+  "file": "jsfxr/combo-slam_1.ogg",
+  "seconds": 1.81,
+  "lufs": -14.2,
+  "peak_db": -2.6,
+  "steps": [
+   "jsfxr noise explosion with punch",
+   "a sine sub dropping 140 \u2192 34 Hz",
+   "a square crunch (-6 dB)",
+   "soft-clip saturation (+6 dB drive), compressed 5:1",
+   "reverb (1.4 s, 20 %)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "jsfxr",
+  "cue": "combo-slam",
+  "n": 2,
+  "file": "jsfxr/combo-slam_2.ogg",
+  "seconds": 1.55,
+  "lufs": -14.1,
+  "peak_db": -2.7,
+  "steps": [
+   "two jsfxr noise explosions stacked (low and filtered, plus a short mid crack at -3 dB)",
+   "a filtered saw dropping 110 \u2192 30 Hz (-2 dB)",
+   "soft-clip (+4 dB), compressed 4:1",
+   "low shelf +4 dB at 120 Hz",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "jsfxr",
+  "cue": "combo-slam",
+  "n": 3,
+  "file": "jsfxr/combo-slam_3.ogg",
+  "seconds": 2.77,
+  "lufs": -14.2,
+  "peak_db": -1.0,
+  "steps": [
+   "jsfxr 'bomb': noise explosion with a sweeping flanger and closing low-pass",
+   "a sine drop 90 \u2192 30 Hz (-1 dB)",
+   "a bright noise snap on the front (-2 dB)",
+   "compressed 4:1",
+   "long reverb (2 s, 30 %) for size",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "jsfxr",
+  "cue": "combo-fanfareLethal",
+  "n": 1,
+  "file": "jsfxr/combo-fanfareLethal_1.ogg",
+  "seconds": 3.04,
+  "lufs": -14.1,
+  "peak_db": -3.2,
+  "steps": [
+   "a fast jsfxr square run up the pentatonic scale (10 notes, 45 ms apart)",
+   "then a held C major chord: four jsfxr saw/square notes plus a slightly detuned saw copy of each for width, with vibrato",
+   "14 jsfxr coin sparkles scattered over the chord (-10 to -16 dB)",
+   "compressed 3:1",
+   "reverb (1.6 s, 25 %)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "jsfxr",
+  "cue": "combo-fanfareLethal",
+  "n": 2,
+  "file": "jsfxr/combo-fanfareLethal_2.ogg",
+  "seconds": 3.35,
+  "lufs": -14.1,
+  "peak_db": -3.0,
+  "steps": [
+   "three short jsfxr saw chord stabs (G major), then a held C major chord with an octave-up square layer (-9 dB) and vibrato",
+   "18 jsfxr sparkles over the hold",
+   "high shelf +2 dB at 4 kHz, compressed 3:1",
+   "reverb (1.8 s, 28 %)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "jsfxr",
+  "cue": "combo-fanfareLethal",
+  "n": 3,
+  "file": "jsfxr/combo-fanfareLethal_3.ogg",
+  "seconds": 3.2,
+  "lufs": -14.1,
+  "peak_db": -3.2,
+  "steps": [
+   "four rolled jsfxr chords climbing I\u2013IV\u2013V\u2013I (C, F, G, high C), 240 ms apart; the last one held with vibrato",
+   "16 jsfxr sparkles over the last chord",
+   "compressed 3:1",
+   "reverb (1.6 s, 25 %)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": []
+ },
+ {
+  "method": "library",
+  "cue": "combo-hit",
+  "n": 1,
+  "file": "library/combo-hit_1.ogg",
+  "seconds": 0.19,
+  "lufs": -14.5,
+  "peak_db": -0.7,
+  "steps": [
+   "trimmed to 250 ms with a fade",
+   "high shelf +3 dB at 3 kHz for brightness",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`hit_01.ogg` from [100 CC0 SFX by rubberduck](https://opengameart.org/content/100-cc0-sfx) (OpenGameArt, CC0)"
+  ]
+ },
+ {
+  "method": "library",
+  "cue": "combo-hit",
+  "n": 2,
+  "file": "library/combo-hit_2.ogg",
+  "seconds": 0.28,
+  "lufs": -14.0,
+  "peak_db": -1.9,
+  "steps": [
+   "retro coin blip trimmed to 300 ms",
+   "layered with a Kenney light impact for the punch (-6 dB)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`retro_coin_02.ogg` from [50 CC0 retro / synth SFX by rubberduck](https://opengameart.org/content/50-cc0-retro-synth-sfx) (OpenGameArt, CC0)",
+   "`impactGeneric_light_000.ogg` from [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) (Kenney, CC0)"
+  ]
+ },
+ {
+  "method": "library",
+  "cue": "combo-hit",
+  "n": 3,
+  "file": "library/combo-hit_3.ogg",
+  "seconds": 0.38,
+  "lufs": -14.0,
+  "peak_db": -2.0,
+  "steps": [
+   "point bell trimmed to 400 ms",
+   "a Kenney punch, high-passed at 200 Hz, under it (-8 dB)",
+   "compressed 4:1",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`point_bell.wav` from [Point bell by haeldb](https://opengameart.org/content/point-bell) (OpenGameArt, CC0 (dual CC0 / OGA-BY 3.0; used under CC0))",
+   "`impactPunch_medium_000.ogg` from [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) (Kenney, CC0)"
+  ]
+ },
+ {
+  "method": "library",
+  "cue": "combo-tier3",
+  "n": 1,
+  "file": "library/combo-tier3_1.ogg",
+  "seconds": 0.88,
+  "lufs": -14.1,
+  "peak_db": -5.2,
+  "steps": [
+   "used as is",
+   "reverb (0.8 s, 20 %) for size",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`power_up_04.ogg` from [50 CC0 retro / synth SFX by rubberduck](https://opengameart.org/content/50-cc0-retro-synth-sfx) (OpenGameArt, CC0)"
+  ]
+ },
+ {
+  "method": "library",
+  "cue": "combo-tier3",
+  "n": 2,
+  "file": "library/combo-tier3_2.ogg",
+  "seconds": 1.27,
+  "lufs": -14.0,
+  "peak_db": -5.0,
+  "steps": [
+   "trimmed to 1.4 s with a 400 ms fade",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`Rise06.aif` from [Level up, power up, Coin get by wobbleboxx](https://opengameart.org/content/level-up-power-up-coin-get-13-sounds) (OpenGameArt, CC0)"
+  ]
+ },
+ {
+  "method": "library",
+  "cue": "combo-tier3",
+  "n": 3,
+  "file": "library/combo-tier3_3.ogg",
+  "seconds": 1.1,
+  "lufs": -14.0,
+  "peak_db": -7.8,
+  "steps": [
+   "retro power-up",
+   "a bell hit on the top at 350 ms (-4 dB)",
+   "reverb (1 s, 22 %)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`power_up_01.ogg` from [50 CC0 retro / synth SFX by rubberduck](https://opengameart.org/content/50-cc0-retro-synth-sfx) (OpenGameArt, CC0)",
+   "`bell_02.ogg` from [100 CC0 SFX by rubberduck](https://opengameart.org/content/100-cc0-sfx) (OpenGameArt, CC0)"
+  ]
+ },
+ {
+  "method": "library",
+  "cue": "combo-slam",
+  "n": 1,
+  "file": "library/combo-slam_1.ogg",
+  "seconds": 1.1,
+  "lufs": -14.1,
+  "peak_db": -2.3,
+  "steps": [
+   "synthesized explosion",
+   "a Kenney heavy punch on the front for the hit (-3 dB)",
+   "compressed 4:1",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`synthetic_explosion_1.flac` from [Synthesized explosion by qubodup](https://opengameart.org/content/synthesized-explosion) (OpenGameArt, CC0)",
+   "`impactPunch_heavy_002.ogg` from [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) (Kenney, CC0)"
+  ]
+ },
+ {
+  "method": "library",
+  "cue": "combo-slam",
+  "n": 2,
+  "file": "library/combo-slam_2.ogg",
+  "seconds": 1.98,
+  "lufs": -14.0,
+  "peak_db": -1.8,
+  "steps": [
+   "muffled explosion trimmed to 2.2 s",
+   "a Kenney mining impact (-4 dB) and a door slam (-6 dB) on the front",
+   "compressed 4:1, low shelf +3 dB at 100 Hz",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`muffled.wav` from [Muffled Distant Explosion by NenadSimic](https://opengameart.org/content/muffled-distant-explosion) (OpenGameArt, CC0)",
+   "`impactMining_004.ogg` from [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) (Kenney, CC0)",
+   "`slam_03.ogg` from [100 CC0 SFX by rubberduck](https://opengameart.org/content/100-cc0-sfx) (OpenGameArt, CC0)"
+  ]
+ },
+ {
+  "method": "library",
+  "cue": "combo-slam",
+  "n": 3,
+  "file": "library/combo-slam_3.ogg",
+  "seconds": 1.37,
+  "lufs": -14.1,
+  "peak_db": -2.5,
+  "steps": [
+   "retro explosion",
+   "a gong, low-passed at 2.5 kHz, for a ringing tail (-6 dB)",
+   "a Kenney heavy punch on the front (-2 dB)",
+   "compressed 4:1",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`retro_explosion_05.ogg` from [50 CC0 retro / synth SFX by rubberduck](https://opengameart.org/content/50-cc0-retro-synth-sfx) (OpenGameArt, CC0)",
+   "`gong_01.ogg` from [100 CC0 SFX by rubberduck](https://opengameart.org/content/100-cc0-sfx) (OpenGameArt, CC0)",
+   "`impactPunch_heavy_000.ogg` from [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) (Kenney, CC0)"
+  ]
+ },
+ {
+  "method": "library",
+  "cue": "combo-fanfareLethal",
+  "n": 1,
+  "file": "library/combo-fanfareLethal_1.ogg",
+  "seconds": 3.09,
+  "lufs": -14.2,
+  "peak_db": -3.6,
+  "steps": [
+   "used as is (3.1 s)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`life.wav` from [8bit fanfare jingle \"The Lick\" by haley-halcyon](https://opengameart.org/content/8bit-fanfare-jingle-the-lick) (OpenGameArt, CC0)"
+  ]
+ },
+ {
+  "method": "library",
+  "cue": "combo-fanfareLethal",
+  "n": 2,
+  "file": "library/combo-fanfareLethal_2.ogg",
+  "seconds": 2.34,
+  "lufs": -14.0,
+  "peak_db": -2.5,
+  "steps": [
+   "leading silence trimmed",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`fanfare_3.ogg` from [Classic fanfare lick by fvcalderan](https://opengameart.org/content/classic-fanfare-lick) (OpenGameArt, CC0)"
+  ]
+ },
+ {
+  "method": "library",
+  "cue": "combo-fanfareLethal",
+  "n": 3,
+  "file": "library/combo-fanfareLethal_3.ogg",
+  "seconds": 1.97,
+  "lufs": -14.0,
+  "peak_db": -6.5,
+  "steps": [
+   "victory jingle",
+   "a bright bell shimmer from 0.5 s (-6 dB), for sparkle",
+   "reverb (1.2 s, 20 %)",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`win-176035.mp3` from [Victory by musheran](https://opengameart.org/content/victory-6) (OpenGameArt, CC0)",
+   "`bell_03.ogg` from [100 CC0 SFX by rubberduck](https://opengameart.org/content/100-cc0-sfx) (OpenGameArt, CC0)"
+  ]
+ },
+ {
+  "method": "current",
+  "cue": "combo-hit",
+  "n": 1,
+  "file": "current/combo-hit_1.ogg",
+  "seconds": 0.34,
+  "lufs": -14.0,
+  "peak_db": -1.0,
+  "steps": [
+   "the clip the game uses today, loudness-matched only",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`public/audio/generated/hit_chip.ogg` (generated for the game)"
+  ]
+ },
+ {
+  "method": "current",
+  "cue": "combo-tier3",
+  "n": 1,
+  "file": "current/combo-tier3_1.ogg",
+  "seconds": 0.9,
+  "lufs": -14.0,
+  "peak_db": -4.3,
+  "steps": [
+   "the clip the game uses today, loudness-matched only",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`public/audio/generated/tier3_chip.ogg` (generated for the game)"
+  ]
+ },
+ {
+  "method": "current",
+  "cue": "combo-slam",
+  "n": 1,
+  "file": "current/combo-slam_1.ogg",
+  "seconds": 1.58,
+  "lufs": -14.0,
+  "peak_db": -1.9,
+  "steps": [
+   "the clip the game uses today, loudness-matched only",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`public/audio/generated/slam_boom.ogg` (generated for the game)"
+  ]
+ },
+ {
+  "method": "current",
+  "cue": "combo-fanfareLethal",
+  "n": 1,
+  "file": "current/combo-fanfareLethal_1.ogg",
+  "seconds": 4.28,
+  "lufs": -14.1,
+  "peak_db": -5.5,
+  "steps": [
+   "the clip the game uses today, loudness-matched only",
+   "DC removed, silence trimmed, matched to -14 LUFS (max momentary), peaks limited to -1.5 dBFS"
+  ],
+  "sources": [
+   "`public/audio/generated/fanfareLethal_bells.ogg` (generated for the game)"
+  ]
+ }
+]
