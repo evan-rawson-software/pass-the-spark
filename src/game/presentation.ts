@@ -17,3 +17,6 @@ export const reactionData = presentation.enemyReactions;
 export const speedControlData = presentation.speedControl;
 
 export const setOffPreviewData = presentation.setOffPreview;
+
+export const fuseBoardData = presentation.fuseBoard;
+export const handFanData = presentation.handFan;
