@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import presentationJson from "../../data/presentation.json";
 import { artImage } from "./art";
+import { reducedFlashing, shakeEnabled } from "./comfort";
 import { scaleTime } from "./playbackSpeed";
 import { playSound } from "./sound";
 
@@ -83,7 +84,7 @@ export function flow(scene: Phaser.Scene, pts: Point[], color: number, size: num
   if (pts.length < 2) return;
   const lens = pts.slice(1).map((p, i) => Math.hypot(p.x - pts[i].x, p.y - pts[i].y));
   const total = lens.reduce((a, b) => a + b, 0);
-  const n = 1 + Math.min(Math.max(tier, 0), 3);
+  const n = reducedFlashing() ? 1 : 1 + Math.min(Math.max(tier, 0), 3);
   for (let i = 0; i < n; i++) {
     const s = dot(scene, pts[0], size * (1 - i * 0.18), color).setAlpha(0);
     scene.tweens.addCounter({
@@ -249,7 +250,7 @@ export function charm(scene: Phaser.Scene, at: Point): void {
 // A junction splits the glow: a ring spreads from it as the two branches' flows leave.
 export function split(scene: Phaser.Scene, at: Point, color: number): void {
   ring(scene, at, color, 70, 1.8, P.effects.ms);
-  ring(scene, at, 0xffffff, 40, 2.2, P.effects.ms - 100);
+  if (!reducedFlashing()) ring(scene, at, 0xffffff, 40, 2.2, P.effects.ms - 100);
 }
 
 // An open end the cascade leaves uncapped: a few sparks flicker and drop.
@@ -266,11 +267,13 @@ export function sputter(scene: Phaser.Scene, at: Point): void {
 // ---- big moments ----
 
 export function shake(scene: Phaser.Scene, tier: number): void {
+  if (!shakeEnabled()) return;
   scene.cameras.main.shake(scaleTime(P.shake.ms), P.shake.intensity + P.shake.perTier * Math.max(tier, 0));
 }
 
 // Jagged bolts from one node to others. (Phaser's own random: looks only.)
 export function lightning(scene: Phaser.Scene, a: Point, targets: Point[]): void {
+  if (reducedFlashing()) return; // bright flickering bolts: skipped with reduced flashing
   for (const b of targets) {
     const pts = [a];
     for (let i = 1; i < 7; i++) {

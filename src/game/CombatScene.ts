@@ -25,6 +25,7 @@ import { charmWithTip, charmsByIds } from "./charmUi";
 import { drawPadlock, drawPassiveIcon } from "./passiveIcon";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
+import { setSoundHushed } from "./sound";
 import { PingMarks, attachHold, pingKey } from "./ping";
 import { devSettings, enemies, startBattle } from "./devBattle";
 import type { GameSettings } from "./devBattle";
@@ -32,7 +33,7 @@ import { eventDelay, newLogMemory, trackEvent } from "./eventLog";
 import { debugPanel } from "./DebugPanel";
 import type { DebugHost } from "./DebugPanel";
 import { SPEEDS, getPlaybackSpeed, onPlaybackSpeedChange, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
-import { Animator, animTime, newRefs, paintBar } from "./animations";
+import { Animator, SKIP_SPEED, animTime, newRefs, paintBar } from "./animations";
 import { boardGlow } from "./spectacle";
 import { applyEvent, startShown } from "./shownView";
 import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
@@ -120,6 +121,9 @@ export class CombatScene extends Phaser.Scene {
   private totalLabels: Phaser.GameObjects.Text[] = [];
   private totalsTween?: Phaser.Tweens.Tween;
   private shown: ShownTable | null = null; // the table part-way through a step; null when idle
+  private inCascade = false; // a cascade is playing on this screen: a click or Space may skip it
+  private skipping = false; // this player skipped it: the rest of the step is applied at once
+  private skipHint?: Phaser.GameObjects.Text;
   private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
   private inRun = false; // single player inside a run
   private fromQuery = false; // the setup came from the dev query params
@@ -158,6 +162,15 @@ export class CombatScene extends Phaser.Scene {
     this.dragMoved = false;
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => this.onDragMove(p));
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => this.onDragEnd(p));
+    // A click on empty table or Space skips the cascade being played, on this screen only.
+    this.input.on("pointerdown", (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+      if (over.length === 0) this.skipCascade();
+    });
+    this.input.keyboard?.on("keydown-SPACE", () => this.skipCascade());
+    this.inCascade = false;
+    this.skipping = false;
+    this.skipHint = this.add.text(960, 1050, "Click to skip", { fontFamily: FONT, fontSize: "24px", color: "#cfe9dc", stroke: "#101010", strokeThickness: 4 }).setOrigin(0.5).setDepth(700).setVisible(false);
+    setSoundHushed(false);
     this.hlSeat = null;
     this.handSeat = null;
     this.tooltip = new Tooltip(this);
@@ -1130,6 +1143,31 @@ export class CombatScene extends Phaser.Scene {
   // seat follows too. The caller then redraws from the new state or view, so the
   // final table is exactly what the engine says. Input is locked until then.
   // Returns false if the scene was left meanwhile.
+  // Jumps to the end of the cascade being played. Only this screen changes: what is still on the
+  // way plays out at once (the animators and timers run very fast, silently) and the rest of the
+  // step's events are applied to the shown table without animation. The step then ends as always,
+  // with a redraw from the host's own view, so the table is exactly the host's state and the
+  // victory, defeat and reward flow runs as usual.
+  private skipCascade(): void {
+    if (!this.inCascade || this.skipping || debugPanel.stepMode) return;
+    this.skipping = true;
+    this.anim.skipping = true;
+    this.skipHint?.setVisible(false);
+    setSoundHushed(true);
+    this.tweens.timeScale = SKIP_SPEED;
+    this.time.timeScale = SKIP_SPEED;
+  }
+
+  private endSkip(): void {
+    this.inCascade = false;
+    this.skipping = false;
+    this.anim.skipping = false;
+    this.skipHint?.setVisible(false);
+    setSoundHushed(false);
+    this.tweens.timeScale = 1;
+    this.time.timeScale = 1;
+  }
+
   private async playback(events: GameEvent[]): Promise<boolean> {
     this.locked = true;
     this.shown = startShown(JSON.parse(JSON.stringify(this.view)) as BattleView);
@@ -1139,6 +1177,14 @@ export class CombatScene extends Phaser.Scene {
     const epoch = this.epoch;
     for (let n = 0; n < events.length; n++) {
       const ev = events[n];
+      if (this.skipping) {
+        applyEvent(this.shown!, ev);
+        continue;
+      }
+      if (ev.type === "setOff") {
+        this.inCascade = true;
+        this.skipHint?.setVisible(!debugPanel.stepMode);
+      }
       if (isDrawEvent(ev)) {
         // Everything drawn at round start plays at once; the table is redrawn from the end of it.
         let end = n;
@@ -1175,6 +1221,7 @@ export class CombatScene extends Phaser.Scene {
       else if (wait > 0) await new Promise<void>((resolve) => this.time.delayedCall(scaleTime(wait), resolve));
       if (epoch !== this.epoch) return false; // the scene was restarted or left meanwhile
     }
+    this.endSkip();
     this.locked = false;
     this.hlSeat = null;
     this.handSeat = null;
