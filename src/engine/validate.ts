@@ -7,7 +7,7 @@ import type { Config, DeckList, Domino, Enemy, Pools } from "./types";
 const SPARKS = ["Ember", "Tide", "Gale", "Storm", "Void", "Rot"];
 const DOMINO_KINDS = ["amplifier", "junction", "cap"];
 const AMP_OPS = ["add", "mul", "echo", "spectrum"];
-const CAP_EFFECT_KINDS = ["damage", "block", "coins"];
+const CAP_EFFECT_KINDS = ["damage", "block"];
 const TIERS = ["basic", "elite", "boss"];
 const RARITIES = ["common", "uncommon", "rare"];
 const BATTLE_TYPES = ["fight", "elite", "boss"];

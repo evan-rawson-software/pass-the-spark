@@ -10,7 +10,7 @@
 //               (we expect a cap to land if we hold one, so the charge is not wasted)
 //   junction:   a new path to cap, valued like a cap landing at the charge it carries
 //   cap:        damage is worth its value; block is worth its value up to what the intent will still
-//               deal after block already in place (surplus block is worth little); coins are worth a little.
+//               deal after block already in place (surplus block is worth little).
 //               Capping a strongly charged end earns a bonus per point of charge above 1, on top of its value
 //               The cap on the last open end sets the chain off, so it is scored like setting off
 //   pass:       a small cost (it gives the turn away)
@@ -27,7 +27,6 @@ const BASE_CAP_VALUE = 3; // what a cap we expect to land is worth per point of 
 const EXPECTED_CAPS = 2; // at most this many caps in hand count toward the value of building charge
 const CHARGED_END_BONUS = 1; // per point of charge above 1 on an end a cap goes on
 const SURPLUS_BLOCK_WEIGHT = 0.25; // block beyond what the intent will deal
-const COIN_WEIGHT = 0.5;
 const CARRY_WEIGHT = 0.1; // per point of charge an amplifier or junction passes on
 const PASS_COST = 0.5;
 const FIZZLE_WEIGHT = 0.5; // per point of charge on an end set off would leave uncapped, times the base cap value
@@ -74,7 +73,6 @@ export function botChoice(view: BattleView, seat: string, rng: number): { choice
         const kind: CapEffectKind = domino.effect!.kind;
         let value = pv.total;
         if (kind === "block") value = Math.min(pv.total, blockNeeded) + SURPLUS_BLOCK_WEIGHT * Math.max(0, pv.total - blockNeeded);
-        else if (kind === "coins") value = COIN_WEIGHT * pv.total;
         score = value + CHARGED_END_BONUS * (pv.charge - 1);
         if (view.openEnds.length === 1) {
           // The last open end: this cap sets the chain off, so it counts like setting off (lethal wins).

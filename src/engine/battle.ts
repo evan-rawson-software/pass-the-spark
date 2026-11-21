@@ -42,7 +42,6 @@ export interface PlayerState {
   hand: string[];
   discard: string[];
   charms: string[]; // charm ids the player holds for this battle (definitions are in BattleState.charmDefs)
-  coins: number; // coins earned in this battle by this player's coin caps; the run adds them to the player's total
 }
 
 export interface EnemyState {
@@ -191,7 +190,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     if (!p || p.deck.length === 0) throw new Error("player needs a deck: " + id);
     const s = shuffle(rng, p.deck);
     rng = s.state;
-    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice(), coins: 0 });
+    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice() });
   }
 
   const state: BattleState = {
@@ -428,18 +427,16 @@ export function previewPlay(input: PendingInput, playerId: string, dominoId: str
 export interface CascadePreview {
   damage: number; // reaching the enemy's health, after its block
   block: number; // gained by the party
-  coins: Record<string, number>; // per player, from their coin caps
 }
 
 export function previewCascade(input: BattleState | BattleView): CascadePreview {
   const state = { ...JSON.parse(JSON.stringify(input)), rng: 0 } as BattleState;
   const events: GameEvent[] = [];
   fireCascade(state, events);
-  const result: CascadePreview = { damage: 0, block: 0, coins: {} };
+  const result: CascadePreview = { damage: 0, block: 0 };
   for (const e of events) {
     if (e.type === "damage" && e.side === "enemy") result.damage += e.amount;
     else if (e.type === "block" && e.side === "party") result.block += e.amount;
-    else if (e.type === "coinsGained") result.coins[e.player] = (result.coins[e.player] ?? 0) + e.amount;
   }
   return result;
 }
@@ -577,10 +574,6 @@ function fireCap(state: BattleState, node: BoardNode, effect: CapEffect, value: 
     } else if (effect.kind === "block") {
       state.party.block += value;
       events.push({ type: "block", side: "party", amount: value });
-    } else {
-      const owner = getPlayer(state, node.owner);
-      owner.coins += value;
-      events.push({ type: "coinsGained", player: owner.id, amount: value });
     }
   }
 }

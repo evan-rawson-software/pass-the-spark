@@ -116,8 +116,8 @@ export class CombatScene extends Phaser.Scene {
   private pings!: PingMarks; // online only: rings from other players' pings
   private pingBoxes = new Map<string, Phaser.GameObjects.Container>(); // pingKey -> that domino or open end
   private anim!: Animator;
-  private totalsShown = [0, 0, 0]; // the "if set off now" numbers as drawn (damage, block, coins), ticking toward the engine's
-  private totalsTarget = [0, 0, 0];
+  private totalsShown = [0, 0]; // the "if set off now" numbers as drawn (damage, block), ticking toward the engine's
+  private totalsTarget = [0, 0];
   private totalLabels: Phaser.GameObjects.Text[] = [];
   private totalsTween?: Phaser.Tweens.Tween;
   private shown: ShownTable | null = null; // the table part-way through a step; null when idle
@@ -151,8 +151,8 @@ export class CombatScene extends Phaser.Scene {
     this.seed = this.inRun ? runSeed() : data.seed ?? dev.seed;
     this.layer = undefined;
     this.shown = null;
-    this.totalsShown = [0, 0, 0];
-    this.totalsTarget = [0, 0, 0];
+    this.totalsShown = [0, 0];
+    this.totalsTarget = [0, 0];
     this.totalsTween = undefined;
     this.drawTable();
     this.anim = new Animator(this);
@@ -713,10 +713,9 @@ export class CombatScene extends Phaser.Scene {
   }
 
   // What setting the chain off now would do, from the engine's previewCascade: damage (after the
-  // enemy's block), block for the party, and coins. Always visible.
+  // enemy's block), and block for the party. Always visible.
   private drawTotals(layer: Layer, view: BattleView): void {
-    const total = view.phase === "over" ? { damage: 0, block: 0, coins: {} as Record<string, number> } : previewCascade(this.view);
-    const coins = Object.values(total.coins).reduce((a, b) => a + b, 0);
+    const total = view.phase === "over" ? { damage: 0, block: 0 } : previewCascade(this.view);
     const x = RIGHT_X;
     const g = this.gfx(layer);
     g.fillStyle(0x174c38, 0.6);
@@ -724,9 +723,9 @@ export class CombatScene extends Phaser.Scene {
     g.lineStyle(3, 0x2f7a5b, 0.7);
     g.strokeRoundedRect(x, 135, SIDE_W, 170, 40);
     this.label(layer, x + SIDE_W / 2, 164, "IF SET OFF NOW", 21, "#9fd1b8", 0.5, true);
-    const cells: [IconKind, number][] = [["damage", total.damage], ["block", total.block], ["coins", coins]];
+    const cells: [IconKind, number][] = [["damage", total.damage], ["block", total.block]];
     this.totalLabels = cells.map(([kind, value], i) => {
-      const cx = x + 52 + i * 103;
+      const cx = x + 78 + i * 154;
       this.icon(layer, kind, cx, 212, 0.9);
       return this.label(layer, cx, 266, String(this.totalsShown[i]), 44, value > 0 ? "#ffffff" : "#5f8f7a", 0.5, true);
     });

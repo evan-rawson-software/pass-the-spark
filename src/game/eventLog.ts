@@ -32,7 +32,6 @@ export function eventDelay(ev: GameEvent, mem: LogMemory): number {
     case "passive": return 450;
     case "damage":
     case "block":
-    case "coinsGained":
       return mem.enemyActing ? 450 : 120;
     default: return 0;
   }

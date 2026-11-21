@@ -617,8 +617,7 @@ function finishBattle(run: RunState, events: RunEvent[]): void {
   const earned: Record<string, number> = {};
   const base = currentAct(run).battleCoins[type];
   for (const id of run.players) {
-    // Coins the player's own coin caps earned in the battle count on top.
-    const amount = base + heldCharmNumber(run.content.charms, run.charms[id], COIN_PURSE, "coins") + (battle.players.find((p) => p.id === id)?.coins ?? 0);
+    const amount = base + heldCharmNumber(run.content.charms, run.charms[id], COIN_PURSE, "coins");
     earned[id] = amount;
     run.coins[id] += amount;
     events.push({ type: "coins", player: id, amount });
