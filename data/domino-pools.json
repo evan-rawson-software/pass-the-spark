@@ -42,7 +42,7 @@
       "intakes": [["Storm"], ["Void"], "any"],
       "outputs": ["Ember", "Tide", "Gale"],
       "advancedOutputShare": 0,
-      "ignoresBlock": 0.25,
+      "ignoresBlock": 0,
       "amplifiers": [
         { "names": ["Double", "Crescendo"], "amp": { "op": "mul", "value": 2 }, "unlock": "double" },
         { "names": ["Prism", "Spectrum"], "amp": { "op": "spectrum", "value": 1 }, "unlock": "spectrum" }

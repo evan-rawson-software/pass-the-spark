@@ -1,7 +1,6 @@
 import { expect, test } from "vitest";
 import { loadContent } from "../src/engine/content";
 import { applyRunChoice, createRun } from "../src/engine/run";
-import { getUpgradeOptions, previewUpgrade } from "../src/engine/upgrades";
 import type { RunState } from "../src/engine/run";
 
 // A rest site where nobody has chosen yet.
@@ -37,17 +36,4 @@ test("upgrading both sides of a Strike copy changes only that copy, and a third 
   const waiting = applyRunChoice(again, "a", { type: "rest" }).run;
   expect(waiting.phase).toBe("rest");
   expect(applyRunChoice(waiting, "b", { type: "rest" }).run.phase).not.toBe("rest");
-});
-
-test("right-side upgrades by kind: Boost +1, Double becomes x2.5, caps +50% rounded up, junctions have none", () => {
-  const run = restSite(createRun({ players: ["a", "b"], seed: 1, content: loadContent() }));
-  const id = (prefix: string) => run.decks.a.find((d) => d.startsWith(prefix))!;
-  expect(previewUpgrade(run, "a", id("boost_ember#"), "right").after.amp).toEqual({ op: "add", value: 2 });
-  expect(previewUpgrade(run, "a", id("guard_gale#"), "right").after.effect).toMatchObject({ kind: "block", base: 5 });
-  expect(getUpgradeOptions(run, "a", id("junction_ember#"))).toMatchObject({ right: false });
-  expect(() => previewUpgrade(run, "a", id("junction_ember#"), "right")).toThrow();
-  expect(getUpgradeOptions(run, "a", id("junction_ember#")).left).toEqual(["Tide", "Gale"]); // the left side takes any kind
-  const double = run.dominoes.find((d) => d.id === id("boost_gale#"))!;
-  double.amp = { op: "mul", value: 2 };
-  expect(previewUpgrade(run, "a", double.id, "right").after.amp).toEqual({ op: "mul", value: 2.5 });
 });

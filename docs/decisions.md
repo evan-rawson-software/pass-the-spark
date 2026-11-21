@@ -390,6 +390,8 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - **Cascade feel (M10):** after M9, a milestone of more combat effects and animations, so a chain going off feels amazing. The Godot port moves to M11.
 - **Branch:** M9 work goes to an integration branch, `cascade`, with each issue's PR targeting it. `main` (and GitHub Pages) keeps the current game playable until `cascade` is playable end to end, then it merges.
 - **Red builds on `cascade` (#180):** `cascade` may fail typecheck and tests while the rules are being replaced, until #185 and #186 land. Each M9 PR keeps its own files and the tests it adds or rewrites passing, adds no new failures outside areas still waiting on a later issue, and lists the remaining known failures in its description. The old enemy dominoes move unchanged to a temporary `data/enemy-dominoes.json` (with a small legacy check) that #182 deletes. `cascade` must be fully green before it merges into `main`.
+- **Overcharge (#184):** your Double amplifiers multiply by 1 more (×2 becomes ×3, an upgraded ×2.5 becomes ×3.5), so the Double upgrade still matters. Charm bonuses (Lenses, Bulwark) are part of a cap's value, so every extra trigger repeats them.
+- **Spark Shrine (#185):** every domino attached to the blessed spark adds +1 charge after its own change, caps included (a cap there goes off at charge + 1). The opener is never blessed, since its intake is ignored.
 
 ## 2026-11-20: Milestone 10 (cascade feel)
 Rulings F1–F10, all as recommended. M10 builds on the basic spectacle from #187.

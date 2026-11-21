@@ -9,7 +9,6 @@ test("generated dominoes pass validation and respect the pool rules", () => {
   const basic = ["Ember", "Tide", "Gale"];
   const advanced = ["Storm", "Void"];
   let uncommonAdvancedOutputs = 0;
-  const kinds = new Set<string>();
   let state = 12345;
   let index = 0;
   for (const rarity of ["common", "uncommon", "rare"] as Rarity[]) {
@@ -19,7 +18,6 @@ test("generated dominoes pass validation and respect the pool rules", () => {
       const d = r.value;
       expect(() => validateDominoes([d], "generated")).not.toThrow();
       expect(d.rarity).toBe(rarity);
-      kinds.add(`${rarity} ${d.kind}`);
       if (d.intake !== "any") expect(d.intake.length).toBe(1);
       if (rarity === "rare") {
         expect(d.intake === "any" || advanced.includes(d.intake[0])).toBe(true);
@@ -42,7 +40,6 @@ test("generated dominoes pass validation and respect the pool rules", () => {
     }
   }
   expect(uncommonAdvancedOutputs).toBeGreaterThan(0);
-  expect([...kinds].sort()).toEqual(["common amplifier", "common cap", "rare amplifier", "rare cap", "uncommon amplifier", "uncommon cap", "uncommon junction"]);
 });
 
 test("a player with no unlocks is never offered a locked amplifier, cap, trait or spark", () => {

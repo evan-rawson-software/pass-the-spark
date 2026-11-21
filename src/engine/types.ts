@@ -35,30 +35,32 @@ export interface Domino {
   upgraded?: UpgradeSide[]; // sides already upgraded at a rest site (run instances only)
 }
 
-// Enemy dominoes in the old shape, in data/enemy-dominoes.json. Temporary: #182 replaces them with intents and deletes this type.
-export interface EnemyDomino {
-  id: string;
-  name: string;
-  intake: Spark[];
-  output: Spark[];
-  effect: { kind: "damage" | "block" | "heal" | "reflect"; base?: number };
-}
-
 export type UpgradeSide = "left" | "right";
 
 export type Tier = "basic" | "elite" | "boss";
 
-export type AuditorDamage =
-  | { rule: "strength" } // equal to current strength
-  | { rule: "flat"; amount: number };
+// One thing an enemy does in its turn. An attack makes `hits` hits (default 1) of `value` damage each.
+export type IntentAction = { kind: "attack"; value: number; hits?: number } | { kind: "block"; value: number };
 
-// Parameters are optional overrides of the defaults in Config.
+// What the enemy does after the cascade. Actions are carried out in order.
+export interface Intent {
+  id: string;
+  actions: IntentAction[];
+}
+
+// How the next intent is chosen. cycle: the ids in order, repeating. weighted: a seeded draw by weight
+// (intent id -> weight), never more than maxRepeat (default 2) of the same intent in a row.
+export type Pattern =
+  | { type: "cycle"; order: string[] }
+  | { type: "weighted"; weights: Record<string, number>; maxRepeat?: number };
+
+// Boss passives. Amounts live here, in data.
 export type Passive =
-  | { kind: "auditor"; damage?: AuditorDamage; name: string; text?: string }
-  | { kind: "glutton"; heal?: number; name: string; text?: string }
-  | { kind: "hoarder"; name: string; text?: string }
-  | { kind: "smolder"; name: string; text?: string }
-  | { kind: "longNight"; name: string; text?: string } // its reactions and leftovers scale with lap
+  | { kind: "auditor"; damage: number; name: string; text?: string } // party damage per repeated cap spark
+  | { kind: "glutton"; heal: number; name: string; text?: string } // health healed at the end of every round
+  | { kind: "hoarder"; multiplier: number; name: string; text?: string } // block per domino on the board
+  | { kind: "smolder"; growth: number; name: string; text?: string } // added to each attack hit per round passed
+  | { kind: "longNight"; growth: number; name: string; text?: string } // added to each attack hit per cap set off
   | { kind: "warden"; sparks: Spark[]; name: string; text?: string }; // each round one of these sparks is locked against players
 
 export interface Enemy {
@@ -66,9 +68,8 @@ export interface Enemy {
   name: string;
   tier: Tier;
   maxHealth: number;
-  drawPerRound: number;
-  handLimit: number;
-  deck: string[]; // domino ids
+  intents: Intent[];
+  pattern: Pattern;
   passives: Passive[];
 }
 
@@ -79,9 +80,6 @@ export interface Config {
   playerHandLimit: number;
   triggerCap: number;
   openEndLimit: number; // at most this many open ends on the board at once
-  enemyReactionsScaleWithLap: boolean;
-  auditorDamage: AuditorDamage;
-  gluttonHeal: number;
   // Enemy starting health, in percent of its data health, for parties of 1, 2, 3 and 4 players.
   enemyHealthPercentByPartySize: number[];
 }
