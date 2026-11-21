@@ -79,6 +79,24 @@
     "ring": { "lineWidthFraction": 0.06, "alpha": 0.9 },
     "fallbackAlpha": 0.95
   },
+  "projectiles": {
+    "comment": "Effects that fly from a cap to their target (#189). A shot is one trigger of a cap. At most maxOnScreen shots of each kind are in the air at once; further triggers fold into the newest shot of that kind (its x-count and size grow). A shot uses the last tier whose minValue it reaches: size in pixels, travelMs at 1x (bigger is faster), gain (impact loudness 0..1). Colours are 0xRRGGBB strings; sizes are pixels unless a factor of the tier size.",
+    "maxOnScreen": 8,
+    "staggerMs": 110,
+    "tiers": [
+      { "minValue": 1, "size": 56, "travelMs": 430, "gain": 0.45 },
+      { "minValue": 8, "size": 78, "travelMs": 360, "gain": 0.65 },
+      { "minValue": 16, "size": 104, "travelMs": 300, "gain": 0.85 },
+      { "minValue": 30, "size": 136, "travelMs": 240, "gain": 1 }
+    ],
+    "colours": { "damage": "0xff5a4a", "block": "0x7fb2ff" },
+    "flight": { "haloFactor": 2, "passAt": 0.6, "passRingSize": 60, "passRingAlpha": 0.6 },
+    "count": { "size": 26, "colour": "#ffffff", "stroke": "#101010", "dyFactor": 0.55 },
+    "shapes": { "shieldFactor": 0.5, "shieldFill": "0x4a6fa5", "shieldEdge": "0xdbe6f5" },
+    "impact": { "ms": 420, "sizeFactor": 1.5, "ringFactor": 0.7, "burstScale": [0.4, 1.3], "ringScale": [0.5, 1.8], "slashColour": "0xffffff", "softAlpha": 0.5 },
+    "pulse": { "scale": 1.4, "ms": 220 },
+    "seatGlow": { "sizeFactor": 1.5, "ms": 520, "alpha": 0.9, "capFactor": 2.4, "capMs": 700, "reducedAlpha": 0.3, "reducedMs": 800 }
+  },
   "speedControl": {
     "comment": "Combat playback speed button and its list (#220), read by src/game/speedControl.ts. Px on the 1920x1080 table. The button sits with its right edge at right; the list opens upward, gap above it, and is moved down if it would leave the screen.",
     "right": 1875, "y": 960, "buttonW": 112, "buttonH": 40, "itemH": 44, "gap": 8, "fontSize": 24, "depth": 650
