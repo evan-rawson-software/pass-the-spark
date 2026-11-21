@@ -1,0 +1,17 @@
+{
+  "seatColours": {
+    "comment": "One colour per seat, by seat order. Chosen to differ from each other, from the six spark colours and from the gold turn highlight.",
+    "colours": ["#e8364f", "#22d3ee", "#ff7ad9", "#f5f5f5"]
+  },
+  "comfort": {
+    "comment": "Defaults for the menu comfort settings.",
+    "shakeDefault": true,
+    "reducedFlashingDefault": false
+  },
+  "fx": {
+    "comment": "Code-drawn fallbacks for the effect textures (fx/<id>). glow and ring are always code-drawn.",
+    "glow": { "steps": 12, "peakAlpha": 0.5 },
+    "ring": { "lineWidthFraction": 0.06, "alpha": 0.9 },
+    "fallbackAlpha": 0.95
+  }
+}

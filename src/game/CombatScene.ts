@@ -16,6 +16,7 @@ import { artBackground, artImage } from "./art";
 import { drawDomino, drawEffectIcon, drawSparkGlyph, iconOf } from "./dominoDrawing";
 import type { DominoState, IconKind } from "./dominoDrawing";
 import { SPARK_STYLE } from "./sparks";
+import { seatColour } from "./seatColours";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { Tooltip } from "./tooltip";
@@ -526,19 +527,24 @@ export class CombatScene extends Phaser.Scene {
 
   // A seat's name plate; the seat on turn glows.
   // A seat id as `deckSeat` makes the plate open that player's deck (#171).
-  private plate(layer: Layer, cx: number, cy: number, text: string, onTurn: boolean, fontSize = 26, deckSeat?: string): void {
+  private plate(layer: Layer, cx: number, cy: number, text: string, onTurn: boolean, fontSize = 26, deckSeat?: string, colour?: number): void {
     const t = this.label(layer, cx, cy, text, fontSize, onTurn ? "#2a2200" : "#ffffff", 0.5, true);
     const w = t.width + 36;
     const h = fontSize + 18;
     const g = this.add.graphics();
     if (onTurn) {
       for (let i = 4; i >= 1; i--) {
-        g.lineStyle(i * 5, GOLD, 0.14);
+        g.lineStyle(i * 5, colour ?? GOLD, 0.14);
         g.strokeRoundedRect(cx - w / 2 - i * 2, cy - h / 2 - i * 2, w + i * 4, h + i * 4, h / 2 + i * 2);
       }
     }
     g.fillStyle(onTurn ? GOLD : 0x0d2a20, 0.95);
     g.fillRoundedRect(cx - w / 2, cy - h / 2, w, h, h / 2);
+    if (colour !== undefined) {
+      // The seat's colour rims the plate (thicker on the seat on turn).
+      g.lineStyle(onTurn ? 5 : 3, colour, 1);
+      g.strokeRoundedRect(cx - w / 2, cy - h / 2, w, h, h / 2);
+    }
     layer.add(g);
     layer.bringToTop(t);
     if (deckSeat !== undefined) this.deckZone(layer, cx, cy, w, h, deckSeat);
@@ -651,7 +657,7 @@ export class CombatScene extends Phaser.Scene {
     const g = this.gfx(layer);
     view.seatOrder.forEach((seat, i) => {
       const x = x0 + i * step;
-      this.plate(layer, x, y - 6, this.nameOf(seat, true, 9), seat === turn && view.phase !== "over", 24);
+      this.plate(layer, x, y - 6, this.nameOf(seat, true, 9), seat === turn && view.phase !== "over", 24, undefined, seatColour(view.seatOrder, seat));
       if (seat === view.lead) this.label(layer, x, y + 28, "LEAD", 16, "#ffe14d", 0.5, true);
       if (i < n - 1) {
         g.fillStyle(0x9fd1b8, 1);
@@ -897,7 +903,7 @@ export class CombatScene extends Phaser.Scene {
     const you = this.online ? (p.id === this.online.seat ? " (you)" : " (playing for)") : "";
     // The plate sits on the hand's top edge so its charm row fits between it and the dominoes. The row
     // starts at the plate's left edge, leaving the area left of the hand free.
-    this.plate(layer, HAND.x + 110, HAND.y - 2, this.nameOf(p.id, true, 9) + you, onTurn, 28, p.id);
+    this.plate(layer, HAND.x + 110, HAND.y - 2, this.nameOf(p.id, true, 9) + you, onTurn, 28, p.id, seatColour(view.seatOrder, p.id));
     this.plateCharms(layer, p.id, p.charms, HAND.x + 70, HAND.y + 32, 20, false);
     let hint = pending === null ? "" : pending.opener ? "Play an opener" : this.selected !== null ? "Pick an open end" : "Play, pass or set off";
     if (this.online && view.phase !== "over" && !this.locked) {
@@ -1144,7 +1150,7 @@ export class CombatScene extends Phaser.Scene {
   private drawTeammate(layer: Layer, view: BattleView, id: string, x: number, y: number, h: number): void {
     const p = view.players.find((q) => q.id === id);
     if (!p) return;
-    this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), view.phase !== "over" && this.turnSeat === p.id, 26, p.id);
+    this.plate(layer, x + SIDE_W / 2, y + 22, this.plateName(p.id), view.phase !== "over" && this.turnSeat === p.id, 26, p.id, seatColour(view.seatOrder, p.id));
     // A row of charm icons under the plate pushes the discard line, the deck pile and the hand down.
     const extra = p.charms.length > 0 ? 28 : 0;
     this.plateCharms(layer, p.id, p.charms, x + SIDE_W / 2, y + 58, 22);
