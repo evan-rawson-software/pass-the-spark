@@ -16,7 +16,8 @@
 // A tree is scored by the engine's own preview of setting it off (previewSetOff on a view whose board
 // is the hypothetical tree): lethal first, then damage to the enemy minus the damage the party would
 // still take from the intent (block only counts up to what the intent deals, since the preview
-// already applies it). To rank partial trees the beam adds an optimistic estimate for the open ends:
+// already applies it). Every hit counts through the preview's damage, and reaching the enemy's line
+// counts through the halved attack in the damage the party still takes. To rank partial trees the beam adds an optimistic estimate for the open ends:
 // each end, highest charge first, is given the best cap still in a hand.
 //
 // Ties are broken by the caller's RNG state: every tree gets a tie key hashed from that state and its

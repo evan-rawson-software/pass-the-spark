@@ -17,6 +17,8 @@
 //   caps     average caps per cascade
 //   fizz     average ends left uncapped (fizzled) per cascade
 //   dmg      average damage reaching the enemy's health per cascade (after its block)
+//   combo    average combo total per cascade: every hit before enemy block
+//   line     share of cascades whose combo total reached the enemy's line (the enemy is staggered)
 //
 // After each table: the spread of damage per cascade (0 / 1-5 / 6-10 / 11+) and damage caps against block
 // caps that went off; then the spread of damage as a share of the enemy's health at the start of the fight.
@@ -64,13 +66,15 @@ interface Totals {
   caps: number;
   fizzled: number;
   damage: number;
+  combo: number;
+  lines: number; // cascades that reached the line
   buckets: number[]; // cascades dealing 0, 1-5, 6-10, 11+ damage
   shares: number[]; // cascades dealing SHARE_LABELS of the enemy's health
   damageCaps: number;
   blockCaps: number;
 }
 const empty = (): Totals => ({
-  wins: 0, rounds: 0, turns: 0, withChoice: 0, withPlays: 0, choices: 0, playOptions: 0, cascades: 0, nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0,
+  wins: 0, rounds: 0, turns: 0, withChoice: 0, withPlays: 0, choices: 0, playOptions: 0, cascades: 0, nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0, combo: 0, lines: 0,
   buckets: [0, 0, 0, 0], shares: [0, 0, 0, 0, 0], damageCaps: 0, blockCaps: 0,
 });
 
@@ -89,6 +93,8 @@ function add(t: Totals, r: Omit<BattleStats, "final">): void {
     t.caps += c.caps;
     t.fizzled += c.fizzled;
     t.damage += c.damage;
+    t.combo += c.combo;
+    if (c.lineReached) t.lines += 1;
     t.buckets[c.damage === 0 ? 0 : c.damage <= 5 ? 1 : c.damage <= 10 ? 2 : 3] += 1;
     const share = c.damage / r.enemyHealth;
     t.shares[SHARE_LIMITS.filter((limit) => share >= limit).length] += 1;
@@ -104,10 +110,11 @@ function cells(t: Totals): string[] {
   return [
     pct(t.wins, battles), num(t.rounds, battles, 1), pct(t.withChoice, t.turns), pct(t.withPlays, t.turns), num(t.choices, t.turns), num(t.playOptions, t.turns),
     num(t.nodes, t.cascades), num(t.junctions, t.cascades), num(t.caps, t.cascades), num(t.fizzled, t.cascades), num(t.damage, t.cascades, 1),
+    num(t.combo, t.cascades, 1), pct(t.lines, t.cascades),
   ];
 }
 
-const header = ["win", "rounds", ">1 opt", ">1 play", "opts", "plays", "board", "junc", "caps", "fizz", "dmg"];
+const header = ["win", "rounds", ">1 opt", ">1 play", "opts", "plays", "board", "junc", "caps", "fizz", "dmg", "combo", "line"];
 const widths = header.map((h) => Math.max(h.length, 7));
 const row = (label: string, who: string, values: string[]) =>
   label.padEnd(24) + who.padEnd(8) + values.map((v, i) => v.padStart(widths[i] + 1)).join("");
@@ -157,7 +164,7 @@ async function main(): Promise<void> {
   console.log(`${battles} battles per enemy and party size, base seed ${baseSeed}`);
   console.log("opts/plays count distinct legal choices per seat turn; see the column notes at the top of scripts/sim.ts.");
   console.log("'>1 opt' counts Ready as a choice; '>1 play' counts only plays (domino x end).");
-  console.log("Board, junc, caps, fizz and dmg are per cascade, averaged over all cascades of the battles.");
+  console.log("Board, junc, caps, fizz, dmg and combo are per cascade, averaged over all cascades of the battles; line is the share of cascades that reached the enemy's line.");
 
   for (const partySize of sizes) {
     console.log("");

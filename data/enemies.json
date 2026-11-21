@@ -4,6 +4,7 @@
     "name": "Ogre",
     "tier": "basic",
     "maxHealth": 170,
+    "line": 55,
     "passives": [],
     "intents": [
       {
@@ -48,6 +49,7 @@
     "name": "Placeholder Goblin",
     "tier": "basic",
     "maxHealth": 104,
+    "line": 35,
     "passives": [],
     "intents": [
       {
@@ -94,6 +96,7 @@
     "name": "Placeholder Slime",
     "tier": "basic",
     "maxHealth": 170,
+    "line": 55,
     "passives": [],
     "intents": [
       {
@@ -138,6 +141,7 @@
     "name": "Placeholder Wisp",
     "tier": "basic",
     "maxHealth": 85,
+    "line": 30,
     "passives": [],
     "intents": [
       {
@@ -184,6 +188,7 @@
     "name": "Brute",
     "tier": "elite",
     "maxHealth": 121,
+    "line": 40,
     "passives": [],
     "intents": [
       {
@@ -232,6 +237,7 @@
     "name": "Placeholder Warden",
     "tier": "elite",
     "maxHealth": 112,
+    "line": 35,
     "passives": [],
     "intents": [
       {
@@ -281,6 +287,7 @@
     "name": "The Auditor",
     "tier": "boss",
     "maxHealth": 100,
+    "line": 35,
     "passives": [
       {
         "kind": "auditor",
@@ -338,6 +345,7 @@
     "name": "The Glutton",
     "tier": "boss",
     "maxHealth": 114,
+    "line": 40,
     "passives": [
       {
         "kind": "glutton",
@@ -395,6 +403,7 @@
     "name": "Placeholder Bandit",
     "tier": "basic",
     "maxHealth": 187,
+    "line": 60,
     "passives": [],
     "intents": [
       {
@@ -439,6 +448,7 @@
     "name": "Placeholder Golem",
     "tier": "basic",
     "maxHealth": 221,
+    "line": 75,
     "passives": [],
     "intents": [
       {
@@ -474,6 +484,7 @@
     "name": "Placeholder Harpy",
     "tier": "basic",
     "maxHealth": 153,
+    "line": 50,
     "passives": [],
     "intents": [
       {
@@ -509,6 +520,7 @@
     "name": "Placeholder Ravager",
     "tier": "elite",
     "maxHealth": 190,
+    "line": 65,
     "passives": [],
     "intents": [
       {
@@ -558,6 +570,7 @@
     "name": "Placeholder Sentinel",
     "tier": "elite",
     "maxHealth": 220,
+    "line": 75,
     "passives": [],
     "intents": [
       {
@@ -607,6 +620,7 @@
     "name": "The Hoarder",
     "tier": "boss",
     "maxHealth": 176,
+    "line": 60,
     "passives": [
       {
         "kind": "hoarder",
@@ -664,6 +678,7 @@
     "name": "The Smolder",
     "tier": "boss",
     "maxHealth": 192,
+    "line": 65,
     "passives": [
       {
         "kind": "smolder",
@@ -721,6 +736,7 @@
     "name": "Placeholder Wraith",
     "tier": "basic",
     "maxHealth": 308,
+    "line": 105,
     "passives": [],
     "intents": [
       {
@@ -765,6 +781,7 @@
     "name": "Placeholder Colossus",
     "tier": "basic",
     "maxHealth": 282,
+    "line": 95,
     "passives": [],
     "intents": [
       {
@@ -813,6 +830,7 @@
     "name": "Placeholder Stormling",
     "tier": "basic",
     "maxHealth": 260,
+    "line": 85,
     "passives": [],
     "intents": [
       {
@@ -859,6 +877,7 @@
     "name": "Placeholder Tyrant",
     "tier": "elite",
     "maxHealth": 246,
+    "line": 80,
     "passives": [],
     "intents": [
       {
@@ -908,6 +927,7 @@
     "name": "Placeholder Warlord",
     "tier": "elite",
     "maxHealth": 342,
+    "line": 115,
     "passives": [],
     "intents": [
       {
@@ -967,6 +987,7 @@
     "name": "The Long Night",
     "tier": "boss",
     "maxHealth": 333,
+    "line": 110,
     "passives": [
       {
         "kind": "longNight",
@@ -1024,6 +1045,7 @@
     "name": "The Warden of Locks",
     "tier": "boss",
     "maxHealth": 180,
+    "line": 60,
     "passives": [
       {
         "kind": "warden",

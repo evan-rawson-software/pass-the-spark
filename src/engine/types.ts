@@ -68,6 +68,7 @@ export interface Enemy {
   name: string;
   tier: Tier;
   maxHealth: number;
+  line: number; // the cascade's combo total that staggers this enemy (halves its attack that round)
   intents: Intent[];
   pattern: Pattern;
   passives: Passive[];
