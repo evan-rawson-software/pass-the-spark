@@ -25,7 +25,6 @@
     "launch:damage": { "file": "interface/switch_001.ogg", "volume": 0.45, "minGapMs": 70, "rises": true },
     "launch:block": { "file": "interface/open_001.ogg", "volume": 0.4, "minGapMs": 90 },
     "launch:coins": { "file": "casino/chips-handle-1.ogg", "volume": 0.45, "minGapMs": 90 },
-    "impact:damage": { "file": "impact/impactGeneric_light_000.ogg", "volume": 0.9, "minGapMs": 60, "rises": true },
     "impact:block": { "file": "impact/impactPlate_light_000.ogg", "volume": 0.8, "minGapMs": 80 },
     "impact:coins": { "file": "casino/chips-collide-1.ogg", "volume": 0.8, "minGapMs": 70, "rises": true },
     "enemyHit": { "file": "impact/impactWood_medium_000.ogg", "volume": 0.7, "minGapMs": 70, "baseCents": -300 },

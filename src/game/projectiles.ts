@@ -202,7 +202,7 @@ export class Projectiles {
       const bar = refs.bars.get("enemy");
       const sh = refs.shields.get("enemy");
       const barAt = bar ? { x: bar.x + bar.w / 2, y: bar.y + bar.h / 2 } : at;
-      const onBar: Leg = { to: barAt, land: (s) => this.hit(barAt, tierOf(s.value), "damage") };
+      const onBar: Leg = { to: barAt, land: (s) => this.hit(barAt, tierOf(s.value), "damage", null) };
       if (!sh || ignores || left <= 0) return [{ ...onBar, pass: sh && ignores && left > 0 ? { x: sh.x, y: sh.y } : undefined }];
       const shAt = { x: sh.x, y: sh.y };
       // The shot lands on the shield; the enemy reactions (#190) crack it when the damage event arrives.
@@ -284,7 +284,7 @@ export class Projectiles {
 
   // ---- landings ----
 
-  // An impact burst at the target, bigger for a bigger shot, louder too.
+  // An impact burst at the target, bigger for a bigger shot, louder too. sound null: another effect plays the impact sound (the enemy reactions do, for a hit on the bar and the shield).
   private hit(at: Point, tier: Tier, kind: Kind, sound: string | null = `impact:${kind}`): void {
     const im = D.impact;
     const colour = colourOf(kind);
