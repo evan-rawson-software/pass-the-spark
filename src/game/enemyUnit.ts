@@ -171,6 +171,7 @@ function intentPanel(ctx: CombatCtx, layer: Layer, view: BattleView, col: Column
   layer.add(row);
   const L = D.label;
   ctx.label(layer, col.x + col.w / 2, y + B.labelY, intentLabel(view.intent), L.size, L.colour, 0.5, true).setLetterSpacing(L.spacing);
+  ctx.label(layer, col.x + col.w / 2, y + B.line.y, `${B.line.text} ${view.enemy.line}`, B.line.size, B.line.colour, 0.5, true);
   ctx.refs().intent = { x: col.x, y, w: col.w, h };
 }
 

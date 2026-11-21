@@ -1,5 +1,5 @@
 import type { BattleView } from "../engine/view";
-import { combatLayoutData } from "./presentation";
+import { combatData, combatLayoutData } from "./presentation";
 
 // Where each part of the left column goes (#231, Spotlight). The column is stacked top to bottom from
 // what it holds this round: the passive chips, the round chips and the "later" row come and go. The
@@ -53,7 +53,8 @@ export function columnLayout(view: BattleView): ColumnLayout {
 
   const head = E.name.h + (nChips > 0 ? E.innerGap + chipsH : 0) + E.innerGap + E.bar.h;
   const intentBlock = E.intent.h + (nRound > 0 ? E.innerGap + roundH : 0) + (later ? E.innerGap + E.later.h : 0);
-  const tallyH = T.label.h + T.tile.h + T.line.gap + T.line.h;
+  // The block tile alone (the damage total is hidden), or the old tally: two tiles and a line.
+  const tallyH = combatData.showDamageTotal ? T.label.h + T.tile.h + T.line.gap + T.line.h : T.label.h + T.blockTile.h;
   const partyH = P.label.h + P.bar.h;
   const fixed = head + intentBlock + tallyH + partyH + F.h;
   const gaps = 5; // card | head | intent | tally | party | footer

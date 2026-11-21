@@ -4,7 +4,7 @@ import type { DominoState } from "./dominoDrawing";
 import type { PingTarget } from "../net/protocol";
 import type { Tooltip } from "./tooltip";
 
-// What the combat layout files (enemyUnit.ts, turnRail.ts, combatHud.ts) need from the scene: drawing
+// What the combat layout files (enemyUnit.ts, seatTabs.ts, combatHud.ts) need from the scene: drawing
 // helpers that put things in the scene's redrawn layer and register them with the animator. The scene
 // supplies it; these files hold layout only, no rules.
 
