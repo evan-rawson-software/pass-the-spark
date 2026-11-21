@@ -53,9 +53,15 @@ export function setSoundSettings(change: Partial<SoundSettings>): void {
 const lastPlayed = new Map<string, number>();
 
 // Play a cue. `links` raises the pitch of rising cues (tick, hum, effects) with the cascade step or heat.
+let hushed = false;
+// A skipped cascade plays no sound for what it jumps over.
+export function setSoundHushed(value: boolean): void {
+  hushed = value;
+}
+
 export function playSound(cue: string, links = 1): void {
   const c = D.cues[cue];
-  if (!c || !out || settings.muted) return;
+  if (!c || !out || settings.muted || hushed) return;
   const volume = c.volume * settings.master * settings.effects;
   const key = soundKey(c.file);
   if (volume <= 0 || !out.has(key)) return;
