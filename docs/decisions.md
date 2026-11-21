@@ -419,3 +419,13 @@ Rulings F1–F10, all as recommended. M10 builds on the basic spectacle from #18
 - **F9 Music:** not in M10. Sound effects are in scope.
 - **F10 Seat colours:** each player gets a seat colour (in data). Their dominoes glow in it as the charge passes through, so everyone sees their part in a big chain.
 - **Branch:** M10 PRs target `main` if `cascade` has merged by then, otherwise `cascade`.
+
+## 2026-11-21: Two-player games
+Rulings W1–W7, all as recommended. Built in #205.
+- **W1 Where:** in M9, on `cascade`, after the placeholder tuning (#203).
+- **W2 Rules:** identical at every party size. Only data scales.
+- **W3 What scales:** enemy health (the existing table) and a new enemy-attack percentage by party size (4 values, 100 by default), applied to each hit after growth, rounded up. Party health stays at 90.
+- **W4 Target:** 2 players aim for the same win rates as 3 players. Sims report 2, 3 and 4 players. Final numbers come in the post-redesign re-tune.
+- **W5 Lobby and single player:** the host can start with 2 to 4 players. Single player offers 2, 3 or 4 seats. This replaces the earlier "3 or 4" rulings (M2 screens, M3 seats, M4 single player).
+- **W6 Layout:** at 2 players, the teammate's hand sits on one side and the board gets the extra room.
+- **W7 The run:** unchanged. A 1–1 vote is a coin flip through the existing weighted tie-break.
