@@ -1,0 +1,20 @@
+{
+  "partyMaxHealth": 90,
+  "playerDrawPerRound": 3,
+  "playerFirstDraw": 5,
+  "playerHandLimit": 10,
+  "triggerCap": 100,
+  "openEndLimit": 4,
+  "enemyHealthPercentByPartySize": [
+    100,
+    66,
+    95,
+    108
+  ],
+  "enemyAttackPercentByPartySize": [
+    100,
+    95,
+    100,
+    100
+  ]
+}

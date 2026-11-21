@@ -1,0 +1,294 @@
+{
+  "_comment": "Cascade spectacle (#187), read by screen code only. A heat tier is on once the cascade has lit minNodes dominoes or a cap of at least minCap (its value per trigger, from the capFired event) has gone off; the last tier on sets the colour and how many sparks trail each flow. While building, the same tiers read the board's node count and the biggest charge on an open end. Tier colours are 0xRRGGBB strings.",
+  "tiers": [
+    { "minNodes": 1, "minCap": 1, "color": "0xfff2c2" },
+    { "minNodes": 4, "minCap": 8, "color": "0xffe14d" },
+    { "minNodes": 8, "minCap": 16, "color": "0xff9a3d" },
+    { "minNodes": 12, "minCap": 30, "color": "0xff5a3d" }
+  ],
+  "build": { "fullNodes": 10 },
+  "step": { "pulseMs": 380 },
+  "amp": { "fullChange": 8 },
+  "shake": { "minCap": 16, "ms": 220, "intensity": 0.004, "perTier": 0.002 },
+  "lightning": { "minCap": 40, "ms": 280, "bolts": 3 },
+  "slowMotion": { "minCap": 60, "timeScale": 0.35, "holdMs": 400 },
+  "effects": { "travelMs": 350, "ms": 450 },
+  "dominoLook": {
+    "comment": "Domino drawing (#217), read by src/game/dominoDrawing.ts. Positions are in mockup units (an amplifier bar is 100 high, the whole amplifier 216 wide, the socket on the left edge, the centre line at y 50); the screen size is units times unit. extent is each kind's width and height in units, for layout. Details (owner stripe, rarity gem, upgrade star) are hidden when the domino is shown below minDetailScale of full size; number, sockets and outputs always stay.",
+    "unit": 1.1111,
+    "minDetailScale": 0.55,
+    "raise": 14,
+    "extent": { "amplifier": { "w": 216, "h": 100 }, "junction": { "w": 214, "h": 136 }, "cap": { "w": 170, "h": 100 } },
+    "colours": {
+      "outline": "#22201c",
+      "amplifier": "#f4ecdc",
+      "junction": "#dde5ee",
+      "junctionSplit": "#5d6b7c",
+      "cap": { "damage": "#f8d9d3", "block": "#d6e4f7" },
+      "text": "#22201c",
+      "glow": "#ffe36b",
+      "anyRing": "#8a8a8a",
+      "sigilFill": "#2b2140",
+      "sigilRing": "#e9d9a8",
+      "star": "#d49a12",
+      "rarity": { "common": "#c3cbd4", "uncommon": "#e5b52e", "rare": "#ff5fd2" }
+    },
+    "strokeWidth": 4,
+    "socket": { "x": 11, "y": 50, "ring": 6, "glyph": 11, "dualGlyph": 8, "dualDy": 14, "dualDx": 3 },
+    "outputs": {
+      "amplifier": [{ "x": 184, "y": 50 }],
+      "junction": [{ "x": 186, "y": 11 }, { "x": 186, "y": 89 }],
+      "glyph": 12
+    },
+    "number": {
+      "amplifier": { "x": 98, "y": 46, "size": 40 },
+      "cap": { "x": 128, "y": 54, "size": 38 },
+      "iconScale": 0.4,
+      "amplifierIcon": { "x": 98, "y": 84 },
+      "spectrumIcon": { "x": 98, "y": 50, "scale": 0.85 },
+      "capIcon": { "x": 66, "y": 50, "scale": 0.85 }
+    },
+    "junctionSplit": { "width": 7, "lines": [[[40, 50], [95, 50]], [[95, 50], [140, 11]], [[95, 50], [140, 89]]] },
+    "stripe": { "x": 6, "y": 4, "h": 7, "trim": 20, "outline": 1.5 },
+    "sigil": { "x": 118, "y": -6, "r": 15, "ring": 2 },
+    "star": { "x": 22, "y": 88, "r": 9 },
+    "gem": {
+      "r": 7,
+      "amplifier": { "x": 150, "y": 88 },
+      "junction": { "x": 146, "y": 106 },
+      "cap": { "x": 100, "y": 88 }
+    },
+    "playable": { "glowWidth": 14, "glowAlpha": 0.55, "outlineWidth": 5 },
+    "dimAlpha": 0.55,
+    "shadow": { "dx": 4, "dy": 8, "alpha": 0.25, "raisedAlpha": 0.35 }
+  },
+  "buildup": {
+    "comment": "Cascade build-up (#191). pitch.maxSteps: the pitch stops rising after this many cascade steps. glow: strength of the lit dominoes' glow, from litMin (first lit) to litMax (all lit). camera: boards with more than minNodes dominoes ease out (to zoomOut, or what fits the board mat, never below minZoom) and push in on a new biggest cap of at least push.minCap (push.reducedZoom with reduced flashing; no push with screen shake off); the camera never cuts off health, block or the intent card (keep: sizes of the boxes it protects and of an open end). The running counter and callouts it used to hold are now comboHype. Times are ms at 1x.",
+    "pitch": { "maxSteps": 10 },
+    "glow": { "litMin": 1.5, "litMax": 4.5 },
+    "keep": { "slot": 40, "shield": { "x": -25, "y": -25, "w": 110, "h": 50 } },
+    "camera": {
+      "minNodes": 8, "zoomOut": 0.92, "minZoom": 0.7, "pad": 30, "easeMs": 500, "restoreMs": 500,
+      "push": { "minCap": 16, "zoom": 1.08, "reducedZoom": 1.04, "inMs": 300, "holdMs": 350 }
+    }
+  },
+  "comfort": {
+    "comment": "Defaults for the menu comfort settings.",
+    "shakeDefault": true,
+    "reducedFlashingDefault": false
+  },
+  "fx": {
+    "comment": "Code-drawn fallbacks for the effect textures (fx/<id>). glow and ring are always code-drawn.",
+    "glow": { "steps": 12, "peakAlpha": 0.5 },
+    "ring": { "lineWidthFraction": 0.06, "alpha": 0.9 },
+    "fallbackAlpha": 0.95
+  },
+  "projectiles": {
+    "comment": "The glow a domino takes in its owner's seat colour as the charge passes it, bigger and longer when a cap goes off (#189, read by seatGlow in src/game/projectiles.ts). The caps' effects now fly into the combo number (comboHype).",
+    "seatGlow": { "sizeFactor": 1.5, "ms": 520, "alpha": 0.9, "capFactor": 2.4, "capMs": 700, "reducedAlpha": 0.3, "reducedMs": 800 }
+  },
+  "comboHype": {
+    "comment": "Cascade hype (#234, H1-H9), read by src/game/comboHype.ts. Px on the 1920x1080 table, times in ms at 1x (all go through scaleTime). Arrays are indexed by tier 0..4. tiers: the running damage as a share of the enemy's health when the cascade starts; a threshold reached moves the number up one tier (highest wins when a hit crosses several). The number sits in the board area (combatLayout.board), centred across it and yFraction down it, and is shrunk to maxWidthFraction of the area's width. gap: the pause after each cap fires is start - step * caps, never below min (a depth step waits stepFraction of it). tierJump, lethal, slam and fanfare are the big moments; the slam's charge, flight, impact and fanfare together take about 2 s at the top tier. skip.factor scales the slam's times when a skipped cascade plays its short slam.",
+    "tiers": {
+      "thresholds": [0.1, 0.25, 0.5, 0.75],
+      "colours": ["#ffffff", "#ffe14d", "#ff9a3d", "#ff4d4d", "#b46bff"],
+      "words": ["", "Nice!", "Blazing!", "Inferno!", "Overload!"]
+    },
+    "layout": { "yFraction": 0.46, "maxWidthFraction": 0.8 },
+    "number": {
+      "sizes": [110, 140, 175, 210, 250], "stroke": 12, "strokeColour": "#101010",
+      "hits": { "size": 44, "colour": "#ffffff", "dyFactor": 0.66, "dy": 14 },
+      "block": { "sizeFactor": 0.5, "minSize": 60, "colour": "#7fb8ff", "gap": 90, "shieldColour": "#4a6fa5", "shieldEdge": "#dbe6f5" },
+      "halo": { "colour": "#000000", "layers": 2, "padX": 300, "heightFactor": 1.9 },
+      "rollMs": 260, "punch": { "scale": 1.28, "reducedScale": 1.1, "ms": 260 }, "growMs": 420
+    },
+    "flight": { "ms": 360, "curve": 110, "size": 40, "trailEveryPx": 16, "trailMs": 280, "trailSize": 30, "arrival": { "ringSize": 150, "ringMs": 360, "sparkSize": 130 } },
+    "capBurst": { "size": 110, "ms": 340 },
+    "microFreezeMs": [0, 20, 30, 45, 60],
+    "gap": { "startMs": 520, "stepMs": 40, "minMs": 110, "stepFraction": 0.5 },
+    "tierJump": {
+      "calloutSize": 76, "calloutDy": 50, "calloutMs": 1000, "calloutFrom": 0.4, "calloutTo": 1.15, "calloutPopMs": 240,
+      "ringSize": [0, 500, 600, 720, 840], "burstSize": [0, 380, 460, 540, 640], "fxMs": 520,
+      "flashAlpha": [0, 0.22, 0.28, 0.34, 0.4], "flashMs": 280,
+      "shakeMs": [0, 160, 200, 240, 280], "shakeIntensity": [0, 0.004, 0.006, 0.008, 0.011],
+      "tintAlpha": [0, 0.07, 0.1, 0.13, 0.17], "tintReducedAlpha": 0.05, "tintMs": 600
+    },
+    "lethal": {
+      "word": "LETHAL!", "colour": "#ffd23f", "size": 84, "dy": 50,
+      "gradientTop": "#fff6b0", "gradientBottom": "#ff4a14",
+      "flame": { "size": 130, "rise": 190, "lifeMs": 700, "everyMs": 45, "perTick": 2, "maxAlive": 36, "colour": "#ff8a2a", "alpha": 0.9, "reducedEveryMs": 160, "reducedPerTick": 1, "reducedAlpha": 0.5 },
+      "ringSize": 900, "burstSize": 720, "flashAlpha": 0.5, "shakeMs": 360, "shakeIntensity": 0.013
+    },
+    "slam": {
+      "chargeMs": [240, 320, 400, 460, 520], "swell": 1.3, "tremble": 6,
+      "flightMs": 210, "flightEndScale": 0.35,
+      "hitStopMs": [40, 60, 80, 100, 120], "flashAlpha": [0.35, 0.45, 0.55, 0.65, 0.75], "flashMs": 320,
+      "shakeMs": [200, 260, 320, 380, 440], "shakeIntensity": [0.006, 0.009, 0.012, 0.016, 0.02],
+      "gain": [0.5, 0.65, 0.8, 0.9, 1],
+      "burstSize": [320, 400, 480, 560, 640], "ringSize": [420, 520, 620, 720, 820], "fxMs": 480,
+      "popup": { "size": 120, "blockedSize": 44, "blockedColour": "#9cc4ff", "dy": 90, "ms": 1000 },
+      "block": { "chargeMs": 200, "flightMs": 260 }
+    },
+    "fanfare": {
+      "holdMs": [260, 360, 460, 560, 640], "sparkles": [10, 20, 34, 52, 76], "killMultiplier": 1.5,
+      "size": 48, "fallMs": 1300, "spreadMs": 420, "coinEvery": 3,
+      "colours": ["#ffe14d", "#fff2b0", "#ffb02e"],
+      "shatter": { "shards": 18, "size": 90, "spread": 320, "ms": 800 }
+    },
+    "skip": { "factor": 0.4, "sparkleFactor": 0.5 },
+    "look": {
+      "hitsBump": 1.3,
+      "arrivalShake": { "tier0": 0.002, "tierFactor": 0.4, "ms": 120 },
+      "blockPlaceholderDx": 200,
+      "popup": { "startScale": 0.5, "popMs": 160, "lineGap": 0.7 },
+      "fadeOutMs": 300,
+      "ring": { "startScale": 0.3, "reducedAlpha": 0.5 },
+      "puff": { "startScale": 0.4, "endScale": 2.6 },
+      "capBurstGrow": 1.8,
+      "trailEndScale": 0.3,
+      "haloAlpha2": 0.7,
+      "tremble": { "base": 0.5, "perTier": 0.25 },
+      "numberFadeFraction": { "halo": 0.8, "hits": 0.5 },
+      "chipDx": 40,
+      "fanfareSpawn": { "top": -30, "spread": 80, "sizeMin": 0.5, "sizeMax": 1.2, "fallMin": 0.45, "fallMax": 0.95 },
+      "flame": { "topFraction": 0.42, "shrink": 0.5 },
+      "block": { "shieldWidth": 0.85, "textX": 0.55, "dyFactor": 0.08 }
+    }
+  },
+  "speedControl": {
+    "comment": "Combat playback speed button and its list (#220), read by src/game/speedControl.ts. Px on the 1920x1080 table. Where the button sits comes from combatLayout.footer (#231); the list opens upward, gap above it, and opens downward instead if it would leave the screen.",
+    "buttonW": 80, "buttonH": 40, "itemH": 44, "gap": 8, "fontSize": 22, "depth": 650
+  },
+  "setOffPreview": {
+    "comment": "Set-off preview on the health bars (#222), read by src/game/setOffPreview.ts. Px on the 1920x1080 table. The ghost is the part of a bar the set-off would take; it pulses between alphaLow and alphaHigh every pulseMs (steady at alphaHigh under reduced flashing). The bars and shields it draws on come from the column (combatLayout, through the scene's refs) and the Pass button from combatLayout.actions.pass. Label offsets are from the bar's right edge, the shield or the safe mark. Skull and crack numbers are fractions of the skull radius or the shield size.",
+    "ghost": { "colour": "#ffffff", "alphaLow": 0.35, "alphaHigh": 0.85, "pulseMs": 700, "minWidth": 2 },
+    "text": { "strokeThickness": 5, "strokeColour": "#101010" },
+    "loss": { "colour": "#ff9a94", "fontSize": 24, "dx": 0, "dy": -26, "originX": 1 },
+    "gain": { "colour": "#8fd0ff", "fontSize": 22, "enemyShieldDx": 0, "enemyShieldDy": -34, "partyDy": -20 },
+    "safe": { "colour": "#8fe3a8", "tickColour": "#10301c", "fontSize": 20, "iconDx": 96, "textDx": 114, "dy": -18, "half": 10, "top": 11, "shoulder": 2, "tip": 12, "tickWidth": 3 },
+    "skull": { "size": 17, "colour": "#f4ecd8", "dx": 0.6, "outline": 4, "outlineColour": "#101010", "outlineAlpha": 0.85, "head": 0.8, "headDy": -0.15, "jawHalf": 0.4, "jawTop": 0.35, "jawH": 0.5, "eyeDx": 0.3, "eyeR": 0.22 },
+    "crack": { "colour": "#10203a", "width": 3, "points": [[-0.1, -0.5], [0.12, -0.1], [-0.12, 0.15], [0.05, 0.55]] },
+    "setOffGlow": { "colour": "#ffe14d", "alphaLow": 0.25, "alphaHigh": 0.9, "pulseMs": 600, "width": 7, "pad": 5 }
+  },
+  "enemyReactions": {
+    "comment": "Enemy reactions (#190), read by src/game/enemyReactions.ts. Times are ms at 1x (scaled by playback speed), distances px on the 1920x1080 table. A hit of at least staggerMin damage staggers instead of flinching. The ghost bar waits delayMs after the last hit, then drains to the real value at perPointMs per point (between minMs and maxMs), so a run of hits shares one drain. Shield cracks show at each crack fraction of the block worn down.",
+    "flinch": { "dx": 14, "dy": -8, "ms": 90, "flashAlpha": 0.45, "flashColour": "#ffffff" },
+    "stagger": { "staggerMin": 12, "dx": 34, "dy": -20, "ms": 160, "rotation": 0.07, "wobbles": 3, "flashColour": "#ff6a5f" },
+    "ghost": { "colour": "#ffffff", "alpha": 0.55, "delayMs": 600, "perPointMs": 14, "minMs": 350, "maxMs": 1800 },
+    "shield": { "cracks": [0.25, 0.5, 0.75], "shatterShards": 7, "shatterSize": 30, "shatterMs": 520, "shatterSpread": 70 },
+    "intent": { "pulseMs": 380, "holdMs": 300, "scale": 1.12 },
+    "lunge": { "dy": 40, "scale": 1.1, "ms": 170, "returnMs": 260 },
+    "impact": { "shakeMs": 260, "shakeIntensity": 0.006, "flashMs": 320, "flashAlpha": 0.35, "blockFirstMs": 350 },
+    "raise": { "ms": 420, "holdMs": 380, "rise": 60, "size": 150 },
+    "heal": { "ms": 700, "colour": "#5be37d", "size": 420 },
+    "freeze": { "ms": 140, "bossMs": 260 },
+    "death": {
+      "normal": { "ms": 700, "shards": 12, "shardSize": 42, "spread": 220, "ringSize": 420, "shakeIntensity": 0.008, "colour": "#ffe9c8" },
+      "boss": { "ms": 1400, "shards": 28, "shardSize": 64, "spread": 380, "ringSize": 760, "shakeIntensity": 0.016, "colour": "#ffb066" }
+    }
+  },
+  "fuseBoard": {
+    "comment": "Fuse board (#229), read by src/game/fuseBoard.ts. Lengths are px at the board scale (scale, a share of full size) and the whole tree shrinks together (never below minScale) only when it outgrows its area. The owner stripe stays down to detailScale. gap: run between a domino's edge and the next one; rowPitch: distance between branches; ringRadius: the open-end ghost ring; padLeft: space left of the opener inside the area so its socket ring is not clipped; openerCharge: the charge an opener starts with (the engine's start charge, which no view exposes), only to colour a live number red or green on the opener slot; junctionGapX: where a junction's middle output (Hall of Mirrors) leaves, in domino units. fuse: dark under-stroke and spark-colour stroke widths, bend (share of the run used as the curve's handle), the cascade's burnt part (burnWidth, burnAlpha, burnMs at 1x). badge: the charge pill at a fuse's midpoint; nudge lists the places along the fuse (0..1) tried in order until it clears every tile, ring and other badge by clearance. ring: dashed open end, its gold charge badge, the legal highlight (pulse is skipped with reduced flashing); lock: the padlock on a locked end. live: the result bubble beside an end while a hand domino is hovered or dragged (good = at or above its base, bad = below it); dimAlpha for ends it is not aimed at. opener: the empty first slot.",
+    "scale": 0.6,
+    "minScale": 0.3,
+    "detailScale": 0.4,
+    "gap": 62,
+    "rowPitch": 90,
+    "ringRadius": 30,
+    "junctionGapX": 150,
+    "openerCharge": 1,
+    "padLeft": 16,
+    "fuse": { "under": 13, "width": 7, "bend": 0.5, "dimAlpha": 0.3, "underColour": "#22201c", "burnWidth": 9, "burnAlpha": 0.95, "burnMs": 500 },
+    "badge": { "w": 44, "h": 30, "fill": "#fff7d6", "stroke": "#22201c", "strokeWidth": 2.5, "size": 20, "text": "#22201c", "minSize": 11, "clearance": 4, "nudge": [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74, 0.18, 0.82] },
+    "ring": { "width": 4, "dash": 7, "gap": 6, "legalColour": "#ffe14d", "legalWidth": 6, "fillAlpha": 0.12, "backing": "#0d2a20", "badgeR": 14, "badgeFill": "#ffd54a", "badgeDx": 26, "badgeDy": -24, "badgeText": "#2a2200", "minHit": 44, "pulseMs": 700, "pulseAlpha": 0.55 },
+    "lock": { "scale": 0.8, "dx": 14, "dy": 12 },
+    "live": { "good": "#2f9e44", "bad": "#d6453d", "fill": "#fffbea", "stroke": "#22201c", "strokeWidth": 3, "mainSize": 34, "subSize": 18, "subColour": "#5c5648", "padX": 16, "padY": 6, "gap": 10, "dimAlpha": 0.75 },
+    "opener": { "w": 170, "h": 84, "colour": "#ffe14d", "textSize": 24 }
+  },
+  "handRow": {
+    "comment": "Your hand as a straight row (#253), read by src/game/handRow.ts; the seat-tab hands (combatLayout.tabs.hand) follow the same rule. No fan, tilt or overlap: dominoes sit gap px apart (between their real outlines), centred in area (right of the left column, left of the Pass button, under the board). scale: a hand domino's normal size; a hand too wide for the area shrinks evenly, never below minScale (about 80% of scale); past that it wraps into two rows, split by width as evenly as possible, rowGap px apart, at the size that fits both rows (the top row stays clear of the board: lower the board's bottom edge, combatLayout.board, if the area needs more height). The hovered domino grows to hoverScale and lifts by lift (tweenMs), drawn over its neighbours, which do not move; it never rises above the top of area, so a top-row domino lifts less (or grows downward) instead of covering the board. drag: the faint dashed place left by a dragged domino (the domino itself fades to holderAlpha). enter: a new draw slides in from the left edge of area (slideMs for an old domino finding its new place, enterMs for the new one, staggerMs between new ones).",
+    "scale": 0.7,
+    "minScale": 0.56,
+    "gap": 14,
+    "rowGap": 10,
+    "hoverScale": 0.95,
+    "lift": 32,
+    "tweenMs": 120,
+    "drag": { "alpha": 0.28, "holderAlpha": 0.25, "colour": "#ffe14d", "width": 3, "dash": 9, "space": 7 },
+    "enter": { "slideMs": 250, "enterMs": 350, "staggerMs": 60 },
+    "area": { "x": 500, "y": 860, "w": 1075, "h": 208 }
+  },
+  "combatLayout": {
+    "comment": "Combat screen layout (#228, #231 Spotlight; the board rectangle is the fuse board's area and the cascade counter's strip is its top, #229; the hand's place is handRow.area), read by CombatScene.ts, columnLayout.ts, enemyUnit.ts, setOffTally.ts, turnRail.ts and combatHud.ts. Px on the 1920x1080 table; boxes are x, y top-left with w, h. Colours are #rrggbb. The column is stacked top to bottom from its content: the portrait card shrinks first (between card.minH and card.maxH) when the stack runs short, then the gaps between sections shrink (never below column.minGap; they grow to column.maxGap when there is room). Bars, shields, the enemy's body and the set-off preview all follow from the column: nothing else repeats their places. The seat tabs run across the top right of the column; the board is below them, the hand and actions at the bottom.",
+    "background": {
+      "dim": { "colour": "#0a0f0c", "alpha": 0.62 },
+      "blur": { "scale": 0.25, "px": 3 },
+      "light": { "x": 1200, "y": 540, "w": 1500, "h": 760, "colour": "#ffc27a", "alpha": 0.2 },
+      "vignette": { "cx": 0.5, "cy": 0.55, "radius": 0.7, "clearUntil": 0.55, "edgeAlpha": 0.5 }
+    },
+    "column": { "x": 30, "y": 30, "w": 448, "h": 1020, "r": 24, "padX": 25, "padTop": 25, "padBottom": 22, "minGap": 8, "maxGap": 34, "fill": "#1d1a22", "fillAlpha": 0.94, "stroke": "#4a4358", "strokeWidth": 2 },
+    "enemy": {
+      "card": { "maxH": 280, "minH": 100, "r": 16, "fill": "#2a0d14", "glow": "#7a2230", "stroke": "#5a3040", "strokeWidth": 2, "artPad": 4, "artDy": 6 },
+      "tier": { "x": 12, "y": 12, "h": 26, "size": 14, "spacing": 2, "padX": 12, "fill": "#14101a", "stroke": "#e9d9a8", "colour": "#f3ead6" },
+      "name": { "h": 54, "size": 44, "colour": "#ffffff" },
+      "innerGap": 8,
+      "chip": { "h": 38, "gap": 6, "size": 18, "fill": "#2b2140", "stroke": "#e9d9a8", "textColour": "#f3ead6", "iconR": 15 },
+      "bar": { "h": 32, "fontSize": 22, "left": 84 },
+      "shield": { "x": 22, "s": 34 },
+      "intent": { "h": 114, "r": 12, "fill": "#3a1414", "stroke": "#ff6a5f", "strokeWidth": 2, "labelY": 24, "rowY": 74 },
+      "label": { "size": 15, "spacing": 3, "colour": "#ffb3aa" },
+      "action": { "icon": 1.1, "numberSize": 56, "hitsSize": 32, "hitsColour": "#ffb3aa", "gap": 10, "pad": 22 },
+      "later": { "h": 40, "size": 15, "scale": 0.4, "colour": "#9fd1b8" }
+    },
+    "tally": {
+      "label": { "h": 26, "text": "IF IT FIRES NOW", "size": 15, "spacing": 3, "colour": "#ffd54a" },
+      "tile": { "h": 140, "r": 16, "gap": 14, "edge": 7, "numberY": 62, "numberSize": 76, "labelY": 108, "labelSize": 15, "labelSpacing": 3, "subY": 128, "subSize": 15, "numberColour": "#ffffff", "labelColour": "#ffe3df", "dash": "–", "numberPad": 18 },
+      "damage": { "fill": "#f2564a", "edge": "#a8322c", "label": "DAMAGE", "sub": "blocked" },
+      "block": { "fill": "#1e88f0", "edge": "#1560b0", "label": "BLOCK" },
+      "lethal": { "label": "LETHAL", "glow": "#ffe14d", "alphaLow": 0.3, "alphaHigh": 1, "pulseMs": 600, "width": 6, "pad": 3 },
+      "line": { "gap": 10, "h": 26, "size": 17, "colour": "#cdd2d8", "lossColour": "#ff6a5f", "safeColour": "#8fe3a8", "noCaps": "No caps yet", "safe": "party is safe" }
+    },
+    "party": {
+      "label": { "h": 26, "text": "PARTY", "size": 15, "spacing": 3, "colour": "#9fd1b8" },
+      "bar": { "w": 300, "h": 30, "fontSize": 22 },
+      "shield": { "dx": 28, "s": 34 }
+    },
+    "footer": {
+      "h": 60, "r": 14, "fill": "#14111a", "stroke": "#4a4358", "strokeWidth": 2,
+      "round": { "dx": 18, "size": 24, "colour": "#f3ead6", "numberColour": "#ffd54a" },
+      "speed": { "rightDx": -92 },
+      "menu": { "dx": -36 }
+    },
+    "tabs": {
+      "x": 510, "y": 26, "w": 1380, "h": 166, "gap": 34, "r": 16, "padX": 16,
+      "arrow": { "size": 22, "colour": "#7a7488" },
+      "tab": { "fill": "#1d1a22", "stroke": "#4a4358", "strokeWidth": 2, "turnFill": "#2a2418", "turnStroke": "#ffd54a", "turnStrokeWidth": 3, "nextStroke": "#8fe3a5", "nextStrokeWidth": 3 },
+      "dot": { "dx": 8, "r": 8 },
+      "name": { "dx": 26, "y": 26, "size": 26, "colour": "#f3ead6", "maxW": 150 },
+      "tags": { "y": 26, "h": 24, "size": 14, "gap": 6, "padX": 10, "lead": { "fill": "#3a3744", "text": "#c9c4d4" }, "you": { "fill": "#ffd54a", "text": "#2a2200" }, "next": { "fill": "#8fe3a5", "text": "#0c2a16" }, "away": { "fill": "#3a3744", "text": "#9aa3b2" }, "pass": { "fill": "#ff9a94", "text": "#2a0c0a" } },
+      "counts": { "y": 56, "size": 16, "colour": "#b8c4b4", "hoverColour": "#ffe14d" },
+      "hand": { "top": 74, "bottom": 30, "scale": 0.33, "minScale": 0.264, "gap": 6, "rowGap": 3 },
+      "charm": { "size": 26, "step": 32, "fill": "#2b2140" },
+      "you": { "text": "Your hand is below", "size": 18, "colour": "#cdd2d8" },
+      "caption": { "dy": 16, "size": 16, "colour": "#8fe3a5", "text": "Lit: playable after your", "passText": "Nothing to play after your" },
+      "next": { "glow": "#ffe36b", "glowWidth": 14, "glowAlpha": 0.55, "dimAlpha": 0.45 },
+      "zoom": { "scale": 0.9, "gapY": 14 }
+    },
+    "board": { "x": 500, "y": 204, "w": 1400, "h": 652 },
+    "actions": {
+      "pass": { "x": 1595, "y": 944, "w": 295, "h": 100, "fill": "#ffd54a", "stroke": "#22201c", "strokeWidth": 3, "size": 40, "colour": "#22201c", "text": "Pass", "fireText": "Pass and fire", "fireSize": 34 }
+    },
+    "pause": { "x": 1130, "buttonX": 1500, "y": 392 },
+    "waiting": { "text": "Waiting for the host", "x": 1040, "y": 866, "size": 24, "colour": "#cfe9dc" },
+    "skipHint": { "x": 1200, "y": 836 }
+  },
+  "wizardLook": {
+    "comment": "Choosing a wizard's look (#262), read by src/game/wardrobe.ts, the lobby lists and the single player start screen. Px on the 1920x1080 screen. wardrobe: the panel centred on the screen; everything inside is relative to its centre. preview: the big wizard (scale = screen px per art px, feet at x, y). swatches: the colour circles (size, pitch, row y, left x) and how many letters of a taker's name fit under one. tiles: the hat and robe choices, each on a small wizard (scale, tile size, pitch, left x, each row's centre y). lobbyList: rows of the online lobby (wizard scale, pitch, where the first row sits on the host and join screens, where the Edit button sits). startSeats: the single player seat cards (pitch between cards, top, size, wizard scale).",
+    "wardrobe": { "w": 1240, "h": 780, "dim": 0.7, "title": { "x": -580, "y": -335, "size": 44 }, "buttons": { "y": 335, "size": 34, "randomX": -420, "doneX": 480 } },
+    "preview": { "scale": 6, "x": -400, "y": 190 },
+    "swatches": { "size": 56, "pitch": 90, "left": -150, "y": -200, "labelY": -270, "nameY": 40, "nameLetters": 9 },
+    "tiles": { "scale": 1.5, "w": 128, "h": 140, "pitch": 140, "left": -150, "hatY": -15, "robeY": 175, "labelOffsetY": -95 },
+    "lobbyList": { "wizardScale": 1.25, "pitch": 100, "hostTop": 330, "joinTop": 290, "textX": 200, "editX": 1000 },
+    "startSeats": { "pitch": 380, "top": 380, "w": 340, "h": 460, "wizardScale": 3, "editY": 400 }
+  }
+}

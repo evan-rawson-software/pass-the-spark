@@ -1,0 +1,117 @@
+{
+  "startingCoins": 50,
+  "actStartHealPercent": 100,
+  "restHeal": 20,
+  "upgrade": { "capPercent": 50, "boostAdd": 1, "doubleValue": 2.5, "echoRepeats": 1, "spectrumAdd": 1 },
+  "trader": {
+    "stockSize": 5,
+    "prices": { "common": 20, "uncommon": 40, "rare": 75 },
+    "removalFeeStart": 15,
+    "removalFeeStep": 10,
+    "minDeckSize": 5,
+    "charmStockSize": 3,
+    "charmPrice": 40
+  },
+  "charmOffers": { "elite": 1, "boss": 3 },
+  "acts": [
+    {
+      "id": "act1",
+      "bossPool": ["auditor", "glutton"],
+      "normalPool": ["ogre", "goblin", "slime", "wisp"],
+      "elitePool": ["brute", "warden"],
+      "battleCoins": { "fight": 10, "elite": 25, "boss": 50 },
+      "rewardOdds": {
+        "fight": { "common": 0, "uncommon": 97, "rare": 3 },
+        "elite": { "common": 0, "uncommon": 80, "rare": 20 },
+        "boss": { "common": 0, "uncommon": 0, "rare": 100 }
+      },
+      "traderOdds": { "common": 0, "uncommon": 93, "rare": 7 },
+      "map": {
+        "floors": 10,
+        "nodesPerFloor": { "min": 3, "max": 4 },
+        "nextPerNode": { "min": 1, "max": 2 },
+        "fixedFloors": {
+          "1": "fight",
+          "2": "fight",
+          "3": "fight",
+          "6": "rest",
+          "10": "rest"
+        },
+        "weights": { "fight": 45, "elite": 15, "rest": 4, "trader": 8, "event": 22 },
+        "eliteMinFloor": 5,
+        "restMinFloor": 4,
+        "restBannedFloors": [9],
+        "maxRestPerPath": 3,
+        "maxTraderPerPath": 2,
+        "minTradersPerAct": 1,
+        "maxAttempts": 200
+      }
+    },
+    {
+      "id": "act2",
+      "bossPool": ["hoarder", "smolder"],
+      "normalPool": ["bandit", "golem", "harpy"],
+      "elitePool": ["ravager", "sentinel"],
+      "battleCoins": { "fight": 15, "elite": 35, "boss": 75 },
+      "rewardOdds": {
+        "fight": { "common": 0, "uncommon": 93, "rare": 7 },
+        "elite": { "common": 0, "uncommon": 70, "rare": 30 },
+        "boss": { "common": 0, "uncommon": 0, "rare": 100 }
+      },
+      "traderOdds": { "common": 0, "uncommon": 87, "rare": 13 },
+      "map": {
+        "floors": 10,
+        "nodesPerFloor": { "min": 3, "max": 4 },
+        "nextPerNode": { "min": 1, "max": 2 },
+        "fixedFloors": {
+          "1": "fight",
+          "2": "fight",
+          "3": "fight",
+          "6": "rest",
+          "10": "rest"
+        },
+        "weights": { "fight": 45, "elite": 15, "rest": 4, "trader": 8, "event": 22 },
+        "eliteMinFloor": 5,
+        "restMinFloor": 4,
+        "restBannedFloors": [9],
+        "maxRestPerPath": 3,
+        "maxTraderPerPath": 2,
+        "minTradersPerAct": 1,
+        "maxAttempts": 200
+      }
+    },
+    {
+      "id": "act3",
+      "bossPool": ["long_night", "warden_of_locks"],
+      "normalPool": ["wraith", "colossus", "stormling"],
+      "elitePool": ["tyrant", "warlord"],
+      "battleCoins": { "fight": 20, "elite": 45, "boss": 100 },
+      "rewardOdds": {
+        "fight": { "common": 0, "uncommon": 85, "rare": 15 },
+        "elite": { "common": 0, "uncommon": 55, "rare": 45 },
+        "boss": { "common": 0, "uncommon": 0, "rare": 100 }
+      },
+      "traderOdds": { "common": 0, "uncommon": 75, "rare": 25 },
+      "map": {
+        "floors": 10,
+        "nodesPerFloor": { "min": 3, "max": 4 },
+        "nextPerNode": { "min": 1, "max": 2 },
+        "fixedFloors": {
+          "1": "fight",
+          "2": "fight",
+          "3": "fight",
+          "6": "rest",
+          "10": "rest"
+        },
+        "weights": { "fight": 45, "elite": 15, "rest": 4, "trader": 8, "event": 22 },
+        "eliteMinFloor": 5,
+        "restMinFloor": 4,
+        "restBannedFloors": [9],
+        "maxRestPerPath": 3,
+        "maxTraderPerPath": 2,
+        "minTradersPerAct": 1,
+        "maxAttempts": 200
+      }
+    }
+  ]
+}

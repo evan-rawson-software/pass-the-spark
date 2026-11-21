@@ -1,0 +1,16 @@
+{
+  "experience": {
+    "perFloor": 10,
+    "perBoss": 50,
+    "forWin": 100
+  },
+  "levels": [
+    { "experience": 150, "unlock": "advancedSparks", "name": "Advanced sparks", "description": "Storm and Void sparks in the dominoes you are offered." },
+    { "experience": 350, "unlock": "echo", "name": "Echo", "description": "Amplifiers that make every cap further along the path go off again." },
+    { "experience": 600, "unlock": "boostTwo", "name": "Boost +2", "description": "Amplifiers that add 2 charge." },
+    { "experience": 1300, "unlock": "ignoresBlock", "name": "Ignores block", "description": "Damage caps that go straight through block." },
+    { "experience": 1800, "unlock": "spectrum", "name": "Spectrum", "description": "Amplifiers that grow with the different sparks on the path." },
+    { "experience": 2400, "unlock": "double", "name": "Double", "description": "Amplifiers that double the charge." },
+    { "experience": 3200, "unlock": "anyIntake", "name": "Any intake", "description": "Dominoes that can take any spark." }
+  ]
+}

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wizard Art Preview</title>
+<style>
+  :root { --bg: #110d16; --panel: #1b1524; --line: #3b2f49; --ink: #f3ead6; --muted: #b9aec6; --gold: #ffd54a; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
+  h1 { margin: 0; color: var(--gold); font-size: 1.6rem; }
+  p { margin: 0; color: var(--muted); max-width: 90ch; }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .lab { color: var(--muted); min-width: 80px; }
+  button { font: 600 14px system-ui, sans-serif; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; background: var(--panel); color: var(--ink); cursor: pointer; }
+  button.on { background: var(--gold); color: #22201c; border-color: var(--gold); }
+  button.sw { width: 32px; height: 32px; padding: 0; border: 2px solid transparent; }
+  button.sw.on { border-color: #fff; box-shadow: 0 0 0 2px var(--bg) inset; }
+  .stage { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; overflow-x: auto; }
+  canvas { display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Wizard art preview</h1>
+  <p>Puts wizards together from the sheets in <code>public/art/wizards/</code> and <code>data/wizard-art.json</code>, and recolours them the way the game will: each robe and hat sheet is recoloured once on a canvas by swapping the key greys for the colour's ramp, then the layers are drawn in <code>layerOrder</code> at <code>scale</code> with nearest-neighbour scaling. Top: your wizard facing right and mirrored (as on the right of the circle). Below: the same outfit in all 8 colours, and every hat on every robe, all playing the chosen animation. Open from the dev server: <code>npm run dev</code>, then <code>/pass-the-spark/tools/art/preview.html</code>.</p>
+  <div class="bar"><span class="lab">Colour</span><span id="colours" class="bar"></span></div>
+  <div class="bar"><span class="lab">Hat</span><span id="hats" class="bar"></span></div>
+  <div class="bar"><span class="lab">Robe</span><span id="robes" class="bar"></span></div>
+  <div class="bar"><span class="lab">Animation</span><span id="anims" class="bar"></span></div>
+  <div class="bar"><span class="lab">Show</span><button id="points">Points</button><button id="slow">Slow (¼×)</button></div>
+  <div class="stage"><canvas id="big"></canvas></div>
+  <div class="stage"><canvas id="all"></canvas></div>
+  <div class="stage"><canvas id="grid"></canvas></div>
+  <h1>Circle</h1>
+  <p>The arcane circle at ×3, drawn as the game will: the tier's layers stacked, each looping. Cascade steps up one tier at a time, fading the new tier in over the old one, and fires the beam at the top.</p>
+  <div class="bar"><span class="lab">Tier</span><span id="tiers" class="bar"></span></div>
+  <div class="bar"><span class="lab">Variant</span><span id="variants" class="bar"></span></div>
+  <div class="bar"><span class="lab">Play</span><button id="beam">Beam</button><button id="cascade">Cascade</button></div>
+  <div class="stage"><canvas id="circle"></canvas></div>
+  <h1>Spells</h1>
+  <p>Each damage spell flies right and hits; the ward rises in all 6 spark colours; the final spell flies and hits. All at ×3.</p>
+  <div class="stage"><canvas id="spells"></canvas></div>
+  <div class="stage"><canvas id="wards"></canvas></div>
+  <div class="stage"><canvas id="final"></canvas></div>
+</main>
+<script type="module">
+const ROOT = new URL("../../", import.meta.url); // the base URL the game is served from
+const D = await (await fetch(new URL("data/wizard-art.json", ROOT))).json();
+const { w: FW, h: FH } = D.frame, S = D.scale;
+
+const loadImage = (path) => new Promise((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = fail; i.src = new URL("art/" + path, ROOT).href; });
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const sheets = {};
+const C = D.circle;
+for (const path of [...Object.values(D.sheets), ...D.hats.map((h) => h.sheet), ...D.robes.map((r) => r.sheet),
+                    ...C.tiers.flatMap((t) => t.layers.map((l) => l.sheet)), C.beam.sheet,
+                    ...D.spells.map((s) => s.sheet), D.ward.sheet, D.finalSpell.sheet]) sheets[path] = await loadImage(path);
+
+// Recolour a sheet once: every pixel in keyRamp[i] becomes ramp[i]. Cached per sheet and colour.
+const tinted = new Map();
+function tint(path, colour) {
+  const k = path + "|" + (colour.id || colour.spark);
+  if (tinted.has(k)) return tinted.get(k);
+  const im = sheets[path], c = document.createElement("canvas");
+  c.width = im.width; c.height = im.height;
+  const x = c.getContext("2d");
+  x.drawImage(im, 0, 0);
+  const d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+  const from = D.keyRamp.map(hex), to = colour.ramp.map(hex);
+  for (let i = 0; i < p.length; i += 4) {
+    if (!p[i + 3]) continue;
+    const j = from.findIndex((f) => f[0] === p[i] && f[1] === p[i + 1] && f[2] === p[i + 2]);
+    if (j >= 0) [p[i], p[i + 1], p[i + 2]] = to[j];
+  }
+  x.putImageData(d, 0, 0);
+  tinted.set(k, c);
+  return c;
+}
+
+// The layer images for one wizard, in drawing order.
+function layers(colour, hat, robe) {
+  return D.layerOrder.map((l) => l === "hat" ? tint(hat.sheet, colour) : l === "robe" ? tint(robe.sheet, colour) : sheets[D.sheets[l]]);
+}
+
+const ANIMS = [["idle", D.animations.idle], ["hurt", D.animations.hurt], ["victory", D.animations.victory],
+               ...D.animations.casts.map((c) => ["cast: " + c.id, c])];
+const st = { colour: D.colours[0], hat: D.hats[0], robe: D.robes[0], anim: ANIMS[0], points: false, slow: false };
+
+// Which frame an animation shows t ms after it starts. One-shot animations hold their last frame,
+// then start again after a pause so the preview keeps playing them.
+function frameAt(a, t) {
+  const total = a.ms.reduce((s, v) => s + v, 0);
+  t = a.loop ? t % total : t % (total + 700);
+  for (let i = 0; i < a.frames; i++) { if (t < a.ms[i]) return i; t -= a.ms[i]; }
+  return a.frames - 1;
+}
+
+function drawWizard(ctx, ls, a, f, x, y, scale, mirror) {
+  ctx.save();
+  ctx.translate(x, y);
+  if (mirror) { ctx.translate(FW * scale, 0); ctx.scale(-1, 1); }
+  for (const im of ls) ctx.drawImage(im, f * FW, a.row * FH, FW, FH, 0, 0, FW * scale, FH * scale);
+  if (st.points) {
+    const pt = a.points[f];
+    ctx.fillStyle = "#ff3b3b"; ctx.fillRect(pt.tip[0] * scale, pt.tip[1] * scale, scale, scale);
+    ctx.fillStyle = "#3bff6e"; ctx.fillRect(pt.feet[0] * scale, pt.feet[1] * scale, scale, scale);
+  }
+  ctx.restore();
+}
+
+function buttons(id, items, label, isOn, pick, swatch) {
+  const box = document.getElementById(id);
+  const render = () => {
+    box.innerHTML = "";
+    for (const it of items) {
+      const b = document.createElement("button");
+      if (swatch) { b.className = "sw"; b.style.background = it.ramp[2]; b.title = it.name; b.ariaLabel = it.name; } else b.textContent = label(it);
+      b.classList.toggle("on", isOn(it));
+      b.onclick = () => { pick(it); render(); };
+      box.appendChild(b);
+    }
+  };
+  render();
+}
+buttons("colours", D.colours, null, (c) => c === st.colour, (c) => (st.colour = c), true);
+buttons("hats", D.hats, (h) => h.name, (h) => h === st.hat, (h) => (st.hat = h));
+buttons("robes", D.robes, (r) => r.name, (r) => r === st.robe, (r) => (st.robe = r));
+buttons("anims", ANIMS, (a) => a[0], (a) => a === st.anim, (a) => { st.anim = a; start = performance.now(); });
+for (const [id, key] of [["points", "points"], ["slow", "slow"]]) {
+  const b = document.getElementById(id);
+  b.onclick = () => { st[key] = !st[key]; b.classList.toggle("on", st[key]); };
+}
+
+const big = document.getElementById("big"), all = document.getElementById("all"), grid = document.getElementById("grid");
+big.width = FW * S * 2 + 40; big.height = FH * S;
+all.width = (FW * 2 + 8) * D.colours.length; all.height = FH * 2;
+grid.width = (FW * 2 + 8) * D.hats.length; grid.height = (FH * 2 + 8) * D.robes.length;
+let start = performance.now();
+
+function tick(now) {
+  const a = st.anim[1], f = frameAt(a, (now - start) * (st.slow ? 0.25 : 1));
+  for (const c of [big, all, grid]) { const x = c.getContext("2d"); x.imageSmoothingEnabled = false; x.clearRect(0, 0, c.width, c.height); }
+  const ls = layers(st.colour, st.hat, st.robe);
+  drawWizard(big.getContext("2d"), ls, a, f, 0, 0, S, false);
+  drawWizard(big.getContext("2d"), ls, a, f, FW * S + 40, 0, S, true);
+  D.colours.forEach((c, i) => drawWizard(all.getContext("2d"), layers(c, st.hat, st.robe), a, f, i * (FW * 2 + 8), 0, 2, false));
+  D.hats.forEach((h, i) => D.robes.forEach((r, j) =>
+    drawWizard(grid.getContext("2d"), layers(st.colour, h, r), a, f, i * (FW * 2 + 8), j * (FH * 2 + 8), 2, false)));
+  drawCircle(now);
+  drawSpells(now);
+  requestAnimationFrame(tick);
+}
+
+// ---------- circle ----------
+const cs = { tier: 0, from: null, fadeAt: 0, variant: 0, beam: false, cascade: null };
+const circle = document.getElementById("circle");
+const CTOP = 60; // art pixels of room above the circle's frame, for the beam
+circle.width = C.frame.w * S; circle.height = (C.frame.h + CTOP) * S;
+function drawTier(x, t, now, alpha) {
+  const tier = C.tiers[t], f = frameAt({ ms: tier.ms, frames: C.frames, loop: true }, now);
+  x.globalAlpha = alpha;
+  for (const l of tier.layers) x.drawImage(sheets[l.sheet], f * C.frame.w, cs.variant * C.frame.h, C.frame.w, C.frame.h, 0, CTOP * S, C.frame.w * S, C.frame.h * S);
+  x.globalAlpha = 1;
+}
+function drawCircle(now) {
+  if (cs.cascade !== null && now >= cs.cascade) { // one tier every 900 ms, then the beam, then from the start
+    if (cs.beam) { cs.beam = false; setTier(0, now); }
+    else if (cs.tier < 4) setTier(cs.tier + 1, now);
+    else cs.beam = true;
+    cs.cascade = now + (cs.beam ? 1600 : 900);
+    syncCircleButtons();
+  }
+  const x = circle.getContext("2d");
+  x.imageSmoothingEnabled = false;
+  x.clearRect(0, 0, circle.width, circle.height);
+  const fade = Math.min(1, (now - cs.fadeAt) / 300);
+  if (cs.from !== null && fade < 1) drawTier(x, cs.from, now, 1 - fade);
+  drawTier(x, cs.tier, now, cs.from === null ? 1 : fade);
+  if (cs.beam) {
+    const b = C.beam, f = frameAt(b, now);
+    const bx = C.centre[0] - b.anchor[0], by = CTOP + C.centre[1] - b.anchor[1];
+    x.drawImage(sheets[b.sheet], f * b.frame.w, 0, b.frame.w, b.frame.h, bx * S, by * S, b.frame.w * S, b.frame.h * S);
+  }
+}
+function setTier(t, now) { cs.from = cs.tier; cs.tier = t; cs.fadeAt = now; }
+function syncCircleButtons() {
+  document.querySelectorAll("#tiers button").forEach((b, i) => b.classList.toggle("on", i === cs.tier));
+  document.querySelectorAll("#variants button").forEach((b, i) => b.classList.toggle("on", i === cs.variant));
+  document.getElementById("beam").classList.toggle("on", cs.beam);
+  document.getElementById("cascade").classList.toggle("on", cs.cascade !== null);
+}
+for (let t = 0; t < C.tiers.length; t++) {
+  const b = document.createElement("button"); b.textContent = "Tier " + t;
+  b.onclick = () => { cs.cascade = null; setTier(t, performance.now()); syncCircleButtons(); };
+  document.getElementById("tiers").appendChild(b);
+}
+for (let v = 0; v < C.variants; v++) {
+  const b = document.createElement("button"); b.textContent = "Variant " + (v + 1);
+  b.onclick = () => { cs.variant = v; syncCircleButtons(); };
+  document.getElementById("variants").appendChild(b);
+}
+document.getElementById("beam").onclick = () => { cs.beam = !cs.beam; syncCircleButtons(); };
+document.getElementById("cascade").onclick = () => {
+  const now = performance.now();
+  if (cs.cascade === null) { cs.beam = false; setTier(0, now); cs.cascade = now + 900; } else cs.cascade = null;
+  syncCircleButtons();
+};
+syncCircleButtons();
+
+// ---------- spells ----------
+const LANE = 160; // art pixels a spell flies before it hits
+const spellsC = document.getElementById("spells"), wardsC = document.getElementById("wards"), finalC = document.getElementById("final");
+const SW = D.spells[0].frame.w, SH = D.spells[0].frame.h;
+spellsC.width = (LANE + SW + 60) * S; spellsC.height = D.spells.length * SH * S;
+wardsC.width = D.ward.colours.length * (D.ward.frame.w + 8) * S; wardsC.height = D.ward.frame.h * S;
+finalC.width = (LANE + 2 * D.finalSpell.frame.w) * S; finalC.height = D.finalSpell.frame.h * S;
+const sum = (a) => a.reduce((s, v) => s + v, 0);
+// A spell t ms into its cycle: flying for 600 ms, then its impact centred where the head hit, then a pause.
+function playSpell(x, sp, t, y) {
+  const fly = 600, hit = sum(sp.impact.ms), fw = sp.frame.w, fh = sp.frame.h;
+  t %= fly + hit + 400;
+  if (t < fly) {
+    const f = frameAt(sp.flight, t), px = (t / fly) * LANE;
+    x.drawImage(sheets[sp.sheet], f * fw, sp.flight.row * fh, fw, fh, px * S, y * S, fw * S, fh * S);
+  } else if (t < fly + hit) {
+    const f = frameAt({ ...sp.impact, loop: true }, t - fly);
+    const hx = LANE + sp.head[0] - fw / 2, hy = y + sp.head[1] - fh / 2;
+    x.drawImage(sheets[sp.sheet], f * fw, sp.impact.row * fh, fw, fh, hx * S, hy * S, fw * S, fh * S);
+  }
+}
+function drawSpells(now) {
+  const t = now * (st.slow ? 0.25 : 1);
+  for (const c of [spellsC, wardsC, finalC]) { const x = c.getContext("2d"); x.imageSmoothingEnabled = false; x.clearRect(0, 0, c.width, c.height); }
+  const xs = spellsC.getContext("2d");
+  D.spells.forEach((sp, i) => {
+    playSpell(xs, sp, t + i * 170, i * SH);
+    xs.fillStyle = "#b9aec6"; xs.font = "600 14px system-ui"; xs.fillText(sp.name, (LANE + SW + 4) * S, (i * SH + SH / 2) * S);
+  });
+  playSpell(finalC.getContext("2d"), D.finalSpell, t, 0);
+  const w = D.ward, f = Math.min(frameAt({ ms: [...w.ms, 900], frames: w.frames + 1, loop: true }, t), w.frames - 1);
+  const xw = wardsC.getContext("2d");
+  w.colours.forEach((c, i) => xw.drawImage(tint(w.sheet, c), f * w.frame.w, 0, w.frame.w, w.frame.h,
+    i * (w.frame.w + 8) * S, 0, w.frame.w * S, w.frame.h * S));
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

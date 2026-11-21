@@ -1,0 +1,18 @@
+import type { Enemy } from "../engine/types";
+import type { TipLine } from "./tooltip";
+
+// How a boss and its passives read on the map and the act screen (as a tooltip). Names and numbers come from the enemy's data.
+
+export function bossTip(boss: Enemy | undefined, health: number): TipLine[] {
+  if (!boss) return [];
+  const lines: TipLine[] = [
+    { text: boss.name, style: "title" },
+    { text: `Health ${health}`, style: "dim" },
+  ];
+  if (boss.passives.length === 0) lines.push({ text: "No passive" });
+  for (const p of boss.passives) {
+    lines.push({ text: p.name, style: "head" });
+    if (p.text) lines.push({ text: p.text });
+  }
+  return lines;
+}

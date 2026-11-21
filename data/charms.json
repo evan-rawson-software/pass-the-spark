@@ -1,0 +1,168 @@
+[
+  {
+    "id": "ember_lens",
+    "name": "Ember Lens",
+    "pool": "normal",
+    "description": "Your caps set off by Ember are worth +2.",
+    "numbers": {
+      "bonus": 2
+    }
+  },
+  {
+    "id": "tide_lens",
+    "name": "Tide Lens",
+    "pool": "normal",
+    "description": "Your caps set off by Tide are worth +2.",
+    "numbers": {
+      "bonus": 2
+    }
+  },
+  {
+    "id": "gale_lens",
+    "name": "Gale Lens",
+    "pool": "normal",
+    "description": "Your caps set off by Gale are worth +2.",
+    "numbers": {
+      "bonus": 2
+    }
+  },
+  {
+    "id": "deep_pockets",
+    "name": "Deep Pockets",
+    "pool": "normal",
+    "description": "Your hand limit is +2.",
+    "numbers": {
+      "handLimit": 2
+    }
+  },
+  {
+    "id": "early_riser",
+    "name": "Early Riser",
+    "pool": "normal",
+    "description": "You draw 1 extra domino at the start of each round.",
+    "numbers": {
+      "draws": 1
+    }
+  },
+  {
+    "id": "spark_starter",
+    "name": "Spark Starter",
+    "pool": "normal",
+    "description": "Your opener adds +1 charge.",
+    "numbers": {
+      "charge": 1
+    }
+  },
+  {
+    "id": "spyglass",
+    "name": "Spyglass",
+    "pool": "normal",
+    "description": "You see the enemy's intents 2 rounds ahead.",
+    "numbers": {
+      "rounds": 2
+    }
+  },
+  {
+    "id": "bulwark",
+    "name": "Bulwark",
+    "pool": "normal",
+    "description": "Your block caps are worth +2.",
+    "numbers": {
+      "bonus": 2
+    }
+  },
+  {
+    "id": "resonance",
+    "name": "Resonance",
+    "pool": "normal",
+    "description": "Your Echo amplifiers add 1 more repeat.",
+    "numbers": {
+      "repeats": 1
+    }
+  },
+  {
+    "id": "junction_runner",
+    "name": "Junction Runner",
+    "pool": "normal",
+    "description": "When your junction lights up in the cascade, the party gains 3 block.",
+    "numbers": {
+      "block": 3
+    }
+  },
+  {
+    "id": "coin_purse",
+    "name": "Coin Purse",
+    "pool": "normal",
+    "description": "You get +5 coins after every battle.",
+    "numbers": {
+      "coins": 5
+    }
+  },
+  {
+    "id": "haggler",
+    "name": "Haggler",
+    "pool": "normal",
+    "description": "Your Trader prices are 20% lower.",
+    "numbers": {
+      "discountPercent": 20
+    }
+  },
+  {
+    "id": "prism",
+    "name": "Prism",
+    "pool": "rare",
+    "description": "Your Spectrum amplifiers count 1 extra spark.",
+    "numbers": {
+      "sparks": 1
+    }
+  },
+  {
+    "id": "overcharge",
+    "name": "Overcharge",
+    "pool": "rare",
+    "description": "Your Double amplifiers multiply by 1 more.",
+    "numbers": {
+      "multiplierAdd": 1
+    }
+  },
+  {
+    "id": "first_echo",
+    "name": "First Echo",
+    "pool": "rare",
+    "description": "Your first cap to go off each round goes off twice.",
+    "numbers": {
+      "extraTriggers": 1
+    }
+  },
+  {
+    "id": "keystone",
+    "name": "Keystone",
+    "pool": "rare",
+    "description": "Your amplifiers add +1 more charge, after their own change.",
+    "numbers": {
+      "charge": 1
+    }
+  },
+  {
+    "id": "hall_of_mirrors",
+    "name": "Hall of Mirrors",
+    "pool": "rare",
+    "description": "Your junctions open 3 ends instead of 2; the third repeats the first output spark.",
+    "numbers": {
+      "extraEnds": 1
+    }
+  },
+  {
+    "id": "lightning_rod",
+    "name": "Lightning Rod",
+    "pool": "rare",
+    "description": "Your caps set off by Storm or Void go off twice.",
+    "sparks": [
+      "Storm",
+      "Void"
+    ],
+    "numbers": {
+      "extraTriggers": 1
+    }
+  }
+]
