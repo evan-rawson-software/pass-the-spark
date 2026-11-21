@@ -6,7 +6,7 @@ import { scaleTime } from "./playbackSpeed";
 import { playSound } from "./sound";
 
 // The drawing half of the cascade spectacle (#187): heat tiers, charge flowing along the branches,
-// the per-effect animations, shake, lightning, slow motion and the tally. Purely visual and driven
+// the per-effect animations, shake, lightning and slow motion. Purely visual and driven
 // by engine events (the Animator in animations.ts calls these). Every duration goes through
 // scaleTime and nothing waits on the host. Numbers come from events and data/presentation.json;
 // no rules in here. The fx textures (white with alpha) are tinted through the art helper, with a
@@ -22,12 +22,10 @@ export const P = presentationJson as unknown as {
   build: { fullNodes: number };
   step: { pulseMs: number };
   amp: { fullChange: number };
-  stack: { step: number; growth: number; ms: number };
   shake: { minCap: number; ms: number; intensity: number; perTier: number };
   lightning: { minCap: number; ms: number; bolts: number };
   slowMotion: { minCap: number; timeScale: number; holdMs: number };
   effects: { travelMs: number; ms: number };
-  tally: { countMs: number; holdMs: number; popMs: number };
 };
 
 export interface Point { x: number; y: number }
@@ -113,21 +111,6 @@ export function floatText(scene: Phaser.Scene, x: number, y: number, text: strin
     .setOrigin(0.5)
     .setDepth(100);
   scene.tweens.add({ targets: t, y: y - 70, alpha: 0, duration: scaleTime(ms), ease: "Cubic.easeOut", onComplete: done(t) });
-}
-
-// A number that piles up above earlier ones from the same cascade and grows with the heat.
-export function stackedNumber(scene: Phaser.Scene, pile: Phaser.GameObjects.Text[], x: number, y: number, text: string, color: string, tier: number): void {
-  const live = pile.filter((t) => t.active);
-  pile.length = 0;
-  pile.push(...live);
-  const n = live.length;
-  const size = Math.round(44 * (1 + P.stack.growth * Math.max(tier, 0) * 2));
-  const t = scene.add
-    .text(x, y - n * P.stack.step, text, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: "bold", color, stroke: "#101010", strokeThickness: 6 })
-    .setOrigin(0.5)
-    .setDepth(100 + n);
-  pile.push(t);
-  scene.tweens.add({ targets: t, y: t.y - 70, alpha: 0, duration: scaleTime(P.stack.ms), ease: "Cubic.easeIn", onComplete: done(t) });
 }
 
 // ---- per-effect animations (reused from M8, redrawn for the cascade) ----
@@ -234,43 +217,6 @@ export function lightning(scene: Phaser.Scene, a: Point, targets: Point[]): void
     }
     scene.tweens.add({ targets: g, alpha: 0, duration: scaleTime(P.lightning.ms), ease: "Cubic.easeIn", onComplete: done(g) });
   }
-}
-
-export interface Tally { damage: number; block: number }
-
-// After the last step: the cascade's total damage and block count up in a pill over the
-// board, then settle. Resolves when the short hold is over. Sums are of the events' own numbers.
-export async function showTally(scene: Phaser.Scene, tally: Tally, color: number, at: Point): Promise<void> {
-  const rows: [string, number, string][] = [];
-  if (tally.damage > 0) rows.push(["damage", tally.damage, "#ff6a5f"]);
-  if (tally.block > 0) rows.push(["block", tally.block, "#9cc4ff"]);
-  if (rows.length === 0) return;
-  const w = 120 + rows.length * 250;
-  const pill = scene.add.graphics().setDepth(120).setPosition(at.x, at.y);
-  pill.fillStyle(0x101010, 0.75);
-  pill.fillRoundedRect(-w / 2, -50, w, 100, 24);
-  pill.lineStyle(5, color, 1);
-  pill.strokeRoundedRect(-w / 2, -50, w, 100, 24);
-  const texts = rows.map(([label, , fill], i) =>
-    scene.add
-      .text(at.x - w / 2 + 60 + 125 + i * 250, at.y, `0 ${label}`, { fontFamily: FONT, fontSize: "44px", fontStyle: "bold", color: fill, stroke: "#101010", strokeThickness: 6 })
-      .setOrigin(0.5)
-      .setDepth(121),
-  );
-  await new Promise<void>((resolve) => {
-    scene.tweens.addCounter({
-      from: 0, to: 1, duration: scaleTime(P.tally.countMs), ease: "Cubic.easeOut",
-      onUpdate: (t) => rows.forEach(([label, total], i) => texts[i].setText(`${Math.round(total * (t.getValue() ?? 1))} ${label}`)),
-      onComplete: () => resolve(),
-    });
-  });
-  playSound("tally");
-  for (const t of texts) {
-    t.setScale(1.25);
-    scene.tweens.add({ targets: t, scale: 1, duration: scaleTime(P.tally.popMs), ease: "Back.easeOut" });
-  }
-  await new Promise<void>((resolve) => scene.time.delayedCall(scaleTime(P.tally.holdMs), resolve));
-  scene.tweens.add({ targets: [pill, ...texts], alpha: 0, duration: scaleTime(250), onComplete: () => { pill.destroy(); texts.forEach((t) => t.destroy()); } });
 }
 
 export { centre };

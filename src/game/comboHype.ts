@@ -6,8 +6,7 @@ import { reducedFlashing, shakeEnabled } from "./comfort";
 import { fxFallback, fxObject } from "./fx";
 import { scaleTime } from "./playbackSpeed";
 import { combatLayoutData, hexColour } from "./presentation";
-import * as soundModule from "./sound";
-import { playSound } from "./sound";
+import { playSound, stopSound } from "./sound";
 
 // Cascade hype (#234, H1-H9): one big combo number in the middle of the board area, fixed on screen
 // whatever the camera does. Each cap's spark flies into it and it rolls up and punches; it grows
@@ -74,16 +73,13 @@ const DEPTH = 130;
 export interface HypeHost {
   refs(): Refs;
   aim(): { x: number; y: number }; // the enemy card's portrait, in table coordinates
-  impact(t: { amount: number; blocked: number; killed: boolean }): void; // the enemy takes the slam (reactions, bars)
+  impact(t: { amount: number; blocked: number; killed: boolean; startHealth: number }): void; // the enemy takes the slam (reactions, bars)
   partyBlock(): void; // the block lands on the party's block chip
   skipping(): boolean; // the scene is fast-forwarding (a skipped cascade)
 }
 
 // A cap's spark on its way: the amounts of its damage or block events join it as they arrive.
 interface Hit { kind: Kind; amount: number; events: number; triggers: number; landed: boolean; cancel?: () => void }
-
-// A function that stops the charge cue if the sound module has one (#235 adds stopSound).
-const stopCharge = (): void => (soundModule as unknown as { stopSound?: (cue: string) => void }).stopSound?.("combo:charge");
 
 const colourOf = (tier: number): number => hexColour(D.tiers.colours[tier]);
 const between = (a: number, b: number): number => Phaser.Math.FloatBetween(a, b);
@@ -96,6 +92,7 @@ export class ComboHype {
   private shown = { damage: 0, block: 0 }; // what the number shows (what the landed sparks added up to)
   private hits = { damage: 0, block: 0 };
   private caps = 0;
+  private healthLeft = 0; // the enemy's health the damage so far has not yet taken
   private tier = 0;
   private top = 0;
   private fire = false;
@@ -145,6 +142,11 @@ export class ComboHype {
     return kind === "block" ? this.owing.partyBlock : 0;
   }
 
+  // The party's block has landed on its chip.
+  settleParty(): void {
+    this.owing.partyBlock = 0;
+  }
+
   // The colour lit dominoes and fuses glow in: the tier the cascade has reached.
   litColour(): number | undefined {
     return this.begun ? colourOf(this.top) : undefined;
@@ -171,6 +173,7 @@ export class ComboHype {
     this.on = true;
     this.begun = true;
     this.start = { health: Math.max(1, enemy.health), block: enemy.block };
+    this.healthLeft = enemy.health;
   }
 
   // A cap fired (worldAt: where it is on the table): it bursts, and its spark flies into the number.
@@ -201,7 +204,9 @@ export class ComboHype {
       this.sum.damage += ev.amount + ev.blocked;
       this.sum.health += ev.amount;
       this.sum.blocked += ev.blocked;
-      this.owing.enemyHealth += ev.amount;
+      const real = Math.min(ev.amount, this.healthLeft); // overkill never shows as health the enemy did not have
+      this.healthLeft -= real;
+      this.owing.enemyHealth += real;
       this.owing.enemyBlock += ev.blocked;
       this.count("damage", ev.amount + ev.blocked);
     } else if (ev.type === "block" && ev.side === "party") {
@@ -504,7 +509,7 @@ export class ComboHype {
     const colour = colourOf(tier);
     const at = this.centre();
     playSound(`combo:tier${tier}`);
-    this.callout(D.tiers.words[tier], D.tiers.colours[tier], J.calloutSize, J.calloutDy + D.number.sizes[tier] * 0.62);
+    this.callout(D.tiers.words[tier], D.tiers.colours[tier], J.calloutSize, J.calloutDy + D.number.sizes[tier] * 0.5);
     this.ring(at, colour, J.ringSize[tier], J.fxMs);
     this.puff("burst", at, J.burstSize[tier], colour, J.fxMs);
     this.flash(colour, J.flashAlpha[tier], J.flashMs);
@@ -542,7 +547,7 @@ export class ComboHype {
     this.dress();
     if (!this.quick) {
       playSound("combo:lethal");
-      this.callout(F.word, F.colour, F.size, F.dy + D.number.sizes[this.tier] * 0.62 + D.tierJump.calloutSize * 0.8);
+      this.callout(F.word, F.colour, F.size, -(F.dy + D.number.sizes[this.tier] * D.number.hits.dyFactor + D.number.hits.size)); // below the hit count, so the words never reach the seat tabs
       this.ring(at, hexColour(F.colour), F.ringSize, D.tierJump.fxMs);
       this.puff("burst", at, F.burstSize, hexColour(F.colour), D.tierJump.fxMs);
       this.flash(hexColour(F.colour), F.flashAlpha, D.tierJump.flashMs);
@@ -747,7 +752,7 @@ export class ComboHype {
     // Charge: swells and trembles; the cue stops when the slam starts.
     playSound("combo:charge", 1, 1);
     await this.charge(S.chargeMs[tier] * q, tier);
-    stopCharge();
+    stopSound("combo:charge");
     if (token !== this.token) return;
     // Flight: the damage into the enemy, the block (if any) to the party's chip.
     this.stopFire();
@@ -767,7 +772,7 @@ export class ComboHype {
     await this.freeze(S.hitStopMs[tier] * q);
     this.owing.enemyHealth = 0;
     this.owing.enemyBlock = 0;
-    this.host.impact({ amount: s.health, blocked: s.blocked, killed });
+    this.host.impact({ amount: s.health, blocked: s.blocked, killed, startHealth: this.start.health });
     void blockFlight;
     // Fanfare.
     await this.fanfare(tier, killed, hit, q);

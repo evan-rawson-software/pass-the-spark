@@ -86,6 +86,11 @@ export class EnemyReactions {
     return { x: this.spot.x + this.pose.x, y: this.spot.y + this.pose.y };
   }
 
+  // Where the enemy is on the table now (its card's portrait), for the combo number's slam (#234).
+  where(): { x: number; y: number } {
+    return this.centre();
+  }
+
   private rest(): void {
     Object.assign(this.pose, { x: 0, y: 0, rot: 0, scale: 1 });
     this.apply();

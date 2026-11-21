@@ -4,12 +4,12 @@ import type { BattleView } from "../engine/view";
 import { scaleTime } from "./playbackSpeed";
 import { reducedFlashing } from "./comfort";
 import { Buildup } from "./buildup";
-import { playSound } from "./sound";
+import { playSound, setSoundHushed } from "./sound";
+import { ComboHype } from "./comboHype";
 import { EnemyReactions } from "./enemyReactions";
 import { hexColour, reactionData } from "./presentation";
-import { amplify, boardGlow, centre, charm, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
-import type { Tally } from "./spectacle";
-import { Projectiles, seatGlow } from "./projectiles";
+import { amplify, boardGlow, centre, charm, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, split, spectrum, sputter } from "./spectacle";
+import { seatGlow } from "./projectiles";
 import { seatColour } from "./seatColours";
 import type { FuseBoard } from "./fuseBoard";
 
@@ -143,11 +143,11 @@ export class Animator {
   private biggest = 0;
   private tier = -1;
   private inCascade = false;
-  private tally: Tally = { damage: 0, block: 0 };
-  private pile: Phaser.GameObjects.Text[] = []; // stacked numbers still on screen
+  private lastShown?: BattleView; // the table as the last event left it, for the slam
+  redraw: () => void = () => {}; // the scene's redraw from the shown table (set by the scene)
   skipping = false; // the player skipped the cascade: slow motion is off and the fast-forward stays on
-  buildup: Buildup; // counter, callouts and camera (#191)
-  private fx: Projectiles; // effects flying from the caps to their targets (#189)
+  buildup: Buildup; // pitch, glow and camera (#191)
+  hype: ComboHype; // the combo number, tiers, slam and fanfare (#234)
   reactions: EnemyReactions; // the enemy's hit, death and attack reactions (#190)
   // Scene time until which an animation is still in flight. A death waits for it (settle), so it
   // never lands before the hit that caused it. Animations that must be waited for call hold().
@@ -155,7 +155,6 @@ export class Animator {
   private pending = new Set<Promise<void>>(); // events held for a landing, still animating (a freeze, a lunge)
 
   constructor(private scene: Phaser.Scene) {
-    this.fx = new Projectiles(scene, () => this.refs);
     this.reactions = new EnemyReactions(scene, {
       refs: () => this.refs,
       speed: () => (this.skipping ? SKIP_SPEED : 1),
@@ -167,6 +166,23 @@ export class Animator {
     scene.tweens.timeScale = 1; // a restarted scene never inherits slow motion or a skip
     scene.time.timeScale = 1;
     this.buildup = new Buildup(scene);
+    this.hype = new ComboHype(scene, {
+      refs: () => this.refs,
+      aim: () => this.reactions.where(),
+      skipping: () => this.skipping,
+      impact: (t) => this.slamImpact(t),
+      partyBlock: () => this.landBlock(),
+    });
+  }
+
+  // What the table still holds back until the slam, added to the shown value (comboHype.ts).
+  owed(side: "party" | "enemy", kind: "health" | "block"): number {
+    return this.hype.owed(side, kind);
+  }
+
+  // The wait after an event, in ms at 1x: the pause after each cap shrinks as the cascade goes on.
+  pace(ev: GameEvent, wait: number): number {
+    return this.hype.pace(ev, wait);
   }
 
   hold(ms: number): void {
@@ -176,8 +192,6 @@ export class Animator {
   // Waits for the shots in the air to land, then for the animations of the events they carried
   // (a killing blow's freeze, the lunge), so the order is: land, react, then whatever comes next.
   private async landedAll(): Promise<void> {
-    await this.fx.landed();
-    this.fx.reset();
     while (this.pending.size > 0) await Promise.all([...this.pending]);
   }
 
@@ -190,7 +204,7 @@ export class Animator {
 
   // The colour lit dominoes glow in: it follows the heat of the cascade being played.
   litColor(): number {
-    return heatColor(this.tier);
+    return this.hype.litColour() ?? heatColor(this.tier);
   }
 
   private resetHeat(): void {
@@ -204,52 +218,65 @@ export class Animator {
   // before the animation starts, so the new node or lit state is there to animate. Resolves when
   // the animation wants the table held (the tally, slow motion); most events resolve at once.
   async run(ev: GameEvent, shown: BattleView, apply: () => void): Promise<void> {
-    const scene = this.scene;
     // The battle ends only once everything still in flight has landed: the enemy then dies (once),
     // or the party's last hit finishes before the defeat.
     if (ev.type === "battleEnd") {
-      // The camera and counter go back at once, so the freeze-frame (which stops the tweens) and
-      // the death play at normal zoom and nothing of the build-up is left frozen on screen.
+      // The camera goes back at once, so the slam and the death play at normal zoom.
       this.buildup.clear();
       await this.settle();
-      if (ev.result === "won") await this.reactions.die();
     } else if (!IN_STEP.includes(ev.type)) {
-      // Shots in the air land, and react, before the next step starts.
+      // Whatever is still animating lands before the next step starts.
       await this.landedAll();
     }
-    // The cascade is over when the enemy's block resets (or the battle ends): tally it first.
+    // The cascade is over when the enemy's block resets (or the battle ends): the number slams in.
     if (this.inCascade && (ev.type === "blockReset" || ev.type === "battleEnd")) {
       this.inCascade = false;
-      this.buildup.finish(); // a cascade that wins early stops the build-up here, before the enemy's death
-      const total = this.tally;
-      this.tally = { damage: 0, block: 0 };
-      await showTally(scene, total, this.litColor(), { x: 960, y: 520 });
+      this.buildup.finish();
+      await this.hype.finish(ev.type === "battleEnd" && ev.result === "won", false);
     }
-    // The table's numbers change on impact: an enemy damage or party block event waits for its shot.
-    const kind = ev.type === "damage" && ev.side === "enemy" ? "damage" : ev.type === "block" && ev.side === "party" ? "block" : undefined;
-    if (kind) {
-      this.fx.whenLanded(kind, () => {
-        const done = this.play(ev, shown, apply).finally(() => this.pending.delete(done));
-        this.pending.add(done);
-      });
-      return;
-    }
+    if (ev.type === "battleEnd" && ev.result === "won") await this.reactions.die();
+    this.hype.event(ev); // counted before the redraw, so the table holds the change back until the slam
     await this.play(ev, shown, apply);
+  }
+
+  // A skipped cascade: the events still to come are only counted; at its end a short slam and the fanfare
+  // play at the final numbers, at normal speed.
+  async skipEvent(ev: GameEvent, shown: BattleView): Promise<void> {
+    this.lastShown = shown;
+    if (ev.type === "setOff" && !this.hype.on) {
+      this.inCascade = true;
+      this.hype.begin({ health: shown.enemy.health, block: shown.enemy.block });
+      this.hype.skip();
+    }
+    if (!this.inCascade) return;
+    if (ev.type === "blockReset" || ev.type === "battleEnd") {
+      this.inCascade = false;
+      const scene = this.scene;
+      scene.tweens.timeScale = 1;
+      scene.time.timeScale = 1;
+      setSoundHushed(false);
+      await this.hype.finish(ev.type === "battleEnd" && ev.result === "won", true);
+      setSoundHushed(true);
+      scene.tweens.timeScale = SKIP_SPEED;
+      scene.time.timeScale = SKIP_SPEED;
+    } else this.hype.event(ev);
   }
 
   // The shots in the air have landed.
   landed(): Promise<void> {
-    return this.fx.landed();
+    return this.landedAll();
   }
 
   // The cascade was skipped, or the scene is going: every shot ends now. Events held for a landing
   // run (flush) unless the scene is going away.
   clearShots(flush = true): void {
-    this.fx.clear(flush);
+    if (flush) this.hype.skip();
+    else this.hype.clear();
   }
 
   private async play(ev: GameEvent, shown: BattleView, apply: () => void): Promise<void> {
     const scene = this.scene;
+    this.lastShown = shown;
     const before = snapshot(shown);
     const from = ev.type === "play" ? this.refs.hand.get(ev.domino) : undefined; // read before the redraw replaces it
     apply();
@@ -257,10 +284,12 @@ export class Animator {
     const after = snapshot(shown);
     let slow = false;
     let hold: Promise<void> | undefined; // an animation the table waits for before the next event
+    let microFreeze: (() => Promise<void>) | undefined; // the short freeze on a hit (comboHype.ts)
 
     switch (ev.type) {
       case "roundStart":
         this.buildup.clear();
+        this.hype.clear();
         this.resetHeat();
         floatText(scene, 960, 470, `Round ${ev.round}`, "#ffffff", 56, 1000);
         break;
@@ -284,8 +313,7 @@ export class Animator {
         floatText(scene, 960, 470, why, "#ffe14d", 48, 1000);
         this.resetHeat();
         this.inCascade = true;
-        this.tally = { damage: 0, block: 0 };
-        this.pile = [];
+        this.hype.begin(after.enemy);
         this.buildup.begin(refs, shown.board.nodes.length);
         // The whole tree swells with the charge it holds before it goes.
         const glow = boardGlow(shown.board.nodes.length, 0);
@@ -303,7 +331,7 @@ export class Animator {
         if (node) {
           const at = centre(boxOf(node.pos));
           this.buildup.cap(ev.value, at);
-          this.fx.cap(ev, shown, at);
+          microFreeze = this.hype.cap(ev, at, ev.value >= P.slowMotion.minCap);
           seatGlow(scene, at, boxOf(node.pos).w, seatColour(shown.seatOrder, ev.owner), true);
           const text = ev.triggers > 1 ? `${ev.value}×${ev.triggers}` : String(ev.value);
           floatText(scene, at.x, at.y, text, CAP_COLOR[ev.effect], Math.max(30, Math.round(60 * node.pos.k + 18 + this.tier * 6)), 1000);
@@ -350,17 +378,11 @@ export class Animator {
         break;
       case "damage": {
         const key = ev.side;
+        // The enemy's health, block and reactions wait for the slam (comboHype.ts) while the cascade counts.
+        if (ev.side === "enemy" && this.hype.on) break;
         const sh = refs.shields.get(key);
         const bar = refs.bars.get(key);
-        const stack = ev.side === "enemy" && this.inCascade;
-        if (stack) {
-          this.tally.damage += ev.amount;
-          this.buildup.add("damage", ev.amount);
-        }
-        if (ev.amount > 0 && bar) {
-          if (stack) stackedNumber(scene, this.pile, bar.x + bar.w / 2, bar.y - 10, `-${ev.amount}`, "#ff6a5f", this.tier);
-          else floatText(scene, bar.x + bar.w / 2, bar.y - 10, `-${ev.amount}`, "#ff6a5f");
-        }
+        if (ev.amount > 0 && bar) floatText(scene, bar.x + bar.w / 2, bar.y - 10, `-${ev.amount}`, "#ff6a5f");
         if (ev.blocked > 0 && sh) floatText(scene, sh.x + 30, sh.y - 10, `${ev.blocked} blocked`, "#9cc4ff", 32);
         if (ev.side === "enemy") {
           if (ev.amount > 0) this.reactions.hit(ev.amount);
@@ -372,7 +394,7 @@ export class Animator {
           // then the party's numbers stay as they were (the redraw already showed the new ones).
           const bar = refs.bars.get("party");
           if (bar) paintBar(bar, before.party.health);
-          sh?.text.setText(String(before.party.block));
+          sh?.text.setText(String(before.party.block + this.hype.owed("party", "block")));
           hold = this.reactions.lunge().then(() => {
             this.reactions.partyHit(ev.amount);
             const lag = ev.blocked > 0 ? reactionData.impact.blockFirstMs : 0;
@@ -384,17 +406,11 @@ export class Animator {
         break;
       }
       case "block": {
+        // The party's block from the caps lands on its chip at the slam.
+        if (ev.side === "party" && this.hype.on) break;
         if (ev.side === "enemy" && ev.amount > 0) this.reactions.raiseShield();
         const sh = refs.shields.get(ev.side);
-        const stack = ev.side === "party" && this.inCascade;
-        if (stack) {
-          this.tally.block += ev.amount;
-          this.buildup.add("block", ev.amount);
-        }
-        if (ev.amount > 0 && sh) {
-          if (stack) stackedNumber(scene, this.pile, sh.x + 30, sh.y - 10, `+${ev.amount}`, "#9cc4ff", this.tier);
-          else floatText(scene, sh.x + 30, sh.y - 10, `+${ev.amount}`, "#9cc4ff");
-        }
+        if (ev.amount > 0 && sh) floatText(scene, sh.x + 30, sh.y - 10, `+${ev.amount}`, "#9cc4ff");
         this.tweenHealth(ev.side, before, after);
         break;
       }
@@ -420,6 +436,7 @@ export class Animator {
         break;
     }
     if (slow) await this.slowMotion();
+    if (microFreeze) await microFreeze();
     if (hold) await hold;
   }
 
@@ -430,7 +447,7 @@ export class Animator {
     const refs = this.refs;
     this.lit.push(ev.node);
     this.tier = heatTier(this.lit.length, this.biggest);
-    const color = heatColor(this.tier);
+    const color = this.litColor();
     const links = this.buildup.step(); // the pitch climbs with each cascade step, up to a cap in data
     playSound("tick", links);
     const node = refs.nodes.get(ev.node);
@@ -478,17 +495,54 @@ export class Animator {
     this.scene.tweens.timeScale = this.skipping ? SKIP_SPEED : 1;
   }
 
+  // The slam lands on the enemy (comboHype.ts): its block cracks first, then its health drops once by the
+  // whole amount, with the ghost drain; the hit sounds and reactions play once, here, with the total.
+  private slamImpact(t: { amount: number; blocked: number; killed: boolean; startHealth: number }): void {
+    const shown = this.lastShown;
+    if (!shown) return;
+    const after = snapshot(shown);
+    const before: Snapshot = { party: after.party, enemy: { health: t.killed ? t.startHealth : after.enemy.health + t.amount, block: after.enemy.block + t.blocked } };
+    this.redraw(); // the table now shows the real numbers (and the cracked shield)
+    const bar = this.refs.bars.get("enemy");
+    if (bar) paintBar(bar, before.enemy.health);
+    this.refs.shields.get("enemy")?.text.setText(String(before.enemy.block));
+    const lag = t.blocked > 0 && t.amount > 0 ? reactionData.impact.blockFirstMs : 0;
+    if (t.blocked > 0) this.reactions.shieldHit(before.enemy.block, after.enemy.block);
+    if (t.amount > 0) {
+      const hit = () => this.reactions.hit(t.amount);
+      if (lag > 0) this.scene.time.delayedCall(scaleTime(lag), hit);
+      else hit();
+    }
+    this.tweenHealth("enemy", before, after, lag);
+    this.reactions.ghostHit("enemy", before.enemy.health, after.enemy.health, lag);
+  }
+
+  // The block from the caps lands on the party's block chip.
+  private landBlock(): void {
+    const shown = this.lastShown;
+    if (!shown) return;
+    const owed = this.hype.owed("party", "block");
+    const after = snapshot(shown);
+    const before: Snapshot = { party: { health: after.party.health, block: after.party.block - owed }, enemy: after.enemy };
+    this.hype.settleParty();
+    this.redraw();
+    this.refs.shields.get("party")?.text.setText(String(before.party.block));
+    this.tweenHealth("party", before, after);
+    const text = this.refs.shields.get("party")?.text;
+    if (text?.active) this.scene.tweens.add({ targets: text, scale: 1.4, duration: scaleTime(110), yoyo: true, ease: "Quad.easeOut" });
+  }
+
   private tweenHealth(side: "party" | "enemy", before: Snapshot, after: Snapshot, healthDelay = 0): void {
     this.hold(400 + healthDelay);
     const bar = this.refs.bars.get(side);
     if (bar) counter(this.scene, before[side].health, after[side].health, 400, healthDelay, (v) => {
       const cur = this.refs.bars.get(side);
-      if (cur && cur.g.active) paintBar(cur, v, this.reactions.ghostOf(side));
+      if (cur && cur.g.active) paintBar(cur, v + this.hype.owed(side, "health"), this.reactions.ghostOf(side));
     });
     const sh = this.refs.shields.get(side);
     if (sh) counter(this.scene, before[side].block, after[side].block, 400, 0, (v) => {
       const cur = this.refs.shields.get(side);
-      if (cur && cur.text.active) cur.text.setText(String(Math.round(v)));
+      if (cur && cur.text.active) cur.text.setText(String(Math.round(v) + this.hype.owed(side, "block")));
     });
   }
 }
