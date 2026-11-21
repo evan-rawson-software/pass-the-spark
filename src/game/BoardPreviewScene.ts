@@ -6,6 +6,7 @@ import { getView } from "../engine/view";
 import { FuseBoard, boardArea, chargesInto, liveNumber } from "./fuseBoard";
 import { HandFan } from "./handFan";
 import { seatColour } from "./seatColours";
+import { fuseBoardData } from "./presentation";
 
 const content = loadContent();
 const FONT = "Arial, Helvetica, sans-serif";
@@ -65,7 +66,7 @@ export class BoardPreviewScene extends Phaser.Scene {
       for (const t of targets) {
         const p = previewPlay(view, me, item.id, t === "opener" ? undefined : t);
         if (!p) continue;
-        const reaching = t === "opener" ? 1 : view.openEnds.find((o) => o.end === t)?.charge ?? 0;
+        const reaching = t === "opener" ? fuseBoardData.openerCharge : view.openEnds.find((o) => o.end === t)?.charge ?? 0;
         board.showLive(t, liveNumber(d, p, reaching), aim === null || aim === t);
       }
     };

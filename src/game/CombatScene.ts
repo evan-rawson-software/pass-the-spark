@@ -38,7 +38,7 @@ import { boardGlow } from "./spectacle";
 import { buildupStrip, litGlowStrength } from "./buildup";
 import { applyEvent, startShown } from "./shownView";
 import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
-import { combatLayoutData } from "./presentation";
+import { combatLayoutData, fuseBoardData } from "./presentation";
 import type { CombatCtx } from "./combatCtx";
 import { drawEnemyUnit } from "./enemyUnit";
 import { TurnRail } from "./turnRail";
@@ -359,7 +359,7 @@ export class CombatScene extends Phaser.Scene {
 
   private showError(message: string): void {
     const t = this.add
-      .text(handArea().x + handArea().w / 2, handArea().y - 120, `The host says: ${message}`, { fontFamily: FONT, fontSize: "26px", color: "#ff9a94", stroke: "#101010", strokeThickness: 5 })
+      .text(handArea().x + handArea().w / 2, handArea().y - 70, `The host says: ${message}`, { fontFamily: FONT, fontSize: "26px", color: "#ff9a94", stroke: "#101010", strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(600);
     this.time.delayedCall(3000, () => t.destroy());
@@ -736,7 +736,7 @@ export class CombatScene extends Phaser.Scene {
       // The acting player's own charms: previewPlay with their id, never another seat's view.openEnds.
       const p = previewPlay(view, pending.player, id, t === "opener" ? undefined : t);
       if (!p) continue;
-      const reaching = t === "opener" ? 1 : this.openCharge.get(t) ?? 0;
+      const reaching = t === "opener" ? fuseBoardData.openerCharge : this.openCharge.get(t) ?? 0;
       board.showLive(t, liveNumber(d, p, reaching), aimed === undefined || aimed === t);
     }
   }
@@ -758,12 +758,12 @@ export class CombatScene extends Phaser.Scene {
     // The piles open this player's deck (#171); the animator draws new dominoes from the deck pile.
     const deck = fan.deckPoint();
     const discard = fan.discardPoint();
-    this.deckZone(layer, deck.x, deck.y, 130, 100, p.id);
-    this.deckZone(layer, discard.x, discard.y, 130, 100, p.id);
+    this.deckZone(layer, deck.x, deck.y, fan.deckRect().w, fan.deckRect().h, p.id);
+    this.deckZone(layer, discard.x, discard.y, fan.discardRect().w, fan.discardRect().h, p.id);
     if (fan.deckPile && fan.deckText) refs.decks.set(p.id, { c: fan.deckPile, text: fan.deckText, x: deck.x, y: deck.y });
     if (p.hand.length === 0) {
       const a = handArea();
-      this.label(layer, a.x + a.w / 2, a.y, "No dominoes in hand", 28, "#7fb59b", 0.5);
+      this.label(layer, a.x + a.w / 2, a.y + a.h / 2, "No dominoes in hand", 28, "#7fb59b", 0.5);
     }
     const slots = this.slotsOf(p.id);
     for (const it of fan.items) {

@@ -18,6 +18,8 @@ const KIND_ORDER = { amplifier: 0, junction: 1, cap: 2 };
 type Layer = Phaser.GameObjects.Container;
 
 export interface Pt { x: number; y: number }
+export interface Rect { x: number; y: number; w: number; h: number }
+const mid = (r: Rect): Pt => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 
 function intakeRank(d: Domino): number {
   if (d.intake === "any") return SPARK_ORDER.length;
@@ -47,7 +49,7 @@ export function sortedHand(hand: string[], dominoes: Domino[]): SortedDomino[] {
 }
 
 export interface FanSlot { x: number; y: number; k: number; angle: number }
-export interface FanArea { x: number; w: number; y: number } // y: the middle domino's centre
+export interface FanArea { x: number; y: number; w: number; h: number } // the fan sits in this rectangle; the middle domino is centred in it
 
 // The default area, from data: between the piles, clear of Pass and Set off.
 export function handArea(): FanArea {
@@ -75,7 +77,7 @@ export function fanSlots(count: number, area: FanArea): FanSlot[] {
     const t = count > 1 ? (i - mid) / mid : 0; // -1 .. 1
     return {
       x: area.x + area.w / 2 + (i - mid) * step,
-      y: area.y + D.arc * t * t,
+      y: area.y + area.h / 2 + D.arc * t * t,
       k,
       angle: count > 1 ? -spread / 2 + (spread * i) / (count - 1) : 0,
     };
@@ -117,7 +119,6 @@ export class HandFan {
   private gapG: Phaser.GameObjects.Graphics;
   private cb: HandCallbacks;
   private list: HandItem[] = [];
-  private area: FanArea = D.area;
   private hovered: string | null = null;
   private dragged: string | null = null;
   private picked: string | null = null;
@@ -141,7 +142,6 @@ export class HandFan {
   draw(input: HandInput): void {
     this.clear();
     const area = input.area ?? handArea();
-    this.area = area;
     const order = sortedHand(input.hand, input.dominoes);
     const slots = fanSlots(order.length, area);
     const prev = input.previous;
@@ -177,8 +177,8 @@ export class HandFan {
   private drawPiles(input: HandInput): void {
     const P = D.piles;
     const back = input.dominoes[0];
-    const pile = (x: number, count: number, label: string): { c: Layer; text: Phaser.GameObjects.Text } => {
-      const c = this.scene.add.container(x, P.y);
+    const pile = (r: Rect, count: number, label: string): { c: Layer; text: Phaser.GameObjects.Text } => {
+      const c = this.scene.add.container(r.x + r.w / 2, r.y + r.h / 2);
       const layers = count === 0 ? 1 : Math.min(P.layers, count);
       for (let i = 0; i < layers; i++) {
         const d = drawDomino(this.scene, back, "large", "hidden").setScale(P.scale).setPosition(i * P.dx, i * P.dy);
@@ -194,16 +194,19 @@ export class HandFan {
       c.setSize(size.w * P.scale, size.h * P.scale + P.labelSize * 2);
       return { c, text };
     };
-    const deck = pile(P.deckX, input.deck, "Deck");
+    const deck = pile(P.deck, input.deck, "Deck");
     this.deckPile = deck.c;
     this.deckText = deck.text;
-    this.discardPile = pile(P.discardX, input.discard, "Discard").c;
+    this.discardPile = pile(P.discard, input.discard, "Discard").c;
     this.fan.parentContainer?.add([this.deckPile, this.discardPile]);
   }
 
   // Where new draws come from, and where the discard pile is (for animations).
-  deckPoint(): Pt { return { x: D.piles.deckX, y: D.piles.y }; }
-  discardPoint(): Pt { return { x: D.piles.discardX, y: D.piles.y }; }
+  deckPoint(): Pt { return mid(D.piles.deck); }
+  discardPoint(): Pt { return mid(D.piles.discard); }
+  // The piles' rectangles (their click areas), from data.
+  deckRect(): Rect { return { ...D.piles.deck }; }
+  discardRect(): Rect { return { ...D.piles.discard }; }
 
   // Each domino's resting place by key: pass it to the next draw() as `previous`.
   positions(): Map<string, FanSlot> {
