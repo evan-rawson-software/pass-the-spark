@@ -1,7 +1,7 @@
 // Per-player views: the battle state, plus the open ends with their charge.
 
 import type { BattleState } from "./battle";
-import { getOpenEnds, upcomingIntents } from "./battle";
+import { getOpenEnds, scaledIntent, upcomingIntents } from "./battle";
 import type { EnemyState } from "./battle";
 import { getRunWindow } from "./run";
 import type { RunState } from "./run";
@@ -34,7 +34,7 @@ export function getView(state: BattleState, playerId: string): BattleView {
   const copy: BattleState = JSON.parse(JSON.stringify(state));
   const { rng, enemy, ...rest } = copy;
   const { intents, pattern, queue, rolled, lastIntent, repeats, ...enemyView } = enemy;
-  return { ...rest, enemy: enemyView, openEnds: getOpenEnds(copy, playerId), upcomingIntents: upcomingIntents(copy, spyglassRounds(copy, playerId)) };
+  return { ...rest, intent: scaledIntent(copy, copy.intent), enemy: enemyView, openEnds: getOpenEnds(copy, playerId), upcomingIntents: upcomingIntents(copy, spyglassRounds(copy, playerId)) };
 }
 
 // The run as a player sees it. Everything in a run is open information (maps, decks, coins, offers,

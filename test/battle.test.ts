@@ -209,3 +209,16 @@ test("charms: Keystone adds after a Double's own change, Hall of Mirrors opens a
   expect(last.state.enemy.health).toBe(100 - 11);
   expect(last.state.party.health).toBe(90); // 27 block absorbed the attack of 12
 });
+
+test("at party size 2, enemy health and each attack hit use the 2-player table entries, after growth, rounded up", () => {
+  // Test-only table values, so this stays valid when the shipped numbers are tuned.
+  const config = { ...content.config, enemyHealthPercentByPartySize: [100, 150, 100, 100], enemyAttackPercentByPartySize: [100, 125, 100, 100] };
+  const smolder: Enemy = { ...dummy(10, [{ kind: "smolder", growth: 2, name: "Smolder" }]), intents: [{ id: "hit", actions: [{ kind: "attack", value: 10, hits: 2 }] }] };
+  const s = createBattle({ config, content: { dominoes, enemies: [smolder] }, players: ["a", "b"].map((id) => ({ id, deck: content.starterDeck })), seatOrder: ["a", "b"], enemyId: "dummy", seed: 1 });
+  expect(s.enemy.health).toBe(150);
+  expect(getView(s, "a").intent.actions).toEqual([{ kind: "attack", value: 13, hits: 2 }]); // ceil(10 x 1.25)
+  const last = step(applyChoice(s, { type: "pass" }), { type: "pass" }); // two passes in a row set off a 2-player board
+  expect(last.events.filter((e) => e.type === "damage" && e.side === "party")).toHaveLength(2); // each hit scaled, not the total
+  expect(last.state.party.health).toBe(90 - 26);
+  expect(getView(last.state, "a").intent.actions).toEqual([{ kind: "attack", value: 15, hits: 2 }]); // round 2: ceil(12 x 1.25) after growth
+});

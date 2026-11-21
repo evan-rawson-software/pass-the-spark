@@ -73,13 +73,17 @@ const DH = 120;
 const FONT = "Arial, Helvetica, sans-serif";
 
 // Table regions (1920x1080).
-const MAT = { x: 370, y: 400, w: 1180, h: 360 }; // the board
+const MAT = { x: 370, y: 400, w: 1180, h: 360 }; // the board (this.mat: see matFor)
 const HAND = { x: 370, y: 785, w: 1180, h: 265 }; // the active hand
 const LEFT_X = 30;
 const RIGHT_X = 1565;
 const SIDE_W = 310;
 const SIDE_TOP = 330;
 const SIDE_H = 450;
+// The board mat. At 2 players only the left side column holds a hand (W6), so the mat runs on into the right column's room.
+function matFor(players: number): typeof MAT {
+  return players === 2 ? { ...MAT, w: RIGHT_X + SIDE_W - 15 - MAT.x } : MAT;
+}
 
 const GOLD = 0xffe14d;
 const RED = 0xe0443e;
@@ -371,6 +375,7 @@ export class CombatScene extends Phaser.Scene {
     const active = this.online ? this.mySeat() : (this.handSeat ?? now.seat);
     const turn = this.hlSeat ?? now.seat;
 
+    this.drawMat(layer, view);
     this.drawEnemy(layer, view);
     this.drawHud(layer, view, turn);
     this.drawParty(layer, view);
@@ -407,7 +412,7 @@ export class CombatScene extends Phaser.Scene {
 
   private drawTable(): void {
     // With a background image (added first, so behind everything) the frame, felt and pool of light
-    // give way to it; the board mat stays.
+    // give way to it.
     const hasArt = artBackground(this, "combat");
     const g = this.add.graphics();
     if (!hasArt) {
@@ -423,10 +428,16 @@ export class CombatScene extends Phaser.Scene {
       g.fillStyle(0x246b4f, 0.55);
       g.fillEllipse(960, 560, 1500, 700);
     }
+  }
+
+  // The board mat, drawn with the table's contents so it follows the party size.
+  private drawMat(layer: Layer, view: BattleView): void {
+    const m = matFor(view.players.length);
+    const g = this.gfx(layer);
     g.fillStyle(0x174c38, 0.6);
-    g.fillRoundedRect(MAT.x, MAT.y, MAT.w, MAT.h, 60);
+    g.fillRoundedRect(m.x, m.y, m.w, m.h, 60);
     g.lineStyle(3, 0x2f7a5b, 0.7);
-    g.strokeRoundedRect(MAT.x, MAT.y, MAT.w, MAT.h, 60);
+    g.strokeRoundedRect(m.x, m.y, m.w, m.h, 60);
   }
 
   // ---- small helpers ----
@@ -628,9 +639,9 @@ export class CombatScene extends Phaser.Scene {
 
   private drawHud(layer: Layer, view: BattleView, turn: string): void {
     const y = 350;
-    this.label(layer, MAT.x + 10, y, `Round ${view.round}`, 36, "#ffffff", 0, true);
+    this.label(layer, this.mat.x + 10, y, `Round ${view.round}`, 36, "#ffffff", 0, true);
     if (view.result) {
-      this.label(layer, MAT.x + 10, y + 36, view.result === "won" ? "Battle won" : "Battle lost", 22, "#ffe14d", 0, true);
+      this.label(layer, this.mat.x + 10, y + 36, view.result === "won" ? "Battle won" : "Battle lost", 22, "#ffe14d", 0, true);
     }
 
     // Turn order around the table, lead marked.
@@ -706,8 +717,8 @@ export class CombatScene extends Phaser.Scene {
       const k = 0.8;
       const w = DW * k;
       const h = DH * k;
-      const x = MAT.x + 50 + w / 2;
-      const y = MAT.y + MAT.h / 2;
+      const x = this.mat.x + 50 + w / 2;
+      const y = this.mat.y + this.mat.h / 2;
       const g = this.gfx(layer);
       const live = selected !== undefined;
       if (live) this.glow(g, x - w / 2, y - h / 2, w, h, GOLD, 14);
@@ -727,13 +738,13 @@ export class CombatScene extends Phaser.Scene {
     // Largest scale at which the whole tree fits the mat (it shrinks as the tree grows).
     const GAP = 50;
     const VGAP = 24;
-    const availW = MAT.w - 80;
-    const availH = MAT.h - 40;
+    const availW = this.mat.w - 80;
+    const availH = this.mat.h - 40;
     const k = Math.max(0.2, Math.min(0.8, availW / (lay.cols * DW + (lay.cols - 1) * GAP), availH / (lay.rows * DH + (lay.rows - 1) * VGAP)));
     const colW = (DW + GAP) * k;
     const rowH = (DH + VGAP) * k;
-    const left = MAT.x + 40;
-    const top = MAT.y + (MAT.h - ((lay.rows - 1) * rowH + DH * k)) / 2 + (DH * k) / 2;
+    const left = this.mat.x + 40;
+    const top = this.mat.y + (this.mat.h - ((lay.rows - 1) * rowH + DH * k)) / 2 + (DH * k) / 2;
     const s = Math.max(34, DH * k); // an open end's slot is a square this big
     const nodeAt = (id: number) => {
       const p = lay.nodes.get(id)!;
@@ -1120,6 +1131,10 @@ export class CombatScene extends Phaser.Scene {
     this.handSeat = null;
     this.shown = null;
     return true;
+  }
+
+  private get mat(): typeof MAT {
+    return matFor(this.view.players.length);
   }
 
   private get turnSeat(): string {
