@@ -27,7 +27,7 @@ export class StartScene extends Phaser.Scene {
 
     // Players
     this.text(300, 220, "Players", 36, true);
-    [3, 4].forEach((n, i) => {
+    [2, 3, 4].forEach((n, i) => {
       this.countButtons.push(this.button(560 + i * 120, 220, String(n), () => this.setCount(n)));
     });
     // Seed
@@ -40,7 +40,8 @@ export class StartScene extends Phaser.Scene {
     this.button(960, 520, "Start run", () => this.start(), 56);
     this.button(60, 1000, "Back", () => this.scene.start("menu"));
 
-    this.setCount(lastSettings?.names.length === 4 ? 4 : 3);
+    const last = lastSettings?.names.length;
+    this.setCount(last === 2 || last === 4 ? last : 3);
   }
 
   private text(x: number, y: number, s: string, size: number, bold = false): Phaser.GameObjects.Text {
@@ -62,7 +63,7 @@ export class StartScene extends Phaser.Scene {
 
   private setCount(n: number): void {
     this.count = n;
-    this.countButtons.forEach((b, i) => b.setBackgroundColor(i + 3 === n ? "#b8860b" : "#0d2a20"));
+    this.countButtons.forEach((b, i) => b.setBackgroundColor(i + 2 === n ? "#b8860b" : "#0d2a20"));
   }
 
   private start(): void {

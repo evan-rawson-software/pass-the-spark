@@ -28,7 +28,7 @@ const BTN = "margin:2px 4px 2px 0;padding:3px 8px;cursor:pointer";
 
 class DebugPanel {
   stepMode = false;
-  allowFewerPlayers = false; // the online lobby's Start works with fewer than 3 players
+  allowFewerPlayers = false; // the online lobby's Start works with fewer than 2 players
   onLobbyChange: (() => void) | null = null; // the lobby screen redraws when this changes
   private enabled = true; // off for a player who joined someone else's room
   private host: DebugHost | null = null;
@@ -173,7 +173,7 @@ class DebugPanel {
         this.allowFewerPlayers = lBox.checked;
         this.onLobbyChange?.();
       });
-      add(lLabel, "span", " Host can start with fewer than 3 players");
+      add(lLabel, "span", " Host can start with fewer than 2 players");
       return;
     }
     const state = host.getState();
