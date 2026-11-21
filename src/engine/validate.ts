@@ -179,9 +179,11 @@ export function validateConfig(data: unknown): Config {
   for (const field of ["partyMaxHealth", "playerDrawPerRound", "playerFirstDraw", "playerHandLimit", "triggerCap", "openEndLimit"]) {
     checkPositive(file, id, data, field);
   }
-  const pct = data.enemyHealthPercentByPartySize;
-  if (!Array.isArray(pct) || pct.length !== 4 || !pct.every((p) => typeof p === "number" && Number.isInteger(p) && p > 0)) {
-    fail(file, id, `"enemyHealthPercentByPartySize" must be 4 whole numbers above 0 (party sizes 1 to 4)`);
+  for (const field of ["enemyHealthPercentByPartySize", "enemyAttackPercentByPartySize"]) {
+    const pct = data[field];
+    if (!Array.isArray(pct) || pct.length !== 4 || !pct.every((p) => typeof p === "number" && Number.isInteger(p) && p > 0)) {
+      fail(file, id, `"${field}" must be 4 whole numbers above 0 (party sizes 1 to 4)`);
+    }
   }
   return data as unknown as Config;
 }

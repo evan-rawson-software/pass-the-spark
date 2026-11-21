@@ -82,6 +82,8 @@ export interface Config {
   openEndLimit: number; // at most this many open ends on the board at once
   // Enemy starting health, in percent of its data health, for parties of 1, 2, 3 and 4 players.
   enemyHealthPercentByPartySize: number[];
+  // Each enemy attack hit, in percent of its (grown) value, for parties of 1, 2, 3 and 4 players.
+  enemyAttackPercentByPartySize: number[];
 }
 
 // data/starter-deck.json is a list of domino ids; copies repeat the id.

@@ -26,8 +26,8 @@ function intentFor(enemy: Pick<EnemyState, "intents" | "passives">, id: string, 
 // The intents of the `count` rounds after the current one (Spyglass shows them to its holder), exactly
 // as they will be: they are already rolled, with Smolder's growth for those rounds. Long Night's growth is not
 // included, since it only exists once the round's cascade is known.
-export function upcomingIntents(state: Pick<BattleState, "enemy" | "round">, count: number): Intent[] {
-  return state.enemy.queue.slice(1, 1 + count).map((id, i) => intentFor(state.enemy, id, state.round + 1 + i));
+export function upcomingIntents(state: Pick<BattleState, "enemy" | "round" | "config" | "players">, count: number): Intent[] {
+  return state.enemy.queue.slice(1, 1 + count).map((id, i) => scaledIntent(state, intentFor(state.enemy, id, state.round + 1 + i)));
 }
 
 export interface PlayerSetup {
@@ -597,8 +597,12 @@ function auditorStrike(state: BattleState, events: GameEvent[]): void {
 function longNightGrowth(state: BattleState, capsFired: number, events: GameEvent[]): void {
   const longNight = passiveOf(state.enemy, "longNight");
   if (!longNight || capsFired === 0) return;
-  const amount = longNight.growth * capsFired;
-  addToAttacks(state.intent, amount);
+  const before = scaledIntent(state, state.intent);
+  addToAttacks(state.intent, longNight.growth * capsFired);
+  // The event carries the growth as the party sees it (scaled), so a shown intent can add it on.
+  const after = scaledIntent(state, state.intent);
+  const i = after.actions.findIndex((a) => a.kind === "attack");
+  const amount = i < 0 ? 0 : after.actions[i].value - before.actions[i].value;
   events.push({ type: "passive", passive: "longNight", amount });
 }
 
@@ -617,8 +621,9 @@ function hitParty(state: BattleState, hit: number, events: GameEvent[]): void {
 
 function enemyAct(state: BattleState, events: GameEvent[]): void {
   const { intent, enemy } = state;
-  events.push({ type: "enemyAction", intent: JSON.parse(JSON.stringify(intent)) });
-  for (const action of intent.actions) {
+  const shown = scaledIntent(state, intent);
+  events.push({ type: "enemyAction", intent: shown });
+  for (const action of shown.actions) {
     if (action.kind === "block") {
       enemy.block += action.value;
       events.push({ type: "block", side: "enemy", amount: action.value });
@@ -657,6 +662,15 @@ function endRound(state: BattleState, events: GameEvent[]): void {
   startRound(state, events);
 }
 
+// An intent as the party meets it: each attack hit scaled by the party size's attack percent, rounded
+// up, after growth. state.intent itself stays unscaled so growth adds to the data value.
+export function scaledIntent(state: Pick<BattleState, "config" | "players">, intent: Intent): Intent {
+  const percent = state.config.enemyAttackPercentByPartySize[Math.min(Math.max(state.players.length, 1), 4) - 1];
+  const copy: Intent = JSON.parse(JSON.stringify(intent));
+  for (const a of copy.actions) if (a.kind === "attack") a.value = Math.ceil((a.value * percent) / 100);
+  return copy;
+}
+
 // The intent is chosen and shown, then everyone draws, then the lead takes the first turn.
 function startRound(state: BattleState, events: GameEvent[]): void {
   state.round += 1;
@@ -665,7 +679,7 @@ function startRound(state: BattleState, events: GameEvent[]): void {
   state.seat = state.lead;
   startPassives(state, events);
   events.push({ type: "roundStart", round: state.round, lead: state.lead });
-  events.push({ type: "intent", intent: JSON.parse(JSON.stringify(state.intent)) });
+  events.push({ type: "intent", intent: scaledIntent(state, state.intent) });
   for (const p of state.players) {
     draw(state, p, (state.round === 1 ? state.config.playerFirstDraw : state.config.playerDrawPerRound) + extraDraws(state, p.id), handLimitOf(state, p.id), events);
   }
