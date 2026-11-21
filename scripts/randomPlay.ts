@@ -9,7 +9,7 @@ import { nextInt } from "../src/engine/rng";
 import { getView } from "../src/engine/view";
 import { loadContent } from "../src/engine/content";
 import { botChoice } from "./bot";
-import { createPlannerBot } from "./planner";
+import { BEAM_WIDTH, createPlannerBot } from "./planner";
 import { nextSeatChoice } from "./seats";
 import type { BattleBot } from "./seats";
 
@@ -77,10 +77,10 @@ function legalOptions(view: PendingInput, seat: string): Choice[] {
 }
 
 // Plays one battle with random legal choices, the stock bot or the planning bot. Stops after maxSteps choices.
-export function playRandomBattle(enemyId: string, seed: number, maxSteps: number, player: Player = "random", partySize = 2): BattleStats {
+export function playRandomBattle(enemyId: string, seed: number, maxSteps: number, player: Player = "random", partySize = 2, beam = BEAM_WIDTH): BattleStats {
   let state = newBattle(enemyId, seed, partySize);
   let pick = seed; // the picker's own RNG state
-  const bot: BattleBot = player === "planner" ? createPlannerBot() : player === "stock" ? botChoice : randomBot;
+  const bot: BattleBot = player === "planner" ? createPlannerBot(beam) : player === "stock" ? botChoice : randomBot;
   const stats: BattleStats = {
     result: null, rounds: 0, turns: 0, enemyHealth: state.enemy.health, healthLost: 0, incoming: 0, turnsWithChoice: 0, turnsWithPlays: 0, choices: 0, playOptions: 0, cascades: [], steps: 0, final: state,
   };

@@ -1,4 +1,4 @@
-// npm run sim [battlesPerEnemy] [seed] [--bot stock|planner|both] [--workers n]
+// npm run sim [battlesPerEnemy] [seed] [--bot stock|planner|both] [--workers n] [--beam n]
 // Plays random and bot battles against each enemy in data/ with 2, 3 and 4 players (enemy health and
 // attack scale with party size). The bot is the stock bot, the planning bot, or (the default) both.
 // Prints, per enemy, the players side by side, then how cascades went.
@@ -42,13 +42,14 @@ interface Job {
   player: Player;
   seed: number;
   count: number;
+  beam: number;
 }
 
 // The battles of a job. The final state stays behind: the parent has no use for it.
 function work(job: Job): Omit<BattleStats, "final">[] {
   const out: Omit<BattleStats, "final">[] = [];
   for (let i = 0; i < job.count; i++) {
-    const { final, ...stats } = playRandomBattle(job.enemy, job.seed + i, maxSteps, job.player, job.partySize);
+    const { final, ...stats } = playRandomBattle(job.enemy, job.seed + i, maxSteps, job.player, job.partySize, job.beam);
     out.push(stats);
   }
   return out;
@@ -166,10 +167,10 @@ async function main(): Promise<void> {
   const sizes = [2, 3, 4];
   const perSize = new Map<number, Per>();
   const jobs: Job[] = [];
-  for (const partySize of sizes) for (const enemy of enemies) for (const player of players) jobs.push({ enemy: enemy.id, partySize, player, seed: baseSeed, count: battles });
+  for (const partySize of sizes) for (const enemy of enemies) for (const player of players) jobs.push({ enemy: enemy.id, partySize, player, seed: baseSeed, count: battles, beam: args.beam });
   const done = await runJobs(jobs, args.workers, work);
 
-  console.log(`${battles} battles per enemy and party size, base seed ${baseSeed}`);
+  console.log(`${battles} battles per enemy and party size, base seed ${baseSeed}, planner beam ${args.beam}`);
   console.log("opts/plays count distinct legal choices per seat turn; see the column notes at the top of scripts/sim.ts.");
   console.log("'>1 opt' counts Ready as a choice; '>1 play' counts only plays (domino x end).");
   console.log("Board, junc, caps, fizz, dmg and combo are per cascade, averaged over all cascades of the battles; line is the share of cascades that reached the enemy's line.");

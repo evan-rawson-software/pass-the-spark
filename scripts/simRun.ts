@@ -1,4 +1,4 @@
-// npm run sim:run [runs] [seed] [--bot stock|planner|both] [--workers n]
+// npm run sim:run [runs] [seed] [--bot stock|planner|both] [--workers n] [--beam n]
 // Plays whole runs, `runs` for each of 2, 3 and 4 players (seeds seed .. seed+runs-1), and
 // prints the run win rate, act clears, where runs die, party health entering each boss and the
 // win rate by charm held. Battles are played by the stock bot, the planning bot, or (the default)
@@ -22,6 +22,7 @@ interface Job {
   players: number;
   seed: number;
   count: number;
+  beam: number;
 }
 interface Done {
   stats: RunStats[];
@@ -31,7 +32,7 @@ interface Done {
 function work(job: Job): Done {
   const start = performance.now();
   const stats: RunStats[] = [];
-  for (let i = 0; i < job.count; i++) stats.push(playRun(job.players, job.seed + i, maxSteps, job.bot));
+  for (let i = 0; i < job.count; i++) stats.push(playRun(job.players, job.seed + i, maxSteps, job.bot, job.beam));
   return { stats, ms: performance.now() - start };
 }
 
@@ -48,13 +49,13 @@ interface Group {
 }
 
 async function main(): Promise<void> {
-  const { positional, bots, workers } = parseSimArgs();
+  const { positional, bots, workers, beam } = parseSimArgs();
   const runs = Number(positional[0] ?? 500);
   const baseSeed = Number(positional[1] ?? 1);
   const sizes = [2, 3, 4];
 
   const jobs: Job[] = [];
-  for (const bot of bots) for (const players of sizes) for (let i = 0; i < runs; i += CHUNK) jobs.push({ bot, players, seed: baseSeed + i, count: Math.min(CHUNK, runs - i) });
+  for (const bot of bots) for (const players of sizes) for (let i = 0; i < runs; i += CHUNK) jobs.push({ bot, players, seed: baseSeed + i, count: Math.min(CHUNK, runs - i), beam });
   const wallStart = performance.now();
   const done = await runJobs(jobs, workers, work);
   const wall = performance.now() - wallStart;
@@ -78,7 +79,7 @@ async function main(): Promise<void> {
     if (bots.length > 1) console.log("".padEnd(30) + groups.map((g) => col(g.bot)).join(""));
   };
 
-  console.log(`${runs} runs per player count, base seed ${baseSeed}, battles played by ${bots.join(" and ")}`);
+  console.log(`${runs} runs per player count, base seed ${baseSeed}, battles played by ${bots.join(" and ")}, planner beam ${beam}`);
   console.log("");
   header("RESULTS");
   console.log("run win rate".padEnd(30) + groups.map((g) => col(pct(g.stats.filter((s) => s.result === "won").length, g.stats.length))).join(""));

@@ -6,6 +6,7 @@ import type { Domino, Enemy } from "../src/engine/types";
 import { loadContent } from "../src/engine/content";
 
 const content = loadContent();
+content.config = { ...content.config, enemyHealthPercentByPartySize: [100, 100, 100, 100] }; // the scenarios below count on the enemy's health as written, whatever tuning sets the party-size table to
 
 // Test-only dominoes for the older cascade scenarios below.
 const doubleTide: Domino = { id: "double_tide", name: "Tide Double", kind: "amplifier", intake: ["Tide"], output: ["Ember"], amp: { op: "mul", value: 2 } };

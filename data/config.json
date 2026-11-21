@@ -5,10 +5,10 @@
   "triggerCap": 100,
   "openEndLimit": 4,
   "enemyHealthPercentByPartySize": [
-    95,
-    98,
+    102,
+    100,
     104,
-    110
+    106
   ],
   "enemyAttackPercentByPartySize": [
     100,

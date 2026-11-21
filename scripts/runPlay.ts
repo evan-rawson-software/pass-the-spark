@@ -12,7 +12,7 @@ import { dominoUnavailable, repaintChoices } from "../src/engine/events/deckEven
 import { upgradeChoices, wellSparks, wellStage } from "../src/engine/events/wishingWell";
 import { loadContent } from "../src/engine/content";
 import { botChoice } from "./bot";
-import { createPlannerBot } from "./planner";
+import { BEAM_WIDTH, createPlannerBot } from "./planner";
 import { nextSeatChoice } from "./seats";
 import type { BattleBot } from "./seats";
 import type { Domino, Rarity, Spark } from "../src/engine/types";
@@ -158,8 +158,8 @@ function choose(run: RunState, p: RunPendingChoice, pick: Picker, bought: Record
   }
 }
 
-export function playRun(playerCount: number, seed: number, maxSteps: number, which: "stock" | "planner" = "stock"): RunStats {
-  const bot: BattleBot = which === "planner" ? createPlannerBot() : botChoice;
+export function playRun(playerCount: number, seed: number, maxSteps: number, which: "stock" | "planner" = "stock", beam = BEAM_WIDTH): RunStats {
+  const bot: BattleBot = which === "planner" ? createPlannerBot(beam) : botChoice;
   const players = Array.from({ length: playerCount }, (_, i) => "p" + (i + 1));
   let run = createRun({ players, seed, content });
   const pick = new Picker((seed ^ 0x9e3779b9) >>> 0);
