@@ -142,8 +142,8 @@ test("a full round of passes sets the chain off: uncapped ends fizzle, and with 
 
 test("the Warden's lock blocks an attachment, and the Auditor fires when a cap repeats the spark before it", () => {
   const passives: Enemy["passives"] = [
-    { kind: "warden", sparks: ["Ember"], name: "Warden" },
-    { kind: "auditor", damage: 7, name: "Auditor" },
+    { kind: "warden", sparks: ["Ember"], name: "Warden", short: "x" },
+    { kind: "auditor", damage: 7, name: "Auditor", short: "x" },
   ];
   let s = setup([["junction_ember", "guard_gale"], ["junction_tide", "strike_ember"], ["guard_gale"]], 5, passives);
   expect(s.locked).toBe("Ember");
@@ -213,7 +213,7 @@ test("charms: Keystone adds after a Double's own change, Hall of Mirrors opens a
 test("at party size 2, enemy health and each attack hit use the 2-player table entries, after growth, rounded up", () => {
   // Test-only table values, so this stays valid when the shipped numbers are tuned.
   const config = { ...content.config, enemyHealthPercentByPartySize: [100, 150, 100, 100], enemyAttackPercentByPartySize: [100, 125, 100, 100] };
-  const smolder: Enemy = { ...dummy(10, [{ kind: "smolder", growth: 2, name: "Smolder" }]), intents: [{ id: "hit", actions: [{ kind: "attack", value: 10, hits: 2 }] }] };
+  const smolder: Enemy = { ...dummy(10, [{ kind: "smolder", growth: 2, name: "Smolder", short: "x" }]), intents: [{ id: "hit", actions: [{ kind: "attack", value: 10, hits: 2 }] }] };
   const s = createBattle({ config, content: { dominoes, enemies: [smolder] }, players: ["a", "b"].map((id) => ({ id, deck: content.starterDeck })), seatOrder: ["a", "b"], enemyId: "dummy", seed: 1 });
   expect(s.enemy.health).toBe(150);
   expect(getView(s, "a").intent.actions).toEqual([{ kind: "attack", value: 13, hits: 2 }]); // ceil(10 x 1.25)
@@ -225,7 +225,7 @@ test("at party size 2, enemy health and each attack hit use the 2-player table e
 
 test("the set-off preview, for a hover or the board as it stands, matches what setting off does: enemy block, a multi-hit intent, Long Night, and a lethal cascade that stops early", () => {
   const brute: Enemy = {
-    ...dummy(0, [{ kind: "hoarder", multiplier: 2, name: "Hoarder" }, { kind: "longNight", growth: 1, name: "Long Night" }]),
+    ...dummy(0, [{ kind: "hoarder", multiplier: 2, name: "Hoarder", short: "x" }, { kind: "longNight", growth: 1, name: "Long Night", short: "x" }]),
     intents: [{ id: "hit", actions: [{ kind: "attack", value: 5, hits: 3 }] }],
   };
   const build = (enemyHealth: number): BattleState => {

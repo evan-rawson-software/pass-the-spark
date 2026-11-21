@@ -465,3 +465,10 @@ From the research page "Combat Table" (how other deckbuilders lay out combat). A
 - **L6 Utilities:** round, playback speed and menu in one small top-right cluster.
 - **L7 Actions:** a big Set off button bottom right, with Pass above it and "Your turn" over both.
 - **L8 Order:** #218's unbuilt screen work is folded into #229; #218 closes as superseded, and its engine preview stays.
+
+## 2026-11-21: Combat UI direction: Spotlight (U1–U3)
+From the research page "Combat UI Directions" (round 2), all as recommended. This replaces the arrangement in "Combat layout (L1–L8)": L4 (no board frame, dimmed background), L5 (fanned hand) and L7 (Set off bottom right) stay. L1, L2, L3 and L6 move into the new arrangement. #228 (PR #230) merges as built; its parts are rearranged by the Spotlight issue.
+- **U1 Spotlight:** one column down the left holds, top to bottom, the enemy card (portrait, name, tier, passive chips, health bar), its intent, the set-off tally, party health and block, and a footer (round, playback speed, menu). Seat tabs in turn order run across the top of the rest of the screen, each with that player's hand as small dominoes and the next player's highlight. The board fills the middle; your hand is fanned at the bottom; Pass and Set off sit bottom right.
+- **The tally:** two large tiles in the column, damage and block, showing what setting off now would do (from `previewSetOff`), with a line under them such as "Ogre 170 → 158 · party takes 6". They update live while you hover or drag a domino. The previews on the health bars (#222) stay.
+- **U2:** #228 and #229 are not rewritten. #230 merges; #229 is built into the Spotlight board area (see its comment); the Spotlight issue rearranges the screen after both.
+- **U3 Tally during the cascade:** each cap's effect flies into its tally tile, which counts up with a ping that rises in pitch. When the cascade ends, the damage total flies into the enemy as one big hit and the block total into the party's block. This changes #189's per-cap flights for caps (screens only; the engine is unchanged). Built in M10.

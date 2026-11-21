@@ -20,3 +20,4 @@ export const setOffPreviewData = presentation.setOffPreview;
 
 export const fuseBoardData = presentation.fuseBoard;
 export const handFanData = presentation.handFan;
+export const combatLayoutData = presentation.combatLayout;
