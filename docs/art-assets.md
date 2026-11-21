@@ -75,9 +75,9 @@ For the cascade effects in M10 (#188). Each file is white, with brightness as al
 | `shard` | Shipped (#195) | One faceted crystal chunk, for shattering shields and enemy deaths. |
 | `glow` | **Drawn in code** | A soft radial gradient. The model drew a hard rim instead of a soft falloff, so don't generate it. |
 | `ring` | **Drawn in code** | A thin shockwave circle. Same reason. |
-| `flame` | Wanted (#234), optional | One flame tongue rising upward, wider and brighter at the base, tapering to a flickering tip. For the combo number catching fire on lethal. |
-| `sparkle` | Wanted (#234), optional | A crisp 4-pointed glint (long thin cross with a bright centre), different from the 8-pointed `spark`. For the fanfare shower. |
-| `burst` | Wanted (#234), optional | A spiky radial starburst (like a comic "pow" shape, 12–16 uneven spikes) with a bright core. For tier jumps and the slam's impact. |
+| `flame` | Shipped (#236) | One teardrop flame tongue rising upward, wide at the base, tapering to a curled tip. For the combo number catching fire on lethal. |
+| `sparkle` | Shipped (#236) | A 4-pointed glint (long thin cross with a bright centre, short faint diagonals), thinner than the 8-pointed `spark`. For the fanfare shower. |
+| `burst` | Shipped (#236) | A jagged radial starburst with uneven spikes around a big soft bright core. For tier jumps and the slam's impact. |
 
 Use the icon style words with "glowing magical energy effect" in the subject, but drop "thick bold black outline" and change "isolated on a plain flat pure white background" to "isolated on a plain flat pure black background".
 
