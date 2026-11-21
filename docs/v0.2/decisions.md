@@ -35,3 +35,12 @@ Planner defaults for the M14 spec, accepted with V1–V10 ("rec"). Say if any sh
 - **B10 Charms until M15:** Early Riser is +1 hand size, Deep Pockets +2. Neither adds placements. Every other charm keeps its 0.1 wording.
 - **B11 The lead:** battles have no lead. The run still rotates a starting seat each battle, used only by the Sleeping Giant's turn order.
 - **B12 Hype tiers:** set by the combo total as a share of the line (data thresholds, starting at 25%, 50% and 75%), then the line itself, then lethal. This replaces tiers by share of enemy health (H2).
+
+## 2026-11-21: Planning M15 (C1–C4)
+
+All as recommended ("rec").
+
+- **C1 When:** M15 is specified after the M14 playtest, not before. Its content is judged against the budget, the line and the combo, which M14's tuning and playtest may still change.
+- **C2 Brainstorm now:** a first shortlist of enemy traits, spark traits and wizard schools is drafted outside the repo and brought to the planner. Nothing from it is decided until C4.
+- **C3 Prototype after the gate:** once #272 merges, the planner tests the strongest 4–5 enemy traits and the spark traits in scratch sims on the 0.2 engine with the planning bot. The yardstick: a trait earns its place if it changes the best tree, not just the numbers. No issues and no repo code.
+- **C4 Spec:** after the playtest, the planner writes the M15 epic (#278) and its issues from C2, C3 and the playtest notes.
