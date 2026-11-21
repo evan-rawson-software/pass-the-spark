@@ -1,0 +1,142 @@
+{
+ "storybook/idle_robe_plain": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "storybook/idle_robe_trim": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "storybook/idle_body": {
+  "half_alpha_px": 0,
+  "colours": 17,
+  "off_palette": 0
+ },
+ "storybook/idle_hat_pointed": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "storybook/idle_hat_brim": {
+  "half_alpha_px": 0,
+  "colours": 13,
+  "off_palette": 0
+ },
+ "storybook/idle_staff": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "storybook/idle_hand": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "storybook/cast_robe_plain": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "storybook/cast_robe_trim": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "storybook/cast_body": {
+  "half_alpha_px": 0,
+  "colours": 17,
+  "off_palette": 0
+ },
+ "storybook/cast_hat_pointed": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "storybook/cast_hat_brim": {
+  "half_alpha_px": 0,
+  "colours": 13,
+  "off_palette": 0
+ },
+ "storybook/cast_staff": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "storybook/cast_hand": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "chibi/idle_robe_plain": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "chibi/idle_robe_trim": {
+  "half_alpha_px": 0,
+  "colours": 10,
+  "off_palette": 0
+ },
+ "chibi/idle_body": {
+  "half_alpha_px": 0,
+  "colours": 18,
+  "off_palette": 0
+ },
+ "chibi/idle_hat_pointed": {
+  "half_alpha_px": 0,
+  "colours": 10,
+  "off_palette": 0
+ },
+ "chibi/idle_hat_brim": {
+  "half_alpha_px": 0,
+  "colours": 13,
+  "off_palette": 0
+ },
+ "chibi/idle_staff": {
+  "half_alpha_px": 0,
+  "colours": 8,
+  "off_palette": 0
+ },
+ "chibi/idle_hand": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "chibi/cast_robe_plain": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ },
+ "chibi/cast_robe_trim": {
+  "half_alpha_px": 0,
+  "colours": 10,
+  "off_palette": 0
+ },
+ "chibi/cast_body": {
+  "half_alpha_px": 0,
+  "colours": 18,
+  "off_palette": 0
+ },
+ "chibi/cast_hat_pointed": {
+  "half_alpha_px": 0,
+  "colours": 10,
+  "off_palette": 0
+ },
+ "chibi/cast_hat_brim": {
+  "half_alpha_px": 0,
+  "colours": 13,
+  "off_palette": 0
+ },
+ "chibi/cast_staff": {
+  "half_alpha_px": 0,
+  "colours": 9,
+  "off_palette": 0
+ },
+ "chibi/cast_hand": {
+  "half_alpha_px": 0,
+  "colours": 5,
+  "off_palette": 0
+ }
+}

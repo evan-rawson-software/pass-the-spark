@@ -9,6 +9,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 data = {str(p.relative_to(ROOT)).replace("\\", "/"): "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode()
-        for d in ("code", "ai", "packs") for p in sorted((ROOT / d).glob("*.png"))}
+        for d in ("code", "ai", "packs", "code2/storybook", "code2/chibi") for p in sorted((ROOT / d).glob("*.png"))}
 (ROOT / "sheets.js").write_text("window.SHEETS = " + json.dumps(data) + ";\n")
 print(len(data), "sheets")
