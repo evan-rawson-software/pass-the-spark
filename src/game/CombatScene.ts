@@ -148,6 +148,7 @@ export class CombatScene extends Phaser.Scene {
     this.hlSeat = null;
     this.handSeat = null;
     this.tooltip = new Tooltip(this);
+    this.tooltip.avoid = { x: HAND.x + HAND.w - 340, y: HAND.y - 30, w: 340, h: 60 }; // Pass and Set off
     this.pings = new PingMarks(this);
     if (this.online) {
       this.setView(this.online.view);
@@ -227,7 +228,7 @@ export class CombatScene extends Phaser.Scene {
   // Single player: the one entry point for new state.
   setState(state: BattleState): void {
     this.state = state;
-    this.setView(getView(state, state.players[0].id));
+    this.setView(getView(state, state.seat)); // the seat on turn: Spyglass and the open ends follow it
   }
 
   // The one entry point for a new view (single player: from setState; online: from the host).

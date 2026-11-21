@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
 import { scaleTime } from "./playbackSpeed";
+import { playSound } from "./sound";
 
 // The basic cascade playback (#186), driven only by engine events and the numbers in them: nodes
 // light step by step, caps pop their numbers, fizzled ends dim, then the enemy's intent plays out
@@ -117,6 +118,7 @@ export function animTime(ev: GameEvent): number {
 
 export class Animator {
   refs: Refs = newRefs();
+  private step = 0; // the cascade step being played, so the tick rises along the chain
 
   constructor(private scene: Phaser.Scene) {}
 
@@ -135,6 +137,7 @@ export class Animator {
         floatText(scene, 960, 470, `Round ${ev.round}`, "#ffffff", 56, 1000);
         break;
       case "play": {
+        playSound("clack");
         const node = refs.nodes.get(ev.node);
         if (node && from) {
           node.c.setPosition(from.x, from.y).setScale(from.k);
@@ -151,7 +154,11 @@ export class Animator {
         floatText(scene, 960, 470, why, "#ffe14d", 48, 1000);
         break;
       }
+      case "cascadeStep":
+        this.step = ev.depth + 1;
+        break;
       case "nodeLit": {
+        playSound("tick", this.step);
         const node = refs.nodes.get(ev.node);
         if (node) {
           flash(scene, boxOf(node.pos), 0xffe14d);
@@ -160,6 +167,7 @@ export class Animator {
         break;
       }
       case "capFired": {
+        playSound(ev.effect === "coins" ? "coins" : `effect:${ev.effect}`);
         const node = refs.nodes.get(ev.node);
         if (node) {
           const text = ev.triggers > 1 ? `${ev.value}×${ev.triggers}` : String(ev.value);
@@ -168,11 +176,13 @@ export class Animator {
         break;
       }
       case "fizzle": {
+        playSound("slowMotion");
         const at = refs.slots.get(ev.end);
         if (at) floatText(scene, at.x, at.y, "fizzle", "#9aa3b2", 26, 800);
         break;
       }
       case "charm": {
+        playSound("effect:charm");
         // The charm icon flashes (#108); screen-only, the engine already counted the effect.
         const at = refs.charms.get(`${ev.player}:${ev.charm}`);
         if (at) flash(scene, { x: at.x - 16, y: at.y - 16, w: 32, h: 32 }, 0xffe14d);

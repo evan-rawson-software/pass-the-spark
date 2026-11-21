@@ -67,6 +67,7 @@ export function tipLines(domino: Domino, previews?: TipPreview[]): TipLine[] {
 // are computed only when the pointer arrives.
 export class Tooltip {
   private box?: Phaser.GameObjects.Container;
+  avoid?: { x: number; y: number; w: number; h: number }; // a screen area the tooltip must not cover (the combat buttons)
 
   constructor(private scene: Phaser.Scene) {}
 
@@ -137,7 +138,13 @@ export class Tooltip {
     const h = box.height;
     let x = pointer.worldX + 24;
     if (x + WIDTH > SCREEN.w - 10) x = pointer.worldX - 24 - WIDTH;
-    const y = Math.max(10, Math.min(SCREEN.h - h - 10, pointer.worldY - h / 2));
-    box.setPosition(Math.max(10, x), y);
+    let y = Math.max(10, Math.min(SCREEN.h - h - 10, pointer.worldY - h / 2));
+    x = Math.max(10, x);
+    const a = this.avoid;
+    if (a && x < a.x + a.w && x + WIDTH > a.x && y < a.y + a.h && y + h > a.y) {
+      // Over the avoided area: go just above it, or below if there is no room.
+      y = a.y - h - 10 >= 10 ? a.y - h - 10 : a.y + a.h + 10;
+    }
+    box.setPosition(x, y);
   }
 }
