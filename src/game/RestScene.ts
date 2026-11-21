@@ -19,7 +19,7 @@ import { button, drawBackground, label } from "./ui";
 let healthAtStart = -1;
 
 const LARGE = dominoPixelSize("large");
-const SMALL = dominoPixelSize("small");
+const SMALL = dominoPixelSize("small"); // the cell any kind fits
 
 export class RestScene extends Phaser.Scene {
   private mode: "choose" | "upgrade" = "choose";
@@ -90,7 +90,7 @@ export class RestScene extends Phaser.Scene {
     keys.forEach((key, col) => {
       const x = 130 + col * 150;
       label(this, x, 262, key === "any" ? "Any" : key, 26, { bold: true, origin: 0.5, color: "#ffe14d" });
-      columns[key].forEach((d, row) => this.deckDomino(player, d, x, 330 + row * 72));
+      columns[key].forEach((d, row) => this.deckDomino(player, d, x, 330 + row * 78));
     });
 
     const picked = dominoes.find((d) => d.id === this.picked);
@@ -119,7 +119,8 @@ export class RestScene extends Phaser.Scene {
     if (d.id === this.picked) {
       const g = this.add.graphics();
       g.lineStyle(5, 0xffe14d, 1);
-      g.strokeRoundedRect(x - SMALL.w / 2 - 4, y - SMALL.h / 2 - 4, SMALL.w + 8, SMALL.h + 8, 10);
+      const own = dominoPixelSize("small", d.kind);
+      g.strokeRoundedRect(x - SMALL.w / 2 - 4, y - own.h / 2 - 4, own.w + 8, own.h + 8, 10);
     }
   }
 
@@ -132,13 +133,16 @@ export class RestScene extends Phaser.Scene {
 
     // The left side is the intake (the left third of the tile); the right side is the effect and
     // output (the other two thirds). A side that is picked is outlined, a closed one is dimmed.
-    const reason = label(this, cx, top + 90, " ", 24, { origin: 0.5, color: "#ffb4a2" });
+    const reason = label(this, cx, top + 100, " ", 24, { origin: 0.5, color: "#ffb4a2" });
+    // The sides split the domino's own width (a cap is narrower), from its socket edge at the cell's left.
+    const own = dominoPixelSize("large", picked.kind);
+    const edge = cx - LARGE.w / 2;
     const sides: { side: UpgradeSide; open: boolean; why: string; x: number; w: number }[] = [
-      { side: "left", open: options.left.length > 0, why: options.leftReason ?? "", x: cx - LARGE.w / 3, w: LARGE.w / 3 },
-      { side: "right", open: options.right, why: options.rightReason ?? "", x: cx + LARGE.w / 6, w: (LARGE.w * 2) / 3 },
+      { side: "left", open: options.left.length > 0, why: options.leftReason ?? "", x: edge + own.w / 6, w: own.w / 3 },
+      { side: "right", open: options.right, why: options.rightReason ?? "", x: edge + own.w / 3 + own.w / 3, w: (own.w * 2) / 3 },
     ];
     for (const s of sides) {
-      const zone = this.add.rectangle(s.x, top, s.w, LARGE.h, 0x000000, s.open ? 0 : 0.6).setInteractive({ useHandCursor: s.open });
+      const zone = this.add.rectangle(s.x, top, s.w, own.h, 0x000000, s.open ? 0 : 0.6).setInteractive({ useHandCursor: s.open });
       if (s.open) {
         zone.on("pointerdown", () => {
           this.side = s.side;
@@ -152,11 +156,11 @@ export class RestScene extends Phaser.Scene {
       if (this.side === s.side) {
         const g = this.add.graphics();
         g.lineStyle(6, 0xffe14d, 1);
-        g.strokeRect(s.x - s.w / 2, top - LARGE.h / 2, s.w, LARGE.h);
+        g.strokeRect(s.x - s.w / 2, top - own.h / 2, s.w, own.h);
       }
     }
-    label(this, cx - LARGE.w / 3, top - 80, "Left", 24, { origin: 0.5, color: "#cfe9dc" });
-    label(this, cx + LARGE.w / 6, top - 80, "Right", 24, { origin: 0.5, color: "#cfe9dc" });
+    label(this, sides[0].x, top - 90, "Left", 24, { origin: 0.5, color: "#cfe9dc" });
+    label(this, sides[1].x, top - 90, "Right", 24, { origin: 0.5, color: "#cfe9dc" });
 
     if (this.side === null) return;
     if (this.side === "left") {

@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import type { RunState } from "../engine/run";
 import type { BattleView } from "../engine/view";
 import type { Domino } from "../engine/types";
-import { drawDomino, drawSparkGlyph, drawAnySymbol } from "./dominoDrawing";
+import { drawDomino, drawSparkGlyph, drawAnySymbol, dominoPixelSize } from "./dominoDrawing";
 import { SPARK_ORDER, SPARK_STYLE } from "./sparks";
 import { Tooltip } from "./tooltip";
 import { charmsByIds, drawCharmRow } from "./charmUi";
@@ -97,8 +97,8 @@ const PANEL = { x: 110, y: 70, w: 1700, h: 940 };
 const VIEW_TOP = 270;
 const VIEW_BOTTOM = PANEL.y + PANEL.h - 20;
 const K = 0.7; // domino scale
-const DW = 240 * K;
-const DH = 120 * K;
+const DW = dominoPixelSize("large").w * K; // the cell any kind fits: a junction is the tallest
+const DH = dominoPixelSize("large").h * K;
 const GAP = 16;
 const ROW_H = DH + 24 + 14;
 const HEAD_H = 56;
@@ -275,7 +275,6 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
         const why = pick?.whyNot?.(card.domino) ?? null;
         const pickable = !pick || (pick.whyNot ? why === null : (pick.canPick?.(card.domino) ?? true));
         const d = drawDomino(scene, card.domino, "large", pickable ? "normal" : "notPlayable");
-        addUpgradeMarks(scene, d, card.domino);
         d.setScale(K).setPosition(cx, top + DH / 2);
         b.add(d);
         tooltip.attach(d, card.domino);
@@ -290,7 +289,8 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
         if (order >= 0) {
           const g = scene.add.graphics();
           g.lineStyle(6, 0xffe14d, 1);
-          g.strokeRoundedRect(cx - DW / 2 - 4, top - 4, DW + 8, DH + 8, 10);
+          const own = dominoPixelSize("large", card.domino.kind);
+          g.strokeRoundedRect(cx - DW / 2 - 4, top + DH / 2 - (own.h * K) / 2 - 4, own.w * K + 8, own.h * K + 8, 10);
           b.add(g);
           if (pick?.count === 2) {
             b.add(scene.add.circle(cx - DW / 2 + 4, top + 4, 17, 0xffe14d).setStrokeStyle(3, 0x2a2a2a));
@@ -314,22 +314,6 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
 
   drawChrome();
   drawBody();
-}
-
-// A gold "+" badge on each upgraded half of the domino.
-function addUpgradeMarks(scene: Phaser.Scene, c: Phaser.GameObjects.Container, d: Domino): void {
-  for (const side of d.upgraded ?? []) {
-    const x = side === "left" ? -112 : 112;
-    const g = scene.add.graphics();
-    g.fillStyle(0xffd23f, 1);
-    g.lineStyle(3, 0x2a2a2a, 1);
-    g.fillCircle(x, -52, 15);
-    g.strokeCircle(x, -52, 15);
-    g.lineStyle(5, 0x2a2a2a, 1);
-    g.lineBetween(x - 8, -52, x + 8, -52);
-    g.lineBetween(x, -60, x, -44);
-    c.add(g);
-  }
 }
 
 // The same viewer as a scene of its own: started with { back: "<scene key>" }, it shows the run's

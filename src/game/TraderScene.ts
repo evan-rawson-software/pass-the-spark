@@ -103,10 +103,10 @@ export class TraderScene extends Phaser.Scene {
       const x = 180 + i * 280;
       const price = prices.dominoPrices[d.id]; // the engine's price for the shown player (Haggler included)
       const why = mine ? refusal(run, player, { kind: "buy", domino: d.id }) : "not yours";
-      const c = add(drawDomino(this, d, "large", why ? "notPlayable" : "normal").setPosition(x, 370));
+      const c = add(drawDomino(this, d, "large", why ? "notPlayable" : "normal").setPosition(x, 382));
       this.tooltip.attach(c, d);
-      add(coinLine(this, x, 450, [price, ` · ${d.rarity ?? "?"}`], 26, { origin: 0.5, color: why ? "#9fd1b8" : "#ffffff" }));
-      if (mine) add(button(this, x, 500, "Buy", () => submitRunChoice(this, player, { type: "trader", action: { kind: "buy", domino: d.id } }), { size: 30, origin: 0.5, disabled: why !== null }));
+      add(coinLine(this, x, 472, [price, ` · ${d.rarity ?? "?"}`], 26, { origin: 0.5, color: why ? "#9fd1b8" : "#ffffff" }));
+      if (mine) add(button(this, x, 520, "Buy", () => submitRunChoice(this, player, { type: "trader", action: { kind: "buy", domino: d.id } }), { size: 30, origin: 0.5, disabled: why !== null }));
     });
     if (stock.length === 0) add(label(this, 60, 370, "Sold out.", 32, { color: "#cfe9dc" }));
 

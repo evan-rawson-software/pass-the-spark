@@ -15,6 +15,55 @@
   "slowMotion": { "minCap": 60, "timeScale": 0.35, "holdMs": 400 },
   "effects": { "travelMs": 350, "ms": 450 },
   "tally": { "countMs": 500, "holdMs": 500, "popMs": 160 },
+  "dominoLook": {
+    "comment": "Domino drawing (#217), read by src/game/dominoDrawing.ts. Positions are in mockup units (an amplifier bar is 100 high, the whole amplifier 216 wide, the socket on the left edge, the centre line at y 50); the screen size is units times unit. extent is each kind's width and height in units, for layout. Details (owner stripe, rarity gem, upgrade star) are hidden when the domino is shown below minDetailScale of full size; number, sockets and outputs always stay.",
+    "unit": 1.1111,
+    "minDetailScale": 0.55,
+    "raise": 14,
+    "extent": { "amplifier": { "w": 216, "h": 100 }, "junction": { "w": 214, "h": 136 }, "cap": { "w": 170, "h": 100 } },
+    "colours": {
+      "outline": "#22201c",
+      "amplifier": "#f4ecdc",
+      "junction": "#dde5ee",
+      "junctionSplit": "#5d6b7c",
+      "cap": { "damage": "#f8d9d3", "block": "#d6e4f7" },
+      "text": "#22201c",
+      "glow": "#ffe36b",
+      "anyRing": "#8a8a8a",
+      "sigilFill": "#2b2140",
+      "sigilRing": "#e9d9a8",
+      "star": "#d49a12",
+      "rarity": { "common": "#c3cbd4", "uncommon": "#e5b52e", "rare": "#ff5fd2" }
+    },
+    "strokeWidth": 4,
+    "socket": { "x": 11, "y": 50, "ring": 6, "glyph": 11, "dualGlyph": 8, "dualDy": 14, "dualDx": 3 },
+    "outputs": {
+      "amplifier": [{ "x": 184, "y": 50 }],
+      "junction": [{ "x": 186, "y": 11 }, { "x": 186, "y": 89 }],
+      "glyph": 12
+    },
+    "number": {
+      "amplifier": { "x": 98, "y": 46, "size": 40 },
+      "cap": { "x": 128, "y": 54, "size": 38 },
+      "iconScale": 0.4,
+      "amplifierIcon": { "x": 98, "y": 84 },
+      "spectrumIcon": { "x": 98, "y": 50, "scale": 0.85 },
+      "capIcon": { "x": 66, "y": 50, "scale": 0.85 }
+    },
+    "junctionSplit": { "width": 7, "lines": [[[40, 50], [95, 50]], [[95, 50], [140, 11]], [[95, 50], [140, 89]]] },
+    "stripe": { "x": 6, "y": 4, "h": 7, "trim": 20, "outline": 1.5 },
+    "sigil": { "x": 118, "y": -6, "r": 15, "ring": 2 },
+    "star": { "x": 22, "y": 88, "r": 9 },
+    "gem": {
+      "r": 7,
+      "amplifier": { "x": 150, "y": 88 },
+      "junction": { "x": 146, "y": 106 },
+      "cap": { "x": 100, "y": 88 }
+    },
+    "playable": { "glowWidth": 14, "glowAlpha": 0.55, "outlineWidth": 5 },
+    "dimAlpha": 0.55,
+    "shadow": { "dx": 4, "dy": 8, "alpha": 0.25, "raisedAlpha": 0.35 }
+  },
   "buildup": {
     "comment": "Cascade build-up (#191). pitch.maxSteps: the pitch stops rising after this many cascade steps. glow: strength of the lit dominoes' glow, from litMin (first lit) to litMax (all lit). strip: height of the strip at the top of the board mat kept free for the counter and callouts (the tree is laid out below it); counter.at and callouts.at are where in the mat's width they are centred, so each screen's own mat sets where they go. They stay put on screen whatever the camera does. callouts.list: the running damage that fires each word, once each, at most max per cascade (the highest newly crossed fires; lower ones are used up with it). camera: boards with more than minNodes dominoes ease out (to zoomOut, or what fits the board mat, never below minZoom) and push in on a new biggest cap of at least push.minCap (push.reducedZoom with reduced flashing; no push with screen shake off); the camera never cuts off health, block or the intent card (keep: sizes of the boxes it protects and of an open end). Callouts: holdFraction of ms they stay, then fade; fadeInMs, popMs, startScale, popScale shape the burst. Times are ms at 1x.",
     "pitch": { "maxSteps": 10 },
