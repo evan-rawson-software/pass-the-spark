@@ -5,10 +5,13 @@ Each pack's own License.txt says CC0. Files keep their original names. Only the 
 
 ## Impact Sounds 1.0: https://kenney.nl/assets/impact-sounds
 
+- `impact/impactBell_heavy_000.ogg` (13915 bytes): CC0
 - `impact/impactGeneric_light_000.ogg` (5827 bytes): CC0
 - `impact/impactMetal_heavy_000.ogg` (6110 bytes): CC0
 - `impact/impactPlate_heavy_000.ogg` (10032 bytes): CC0
 - `impact/impactPlate_light_000.ogg` (10474 bytes): CC0
+- `impact/impactPunch_heavy_000.ogg` (11617 bytes): CC0
+- `impact/impactSoft_heavy_000.ogg` (6570 bytes): CC0
 - `impact/impactWood_medium_000.ogg` (6575 bytes): CC0
 
 ## Interface Sounds 1.0: https://kenney.nl/assets/interface-sounds
@@ -32,4 +35,23 @@ Each pack's own License.txt says CC0. Files keep their original names. Only the 
 ## Casino Audio 1.1: https://kenney.nl/assets/casino-audio
 
 - `casino/chips-collide-1.ogg` (6356 bytes): CC0
+- `casino/chips-collide-2.ogg` (5987 bytes): CC0
+- `casino/chips-collide-3.ogg` (6301 bytes): CC0
 - `casino/chips-handle-1.ogg` (9374 bytes): CC0
+- `casino/chips-handle-2.ogg` (8639 bytes): CC0
+- `casino/chips-stack-1.ogg` (6469 bytes): CC0
+
+## Music Jingles: https://kenney.nl/assets/music-jingles
+
+- `jingles/jingles_HIT11.ogg` (17932 bytes): CC0
+- `jingles/jingles_HIT15.ogg` (19626 bytes): CC0
+- `jingles/jingles_NES00.ogg` (39948 bytes): CC0
+- `jingles/jingles_NES13.ogg` (25177 bytes): CC0
+- `jingles/jingles_STEEL01.ogg` (21019 bytes): CC0
+- `jingles/jingles_STEEL02.ogg` (21919 bytes): CC0
+- `jingles/jingles_STEEL03.ogg` (19117 bytes): CC0
+- `jingles/jingles_STEEL07.ogg` (22460 bytes): CC0
+- `jingles/jingles_STEEL09.ogg` (11145 bytes): CC0
+- `jingles/jingles_STEEL11.ogg` (14615 bytes): CC0
+- `jingles/jingles_STEEL12.ogg` (18971 bytes): CC0
+- `jingles/jingles_STEEL13.ogg` (17122 bytes): CC0
