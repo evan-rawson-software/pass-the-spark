@@ -80,5 +80,18 @@
   "fx/shard.png",
   "fx/flame.png",
   "fx/sparkle.png",
-  "fx/burst.png"
+  "fx/burst.png",
+  "wizards/body.png",
+  "wizards/hands.png",
+  "wizards/hat_brim.png",
+  "wizards/hat_crooked.png",
+  "wizards/hat_hood.png",
+  "wizards/hat_pointed.png",
+  "wizards/hat_turban.png",
+  "wizards/robe_mantle.png",
+  "wizards/robe_plain.png",
+  "wizards/robe_runic.png",
+  "wizards/robe_sash.png",
+  "wizards/robe_starry.png",
+  "wizards/staff.png"
 ]
