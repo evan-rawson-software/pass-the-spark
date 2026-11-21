@@ -219,6 +219,7 @@ export class CombatScene extends Phaser.Scene {
     if (host) debugPanel.attach(host);
     this.events.once("shutdown", () => {
       this.epoch++;
+      this.anim.clearShots(false);
       if (host) debugPanel.detach(host);
     });
   }
@@ -1155,6 +1156,7 @@ export class CombatScene extends Phaser.Scene {
     this.anim.skipping = true;
     this.skipHint?.setVisible(false);
     setSoundHushed(true);
+    this.anim.clearShots(); // every shot in the air ends before the fast-forward starts
     this.tweens.timeScale = SKIP_SPEED;
     this.time.timeScale = SKIP_SPEED;
   }
@@ -1222,6 +1224,8 @@ export class CombatScene extends Phaser.Scene {
       else if (wait > 0) await new Promise<void>((resolve) => this.time.delayedCall(scaleTime(wait), resolve));
       if (epoch !== this.epoch) return false; // the scene was restarted or left meanwhile
     }
+    await this.anim.landed();
+    if (epoch !== this.epoch) return false;
     this.endSkip();
     this.locked = false;
     this.hlSeat = null;

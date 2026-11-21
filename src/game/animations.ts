@@ -157,9 +157,11 @@ export class Animator {
   // the animation wants the table held (the tally, slow motion); most events resolve at once.
   async run(ev: GameEvent, shown: BattleView, apply: () => void): Promise<void> {
     const scene = this.scene;
-    // Shots in the air land before the next step starts, and before an enemy's death plays.
-    const kills = ev.type === "damage" && ev.side === "enemy" && shown.enemy.health - ev.amount <= 0;
-    if (kills || !IN_STEP.includes(ev.type)) await this.fx.landed();
+    // Shots in the air land before the next step starts, and before the death plays (battleEnd).
+    if (!IN_STEP.includes(ev.type)) {
+      await this.fx.landed();
+      this.fx.reset();
+    }
     // The cascade is over when the enemy's block resets (or the battle ends): tally it first.
     if (this.inCascade && (ev.type === "blockReset" || ev.type === "battleEnd")) {
       this.inCascade = false;
@@ -167,6 +169,28 @@ export class Animator {
       this.tally = { damage: 0, block: 0, coins: 0 };
       await showTally(scene, total, this.litColor(), { x: 960, y: 520 });
     }
+    // The table's numbers change on impact: a damage, block or coins event waits for its shot.
+    const kind = ev.type === "damage" && ev.side === "enemy" ? "damage" : ev.type === "block" && ev.side === "party" ? "block" : ev.type === "coinsGained" ? "coins" : undefined;
+    if (kind) {
+      this.fx.whenLanded(kind, () => void this.play(ev, shown, apply));
+      return;
+    }
+    await this.play(ev, shown, apply);
+  }
+
+  // Shots in the air have landed: nothing is waiting on them.
+  landed(): Promise<void> {
+    return this.fx.landed();
+  }
+
+  // The cascade was skipped, or the scene is going: every shot ends now. Held events run (flush)
+  // unless the scene is going away.
+  clearShots(flush = true): void {
+    this.fx.clear(flush);
+  }
+
+  private async play(ev: GameEvent, shown: BattleView, apply: () => void): Promise<void> {
+    const scene = this.scene;
     const before = snapshot(shown);
     const from = ev.type === "play" ? this.refs.hand.get(ev.domino) : undefined; // read before the redraw replaces it
     apply();
