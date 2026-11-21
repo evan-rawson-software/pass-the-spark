@@ -289,6 +289,7 @@ export class ComboHype {
   skip(): void {
     this.quick = true;
     for (const hit of [...this.flights]) hit.cancel?.();
+    this.open = { damage: null, block: null }; // what comes now has no spark: every hit counts on its own
   }
 
   // Everything away at once (a new round, the scene going).
