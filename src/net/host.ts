@@ -2,7 +2,7 @@
 // Clients send choices; the host checks each one, applies it, and sends every player
 // their own views and events. The full RunState and BattleState never leave this file.
 
-import { getPendingChoice, step } from "../engine/battle";
+import { step } from "../engine/battle";
 import type { BattleState, Choice } from "../engine/battle";
 import type { Content } from "../engine/content";
 import { getEventsView } from "../engine/events";
@@ -65,8 +65,8 @@ export interface Host {
   kick(seat: string): void;
   // The host's own player changes their look. Ignored once the run has started, or when the colour is taken.
   setLook(look: Look): void;
-  // The host's own player submits a battle choice, checked like everyone else's. It counts for a seat
-  // the host is playing for when that seat's turn is up.
+  // The host's own player submits a battle choice, checked like everyone else's. It may name the
+  // host's own seat or a seat the host is playing for.
   submitLocal(choice: Choice): void;
   // The host's own player submits any other run choice. `at` is RunView.window of the screen it
   // was made on; seat is the seat it is for (the host's own, or one it is playing for).
@@ -169,13 +169,18 @@ export async function createHost(options: HostOptions): Promise<Host> {
     playForReady = false;
   }
 
-  // The seats that owe the run a choice right now.
+  // The seats that owe the run a choice right now. In a battle's build the table owes nothing but
+  // Ready, so the seats that are not Ready yet.
   function owedSeats(): string[] {
-    return run === null ? [] : [...new Set(getPendingRunChoices(run).map((p) => p.player))];
+    if (run === null) return [];
+    if (run.battle !== null && run.phase === "battle") return run.battle.players.filter((p) => !p.ready).map((p) => p.id);
+    return [...new Set(getPendingRunChoices(run).map((p) => p.player))];
   }
 
   // The seat the host is playing for right now: one that owes a choice while the host's own owes none.
+  // In a battle every seat can act at any time, so it is the first seat the host has taken over.
   function actingFor(): string | null {
+    if (run?.battle) return members.find((m) => !m.local && controlled.has(m.seat))?.seat ?? null;
     const owed = owedSeats();
     if (owed.includes(members.find((m) => m.local)!.seat)) return null;
     return owed.find((seat) => controlled.has(seat)) ?? null;
@@ -189,7 +194,9 @@ export async function createHost(options: HostOptions): Promise<Host> {
     const owed = owedSeats()
       .map((seat) => members.find((m) => m.seat === seat))
       .filter((m): m is Member => m !== undefined);
-    const present = owed.filter((m) => m.connected || controlled.has(m.seat));
+    // In a battle a seat the host has taken over still counts as away: its Ready is given again after the delay.
+    const inBattle = run.battle !== null && run.phase === "battle";
+    const present = owed.filter((m) => m.connected || (!inBattle && controlled.has(m.seat)));
     const waiting = present.length === 0 ? owed : [];
     const seats = waiting.map((m) => m.seat);
     if (seats.length === 0) clearPause();
@@ -198,7 +205,8 @@ export async function createHost(options: HostOptions): Promise<Host> {
       pauseSeats = seats;
       pauseTimer = setTimeout(() => {
         playForReady = true;
-        sendStatus();
+        if (inBattle) readyForAway(seats);
+        else sendStatus();
       }, PLAY_FOR_DELAY_MS);
     }
     const presence = presenceMessage();
@@ -212,6 +220,18 @@ export async function createHost(options: HostOptions): Promise<Host> {
       });
       if (m.local) deliver(m, { type: "playing-for", seat: acting });
     }
+  }
+
+  // The wait on away players in a build has run out: they count as Ready. The host takes over their
+  // seats (it can place, take back and toggle Ready for them) until the players return.
+  function readyForAway(seats: string[]): void {
+    const local = members.find((m) => m.local)!;
+    for (const seat of seats) {
+      controlled.add(seat);
+      const player = run?.battle?.players.find((p) => p.id === seat);
+      if (player !== undefined && !player.ready) apply(seat, { type: "battle", choice: { type: "ready", player: seat, ready: true } }, local);
+    }
+    if (run !== null) sendStatus();
   }
 
   function lobbyMessage(): HostMessage {
@@ -278,12 +298,11 @@ export async function createHost(options: HostOptions): Promise<Host> {
     }
   }
 
-  // A choice in a battle. `m` is the seat it is for.
+  // A choice in a battle's build. `m` is the seat it is for: the choice must name that seat. Choices
+  // are applied one at a time as they arrive; one that is no longer legal is refused to `from` only.
   function handleChoice(m: Member, choice: Choice, from: Member = m): void {
-    if (run === null) return deliver(from, { type: "error", message: "the battle has not started" });
-    const pending = run.battle ? getPendingChoice(run.battle) : null;
-    if (pending === null) return deliver(from, { type: "error", message: "the battle is over" });
-    if (pending.player !== m.seat) return deliver(from, { type: "error", message: "not your turn" });
+    if (run === null || run.battle === null) return deliver(from, { type: "error", message: "there is no battle" });
+    if (!choice || typeof choice !== "object" || choice.player !== m.seat) return deliver(from, { type: "error", message: "not your seat" });
     apply(m.seat, { type: "battle", choice }, from);
   }
 
@@ -450,8 +469,9 @@ export async function createHost(options: HostOptions): Promise<Host> {
     },
     submitLocal(choice) {
       const local = members.find((x) => x.local)!;
-      const pending = run?.battle ? getPendingChoice(run.battle) : null;
-      const target = pending !== null && controlled.has(pending.player) ? members.find((x) => x.seat === pending.player)! : local;
+      // The host's own seat, or one it has taken over: the choice names the seat it is for.
+      const target = members.find((x) => x.seat === choice?.player);
+      if (target === undefined || !(target.local || controlled.has(target.seat))) return deliver(local, { type: "error", message: "not your seat" });
       handleChoice(target, choice, local);
     },
     submitLocalRun(choice, at, seat) {

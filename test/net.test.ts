@@ -1,6 +1,5 @@
 import { expect, test } from "vitest";
-import { getPendingChoice } from "../src/engine/battle";
-import type { Choice, PendingChoice } from "../src/engine/battle";
+import { getPlayerChoices } from "../src/engine/battle";
 import { loadContent } from "../src/engine/content";
 import { getView } from "../src/engine/view";
 import type { BattleView } from "../src/engine/view";
@@ -14,15 +13,9 @@ import type { HostMessage } from "../src/net/protocol";
 import { generateRoomCode } from "../src/net/room";
 import type { SavedRoom } from "../src/net/room";
 
-// The first legal play, or a pass when there is none.
-function firstPlay(pending: PendingChoice): Choice {
-  const play = pending.plays[0];
-  return play ? { type: "play", domino: play.domino, end: play.ends[0] } : { type: "pass" };
-}
-
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
-test("host and two clients vote, then play a round; views match, out-of-turn choice is rejected; unlocks reach the run and experience comes back", async () => {
+test("host and two clients vote, then build a round; two place on the same end at once and the second is refused; views match; unlocks reach the run and experience comes back", async () => {
   const content = loadContent();
   const network = createMemoryNetwork();
   const code = generateRoomCode();
@@ -68,31 +61,36 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
   for (const c of clients) c.sendRunChoice({ type: "vote", node: 0 }, vote);
   await flush();
 
-  // Play until round 2 begins. What to play comes from the view alone.
-  let hostView = (hostMessages.filter((m) => m.type === "update").at(-1) as { view: BattleView }).view;
-  let outOfTurnChecked = false;
-  while (hostView.round === 1 && hostView.phase !== "over") {
-    const seat = hostView.seat;
-    const pending = getPendingChoice(hostView);
-    if (!pending) break;
-    const choice = firstPlay(pending);
+  // Everyone builds at the same time. The host opens the board; then two players each try to place on
+  // an end they can both reach, in the same moment. The first to arrive is applied; the second is refused.
+  const lastView = (): BattleView => (hostMessages.filter((m) => m.type === "update").at(-1) as { view: BattleView }).view;
+  const open = getPlayerChoices(lastView(), "p1")!.plays.find((o) => o.ends.length === 0)!;
+  host.submitLocal({ type: "play", player: "p1", domino: open.domino });
+  await flush();
+  const [a, b] = clients;
+  const options = (c: Client) => getPlayerChoices(c.view!, c.seat!)!.plays.flatMap((o) => o.ends.map((end) => ({ domino: o.domino, end })));
+  const bOptions = options(b);
+  const same = options(a).flatMap((x) => bOptions.filter((y) => y.end === x.end).map((y) => [x, y]))[0];
+  expect(same).toBeDefined();
+  const refusedBefore = messages.map((list) => list.filter((m) => m.type === "error").length);
+  a.sendChoice({ type: "play", player: a.seat!, domino: same[0].domino, end: same[0].end });
+  b.sendChoice({ type: "play", player: b.seat!, domino: same[1].domino, end: same[1].end });
+  await flush();
+  const errors = messages.map((list) => list.filter((m) => m.type === "error"));
+  expect(errors[0].length).toBe(refusedBefore[0]);
+  expect(errors[1].length).toBe(refusedBefore[1] + 1);
+  expect(hostMessages.filter((m) => m.type === "error")).toEqual([]);
+  // The second player's domino stays in their hand, and a choice naming another seat is refused.
+  expect(b.view!.players.find((p) => p.id === b.seat)!.hand).toContain(same[1].domino);
+  b.sendChoice({ type: "ready", player: a.seat!, ready: true });
+  await flush();
+  expect(messages[1].filter((m) => m.type === "error").length).toBe(refusedBefore[1] + 2);
 
-    if (!outOfTurnChecked) {
-      // Someone else tries to play on this seat's turn.
-      const other = clients.find((c) => c.seat !== seat);
-      const before = messages[clients.indexOf(other!)].length;
-      other!.sendChoice(choice);
-      await flush();
-      const reply = messages[clients.indexOf(other!)].slice(before);
-      expect(reply).toEqual([{ type: "error", message: "not your turn" }]);
-      outOfTurnChecked = true;
-    }
-
-    if (seat === "p1") host.submitLocal(choice);
-    else clients.find((c) => c.seat === seat)!.sendChoice(choice);
-    await flush();
-    hostView = (hostMessages.filter((m) => m.type === "update").at(-1) as { view: BattleView }).view;
-  }
+  // Everyone is Ready: the cascade fires on the last Ready and round 2 begins.
+  host.submitLocal({ type: "ready", player: "p1", ready: true });
+  for (const c of clients) c.sendChoice({ type: "ready", player: c.seat!, ready: true });
+  await flush();
+  const hostView = lastView();
   expect(hostView.round).toBeGreaterThan(1);
 
   // Each player's view is exactly what the engine's getView gives that player from the host's state.
@@ -135,12 +133,8 @@ test("host and two clients vote, then play a round; views match, out-of-turn cho
   // Play until the party falls: every player is sent the experience (10 a floor for the 2 floors cleared).
   const experience = () => hostMessages.filter((m) => m.type === "experience");
   for (let i = 0; i < 300 && experience().length === 0; i++) {
-    const view = (hostMessages.filter((m) => m.type === "update").at(-1) as { view: BattleView }).view;
-    const pending = getPendingChoice(view);
-    if (!pending) break;
-    const choice = firstPlay(pending);
-    if (view.seat === "p1") host2.submitLocal(choice);
-    else rejoined.find((c) => c.seat === view.seat)!.sendChoice(choice);
+    host2.submitLocal({ type: "ready", player: "p1", ready: true });
+    for (const c of rejoined) c.sendChoice({ type: "ready", player: c.seat!, ready: true });
     await flush();
   }
   await flush();
