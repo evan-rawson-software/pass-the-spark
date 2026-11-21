@@ -484,3 +484,10 @@ From the playable "Cascade Hype Demo" (research: Vampire Survivors' chests, Bala
 - **H7 Sound:** real sound files from Kenney's CC0 packs (Music Jingles for stingers and fanfares, Casino Audio for coin showers, Impact Sounds for booms), layered and listed in `data/sound.json`. The per-cap ping climbs a musical scale instead of a plain pitch rise.
 - **H8 Pacing:** caps fire faster as the cascade goes on; the finale adds at most about 2 seconds at the top tier; skipping jumps to the final numbers and a short slam.
 - **H9 Issues:** #232 closes as superseded. One issue covers the visuals (H1–H6, H8) and one the sounds (H7); they share cue names, so they can be built side by side.
+
+## 2026-11-21: Cascade sounds are generated clips (amends H7)
+The designer compared the Kenney packs with generated clips in the Cascade Sound Picker and chose generated clips for all 17 `combo:*` cues.
+- **What they are:** original sounds rendered for this game, with no third-party material.
+- **How they ship:** as ordinary `.ogg` files under `public/audio/generated/`. The game plays them like any other clip; there is no live synthesis.
+- **What changes:** this replaces H7's "real sound files from Kenney's CC0 packs" and #235's "no synthesized sound", for the `combo:*` cues only. Every other cue keeps its current file.
+- **What stays:** the per-cap ping still climbs the pentatonic scale.

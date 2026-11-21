@@ -1,17 +1,14 @@
 # Sound credits
 
-Every sound here is from a Kenney pack (https://kenney.nl), licensed Creative Commons Zero (CC0 1.0, https://creativecommons.org/publicdomain/zero/1.0/).
+Every sound outside `generated/` is from a Kenney pack (https://kenney.nl), licensed Creative Commons Zero (CC0 1.0, https://creativecommons.org/publicdomain/zero/1.0/).
 Each pack's own License.txt says CC0. Files keep their original names. Only the clips the game uses are included.
 
 ## Impact Sounds 1.0: https://kenney.nl/assets/impact-sounds
 
-- `impact/impactBell_heavy_000.ogg` (13915 bytes): CC0
 - `impact/impactGeneric_light_000.ogg` (5827 bytes): CC0
 - `impact/impactMetal_heavy_000.ogg` (6110 bytes): CC0
 - `impact/impactPlate_heavy_000.ogg` (10032 bytes): CC0
 - `impact/impactPlate_light_000.ogg` (10474 bytes): CC0
-- `impact/impactPunch_heavy_000.ogg` (11617 bytes): CC0
-- `impact/impactSoft_heavy_000.ogg` (6570 bytes): CC0
 - `impact/impactWood_medium_000.ogg` (6575 bytes): CC0
 
 ## Interface Sounds 1.0: https://kenney.nl/assets/interface-sounds
@@ -35,23 +32,26 @@ Each pack's own License.txt says CC0. Files keep their original names. Only the 
 ## Casino Audio 1.1: https://kenney.nl/assets/casino-audio
 
 - `casino/chips-collide-1.ogg` (6356 bytes): CC0
-- `casino/chips-collide-2.ogg` (5987 bytes): CC0
-- `casino/chips-collide-3.ogg` (6301 bytes): CC0
 - `casino/chips-handle-1.ogg` (9374 bytes): CC0
-- `casino/chips-handle-2.ogg` (8639 bytes): CC0
-- `casino/chips-stack-1.ogg` (6469 bytes): CC0
 
-## Music Jingles: https://kenney.nl/assets/music-jingles
+## Generated clips (original)
 
-- `jingles/jingles_HIT11.ogg` (17932 bytes): CC0
-- `jingles/jingles_HIT15.ogg` (19626 bytes): CC0
-- `jingles/jingles_NES00.ogg` (39948 bytes): CC0
-- `jingles/jingles_NES13.ogg` (25177 bytes): CC0
-- `jingles/jingles_STEEL01.ogg` (21019 bytes): CC0
-- `jingles/jingles_STEEL02.ogg` (21919 bytes): CC0
-- `jingles/jingles_STEEL03.ogg` (19117 bytes): CC0
-- `jingles/jingles_STEEL07.ogg` (22460 bytes): CC0
-- `jingles/jingles_STEEL09.ogg` (11145 bytes): CC0
-- `jingles/jingles_STEEL11.ogg` (14615 bytes): CC0
-- `jingles/jingles_STEEL12.ogg` (18971 bytes): CC0
-- `jingles/jingles_STEEL13.ogg` (17122 bytes): CC0
+Original clips made for Pass the Spark. No third-party material.
+
+- `generated/block_shield.ogg` (8021 bytes)
+- `generated/charge_noise.ogg` (22054 bytes)
+- `generated/coin_clink.ogg` (6650 bytes)
+- `generated/fanfare0_bells.ogg` (30972 bytes)
+- `generated/fanfare1_bells.ogg` (36663 bytes)
+- `generated/fanfare2_bells.ogg` (40134 bytes)
+- `generated/fanfare3_bells.ogg` (45823 bytes)
+- `generated/fanfare4_bells.ogg` (53417 bytes)
+- `generated/fanfareLethal_bells.ogg` (63084 bytes)
+- `generated/hit_chip.ogg` (9072 bytes)
+- `generated/lethal_ignite.ogg` (26592 bytes)
+- `generated/slamLethal_thunder.ogg` (37585 bytes)
+- `generated/slam_boom.ogg` (22271 bytes)
+- `generated/tier1_chip.ogg` (10905 bytes)
+- `generated/tier2_chip.ogg` (11436 bytes)
+- `generated/tier3_chip.ogg` (17195 bytes)
+- `generated/tier4_chip.ogg` (17979 bytes)
