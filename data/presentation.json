@@ -92,11 +92,11 @@
     "seatGlow": { "sizeFactor": 1.5, "ms": 520, "alpha": 0.9, "capFactor": 2.4, "capMs": 700, "reducedAlpha": 0.3, "reducedMs": 800 }
   },
   "comboHype": {
-    "comment": "Cascade hype (#234, H1-H9), read by src/game/comboHype.ts. Px on the 1920x1080 table, times in ms at 1x (all go through scaleTime). Arrays are indexed by tier 0..4. tiers: the running damage as a share of the enemy's health when the cascade starts; a threshold reached moves the number up one tier (highest wins when a hit crosses several). The number sits in the board area (combatLayout.board), centred across it and yFraction down it, and is shrunk to maxWidthFraction of the area's width. gap: the pause after each cap fires is start - step * caps, never below min (a depth step waits stepFraction of it). tierJump, lethal, slam and fanfare are the big moments; the slam's charge, flight, impact and fanfare together take about 2 s at the top tier. skip.factor scales the slam's times when a skipped cascade plays its short slam.",
+    "comment": "Cascade hype (#234, H1-H9), read by src/game/comboHype.ts. Px on the 1920x1080 table, times in ms at 1x (all go through scaleTime). Arrays are indexed by tier 0..4. tiers: the combo total as a share of the enemy's line (B12); each threshold reached moves the number up one tier (highest wins when a hit crosses several), and reaching the line itself is the last tier (words[4], the combo:line cue). The number catches fire at the line; lethal is a bigger moment on top. smallHit: what an amplifier or junction hit does next to a cap's (spark size, arrival ring and punch as a share of a cap's). line: the meter under the number (scale: its full width is this many times the line; widthFraction of the board area; dy below the number's centre; holdMs: how long the table waits on a line reached by the last hit, before the slam). The number sits in the board area (combatLayout.board), centred across it and yFraction down it, and is shrunk to maxWidthFraction of the area's width. gap: the pause after each hit is start - step * hits so far, never below min (a depth step waits stepFraction of it). tierJump, lethal, slam and fanfare are the big moments; the slam's charge, flight, impact and fanfare together take about 2 s at the top tier. skip.factor scales the slam's times when a skipped cascade plays its short slam.",
     "tiers": {
-      "thresholds": [0.1, 0.25, 0.5, 0.75],
+      "thresholds": [0.25, 0.5, 0.75],
       "colours": ["#ffffff", "#ffe14d", "#ff9a3d", "#ff4d4d", "#b46bff"],
-      "words": ["", "Nice!", "Blazing!", "Inferno!", "Overload!"]
+      "words": ["", "Nice!", "Blazing!", "Inferno!", "STAGGERED!"]
     },
     "layout": { "yFraction": 0.46, "maxWidthFraction": 0.8 },
     "number": {
@@ -109,7 +109,13 @@
     "flight": { "ms": 360, "curve": 110, "size": 40, "trailEveryPx": 16, "trailMs": 280, "trailSize": 30, "arrival": { "ringSize": 150, "ringMs": 360, "sparkSize": 130 } },
     "capBurst": { "size": 110, "ms": 340 },
     "microFreezeMs": [0, 20, 30, 45, 60],
-    "gap": { "startMs": 520, "stepMs": 40, "minMs": 110, "stepFraction": 0.5 },
+    "gap": { "startMs": 420, "stepMs": 45, "minMs": 90, "stepFraction": 0.5 },
+    "smallHit": { "sparkFactor": 0.55, "arrivalFactor": 0.55, "punchFactor": 0.5 },
+    "line": {
+      "scale": 1.3, "widthFraction": 0.42, "h": 18, "dy": 262, "r": 9, "trackColour": "#101010", "trackAlpha": 0.75, "edgeColour": "#f4ecdc", "edgeWidth": 3,
+      "markerColour": "#ffd23f", "markerW": 6, "markerOver": 12, "crossedColour": "#ff8a2a", "labelText": "line", "labelSize": 28, "labelDy": 34, "labelColour": "#ffe9b0",
+      "fillMs": 220, "buildAlpha": 0.85, "fadeMs": 300, "holdMs": 450, "ringSize": 320, "burstSize": 260, "fxMs": 520
+    },
     "tierJump": {
       "calloutSize": 76, "calloutDy": 50, "calloutMs": 1000, "calloutFrom": 0.4, "calloutTo": 1.15, "calloutPopMs": 240,
       "ringSize": [0, 500, 600, 720, 840], "burstSize": [0, 380, 460, 540, 640], "fxMs": 520,
@@ -178,6 +184,7 @@
     "ghost": { "colour": "#ffffff", "alpha": 0.55, "delayMs": 600, "perPointMs": 14, "minMs": 350, "maxMs": 1800 },
     "shield": { "cracks": [0.25, 0.5, 0.75], "shatterShards": 7, "shatterSize": 30, "shatterMs": 520, "shatterSpread": 70 },
     "intent": { "pulseMs": 380, "holdMs": 300, "scale": 1.12 },
+    "reel": { "dx": 46, "dy": -26, "ms": 200, "rotation": 0.11, "wobbles": 4, "tint": "#8fd0ff", "tintAlpha": 0.75, "tintMs": 700 },
     "lunge": { "dy": 40, "scale": 1.1, "ms": 170, "returnMs": 260 },
     "impact": { "shakeMs": 260, "shakeIntensity": 0.006, "flashMs": 320, "flashAlpha": 0.35, "blockFirstMs": 350 },
     "raise": { "ms": 420, "holdMs": 380, "rise": 60, "size": 150 },
@@ -239,7 +246,7 @@
       "shield": { "x": 22, "s": 34 },
       "intent": { "h": 148, "r": 12, "fill": "#3a1414", "stroke": "#ff6a5f", "strokeWidth": 2, "labelY": 24, "rowY": 74, "line": { "y": 126, "size": 22, "colour": "#ffd9a0", "text": "Line" } },
       "label": { "size": 15, "spacing": 3, "colour": "#ffb3aa" },
-      "action": { "icon": 1.1, "numberSize": 56, "hitsSize": 32, "hitsColour": "#ffb3aa", "gap": 10, "pad": 22 },
+      "action": { "icon": 1.1, "numberSize": 56, "hitsSize": 32, "hitsColour": "#ffb3aa", "gap": 10, "pad": 22, "struckSize": 40, "struckColour": "#9a8f8c", "arrow": "\u2192", "arrowSize": 40, "arrowColour": "#ffd23f", "halvedColour": "#ffd23f" },
       "later": { "h": 40, "size": 15, "scale": 0.4, "colour": "#9fd1b8" }
     },
     "tally": {

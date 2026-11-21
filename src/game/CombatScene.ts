@@ -419,6 +419,7 @@ export class CombatScene extends Phaser.Scene {
       nameOf: (seat) => this.nameOf(seat, true, 8),
     });
     drawEnemyUnit(ctx, layer, view, col);
+    this.anim.hype.showLine(view.enemy.line); // the line meter under the cascade number, empty until the set-off
     drawPartyBar(ctx, layer, view, col);
     drawFooter(ctx, layer, view.round);
     this.drawBoard(layer, view, front, pending);
@@ -594,6 +595,7 @@ export class CombatScene extends Phaser.Scene {
       slots: (seat) => this.slotsOf(seat),
       nameOf: (seat, forPlate, max) => this.nameOf(seat, forPlate, max),
       isAway: (seat) => this.online !== null && this.isAway(seat),
+      staggerHeld: () => this.anim.hype.staggerHeld(),
       deckSpot: (l, seat, x, y, text) => {
         const c = this.add.container(x, y);
         l.add(c);

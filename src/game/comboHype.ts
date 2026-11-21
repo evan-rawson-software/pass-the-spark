@@ -8,11 +8,12 @@ import { scaleTime } from "./playbackSpeed";
 import { combatLayoutData, hexColour } from "./presentation";
 import { playSound, stopSound } from "./sound";
 
-// Cascade hype (#234, H1-H9): one big combo number in the middle of the board area, fixed on screen
-// whatever the camera does. Each cap's spark flies into it and it rolls up and punches; it grows
-// through tiers (by its share of the enemy's health when the cascade started), catches fire when the
-// damage would be lethal, and after the last cap charges up and slams into the enemy as one hit, then a
-// fanfare. Visual and sound only, driven by the capFired, damage and block events and the numbers in
+// Cascade hype (#234, H1-H9; #276): one big combo number in the middle of the board area, fixed on screen
+// whatever the camera does. Every hit's spark (a cap's, or a smaller one from an amplifier or junction)
+// flies into it and it rolls up and punches; it grows through tiers (by its share of the enemy's line,
+// B12), a meter under it fills towards the line, and on reaching the line it catches fire and the enemy is
+// staggered. A lethal total gets its own bigger moment on top. After the last hit it charges up and slams
+// into the enemy as one hit, the stagger reels the enemy, then a fanfare. Visual and sound only, driven by the capFired, damage and block events and the numbers in
 // them: the damage counted is what the caps deal, the block the enemy absorbs included, so every number
 // shown is a sum of events. The enemy's health bar, its block and the party's block do not move until
 // the slam (owed() is what the table still holds back). Every size, time, colour and word is in
@@ -27,6 +28,12 @@ type Text = Phaser.GameObjects.Text;
 
 interface Data {
   tiers: { thresholds: number[]; colours: string[]; words: string[] };
+  smallHit: { sparkFactor: number; arrivalFactor: number; punchFactor: number };
+  line: {
+    scale: number; widthFraction: number; h: number; dy: number; r: number; trackColour: string; trackAlpha: number; edgeColour: string; edgeWidth: number;
+    markerColour: string; markerW: number; markerOver: number; crossedColour: string; labelText: string; labelSize: number; labelDy: number; labelColour: string;
+    fillMs: number; buildAlpha: number; fadeMs: number; holdMs: number; ringSize: number; burstSize: number; fxMs: number;
+  };
   layout: { yFraction: number; maxWidthFraction: number };
   number: {
     sizes: number[]; stroke: number; strokeColour: string;
@@ -84,10 +91,12 @@ export interface HypeHost {
   impact(t: { amount: number; blocked: number; killed: boolean; startHealth: number }): void; // the enemy takes the slam (reactions, bars)
   partyBlock(): void; // the block lands on the party's block chip
   skipping(): boolean; // the scene is fast-forwarding (a skipped cascade)
+  stagger(): void; // the slam is in: the enemy reels, and its intent card shows the halved attack
 }
 
 // A cap's spark on its way: the amounts of its damage or block events join it as they arrive.
-interface Hit { kind: Kind; amount: number; triggers: number; landed: boolean; counted: boolean; cancel?: () => void }
+// small: an amplifier's or junction's hit. crosses: the hit that took the combo total to the line (its landing is the crossing).
+interface Hit { kind: Kind; amount: number; triggers: number; landed: boolean; counted: boolean; small?: boolean; crosses?: boolean; cancel?: () => void }
 
 const colourOf = (tier: number): number => hexColour(D.tiers.colours[tier]);
 const between = (a: number, b: number): number => Phaser.Math.FloatBetween(a, b);
@@ -95,11 +104,20 @@ const between = (a: number, b: number): number => Phaser.Math.FloatBetween(a, b)
 export class ComboHype {
   on = false; // a cascade is being counted (set off until its slam starts)
   private begun = false; // the cascade's colours and tint stay up until the next round
-  private start = { health: 0, block: 0 };
+  private start = { health: 0, block: 0, line: 1 };
   private sum = { damage: 0, health: 0, blocked: 0, block: 0 }; // every event so far
   private shown = { damage: 0, block: 0 }; // what the number shows (what the landed sparks added up to)
   private hits = { damage: 0, block: 0 };
-  private caps = 0;
+  private beats = 0; // hits so far (every one counts towards the pacing)
+  private crossed = false; // the number has reached the line (it is on fire)
+  private lethal = false; // the number has reached lethal
+  private justCrossed = false; // the last hit to land took it over the line
+  private staggerPending = false; // the cascade reached the line and the slam has not yet staggered the enemy
+  private line = 0; // the enemy's line, for the meter (0: none shown)
+  private meter?: Container; // the line meter, screen-fixed under the number
+  private meterGfx?: Phaser.GameObjects.Graphics;
+  private meterLabel?: Text;
+  private meterRoll = { v: 0 };
   private healthLeft = 0; // the enemy's health the damage so far has not yet taken
   private tier = 0;
   private top = 0;
@@ -160,11 +178,16 @@ export class ComboHype {
     return this.begun ? colourOf(this.top) : undefined;
   }
 
-  // The wait after an event during the cascade: the pause after each cap shrinks as it goes on.
+  // The cascade reached the line and the slam has not yet staggered the enemy: the intent card still shows the full attack.
+  staggerHeld(): boolean {
+    return this.staggerPending;
+  }
+
+  // The wait after an event during the cascade: the pause after each hit shrinks as it goes on.
   pace(ev: GameEvent, wait: number): number {
     if (!this.on) return wait;
     const g = D.gap;
-    const gap = Math.max(g.minMs, g.startMs - g.stepMs * this.caps);
+    const gap = Math.max(g.minMs, g.startMs - g.stepMs * this.beats);
     if (ev.type === "cascadeStep") return gap * g.stepFraction;
     if ((ev.type === "damage" && ev.side === "enemy") || (ev.type === "block" && ev.side === "party")) {
       const hit = this.open[ev.type === "damage" ? "damage" : "block"];
@@ -176,11 +199,12 @@ export class ComboHype {
   // ---- the cascade ----
 
   // The cascade is set off: remember what the enemy had, and start counting from nothing.
-  begin(enemy: { health: number; block: number }): void {
+  begin(enemy: { health: number; block: number; line: number }): void {
     this.clear();
     this.on = true;
+    this.showLine(enemy.line);
     this.begun = true;
-    this.start = { health: Math.max(1, enemy.health), block: enemy.block };
+    this.start = { health: Math.max(1, enemy.health), block: enemy.block, line: Math.max(1, enemy.line) };
     this.healthLeft = enemy.health;
   }
 
@@ -189,7 +213,7 @@ export class ComboHype {
   // `noFreeze`: the cap already holds the table in slow motion).
   cap(ev: Extract<GameEvent, { type: "capFired" }>, worldAt: Pt, noFreeze: boolean): (() => Promise<void>) | undefined {
     if (!this.on) return undefined;
-    this.caps++;
+    this.beats++;
     const kind: Kind = ev.effect;
     const hit: Hit = { kind, amount: 0, triggers: ev.triggers, landed: false, counted: false };
     this.open[kind] = hit;
@@ -202,6 +226,19 @@ export class ComboHype {
     const ms = D.microFreezeMs[this.tier] ?? 0;
     if (kind === "damage" && !noFreeze && ms > 0 && shakeEnabled()) return () => this.freeze(ms);
     return undefined;
+  }
+
+  // An amplifier or junction lit and hits for ev.hit: a smaller spark flies from it into the number.
+  smallHit(ev: Extract<GameEvent, { type: "nodeLit" }>, worldAt: Pt): void {
+    if (!this.on || ev.hit <= 0) return;
+    this.beats++;
+    const hit: Hit = { kind: "damage", amount: 0, triggers: 1, landed: false, counted: false, small: true };
+    this.open.damage = hit;
+    if (this.quick) {
+      hit.landed = true;
+      return;
+    }
+    this.fly(hit, this.toScreen(worldAt));
   }
 
   // An event of the cascade: its numbers are counted (and the table holds the change back) before the
@@ -221,6 +258,12 @@ export class ComboHype {
       this.sum.block += ev.amount;
       this.owing.partyBlock += ev.amount;
       this.count("block", ev.amount);
+    } else if (ev.type === "lineReached") {
+      // It follows the damage event of the hit that crossed: the number reaches the line when that hit's spark lands.
+      this.staggerPending = true;
+      const hit = this.open.damage;
+      if (hit && !hit.landed) hit.crosses = true;
+      else this.reachLine();
     }
   }
 
@@ -231,7 +274,7 @@ export class ComboHype {
     if (hit && !hit.landed) hit.amount += amount;
     else {
       // One hit per cap, however many times it triggers (a skipped cascade counts the same way).
-      this.add(kind, amount, hit?.counted ? 0 : 1);
+      this.add(kind, amount, hit?.counted ? 0 : 1, hit?.small);
       if (hit) hit.counted = true;
     }
   }
@@ -259,10 +302,15 @@ export class ComboHype {
     this.hits = { damage: 0, block: 0 };
     this.roll.damage.v = 0;
     this.roll.block.v = 0;
-    this.caps = 0;
+    this.beats = 0;
     this.tier = 0;
     this.top = 0;
     this.fire = false;
+    this.crossed = false;
+    this.lethal = false;
+    this.justCrossed = false;
+    this.staggerPending = false;
+    this.resetMeter();
     this.open = { damage: null, block: null };
     for (const hit of [...this.flights]) hit.cancel?.();
     this.flights.clear();
@@ -419,9 +467,11 @@ export class ComboHype {
   }
 
   // Counts an amount into the number (a spark landed, or an event with no spark): it rolls up, punches,
-  // the hit count bumps, and a new tier or the lethal fire follows.
-  private add(kind: Kind, amount: number, events: number): void {
+  // the hit count bumps, and a new tier, the meter and the lethal fire follow. `small`: an amplifier's or
+  // junction's hit (a quieter ping and a smaller punch). `crosses`: this hit takes the total to the line.
+  private add(kind: Kind, amount: number, events: number, small = false, crosses = false): void {
     if (amount <= 0 && events <= 0) return;
+    this.justCrossed = false;
     this.shown[kind] += amount;
     this.hits[kind] += events;
     this.ensure(kind);
@@ -429,7 +479,7 @@ export class ComboHype {
       const before = this.tier;
       let to = 0;
       D.tiers.thresholds.forEach((t, i) => {
-        if (this.shown.damage >= t * this.start.health) to = i + 1;
+        if (this.shown.damage >= t * this.start.line) to = i + 1;
       });
       if (to > this.tier) {
         this.tier = to;
@@ -437,15 +487,16 @@ export class ComboHype {
       }
       this.setNumber("damage", before !== this.tier);
       if (!this.quick) {
-        playSound("combo:hit", this.hits.damage);
-        if (this.tier > before) this.tierJump(this.tier);
+        playSound(small ? "combo:hitSmall" : "combo:hit", this.hits.damage);
+        if (this.tier > before && !crosses) this.tierJump(this.tier, false); // a hit that reaches the line goes straight to STAGGERED!
       }
-      if (!this.fire && this.shown.damage >= this.start.health + this.start.block) this.ignite();
+      this.meterTo();
+      if (!this.lethal && this.shown.damage >= this.start.health + this.start.block) this.lethalMoment();
     } else {
       this.setNumber("block", false);
       if (!this.quick) playSound("combo:block", this.hits.block);
     }
-    if (!this.quick) this.arrival(kind);
+    if (!this.quick) this.arrival(kind, small);
   }
 
   // Shows the shown totals: rolls the digits up, sets the tier's size and colour.
@@ -489,36 +540,41 @@ export class ComboHype {
   }
 
   // A spark arrived: the number punches bigger and settles, a small burst and a shake.
-  private arrival(kind: Kind): void {
+  private arrival(kind: Kind, small: boolean): void {
     const box = kind === "damage" ? this.dmgBox : this.blockBox;
     if (!box) return;
     const P = D.number.punch;
-    const k = reducedFlashing() ? P.reducedScale : P.scale;
+    const S = D.smallHit;
+    const full = reducedFlashing() ? P.reducedScale : P.scale;
+    const k = small ? 1 + (full - 1) * S.punchFactor : full;
     this.scene.tweens.killTweensOf(box);
     box.setScale(k);
     this.tweenTargets.push(box);
     this.scene.tweens.add({ targets: box, scale: 1, duration: scaleTime(P.ms), ease: "Back.easeOut" });
     if (kind === "damage" && this.hitsText?.active) {
       this.scene.tweens.killTweensOf(this.hitsText);
-      this.hitsText.setScale(D.look.hitsBump);
+      this.hitsText.setScale(small ? 1 + (D.look.hitsBump - 1) * S.punchFactor : D.look.hitsBump);
       this.tweenTargets.push(this.hitsText);
       this.scene.tweens.add({ targets: this.hitsText, scale: 1, duration: scaleTime(P.ms), ease: "Back.easeOut" });
     }
     const at = this.numberAt(kind);
     const A = D.flight.arrival;
     const colour = kind === "damage" ? colourOf(this.tier) : hexColour(D.number.block.colour);
-    this.ring(at, colour, A.ringSize, A.ringMs);
-    if (!reducedFlashing()) this.puff("spark", at, A.sparkSize, colour, A.ringMs);
-    this.shakeBy(this.tier === 0 ? D.look.arrivalShake.tier0 : D.tierJump.shakeIntensity[this.tier] * D.look.arrivalShake.tierFactor, D.look.arrivalShake.ms);
+    const sz = small ? S.arrivalFactor : 1;
+    this.ring(at, colour, A.ringSize * sz, A.ringMs);
+    if (!reducedFlashing()) this.puff("spark", at, A.sparkSize * sz, colour, A.ringMs);
+    if (!small) this.shakeBy(this.tier === 0 ? D.look.arrivalShake.tier0 : D.tierJump.shakeIntensity[this.tier] * D.look.arrivalShake.tierFactor, D.look.arrivalShake.ms);
   }
 
   // ---- tiers ----
 
-  private tierJump(tier: number): void {
+  // `quiet`: lethal came with it, and lethal has the moment to itself.
+  private tierJump(tier: number, quiet: boolean): void {
+    if (quiet) return;
     const J = D.tierJump;
     const colour = colourOf(tier);
     const at = this.centre();
-    playSound(`combo:tier${tier}`);
+    playSound(tier === 4 ? "combo:line" : `combo:tier${tier}`);
     this.callout(D.tiers.words[tier], D.tiers.colours[tier], J.calloutSize, J.calloutDy + D.number.sizes[tier] * 0.5);
     this.ring(at, colour, J.ringSize[tier], J.fxMs);
     this.puff("burst", at, J.burstSize[tier], colour, J.fxMs);
@@ -546,23 +602,48 @@ export class ComboHype {
     this.scene.tweens.add({ targets: t, alpha: 0, delay: scaleTime(J.calloutMs * 0.6), duration: scaleTime(J.calloutMs * 0.4), onComplete: () => t.destroy() });
   }
 
-  // ---- lethal fire ----
+  // ---- the line and lethal ----
 
-  // The damage so far would take the enemy to 0: the number catches fire.
+  // The combo total reached the line: the number catches fire and its tier is the last (STAGGERED!), with a
+  // burst on the meter's marker. Nothing is played for a skipped cascade; the slam shows the result.
+  private reachLine(): void {
+    if (this.crossed) return;
+    this.crossed = true;
+    const before = this.tier;
+    this.tier = 4;
+    this.top = 4;
+    this.ensure("damage");
+    this.setNumber("damage", before !== 4);
+    this.ignite();
+    this.meterTo();
+    if (this.quick) return;
+    this.justCrossed = true;
+    this.tierJump(4, this.lethal);
+    if (!this.lethal) this.markerBurst();
+  }
+
+  // The damage so far would take the enemy to 0: its own bigger moment on top of the fire.
+  private lethalMoment(): void {
+    if (this.lethal) return;
+    this.lethal = true;
+    const F = D.lethal;
+    const at = this.centre();
+    this.ignite();
+    if (this.quick) return;
+    playSound("combo:lethal");
+    this.callout(F.word, F.colour, F.size, -(F.dy + D.number.sizes[this.tier] * D.number.hits.dyFactor + D.number.hits.size)); // below the hit count, so the words never reach the seat tabs
+    this.ring(at, hexColour(F.colour), F.ringSize, D.tierJump.fxMs);
+    this.puff("burst", at, F.burstSize, hexColour(F.colour), D.tierJump.fxMs);
+    this.flash(hexColour(F.colour), F.flashAlpha, D.tierJump.flashMs);
+    this.shakeBy(F.shakeIntensity, F.shakeMs);
+  }
+
+  // The number catches fire: a flame gradient on its letters and flames rising from it, until the slam.
   private ignite(): void {
     if (this.fire) return;
     this.fire = true;
     const F = D.lethal;
-    const at = this.centre();
     this.dress();
-    if (!this.quick) {
-      playSound("combo:lethal");
-      this.callout(F.word, F.colour, F.size, -(F.dy + D.number.sizes[this.tier] * D.number.hits.dyFactor + D.number.hits.size)); // below the hit count, so the words never reach the seat tabs
-      this.ring(at, hexColour(F.colour), F.ringSize, D.tierJump.fxMs);
-      this.puff("burst", at, F.burstSize, hexColour(F.colour), D.tierJump.fxMs);
-      this.flash(hexColour(F.colour), F.flashAlpha, D.tierJump.flashMs);
-      this.shakeBy(F.shakeIntensity, F.shakeMs);
-    }
     const soft = reducedFlashing();
     this.fireTimer = this.scene.time.addEvent({
       delay: scaleTime(soft ? F.flame.reducedEveryMs : F.flame.everyMs), loop: true,
@@ -621,9 +702,10 @@ export class ComboHype {
     this.root.add(c);
     this.track(c);
     const colour = hit.kind === "damage" ? colourOf(this.tier) : hexColour(D.number.block.colour);
-    const glow = fxFallback(scene, "glow", 0, 0, F.size * 2.4, colour, c);
+    const sz = hit.small ? D.smallHit.sparkFactor : 1;
+    const glow = fxFallback(scene, "glow", 0, 0, F.size * 2.4 * sz, colour, c);
     if (!reducedFlashing()) glow.setBlendMode(Phaser.BlendModes.ADD);
-    fxObject(scene, "spark", 0, 0, F.size, colour, c);
+    fxObject(scene, "spark", 0, 0, F.size * sz, colour, c);
     // The number may not exist yet: its place is where it will be.
     const target = (): Pt => (hit.kind === "damage" ? (this.dmgBox ? this.numberAt("damage") : this.centre()) : this.blockBox ? this.numberAt("block") : this.blockPlace());
     const a = from;
@@ -636,7 +718,8 @@ export class ComboHype {
       if (token !== this.token) return;
       hit.landed = true;
       hit.counted = true;
-      this.add(hit.kind, hit.amount, 1);
+      this.add(hit.kind, hit.amount, 1, hit.small, hit.crosses);
+      if (hit.crosses) this.reachLine();
       this.wake();
     };
     hit.cancel = finish;
@@ -655,7 +738,7 @@ export class ComboHype {
         c.setPosition(x, y);
         if (Math.hypot(x - lastTrail.x, y - lastTrail.y) >= F.trailEveryPx) {
           lastTrail = { x, y };
-          this.trail({ x, y }, colour);
+          this.trail({ x, y }, colour, sz);
         }
       },
       onComplete: finish,
@@ -668,8 +751,8 @@ export class ComboHype {
     return { x: c.x + (this.dmgBox ? D.look.blockPlaceholderDx : 0), y: c.y };
   }
 
-  private trail(at: Pt, colour: number): void {
-    const o = fxFallback(this.scene, "glow", at.x, at.y, D.flight.trailSize, colour, this.root);
+  private trail(at: Pt, colour: number, sz: number): void {
+    const o = fxFallback(this.scene, "glow", at.x, at.y, D.flight.trailSize * sz, colour, this.root);
     this.track(o);
     if (!reducedFlashing()) o.setBlendMode(Phaser.BlendModes.ADD);
     this.scene.tweens.add({ targets: o, alpha: 0, scale: D.look.trailEndScale, duration: scaleTime(D.flight.trailMs), onComplete: () => o.destroy() });
@@ -729,6 +812,9 @@ export class ComboHype {
     if (quick) this.skip();
     await this.landed();
     if (token !== this.token) return;
+    // The line reached on the last hit still plays out (the fire and the callout) before the slam.
+    if (this.justCrossed && !quick) await this.wait(D.line.holdMs);
+    if (token !== this.token) return;
     const s = this.sum;
     if (s.damage === 0 && s.block === 0) {
       this.fadeAway();
@@ -747,6 +833,7 @@ export class ComboHype {
         this.ensure("block");
         this.setNumber("block", false);
       }
+      this.meterTo();
     }
     const tier = this.top;
     const S = D.slam;
@@ -759,7 +846,7 @@ export class ComboHype {
       this.slamming = false;
       return;
     }
-    if (killed && !this.fire) this.ignite();
+    if (killed && !this.lethal) this.lethalMoment();
     // Charge: swells and trembles; the cue stops when the slam starts.
     playSound("combo:charge", 1, 1);
     await this.charge(S.chargeMs[tier] * q, tier);
@@ -785,6 +872,11 @@ export class ComboHype {
     this.owing.enemyBlock = 0;
     this.host.impact({ amount: s.health, blocked: s.blocked, killed, startHealth: this.start.health });
     void blockFlight;
+    // The stagger: the enemy reels and its intent card shows the halved attack. A lethal cascade has none.
+    if (this.staggerPending && !killed) {
+      this.staggerPending = false;
+      this.host.stagger();
+    }
     // Fanfare.
     await this.fanfare(tier, killed, hit, q);
     this.fadeAway();
@@ -909,7 +1001,97 @@ export class ComboHype {
       this.tweenTargets.push(g);
       this.scene.tweens.add({ targets: g, alpha: 0, duration: scaleTime(D.look.fadeOutMs) });
     }
+    if (this.meter?.active) {
+      this.tweenTargets.push(this.meter);
+      this.scene.tweens.add({ targets: this.meter, alpha: 0, duration: scaleTime(D.line.fadeMs) });
+    }
     this.scene.tweens.killTweensOf(this.tint);
     this.scene.tweens.add({ targets: this.tint, alpha: 0, duration: scaleTime(D.tierJump.tintMs) });
+  }
+
+  // ---- the line meter ----
+
+  // The screen calls this on every redraw: until the cascade is set off the meter shows empty with the
+  // enemy's line, so the target is always visible (the damage total stays hidden, B8).
+  showLine(line: number): void {
+    this.line = Number.isFinite(line) ? line : 0;
+    if (this.begun) return;
+    if (this.line > 0 && !this.meter?.active) this.makeMeter();
+    this.resetMeter();
+  }
+
+  private makeMeter(): void {
+    const c = this.centre();
+    this.meter = this.scene.add.container(c.x, c.y + D.line.dy);
+    this.root.add(this.meter);
+    this.meterGfx = this.scene.add.graphics();
+    this.meterLabel = this.scene.add.text(0, 0, "", this.style(D.line.labelSize, D.line.labelColour, 6)).setOrigin(0.5, 0);
+    this.meter.add([this.meterGfx, this.meterLabel]);
+  }
+
+  // Empty again, with the line (a new round, or a new cascade starting).
+  private resetMeter(): void {
+    this.scene.tweens.killTweensOf(this.meterRoll);
+    this.meterRoll.v = 0;
+    if (!this.meter?.active) return;
+    this.scene.tweens.killTweensOf(this.meter);
+    this.meter.setAlpha(this.begun ? 1 : D.line.buildAlpha);
+    this.drawMeter();
+  }
+
+  // The meter follows the number's total.
+  private meterTo(): void {
+    if (!this.meter?.active) return;
+    const to = this.shown.damage;
+    this.scene.tweens.killTweensOf(this.meterRoll);
+    if (this.quick) {
+      this.meterRoll.v = to;
+      this.drawMeter();
+      return;
+    }
+    this.tweenTargets.push(this.meterRoll);
+    this.scene.tweens.add({ targets: this.meterRoll, v: to, duration: scaleTime(D.line.fillMs), ease: "Cubic.easeOut", onUpdate: () => this.drawMeter(), onComplete: () => this.drawMeter() });
+  }
+
+  // Where the line's marker is on screen.
+  private markerAt(): Pt {
+    const L = D.line;
+    const w = combatLayoutData.board.w * L.widthFraction;
+    return { x: this.centre().x - w / 2 + w / L.scale, y: this.centre().y + L.dy };
+  }
+
+  // The track, the fill (which stops at the end: the scale runs to `scale` times the line), the marker and its label.
+  private drawMeter(): void {
+    const L = D.line;
+    const g = this.meterGfx;
+    const label = this.meterLabel;
+    if (!this.meter?.active || !g?.active || !label?.active) return;
+    this.meter.setVisible(this.line > 0);
+    if (this.line <= 0) return;
+    const w = combatLayoutData.board.w * L.widthFraction;
+    const h = L.h;
+    const frac = Math.min(1, this.meterRoll.v / (this.line * L.scale));
+    g.clear();
+    g.fillStyle(hexColour(L.trackColour), L.trackAlpha);
+    g.fillRoundedRect(-w / 2, -h / 2, w, h, L.r);
+    if (frac > 0) {
+      g.fillStyle(this.crossed ? hexColour(L.crossedColour) : colourOf(this.tier), 1);
+      g.fillRoundedRect(-w / 2, -h / 2, Math.max(h, w * frac), h, L.r);
+    }
+    g.lineStyle(L.edgeWidth, hexColour(L.edgeColour), 0.9);
+    g.strokeRoundedRect(-w / 2, -h / 2, w, h, L.r);
+    const mx = -w / 2 + w / L.scale;
+    g.fillStyle(hexColour(this.crossed ? L.crossedColour : L.markerColour), 1);
+    g.fillRect(mx - L.markerW / 2, -h / 2 - L.markerOver, L.markerW, h + 2 * L.markerOver);
+    label.setText(`${L.labelText} ${this.line}`).setPosition(mx, h / 2 + L.markerOver + 4).setColor(this.crossed ? L.markerColour : L.labelColour);
+  }
+
+  // A burst on the marker when the line is reached.
+  private markerBurst(): void {
+    const L = D.line;
+    const at = this.markerAt();
+    const colour = hexColour(L.markerColour);
+    this.ring(at, colour, L.ringSize, L.fxMs);
+    this.puff("burst", at, L.burstSize, colour, L.fxMs);
   }
 }
