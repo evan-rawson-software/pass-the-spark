@@ -151,9 +151,14 @@ The cost driver is layers × frames. Each hat and robe has to be drawn on every 
 | 3. Packs | 15–25 h adapting, plus wizards from another method | $0–30 | Spells from Foozle (CC0) and thundersnowpixel (about $3), re-palettised. The circle adapted from CC0 line art. No wizards, no acid. |
 | 4. Hiring an artist | 4–8 weeks, plus 5–10 h of our time | $2,500–7,000 | Outfit layers × frames (350 layer-frames at $3–8): $1,050–2,800. Body, staff and hand frames: $175–525. Spells: $360–900. Ward and final spell: $120–300. Circle variants: $480–1,440. Plus about 15% for revisions. |
 
+## Designer's picks
+
+- **Circle: method 2 (pixel data in code).**
+- **Wizards: none of the three.** The code, AI and pack wizards were all turned down, so the wizard method is still open (see below).
+
 ## Recommendation
 
-**Make the M12 set mostly in code (method 2), and use packs or an artist only where they clearly beat it.**
+**Make the circle in code (picked). Spells probably in code too. The wizards still need a method: none of the candidates was liked.** The art session's original opinion follows, for reference.
 
 - **Wizards in code.** It is the only method that met every hard requirement with no extra work: layers that line up on every frame, run-time recolouring, and consistent animation. It is also the cheapest to extend; a sixth hat is an hour. Raise the bar in the full set with a hand-tuned face and beard and more robe folds. Keep the script as the source of truth.
 - **Circle in code.** Its tiers, variants and rotating rings are settings, and exact ellipses are what a tilted pixel circle needs. The adapted CC0 circle was weaker, and the AI circle noisier.
