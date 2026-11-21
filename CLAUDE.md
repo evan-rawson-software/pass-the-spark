@@ -5,6 +5,7 @@ Pass the Spark is a turn-based co-op deckbuilder. It will be built as a web MVP 
 ## Where the spec lives
 
 - **GitHub issues are the spec.** Build what the issue asks, nothing more. If something is unclear or seems wrong, ask in the issue instead of guessing.
+- **Each milestone has an epic:** a parent issue labelled `epic`, with the milestone's issues as its sub-issues. It holds the summary: goal, spec docs, branch, order of work, gates, status, and "done when". Keep its Status row current, and fill in its Outcome section when the milestone closes.
 - `docs/decisions.md` holds confirmed rulings and overrides `docs/pass-the-spark-build-brief.md`.
 - `docs/chain_sim.py` is a reference for rule order only. Don't port its structure.
 
