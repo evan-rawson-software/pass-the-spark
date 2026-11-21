@@ -1,0 +1,92 @@
+[
+ {
+  "cue": "click",
+  "variant": "A",
+  "group": "Menus and the run",
+  "file": "click_A.ogg",
+  "seconds": 0.05,
+  "lufs": -14,
+  "how": "A soft sine tock on G5 that dips slightly, with a faint click on top"
+ },
+ {
+  "cue": "click",
+  "variant": "B",
+  "group": "Menus and the run",
+  "file": "click_B.ogg",
+  "seconds": 0.04,
+  "lufs": -16.7,
+  "how": "A muffled square tick on C5 (low-passed, like a wooden key), with a faint click"
+ },
+ {
+  "cue": "voteRoll",
+  "variant": "A",
+  "group": "Menus and the run",
+  "file": "voteRoll_A.ogg",
+  "seconds": 0.18,
+  "lufs": -14.1,
+  "how": "A short sine pip on C6, a touch of room"
+ },
+ {
+  "cue": "voteRoll",
+  "variant": "B",
+  "group": "Menus and the run",
+  "file": "voteRoll_B.ogg",
+  "seconds": 0.03,
+  "lufs": -16.1,
+  "how": "A tiny low-passed square blip on E6, like a roulette tick"
+ },
+ {
+  "cue": "coins",
+  "variant": "A",
+  "group": "Menus and the run",
+  "file": "coins_A.ogg",
+  "seconds": 0.66,
+  "lufs": -14,
+  "how": "Two combo:coin blips, C6 then G6, with a few sparkles, short room"
+ },
+ {
+  "cue": "coins",
+  "variant": "B",
+  "group": "Menus and the run",
+  "file": "coins_B.ogg",
+  "seconds": 0.6,
+  "lufs": -14.1,
+  "how": "Four combo:coin blips running up C6, E6, G6, C7, short room"
+ },
+ {
+  "cue": "buy",
+  "variant": "A",
+  "group": "Menus and the run",
+  "file": "buy_A.ogg",
+  "seconds": 0.96,
+  "lufs": -14,
+  "how": "A coin blip on G6 over a soft sine C major chord, reverb"
+ },
+ {
+  "cue": "buy",
+  "variant": "B",
+  "group": "Menus and the run",
+  "file": "buy_B.ogg",
+  "seconds": 0.99,
+  "lufs": -14,
+  "how": "A two-note sine chime rising G5 to C6, with a few sparkles, reverb"
+ },
+ {
+  "cue": "rest",
+  "variant": "A",
+  "group": "Menus and the run",
+  "file": "rest_A.ogg",
+  "seconds": 2.5,
+  "lufs": -14,
+  "how": "A warm sine chord, C4 E4 G4 C5, swelling in slowly with a gentle vibrato, low-passed, long reverb"
+ },
+ {
+  "cue": "rest",
+  "variant": "B",
+  "group": "Menus and the run",
+  "file": "rest_B.ogg",
+  "seconds": 2.61,
+  "lufs": -14,
+  "how": "A slow sine arpeggio, C4 G4 C5 E5, each note ringing on, low-passed, long reverb"
+ }
+]
