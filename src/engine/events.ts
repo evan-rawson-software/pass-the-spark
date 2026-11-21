@@ -14,7 +14,7 @@ export type GameEvent =
   | { type: "play"; player: string; domino: string; node: number; end: number | null; depth: number; charge: number }
   | { type: "pass"; player: string }
   // The chain goes off: by a player's choice, because every end is capped, or because everyone passed in a row.
-  | { type: "setOff"; reason: "player" | "capped" | "passes"; player?: string }
+  | { type: "setOff"; reason: "capped" | "passes" }
   | { type: "cascadeStep"; depth: number }
   | { type: "nodeLit"; node: number; domino: string; owner: string; charge: number }
   // A cap goes off: value per trigger, then one damage or block event for each trigger.

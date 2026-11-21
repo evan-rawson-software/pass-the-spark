@@ -51,7 +51,7 @@ export function sortedHand(hand: string[], dominoes: Domino[]): SortedDomino[] {
 export interface FanSlot { x: number; y: number; k: number; angle: number }
 export interface FanArea { x: number; y: number; w: number; h: number } // the fan sits in this rectangle; the middle domino is centred in it
 
-// The default area, from data: between the piles, clear of Pass and Set off.
+// The default area, from data: between the piles, clear of the Pass button.
 export function handArea(): FanArea {
   return { ...D.area };
 }
