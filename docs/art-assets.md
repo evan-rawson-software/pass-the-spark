@@ -40,7 +40,7 @@ Scenes almost always get a painted artist signature in a bottom corner, and anyt
 
 **Background removal:** icons remove the flat white background by colour, from the border inward (runes also clear enclosed white). If a pale ground shadow is left, widen the colour tolerance rather than using `rembg`, which can punch holes in flat icons. Enemies use `rembg` with the `isnet-general-use` model. Check every enemy for painted signatures or letter-like markings before shipping. Coins tend to get a "$" or other letters stamped on them: ask for "plain smooth blank gold coins with no markings", show them stacked or edge-on, or leave them out. Then crop to the subject, pad 8% and downscale. A PNG over budget can be reduced to 256 colours (Pillow `quantize`), which is usually invisible for flat art.
 
-**Approved style test examples:** `sparks/Ember.png`, `sparks/Tide.png`, `effects/damage.png`, `effects/block.png`, `enemies/ogre.png`, `charms/ember_lens.png`.
+**Approved style test examples:** `sparks/Ember.png`, `sparks/Tide.png`, `enemies/ogre.png`, `charms/ember_lens.png`.
 - **Spark colours are fixed** (from `src/game/sparks.ts`). Anything tied to a spark uses its colour and shape:
 
   | Spark | Colour | Shape |
