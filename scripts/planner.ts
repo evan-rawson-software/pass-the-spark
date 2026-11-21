@@ -2,14 +2,14 @@
 // of it. Tooling, not engine rules. It works from a BattleView only (open hands, the board, the
 // intent, block, enemy health); it never reads a deck or the RNG.
 //
-// planTree(view, rng) is the search. It does not care whose turn it is or how many placements a
-// round allows: it only asks "which tree, built from the board as it stands and the dominoes in
-// everyone's hands, is best?". Turn order lives in plannerBot below, the 0.1 adapter. (The next
-// issue changes the rules; only the adapter should change then.)
+// planTree(view, rng) is the search. It does not care who places in which order: it only asks "which
+// tree, built from the board as it stands and the dominoes in everyone's hands, is best?". Each player's
+// placements are the engine's own (getPlayerChoices counts them from the board). How the table builds
+// the plan in a round lives in createPlannerBot below, the adapter.
 //
 // The search is a beam search. Start from the board as it stands. At every step add one domino, from
-// any player's hand, to every open end the engine says it can go on (getPendingChoice, so the
-// open-end limit, the Warden's lock and the Spark Shrine are the engine's own). Keep the best
+// any player's hand, to every open end the engine says it can go on (getPlayerChoices, so the
+// placements, the open-end limit, the Warden's lock and the Spark Shrine are the engine's own). Keep the best
 // BEAM_WIDTH partial trees and stop when no tree can grow or MAX_PLACEMENTS is reached. The best
 // tree seen at any size wins.
 //
@@ -22,7 +22,7 @@
 // Ties are broken by the caller's RNG state: every tree gets a tie key hashed from that state and its
 // own shape, so equal trees are ordered the same way on every re-plan within a battle.
 
-import { getOpenEnds, getPendingChoice, previewSetOff } from "../src/engine/battle";
+import { getOpenEnds, getPlayerChoices, previewSetOff } from "../src/engine/battle";
 import type { Choice } from "../src/engine/battle";
 import { outputsOf } from "../src/engine/battleCharms";
 import { nextUint32 } from "../src/engine/rng";
@@ -159,7 +159,7 @@ export function planTree(full: BattleView, rng: number): Placement[] {
       // (the tie-key picks between equals).
       const ways = new Map<string, { owner: string; end: number | null; copies: number }>();
       for (const player of tree.view.players) {
-        const pending = getPendingChoice({ ...tree.view, seat: player.id });
+        const pending = getPlayerChoices(tree.view, player.id);
         if (!pending) continue;
         const charms = player.charms.slice().sort().join();
         for (const option of pending.plays) {
@@ -196,7 +196,7 @@ export function planTree(full: BattleView, rng: number): Placement[] {
   return best.plan;
 }
 
-// ---- the 0.1 adapter: seat order, one domino a turn ----
+// ---- the adapter: one seat's part of the plan, in the plan's order ----
 
 // Where a placement goes now, as an end id on the board as it stands: its own open end, or the end
 // of a placement already on the board (matched[i] is the board node placement i became). null when
@@ -245,30 +245,33 @@ function matchPlan(view: BattleView, rng: number, memory: Memory): Map<number, n
 }
 
 // Makes the bot for one battle or run. botChoice(view, seat, rng) re-plans (or reuses the plan the
-// board has followed so far) and plays the first domino of the plan that this seat owns and can play
-// now; with none, it passes. The RNG state is returned unchanged: the tie keys are hashed from it, so
+// board has followed so far) and places the seat's next domino of the plan. The plan is built in its own
+// order (that order is always legal, whatever the open-end limit or the lock), so a seat whose next domino
+// comes after another seat's waits (choice null) and is asked again after the others have placed. A seat
+// with none left sets Ready. The RNG state is returned unchanged: the tie keys are hashed from it, so
 // every seat sees the same tie-breaks while the board is the same.
-export function createPlannerBot(): (view: BattleView, seat: string, rng: number) => { choice: Choice; rng: number } {
+export function createPlannerBot(): (view: BattleView, seat: string, rng: number) => { choice: Choice | null; rng: number } {
   let memory: Memory | null = null;
   return (view, seat, rng) => {
-    const pending = getPendingChoice(view);
-    if (pending === null || pending.player !== seat) throw new Error("not this seat's turn");
+    const pending = getPlayerChoices(view, seat);
+    if (pending === null) throw new Error("the battle is over");
     let matched = memory ? matchPlan(view, rng, memory) : null;
     if (!memory || !matched) {
       const plan = planTree(view, rng);
       matched = new Map();
       memory = { plan, baseNodes: view.board.nodes.length, basis: basis(view, rng, view.board.nodes.length, matched, plan) };
     }
-    for (let i = 0; i < memory.plan.length; i++) {
-      const p = memory.plan[i];
-      if (matched.has(i) || p.owner !== seat) continue;
-      const end = endNow(view, p, matched);
-      if (pending.opener) {
-        if (p.parent === undefined && p.end === undefined && pending.plays.some((o) => o.domino === p.domino)) return { choice: { type: "play", domino: p.domino }, rng };
-      } else if (end !== null && pending.plays.some((o) => o.domino === p.domino && o.ends.includes(end))) {
-        return { choice: { type: "play", domino: p.domino, end }, rng };
-      }
+    const ready: Choice = { type: "ready", player: seat, ready: true };
+    const next = memory.plan.findIndex((_, i) => !matched.has(i));
+    if (next < 0 || !memory.plan.some((p, i) => !matched.has(i) && p.owner === seat)) return { choice: ready, rng };
+    const p = memory.plan[next];
+    if (p.owner !== seat) return { choice: null, rng }; // not this seat's turn to build yet
+    const end = endNow(view, p, matched);
+    if (pending.opener) {
+      if (p.parent === undefined && p.end === undefined && pending.plays.some((o) => o.domino === p.domino)) return { choice: { type: "play", player: seat, domino: p.domino }, rng };
+    } else if (end !== null && pending.plays.some((o) => o.domino === p.domino && o.ends.includes(end))) {
+      return { choice: { type: "play", player: seat, domino: p.domino, end }, rng };
     }
-    return { choice: { type: "pass" }, rng };
+    return { choice: ready, rng }; // the plan no longer fits (not expected): stop building
   };
 }

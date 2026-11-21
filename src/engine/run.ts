@@ -3,8 +3,8 @@
 // (run.rng), and every battle gets its own seed drawn from it.
 // applyRunChoice never changes its input: it works on a JSON copy.
 
-import { createBattleWithEvents, getPendingChoice, makeStarterInstances, step } from "./battle";
-import type { BattleState, Choice, PendingChoice } from "./battle";
+import { createBattleWithEvents, getPlayerChoices, makeStarterInstances, step } from "./battle";
+import type { BattleState, Choice, PlayerChoices } from "./battle";
 import { rollCharmsForPlayers, charmById, heldCharmNumber, traderPrice, COIN_PURSE } from "./charms";
 import type { Content } from "./content";
 import type { GameEvent } from "./events";
@@ -52,7 +52,6 @@ export interface RunState {
   removalFee: Record<string, number>; // player id -> what their next removal at a Trader costs
   nextIndex: number; // next unused domino instance number (starter copies and generated ones share it)
   battlesFought: number; // seats rotate by this many places
-  lead: string; // who leads the next battle (carried over from the last battle's nextLead)
   battle: BattleState | null; // present while phase is "battle"
   battleType: BattleType | null; // the type of the current battle, and of the one just won while rewards are open
   reward: RewardState | null; // present while phase is "reward"
@@ -69,7 +68,7 @@ export interface RunState {
 }
 
 export interface RunSetup {
-  players: string[]; // player ids in seat order; the first one leads the first battle
+  players: string[]; // player ids in seat order
   seed: number;
   content: Content;
   unlocks?: Record<string, string[]>; // player id -> unlock ids; omitted (or a player left out) means everything unlocked
@@ -91,7 +90,7 @@ export type TraderAction = { kind: "buy"; domino: string } | { kind: "buyCharm";
 
 export type RunPendingChoice =
   | { type: "vote"; player: string; options: number[] }
-  | { type: "battle"; player: string; pending: PendingChoice }
+  | { type: "battle"; player: string; pending: PlayerChoices } // one for every player while the battle is on: they build at the same time
   | { type: "reward"; player: string; offer: Domino[] }
   | { type: "charmReward"; player: string; offer: Charm[] } // owed alongside the domino pick when the player has a charm offer
   | { type: "rest"; player: string } // answered with a "rest" or an "upgrade" choice
@@ -106,7 +105,7 @@ export type RunEvent =
   // counts is the number of votes per node; drawn is true when the vote was split and the RNG
   // drew the winner (false when unanimous, or when there was only one option and no vote).
   | { type: "routeChosen"; floor: number; index: number; nodeType: RunNodeType; votes: Record<string, number>; counts: Record<number, number>; drawn: boolean }
-  | { type: "battleStart"; enemy: string; nodeType: BattleType; seatOrder: string[]; lead: string; partyHealth: number }
+  | { type: "battleStart"; enemy: string; nodeType: BattleType; seatOrder: string[]; partyHealth: number }
   | { type: "coins"; player: string; amount: number }
   | { type: "rest"; player: string; healed: number }
   | { type: "upgrade"; player: string; from: string; to: Domino }
@@ -221,7 +220,6 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     removalFee: {},
     nextIndex: 1,
     battlesFought: 0,
-    lead: players[0],
     battle: null,
     battleType: null,
     reward: null,
@@ -251,7 +249,7 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
 }
 
 // What each player still owes. Empty once the run is over. Votes and reward picks are owed by
-// everyone who hasn't made them yet; a battle owes only the player whose turn it is.
+// everyone who hasn't made them yet; a battle owes every player, who build at the same time.
 export function getPendingRunChoices(run: RunState): RunPendingChoice[] {
   if (run.phase === "vote") {
     const options = voteOptions(run);
@@ -292,8 +290,7 @@ export function getPendingRunChoices(run: RunState): RunPendingChoice[] {
     return run.players.filter((id) => !done.includes(id)).map((id) => ({ type: "act", player: id }));
   }
   if (run.phase === "battle" && run.battle) {
-    const pending = getPendingChoice(run.battle);
-    if (pending) return [{ type: "battle", player: pending.player, pending }];
+    return run.players.map((id): RunPendingChoice => ({ type: "battle", player: id, pending: getPlayerChoices(run.battle as BattleState, id) as PlayerChoices }));
   }
   return [];
 }
@@ -313,6 +310,11 @@ export function getTraderPrices(run: RunState, playerId: string): TraderPrices {
   return { dominoPrices, charmPrice: price(data.charmPrice), removalFee: price(run.removalFee[playerId]) };
 }
 
+// The seat that starts this battle's rotation: the Sleeping Giant's first turn goes to it.
+export function startingSeat(run: Pick<RunState, "players" | "battlesFought">): string {
+  return run.players[run.battlesFought % run.players.length];
+}
+
 // Apply one player's choice. Throws when the choice isn't one the player owes.
 export function applyRunChoice(input: RunState, playerId: string, choice: RunChoice): RunStepResult {
   const run: RunState = JSON.parse(JSON.stringify(input));
@@ -326,6 +328,7 @@ export function applyRunChoice(input: RunState, playerId: string, choice: RunCho
     events.push({ type: "vote", player: playerId, node: choice.node });
     if (run.players.every((id) => run.votes[id] !== undefined)) settleVotes(run, events);
   } else if (choice.type === "battle" && run.battle) {
+    if (choice.choice.player !== playerId) throw new Error(`a battle choice must be the player's own (${playerId})`);
     const result = step(run.battle, choice.choice);
     run.battle = result.state;
     events.push(...result.events);
@@ -445,7 +448,7 @@ function enterEvent(run: RunState, events: RunEvent[]): void {
   const picked = pickEvent(run.rng, run.content.events, run.eventsSeen);
   run.eventsSeen = picked.seen;
   const data = run.content.events.find((e) => e.id === picked.id)!;
-  const opened = openEvent(picked.state, data, run.players, run.content.pools, run.nextIndex, run.lead, run.coins, run.unlocks);
+  const opened = openEvent(picked.state, data, run.players, run.content.pools, run.nextIndex, startingSeat(run), run.coins, run.unlocks);
   run.rng = opened.state;
   run.nextIndex = opened.nextIndex;
   run.event = opened.event;
@@ -577,8 +580,8 @@ function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void 
   const seed = nextUint32(run.rng);
   run.rng = seed.state;
 
-  // Seats rotate one place per battle; the lead is a player, not a seat,
-  // so rotating the seats doesn't change who leads.
+  // Seats rotate one place per battle. A battle's seat order has no effect on its rounds; the first seat is
+  // only who the Sleeping Giant's turns start with (startingSeat).
   const shift = run.battlesFought % run.players.length;
   const seats = run.players.slice(shift).concat(run.players.slice(0, shift));
   const seatOrder = seats;
@@ -588,7 +591,6 @@ function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void 
     charms: run.content.charms,
     players: run.players.map((id) => ({ id, deck: run.decks[id], charms: run.charms[id] })),
     seatOrder,
-    startingLead: run.lead,
     enemyId,
     seed: seed.value,
     extraDominoes: run.dominoes,
@@ -598,7 +600,7 @@ function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void 
   run.battle = result.state;
   run.battleType = type;
   run.phase = "battle";
-  events.push({ type: "battleStart", enemy: enemyId, nodeType: type, seatOrder, lead: run.lead, partyHealth: run.health });
+  events.push({ type: "battleStart", enemy: enemyId, nodeType: type, seatOrder, partyHealth: run.health });
   events.push(...result.events);
 }
 
@@ -613,7 +615,6 @@ function finishBattle(run: RunState, events: RunEvent[]): void {
     endRun(run, "lost", events);
     return;
   }
-  run.lead = battle.nextLead as string;
   const earned: Record<string, number> = {};
   const base = currentAct(run).battleCoins[type];
   for (const id of run.players) {

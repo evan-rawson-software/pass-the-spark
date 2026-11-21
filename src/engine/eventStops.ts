@@ -76,7 +76,7 @@ export interface OpenedEvent {
 }
 
 // Sets up the picked event. Personal events open with their option list and nothing drawn.
-export function openEvent(state: number, data: EventData, players: string[], pools: Pools, startIndex: number, lead: string, coins: Record<string, number>, unlocks?: Record<string, string[]>): OpenedEvent {
+export function openEvent(state: number, data: EventData, players: string[], pools: Pools, startIndex: number, firstSeat: string, coins: Record<string, number>, unlocks?: Record<string, string[]>): OpenedEvent {
   if (data.kind === "personal") {
     return { event: { id: data.id, kind: data.kind, domino: null, options: personalOptions(data), choices: {}, results: {} }, state, nextIndex: startIndex };
   }
@@ -84,7 +84,7 @@ export function openEvent(state: number, data: EventData, players: string[], poo
   if (data.id === "spark_shrine") return { event: openSparkShrine(data, pools), state, nextIndex: startIndex };
   if (data.id === "sleeping_giant") {
     const options: EventOption[] = [{ type: "grab" }, { type: "stop" }];
-    return { event: { id: data.id, kind: data.kind, domino: null, options, choices: {}, giant: openGiant(data, players, lead) }, state, nextIndex: startIndex };
+    return { event: { id: data.id, kind: data.kind, domino: null, options, choices: {}, giant: openGiant(data, players, firstSeat) }, state, nextIndex: startIndex };
   }
   if (data.id !== "lost_courier") throw new Error(`event ${data.id} is not playable yet`);
   const domino = generateDomino(state, "rare", pools, startIndex, partyUnlocks(unlocks, players));

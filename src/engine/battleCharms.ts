@@ -21,13 +21,9 @@ function number(state: CharmInput, owner: string, id: string, key: string): numb
   return player ? heldCharmNumber(state.charmDefs, player.charms, id, key) : 0;
 }
 
-export function extraDraws(state: CharmInput, owner: string): number {
-  return number(state, owner, "early_riser", "draws");
-}
-
-// The player's hand limit for this battle (Deep Pockets).
-export function handLimitOf(state: CharmInput & { config: { playerHandLimit: number } }, owner: string): number {
-  return state.config.playerHandLimit + number(state, owner, "deep_pockets", "handLimit");
+// The player's hand size bonus for this battle: Early Riser (+1) and Deep Pockets (+2). Neither adds placements.
+export function handSizeBonus(state: CharmInput, owner: string): number {
+  return number(state, owner, "early_riser", "handSize") + number(state, owner, "deep_pockets", "handSize");
 }
 
 // How many rounds of intents the player sees ahead (Spyglass), 0 without it.

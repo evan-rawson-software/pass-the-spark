@@ -1,12 +1,13 @@
 // Battle state, setup and round flow for the branching cascade. Plain functions over plain data.
-// The party builds a tree of dominoes, sets it off in one cascade, then the enemy carries out its intent.
+// Everyone builds one tree of dominoes at the same time, each from their own hand and within their own
+// placements. When every player is Ready it goes off in one cascade, then the enemy carries out its intent.
 // step never changes its input: it works on a JSON copy.
 
 import { nextInt, shuffle } from "./rng";
 import { validateDominoes } from "./validate";
 import type { GameEvent } from "./events";
 import type { BattleView, OpenEndView } from "./view";
-import { capBonus, capExtraTriggers, extraDraws, handLimitOf, junctionRunnerBlock, outputsOf, throughNode } from "./battleCharms";
+import { capBonus, capExtraTriggers, handSizeBonus, junctionRunnerBlock, outputsOf, throughNode } from "./battleCharms";
 import { passiveOf, rollIntentId } from "./enemy";
 import type { CapEffect, Charm, Config, DeckList, Domino, Enemy, Intent, Passive, Pattern, Spark } from "./types";
 
@@ -42,6 +43,8 @@ export interface PlayerState {
   hand: string[];
   discard: string[];
   charms: string[]; // charm ids the player holds for this battle (definitions are in BattleState.charmDefs)
+  placements: number; // dominoes this player may have on the board in a round: the party total divided by the party size, rounded down
+  ready: boolean; // while Ready a player can't place or take back; the cascade fires when every player is Ready
 }
 
 export interface EnemyState {
@@ -67,7 +70,8 @@ export interface PartyState {
 }
 
 // A domino on the board. end is the end it is attached to (null for the opener); depth counts steps from the opener.
-// Nodes are stored in creation order, and a node is always created after the node it hangs from.
+// Nodes are stored in creation order, which is placement order (a take-back removes a node and the rest close up),
+// and a node is always created after the node it hangs from.
 export interface BoardNode {
   id: number; // index in board.nodes
   domino: string;
@@ -94,20 +98,16 @@ export interface BattleState {
   dominoes: Domino[];
   charmDefs: Charm[]; // the charm data the players' charm ids refer to
   rng: number;
-  seatOrder: string[]; // players only
+  seatOrder: string[]; // players only; it has no effect on a round, it is the order views and sims list them in
   round: number;
-  lead: string; // this round's lead (the first to take a turn)
-  seat: string; // whose turn it is
   phase: "build" | "over";
   board: Board;
-  passes: number; // players who have passed in a row
   intent: Intent; // what the enemy will do after this round's cascade (passive growth is added once known)
   locked: Spark | null; // the Warden's lock this round: players cannot attach to open ends of this spark
   party: PartyState;
   players: PlayerState[]; // in seat order
   enemy: EnemyState;
   result: "won" | "lost" | null;
-  nextLead: string | null;
   blessing: { spark: Spark; strength: number } | null; // set by the run (Spark Shrine): a domino attached to this spark adds `strength` charge after its own change
 }
 
@@ -116,23 +116,28 @@ export interface PlayOption {
   ends: number[]; // open ends it can attach to; empty for the opener
 }
 
-// What the player to move can do. Passing is always allowed.
-export interface PendingChoice {
+// What one player can do right now. Every player acts at the same time, so there is one of these per player.
+export interface PlayerChoices {
   player: string;
-  opener: boolean; // the board is empty: play an amplifier or junction without an end
-  plays: PlayOption[];
+  opener: boolean; // the board is empty: a placement is an amplifier or junction without an end
+  placementsLeft: number; // placements this player has not used this round (a take-back gives one back)
+  ready: boolean;
+  plays: PlayOption[]; // empty while Ready or with no placements left
+  takeBacks: number[]; // this player's nodes with nothing attached to their outputs; empty while Ready
+  canToggleReady: boolean; // Ready can be set to the other value (setting it to the value it has is an error)
 }
 
+// Every choice names its player. The engine throws on an illegal one.
 export type Choice =
-  | { type: "play"; domino: string; end?: number } // end is omitted for the opener
-  | { type: "pass" };
+  | { type: "play"; player: string; domino: string; end?: number } // end is omitted for the opener
+  | { type: "takeBack"; player: string; node: number } // one of the player's own nodes
+  | { type: "ready"; player: string; ready: boolean };
 
 export interface BattleSetup {
   config: Config;
   content: Content;
   players: PlayerSetup[];
   seatOrder: string[];
-  startingLead?: string;
   enemyId: string;
   seed: number;
   // Charm data, needed when any player holds charms. Defaults to none.
@@ -167,10 +172,6 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
   const { config, content, seatOrder } = setup;
   const enemyDef = content.enemies.find((e) => e.id === setup.enemyId);
   if (!enemyDef) throw new Error("unknown enemy " + setup.enemyId);
-  const lead = setup.startingLead ?? seatOrder[0];
-  if (lead === undefined || !seatOrder.includes(lead)) {
-    throw new Error("startingLead must be a player in seatOrder");
-  }
 
   const extra = validateDominoes(setup.extraDominoes ?? [], "extraDominoes");
   for (const d of extra) {
@@ -180,6 +181,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
   if (!(partyHealth > 0 && partyHealth <= config.partyMaxHealth)) throw new Error("partyHealth must be above 0 and at most max health");
 
   const enemyHealth = enemyStartingHealth(config, enemyDef, seatOrder.length);
+  const placements = Math.floor(config.partyPlacements / seatOrder.length);
 
   let rng = setup.seed;
   const players: PlayerState[] = [];
@@ -188,7 +190,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     if (!p || p.deck.length === 0) throw new Error("player needs a deck: " + id);
     const s = shuffle(rng, p.deck);
     rng = s.state;
-    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice() });
+    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice(), placements, ready: false });
   }
 
   const state: BattleState = {
@@ -198,11 +200,8 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     rng,
     seatOrder,
     round: 0,
-    lead,
-    seat: lead,
     phase: "build",
     board: { nodes: [], ends: [] },
-    passes: 0,
     intent: { id: "", actions: [] },
     locked: null,
     party: { health: partyHealth, maxHealth: config.partyMaxHealth, block: 0 },
@@ -221,7 +220,6 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
       repeats: 0,
     },
     result: null,
-    nextLead: null,
     blessing: setup.blessing ?? null,
   };
   const events: GameEvent[] = [];
@@ -251,59 +249,73 @@ export function makeStarterInstances(
 // ---- legality ----
 
 // What the read-only functions need. A BattleState or a player's BattleView both fit, so a client
-// can work out what it may play from the view it was sent.
-export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "board" | "config" | "charmDefs" | "locked" | "blessing">;
+// can work out what it may do from the view it was sent.
+export type PendingInput = Pick<BattleState, "phase" | "players" | "dominoes" | "board" | "config" | "charmDefs" | "locked" | "blessing">;
 
-export function getPendingChoice(state: PendingInput): PendingChoice | null {
+// The placements a player has not used this round: their share, less the nodes of theirs on the board.
+export function placementsLeft(state: Pick<BattleState, "players" | "board">, playerId: string): number {
+  return getPlayer(state, playerId).placements - state.board.nodes.filter((n) => n.owner === playerId).length;
+}
+
+// What one player can do now; null when the battle is over. The same rules step enforces.
+export function getPlayerChoices(state: PendingInput, playerId: string): PlayerChoices | null {
   if (state.phase === "over") return null;
-  const player = getPlayer(state, state.seat);
+  const player = getPlayer(state, playerId);
   const opener = state.board.nodes.length === 0;
+  const left = placementsLeft(state, playerId);
   const plays: PlayOption[] = [];
-  for (const id of unique(player.hand)) {
-    const d = getDomino(state, id);
-    if (opener) {
-      if (d.kind !== "cap") plays.push({ domino: id, ends: [] });
-    } else {
-      const ends = legalEnds(state, d, player.id);
-      if (ends.length > 0) plays.push({ domino: id, ends });
+  if (!player.ready && left > 0) {
+    for (const id of unique(player.hand)) {
+      const d = getDomino(state, id);
+      if (opener) {
+        if (d.kind !== "cap") plays.push({ domino: id, ends: [] });
+      } else {
+        const ends = legalEnds(state, d, player.id);
+        if (ends.length > 0) plays.push({ domino: id, ends });
+      }
     }
   }
-  return { player: player.id, opener, plays };
+  const takeBacks = player.ready ? [] : state.board.nodes.filter((n) => n.owner === playerId && isLeaf(state.board, n.id)).map((n) => n.id);
+  return { player: playerId, opener, placementsLeft: left, ready: player.ready, plays, takeBacks, canToggleReady: true };
 }
 
 export function applyChoice(input: BattleState, choice: Choice): BattleState {
   return step(input, choice).state;
 }
 
-// True when the seat to act passing now would complete the round of passes, so the cascade fires.
-export function passFires(state: Pick<BattleState, "phase" | "passes" | "seatOrder">): boolean {
-  return state.phase !== "over" && state.passes + 1 >= state.seatOrder.length;
-}
-
 // Apply a choice. Returns the new state and the events in the order they happened.
 export function step(input: BattleState, choice: Choice): StepResult {
   const events: GameEvent[] = [];
   const state: BattleState = JSON.parse(JSON.stringify(input));
-  const pending = getPendingChoice(state);
-  if (!pending) throw new Error("the battle is over");
-  const player = getPlayer(state, pending.player);
+  if (state.phase === "over") throw new Error("the battle is over");
+  const player = getPlayer(state, choice.player);
 
+  if (choice.type === "ready") {
+    if (typeof choice.ready !== "boolean") throw new Error("ready must be true or false");
+    if (player.ready === choice.ready) throw new Error(choice.ready ? "already Ready" : "not Ready");
+    player.ready = choice.ready;
+    events.push({ type: "ready", player: player.id, ready: player.ready });
+    if (state.players.every((p) => p.ready)) setOff(state, events);
+    return { state, events };
+  }
+
+  if (player.ready) throw new Error("a Ready player can't place or take back");
+  const legal = getPlayerChoices(state, player.id) as PlayerChoices;
   if (choice.type === "play") {
-    const option = pending.plays.find((o) => o.domino === choice.domino);
+    if (legal.placementsLeft <= 0) throw new Error("no placements left");
+    const option = legal.plays.find((o) => o.domino === choice.domino);
     if (!option) throw new Error("illegal domino");
-    if (pending.opener ? choice.end !== undefined : choice.end === undefined || !option.ends.includes(choice.end)) {
+    if (legal.opener ? choice.end !== undefined : choice.end === undefined || !option.ends.includes(choice.end)) {
       throw new Error("illegal end");
     }
     removeOne(player.hand, choice.domino);
     addNode(state, player.id, getDomino(state, choice.domino), choice.end ?? null, events);
-    state.passes = 0;
-    if (openEnds(state).length === 0) setOff(state, "capped", events);
-    else nextSeat(state);
-  } else if (choice.type === "pass") {
-    events.push({ type: "pass", player: player.id });
-    state.passes += 1;
-    if (state.passes >= state.seatOrder.length) setOff(state, "passes", events);
-    else nextSeat(state);
+  } else if (choice.type === "takeBack") {
+    if (!legal.takeBacks.includes(choice.node)) throw new Error("can't take that node back");
+    const node = state.board.nodes[choice.node];
+    player.hand.push(node.domino);
+    removeFromBoard(state.board, node.id);
+    events.push({ type: "takeBack", player: player.id, domino: node.domino, node: node.id });
   } else {
     throw new Error("unknown choice");
   }
@@ -422,53 +434,6 @@ export function previewPlay(input: PendingInput, playerId: string, dominoId: str
   return { charge: flow.charge, value, triggers, total: value * triggers };
 }
 
-// What the seat after `playerId` could play once `dominoId` has been played. A hand preview for the
-// "next player's highlight": playable lists the domino ids in their hand that would have a legal end;
-// mustPass is true when they would have nothing to play. If the play caps the last open end the chain
-// sets off, so nothing is playable and mustPass is false.
-export interface NextPlayerPreview {
-  player: string;
-  playable: string[];
-  mustPass: boolean;
-}
-
-// With an end (or no end for the opener) it looks at that one play; with end omitted on a non-empty
-// board it is the union over all of the player's legal ends for the domino. Returns null when the
-// domino cannot be played. Works on a state or a view; never changes it.
-export function previewNextPlayer(input: PendingInput & Pick<BattleState, "seatOrder">, playerId: string, dominoId: string, end?: number): NextPlayerPreview | null {
-  const player = input.players.find((p) => p.id === playerId);
-  if (!player || !player.hand.includes(dominoId)) return null;
-  const d = getDomino(input, dominoId);
-  const opener = input.board.nodes.length === 0;
-  let ends: (number | null)[];
-  if (opener) {
-    if (end !== undefined || d.kind === "cap") return null;
-    ends = [null];
-  } else {
-    const legal = legalEnds(input, d, playerId);
-    if (end !== undefined && !legal.includes(end)) return null;
-    ends = end !== undefined ? [end] : legal;
-  }
-  const next = input.seatOrder[(input.seatOrder.indexOf(playerId) + 1) % input.seatOrder.length];
-  const playable = new Set<string>();
-  let sets = false;
-  for (const e of ends) {
-    const board: Board = JSON.parse(JSON.stringify(input.board));
-    addToBoard(board, playerId, d, e, outputsOf(input, playerId, d));
-    const after = { ...input, board, players: JSON.parse(JSON.stringify(input.players)) as PlayerState[] };
-    removeOne(getPlayer(after, playerId).hand, dominoId);
-    if (openEnds(after).length === 0) {
-      sets = true;
-      continue;
-    }
-    for (const id of unique(getPlayer(after, next).hand)) {
-      if (legalEnds(after, getDomino(after, id), next).length > 0) playable.add(id);
-    }
-  }
-  const hand = getPlayer(input, next).hand;
-  return { player: next, playable: unique(hand).filter((id) => playable.has(id)), mustPass: !sets && playable.size === 0 };
-}
-
 // What setting off now would do, in total.
 export interface CascadePreview {
   damage: number; // reaching the enemy's health, after its block
@@ -565,6 +530,30 @@ function addToBoard(board: Board, owner: string, d: Domino, end: number | null, 
   outputs.forEach((spark, index) => board.ends.push({ id: board.ends.length, node: node.id, index, spark }));
 }
 
+// A node nothing hangs from: none of its outputs has a node attached.
+function isLeaf(board: Board, nodeId: number): boolean {
+  const mine = board.ends.filter((e) => e.node === nodeId).map((e) => e.id);
+  return !board.nodes.some((n) => n.end !== null && mine.includes(n.end));
+}
+
+// Takes a leaf node off the board with its (open) outputs. Ids are indexes, so the nodes and ends after
+// it close up and every reference is renumbered; the order of the rest, which is placement order, is kept.
+function removeFromBoard(board: Board, nodeId: number): void {
+  const nodes = board.nodes.filter((n) => n.id !== nodeId);
+  const ends = board.ends.filter((e) => e.node !== nodeId);
+  const endIndex = new Map(ends.map((e, i) => [e.id, i]));
+  nodes.forEach((n, i) => {
+    n.id = i;
+    n.end = n.end === null ? null : (endIndex.get(n.end) as number);
+  });
+  ends.forEach((e, i) => {
+    e.id = i;
+    if (e.node > nodeId) e.node -= 1;
+  });
+  board.nodes = nodes;
+  board.ends = ends;
+}
+
 function addNode(state: BattleState, owner: string, d: Domino, end: number | null, events: GameEvent[]): void {
   const outputs = outputsOf(state, owner, d);
   addToBoard(state.board, owner, d, end, outputs);
@@ -582,14 +571,10 @@ function addNode(state: BattleState, owner: string, d: Domino, end: number | nul
   if (outputs.length > d.output.length) events.push({ type: "charm", player: owner, charm: "hall_of_mirrors" });
 }
 
-function nextSeat(state: BattleState): void {
-  state.seat = state.seatOrder[(state.seatOrder.indexOf(state.seat) + 1) % state.seatOrder.length];
-}
-
-// The board is complete: every end capped, or a full round of passes.
+// Every player is Ready (an empty board is fine: nothing goes off).
 // The cascade, then the enemy's action, then the round end.
-function setOff(state: BattleState, reason: "capped" | "passes", events: GameEvent[]): void {
-  events.push({ type: "setOff", reason });
+function setOff(state: BattleState, events: GameEvent[]): void {
+  events.push({ type: "setOff", reason: "ready" });
   const capsFired = fireCascade(state, events);
   if (isOver(state)) return;
   longNightGrowth(state, capsFired, events);
@@ -728,14 +713,9 @@ function endBattle(state: BattleState, result: "won" | "lost", events: GameEvent
   events.push({ type: "battleEnd", result });
   state.phase = "over";
   state.result = result;
-  state.nextLead = nextPlayerAfterLead(state);
 }
 
-function nextPlayerAfterLead(state: BattleState): string {
-  return state.seatOrder[(state.seatOrder.indexOf(state.lead) + 1) % state.seatOrder.length];
-}
-
-// Party block resets, the board goes to its owners' discard piles, the lead moves on one seat.
+// Party block resets, the board goes to its owners' discard piles.
 function endRound(state: BattleState, events: GameEvent[]): void {
   state.party.block = 0;
   events.push({ type: "blockReset", side: "party" });
@@ -746,7 +726,6 @@ function endRound(state: BattleState, events: GameEvent[]): void {
     state.enemy.health += amount;
     if (amount > 0) events.push({ type: "passive", passive: "glutton", amount });
   }
-  state.lead = nextPlayerAfterLead(state);
   startRound(state, events);
 }
 
@@ -759,17 +738,17 @@ export function scaledIntent(state: Pick<BattleState, "config" | "players">, int
   return copy;
 }
 
-// The intent is chosen and shown, then everyone draws, then the lead takes the first turn.
+// The intent is chosen and shown, then everyone draws up to their hand size (round 1 too). Placements
+// are counted from the board, so the empty board gives every player theirs back; every Ready clears.
 function startRound(state: BattleState, events: GameEvent[]): void {
   state.round += 1;
   state.board = { nodes: [], ends: [] };
-  state.passes = 0;
-  state.seat = state.lead;
   startPassives(state, events);
-  events.push({ type: "roundStart", round: state.round, lead: state.lead });
+  events.push({ type: "roundStart", round: state.round });
   events.push({ type: "intent", intent: scaledIntent(state, state.intent) });
   for (const p of state.players) {
-    draw(state, p, (state.round === 1 ? state.config.playerFirstDraw : state.config.playerDrawPerRound) + extraDraws(state, p.id), handLimitOf(state, p.id), events);
+    p.ready = false;
+    draw(state, p, p.placements + state.config.handExtra + handSizeBonus(state, p.id), events);
   }
 }
 
@@ -796,15 +775,14 @@ function lookAhead(state: Pick<BattleState, "charmDefs">): number {
   return Math.max(0, ...state.charmDefs.filter((c) => c.id === "spyglass").map((c) => c.numbers.rounds));
 }
 
-// Draw up to `count` dominoes, stopping at the hand limit. An empty deck is reshuffled from the discard pile.
-function draw(state: BattleState, p: PlayerState, count: number, limit: number, events: GameEvent[]): void {
+// Draw until the hand is `size` (it can end short when the deck and discard pile run out). An empty deck is reshuffled from the discard pile.
+function draw(state: BattleState, p: PlayerState, size: number, events: GameEvent[]): void {
   let drawn: string[] = [];
   const flush = () => {
     if (drawn.length > 0) events.push({ type: "draw", player: p.id, count: drawn.length, dominoes: drawn });
     drawn = [];
   };
-  for (let i = 0; i < count; i++) {
-    if (p.hand.length >= limit) break;
+  while (p.hand.length < size) {
     if (p.deck.length === 0) {
       if (p.discard.length > 0) {
         flush();
