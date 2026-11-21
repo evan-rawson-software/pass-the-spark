@@ -12,7 +12,7 @@ const players = ["a", "b", "c"];
 // Weaker enemies, so the plain "first legal move" play below wins its battles.
 function easyContent() {
   const content = loadContent();
-  for (const e of content.enemies) if (e.tier === "basic") e.maxHealth = 60;
+  for (const e of content.enemies) if (e.tier === "basic") e.maxHealth = 70;
   return content;
 }
 
@@ -85,7 +85,7 @@ test("two battles: health carries over, seats rotate and the lead carries over; 
   shortContent.run.acts[0].map.floors = 1;
   shortContent.run.acts[0].map.fixedFloors = { "1": "fight" };
   shortContent.run.acts[0].map.minTradersPerAct = 0;
-  for (const e of shortContent.enemies) if (e.tier === "boss" || shortContent.run.acts[1].normalPool.includes(e.id)) e.maxHealth = 1; // quick wins
+  for (const e of shortContent.enemies) if (e.tier === "boss" || shortContent.run.acts[1].normalPool.includes(e.id)) e.maxHealth = 70; // quick wins
   const shortStart = createRun({ players, seed: 7, content: shortContent });
 
   const atBoss = play(shortStart, (r) => r.position?.type === "boss" && r.phase === "battle").run;

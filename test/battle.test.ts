@@ -101,12 +101,12 @@ test("echo and spectrum on a branching tree: echo doubles the caps further along
   expect(previewPlay(s, "a", "spectrum_gale", 2)).toMatchObject({ charge: 4 });
   s = play(s, "spectrum_gale", 2); // a: open end 4 (Gale) at charge 4
   expect(getView(s, "b").openEnds.map((e) => [e.end, e.charge])).toEqual([[3, 2], [4, 4]]);
-  expect(previewPlay(s, "b", "strike_tide", 3)).toMatchObject({ value: 6, triggers: 2, total: 12 });
-  s = play(s, "strike_tide", 3); // b: 3 x 2 = 6, twice
-  expect(previewCascade(s)).toEqual({ damage: 12, block: 0 });
+  expect(previewPlay(s, "b", "strike_tide", 3)).toMatchObject({ value: 14, triggers: 2, total: 28 });
+  s = play(s, "strike_tide", 3); // b: 7 x 2 = 14, twice
+  expect(previewCascade(s)).toEqual({ damage: 28, block: 0 });
   s = play(s, "guard_gale", 4); // c: 3 x 4 = 12 block; every end is capped
 
-  expect(s.enemy.health).toBe(100 - 12);
+  expect(s.enemy.health).toBe(100 - 28);
   expect(s.party.health).toBe(90); // the 12 block absorbed the whole attack of 8
   expect(s.round).toBe(2);
 });
@@ -126,7 +126,7 @@ test("a full round of passes sets the chain off: uncapped ends fizzle, and with 
   s = last.state;
   expect(last.events.find((e) => e.type === "setOff")).toMatchObject({ reason: "passes" });
   expect(last.events.filter((e) => e.type === "fizzle")).toEqual([{ type: "fizzle", end: 2, spark: "Gale", charge: 2 }]);
-  expect(s.enemy.health).toBe(100 - 6); // 3 x charge 2
+  expect(s.enemy.health).toBe(100 - 14); // 7 x charge 2
   expect(s.party.health).toBe(90 - 8);
   expect(s.round).toBe(2);
 
@@ -135,7 +135,7 @@ test("a full round of passes sets the chain off: uncapped ends fizzle, and with 
   s = applyChoice(s, pass);
   const empty = step(s, pass);
   expect(empty.events.some((e) => e.type === "capFired" || e.type === "nodeLit" || e.type === "fizzle")).toBe(false);
-  expect(empty.state.enemy.health).toBe(100 - 6);
+  expect(empty.state.enemy.health).toBe(100 - 14);
   expect(empty.state.party.health).toBe(90 - 16);
   expect(empty.state.round).toBe(3);
 });
@@ -199,14 +199,14 @@ test("charms: Keystone adds after a Double's own change, Hall of Mirrors opens a
     { end: 2, spark: "Gale", charge: 3 },
     { end: 3, spark: "Tide", charge: 3 },
   ]);
-  expect(previewPlay(s, "b", "strike_tide", 1)).toMatchObject({ value: 11, total: 11 }); // 3 x 3 + 2 from Tide Lens
+  expect(previewPlay(s, "b", "strike_tide", 1)).toMatchObject({ value: 23, total: 23 }); // 7 x 3 + 2 from Tide Lens
   s = play(s, "strike_tide", 1);
   s = play(s, "guard_tide", 3);
   const last = step(s, { type: "play", domino: "guard_gale", end: 2 });
 
   const charms = last.events.filter((e) => e.type === "charm").map((e) => (e as { player: string; charm: string }).player + ":" + (e as { charm: string }).charm);
   expect(charms).toEqual(["a:keystone", "b:tide_lens"]);
-  expect(last.state.enemy.health).toBe(100 - 11);
+  expect(last.state.enemy.health).toBe(100 - 23);
   expect(last.state.party.health).toBe(90); // 27 block absorbed the attack of 12
 });
 
