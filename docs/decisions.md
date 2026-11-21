@@ -393,6 +393,7 @@ After milestone 5 (events): 6 charms plus acts 2 and 3; 7 balance pass and playt
 - **Overcharge (#184):** your Double amplifiers multiply by 1 more (×2 becomes ×3, an upgraded ×2.5 becomes ×3.5), so the Double upgrade still matters. Charm bonuses (Lenses, Bulwark) are part of a cap's value, so every extra trigger repeats them.
 - **Spark Shrine (#185):** every domino attached to the blessed spark adds +1 charge after its own change, caps included (a cap there goes off at charge + 1). The opener is never blessed, since its intake is ignored.
 - **#183 gate passed (2026-11-21):** the designer reviewed the sim report. Screen work (#186) starts now. Placeholder tuning (starter caps, enemy health and intents, the Hoarder's block) runs in parallel as data-only work, so the playtest is winnable.
+- **First M9 playtest (2026-11-21):** the designer played the new combat board on `cascade` (single player, before the #203 tuning) and passed it: "looks good". #187 (cascade spectacle) can start; #203 (placeholder tuning) still runs.
 
 ## 2026-11-20: Milestone 10 (cascade feel)
 Rulings F1–F10, all as recommended. M10 builds on the basic spectacle from #187.
