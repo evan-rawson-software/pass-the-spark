@@ -532,7 +532,7 @@ export class CombatScene extends Phaser.Scene {
     const text = this.label(layer, x + w / 2, y + h / 2, "", Math.round(h * 0.6), "#ffffff", 0.5, true);
     const ref = { g, text, x, y, w, h, max, color };
     this.anim.refs.bars.set(key, ref);
-    paintBar(ref, value);
+    paintBar(ref, value, this.anim.reactions.ghostOf(key as "party" | "enemy"));
   }
 
   private shield(layer: Layer, key: string, x: number, y: number, s: number, amount: number): void {
@@ -544,6 +544,7 @@ export class CombatScene extends Phaser.Scene {
     g.strokePoints(pts, true);
     const text = this.label(layer, x + s * 0.5 + 8, y, String(amount), Math.round(s * 0.7), "#dbe6f5", 0, true);
     this.anim.refs.shields.set(key, { text, x, y });
+    if (key === "enemy") this.anim.reactions.drawCracks(layer, x, y, s, amount);
   }
 
   // A seat's name plate; the seat on turn glows.
@@ -597,7 +598,7 @@ export class CombatScene extends Phaser.Scene {
     const e = view.enemy;
     const def = enemies.find((x) => x.id === e.id);
     // The portrait, if there is one, fills the free space on the right of the panel.
-    artImage(this, `enemies/${e.id}`, 1410, 165, 250, 250, layer);
+    this.anim.reactions.drawBody(layer, e.id, def?.tier ?? "basic");
     // The tier is an icon (the map's stop icons) beside the name; long names shrink to leave it room.
     const ICON = 48;
     const title = this.label(layer, 60 + ICON + 12, 62, def?.name ?? e.id, 48, "#ffffff", 0, true);

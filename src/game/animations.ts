@@ -4,6 +4,8 @@ import type { BattleView } from "../engine/view";
 import { scaleTime } from "./playbackSpeed";
 import { reducedFlashing } from "./comfort";
 import { playSound } from "./sound";
+import { EnemyReactions } from "./enemyReactions";
+import { hexColour, reactionData } from "./presentation";
 import { amplify, block, boardGlow, centre, charm, coins, damage, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
 import type { Point, Tally } from "./spectacle";
 
@@ -31,6 +33,7 @@ export interface BarRef {
   x: number; y: number; w: number; h: number;
   max: number;
   color: number;
+  value?: number; // what it last showed (set by paintBar)
 }
 
 // What the scene drew last, so animations can find their targets. The scene calls newRefs() at the
@@ -52,12 +55,18 @@ export function newRefs(): Refs {
   return { hand: new Map(), nodes: new Map(), slots: new Map(), handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map() };
 }
 
-export function paintBar(b: BarRef, value: number): void {
+// `ghost` is the lighter bar that drains after a hit (enemyReactions.ts): drawn behind the real one.
+export function paintBar(b: BarRef, value: number, ghost?: number): void {
+  b.value = value;
   const g = b.g;
   g.clear();
   g.fillStyle(0x0d2a20, 0.9);
   g.fillRoundedRect(b.x, b.y, b.w, b.h, b.h / 2);
   const f = Math.max(0, Math.min(1, value / b.max));
+  if (ghost !== undefined && ghost > value) {
+    g.fillStyle(hexColour(reactionData.ghost.colour), reactionData.ghost.alpha);
+    g.fillRoundedRect(b.x, b.y, Math.max(b.h, b.w * Math.min(1, ghost / b.max)), b.h, b.h / 2);
+  }
   if (f > 0) {
     g.fillStyle(b.color, 1);
     g.fillRoundedRect(b.x, b.y, Math.max(b.h, b.w * f), b.h, b.h / 2);
@@ -69,10 +78,10 @@ export function paintBar(b: BarRef, value: number): void {
 
 // ---- small effects ----
 
-function counter(scene: Phaser.Scene, from: number, to: number, ms: number, onValue: (v: number) => void): void {
+function counter(scene: Phaser.Scene, from: number, to: number, ms: number, delay: number, onValue: (v: number) => void): void {
   if (from === to) return;
   scene.tweens.addCounter({
-    from, to, duration: scaleTime(ms), ease: "Cubic.easeOut",
+    from, to, delay: scaleTime(delay), duration: scaleTime(ms), ease: "Cubic.easeOut",
     onUpdate: (t) => onValue(t.getValue() ?? to),
   });
 }
@@ -126,10 +135,31 @@ export class Animator {
   private tally: Tally = { damage: 0, block: 0, coins: 0 };
   private pile: Phaser.GameObjects.Text[] = []; // stacked numbers still on screen
   skipping = false; // the player skipped the cascade: slow motion is off and the fast-forward stays on
+  reactions: EnemyReactions; // the enemy's hit, death and attack reactions (#190)
+  // Scene time until which an animation is still in flight. A death waits for it (settle), so it
+  // never lands before the hit that caused it. Animations that must be waited for call hold().
+  private busyUntil = 0;
 
   constructor(private scene: Phaser.Scene) {
+    this.reactions = new EnemyReactions(scene, {
+      refs: () => this.refs,
+      speed: () => (this.skipping ? SKIP_SPEED : 1),
+      repaint: (side) => {
+        const b = this.refs.bars.get(side);
+        if (b && b.g.active) paintBar(b, b.value ?? b.max, this.reactions.ghostOf(side));
+      },
+    });
     scene.tweens.timeScale = 1; // a restarted scene never inherits slow motion or a skip
     scene.time.timeScale = 1;
+  }
+
+  hold(ms: number): void {
+    this.busyUntil = Math.max(this.busyUntil, this.scene.time.now + scaleTime(ms));
+  }
+
+  private async settle(): Promise<void> {
+    const left = this.busyUntil - this.scene.time.now;
+    if (left > 0) await new Promise<void>((resolve) => this.scene.time.delayedCall(left, resolve));
   }
 
   // The colour lit dominoes glow in: it follows the heat of the cascade being played.
@@ -149,6 +179,12 @@ export class Animator {
   // the animation wants the table held (the tally, slow motion); most events resolve at once.
   async run(ev: GameEvent, shown: BattleView, apply: () => void): Promise<void> {
     const scene = this.scene;
+    // The battle ends only once everything still in flight has landed: the enemy then dies (once),
+    // or the party's last hit finishes before the defeat.
+    if (ev.type === "battleEnd") {
+      await this.settle();
+      if (ev.result === "won") await this.reactions.die();
+    }
     // The cascade is over when the enemy's block resets (or the battle ends): tally it first.
     if (this.inCascade && (ev.type === "blockReset" || ev.type === "battleEnd")) {
       this.inCascade = false;
@@ -162,6 +198,7 @@ export class Animator {
     const refs = this.refs; // replaced by the redraw in apply()
     const after = snapshot(shown);
     let slow = false;
+    let hold: Promise<void> | undefined; // an animation the table waits for before the next event
 
     switch (ev.type) {
       case "roundStart":
@@ -206,6 +243,7 @@ export class Animator {
         if (node) {
           const at = centre(boxOf(node.pos));
           const target = this.targetOf(ev.effect, refs);
+          this.hold(P.effects.travelMs + P.effects.ms + Math.min(ev.triggers, 4) * 110);
           for (let i = 0; i < Math.min(ev.triggers, 4); i++) {
             const go = () => (ev.effect === "damage" ? damage(scene, at, target) : ev.effect === "block" ? block(scene, at, target) : coins(scene, at));
             if (i === 0) go();
@@ -248,7 +286,10 @@ export class Animator {
         break;
       }
       case "enemyAction":
-        if (refs.intent) flash(scene, refs.intent, 0xff3b2f);
+        if (refs.intent) {
+          flash(scene, refs.intent, 0xff3b2f);
+          hold = this.reactions.pulseIntent(refs.intent);
+        }
         break;
       case "damage": {
         const key = ev.side;
@@ -261,10 +302,27 @@ export class Animator {
           else floatText(scene, bar.x + bar.w / 2, bar.y - 10, `-${ev.amount}`, "#ff6a5f");
         }
         if (ev.blocked > 0 && sh) floatText(scene, sh.x + 30, sh.y - 10, `${ev.blocked} blocked`, "#9cc4ff", 32);
-        this.tweenHealth(key, before, after);
+        if (ev.side === "enemy") {
+          if (ev.amount > 0) this.reactions.hit(ev.amount);
+          if (ev.blocked > 0) this.reactions.shieldHit(before.enemy.block, after.enemy.block);
+          if (before.enemy.health > 0 && after.enemy.health <= 0) hold = this.reactions.freeze();
+          this.tweenHealth(key, before, after);
+        } else {
+          // The enemy lunges; on impact the block counter goes first, then the health drains. Until
+          // then the party's numbers stay as they were (the redraw already showed the new ones).
+          const bar = refs.bars.get("party");
+          if (bar) paintBar(bar, before.party.health);
+          sh?.text.setText(String(before.party.block));
+          hold = this.reactions.lunge().then(() => {
+            this.reactions.partyHit(ev.amount);
+            this.tweenHealth(key, before, after, ev.blocked > 0 ? reactionData.impact.blockFirstMs : 0);
+          });
+        }
+        this.reactions.ghostHit(key, before[key].health, after[key].health);
         break;
       }
       case "block": {
+        if (ev.side === "enemy" && ev.amount > 0) this.reactions.raiseShield();
         const sh = refs.shields.get(ev.side);
         const stack = ev.side === "party" && this.inCascade;
         if (stack) this.tally.block += ev.amount;
@@ -286,10 +344,14 @@ export class Animator {
           const text = ev.passive === "auditor" ? `Auditor: -${ev.amount}` : ev.passive === "glutton" ? `Glutton +${ev.amount}` : ev.passive === "hoarder" ? "Hoarder" : ev.passive === "longNight" ? `Long Night +${ev.amount}` : `Smolder +${ev.amount}`;
           floatText(scene, bar.x + bar.w / 2, bar.y + 70, text, "#ffb066", 32, 1000);
         }
-        if (ev.passive === "glutton") this.tweenHealth("enemy", before, after);
+        if (ev.passive === "glutton") {
+          this.reactions.heal();
+          this.tweenHealth("enemy", before, after);
+        }
         break;
       }
       case "blockReset":
+        if (ev.side === "enemy") this.reactions.resetShield();
         this.tweenHealth("party", before, after);
         this.tweenHealth("enemy", before, after);
         break;
@@ -297,6 +359,7 @@ export class Animator {
         break;
     }
     if (slow) await this.slowMotion();
+    if (hold) await hold;
   }
 
   // Where a cap's effect lands: the enemy's bar, or the party's block counter. Coins stay at the cap.
@@ -369,14 +432,15 @@ export class Animator {
     this.scene.tweens.timeScale = this.skipping ? SKIP_SPEED : 1;
   }
 
-  private tweenHealth(side: "party" | "enemy", before: Snapshot, after: Snapshot): void {
+  private tweenHealth(side: "party" | "enemy", before: Snapshot, after: Snapshot, healthDelay = 0): void {
+    this.hold(400 + healthDelay);
     const bar = this.refs.bars.get(side);
-    if (bar) counter(this.scene, before[side].health, after[side].health, 400, (v) => {
+    if (bar) counter(this.scene, before[side].health, after[side].health, 400, healthDelay, (v) => {
       const cur = this.refs.bars.get(side);
-      if (cur && cur.g.active) paintBar(cur, v);
+      if (cur && cur.g.active) paintBar(cur, v, this.reactions.ghostOf(side));
     });
     const sh = this.refs.shields.get(side);
-    if (sh) counter(this.scene, before[side].block, after[side].block, 400, (v) => {
+    if (sh) counter(this.scene, before[side].block, after[side].block, 400, 0, (v) => {
       const cur = this.refs.shields.get(side);
       if (cur && cur.text.active) cur.text.setText(String(Math.round(v)));
     });
