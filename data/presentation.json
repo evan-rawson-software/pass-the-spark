@@ -149,8 +149,43 @@
       "boss": { "ms": 1400, "shards": 28, "shardSize": 64, "spread": 380, "ringSize": 760, "shakeIntensity": 0.016, "colour": "#ffb066" }
     }
   },
+  "fuseBoard": {
+    "comment": "Fuse board (#229), read by src/game/fuseBoard.ts. Lengths are px at the board scale (scale, a share of full size) and the whole tree shrinks together (never below minScale) only when it outgrows its area. The owner stripe stays down to detailScale. gap: run between a domino's edge and the next one; rowPitch: distance between branches; ringRadius: the open-end ghost ring; padLeft: space left of the opener inside the area so its socket ring is not clipped; openerCharge: the charge an opener starts with (the engine's start charge, which no view exposes), only to colour a live number red or green on the opener slot; junctionGapX: where a junction's middle output (Hall of Mirrors) leaves, in domino units. fuse: dark under-stroke and spark-colour stroke widths, bend (share of the run used as the curve's handle), the cascade's burnt part (burnWidth, burnAlpha, burnMs at 1x). badge: the charge pill at a fuse's midpoint; nudge lists the places along the fuse (0..1) tried in order until it clears every tile, ring and other badge by clearance. ring: dashed open end, its gold charge badge, the legal highlight (pulse is skipped with reduced flashing); lock: the padlock on a locked end. live: the result bubble beside an end while a hand domino is hovered or dragged (good = at or above its base, bad = below it); dimAlpha for ends it is not aimed at. opener: the empty first slot.",
+    "scale": 0.6,
+    "minScale": 0.3,
+    "detailScale": 0.4,
+    "gap": 62,
+    "rowPitch": 90,
+    "ringRadius": 30,
+    "junctionGapX": 150,
+    "openerCharge": 1,
+    "padLeft": 16,
+    "fuse": { "under": 13, "width": 7, "bend": 0.5, "dimAlpha": 0.3, "underColour": "#22201c", "burnWidth": 9, "burnAlpha": 0.95, "burnMs": 500 },
+    "badge": { "w": 44, "h": 30, "fill": "#fff7d6", "stroke": "#22201c", "strokeWidth": 2.5, "size": 20, "text": "#22201c", "minSize": 11, "clearance": 4, "nudge": [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74, 0.18, 0.82] },
+    "ring": { "width": 4, "dash": 7, "gap": 6, "legalColour": "#ffe14d", "legalWidth": 6, "fillAlpha": 0.12, "backing": "#0d2a20", "badgeR": 14, "badgeFill": "#ffd54a", "badgeDx": 26, "badgeDy": -24, "badgeText": "#2a2200", "minHit": 44, "pulseMs": 700, "pulseAlpha": 0.55 },
+    "lock": { "scale": 0.8, "dx": 14, "dy": 12 },
+    "live": { "good": "#2f9e44", "bad": "#d6453d", "fill": "#fffbea", "stroke": "#22201c", "strokeWidth": 3, "mainSize": 34, "subSize": 18, "subColour": "#5c5648", "padX": 16, "padY": 6, "gap": 10, "dimAlpha": 0.75 },
+    "opener": { "w": 170, "h": 84, "colour": "#ffe14d", "textSize": 24 }
+  },
+  "handFan": {
+    "comment": "The fanned hand (#229), read by src/game/handFan.ts. scale: a hand domino's resting size (shrunk, never below minScale, when a big hand would overlap more than minStepFactor of a domino's width); stepFactor: how far apart (a share of a domino's width) they sit before they are squeezed into the area; degPerDomino / maxSpread: fan angle; arc: how far the ends sit below the middle. The hovered domino straightens, grows to hoverScale and lifts by lift (tweenMs). gap: the faint dashed place left by a dragged domino (the domino itself fades to holderAlpha). enter: a new draw slides in from the deck (slideMs for an old domino finding its new place, enterMs from the deck, staggerMs between new ones). area: the rectangle the fan sits in (between the piles and clear of Pass and Set off at x1610; the middle domino's centre is the middle of it). piles: the deck on the left and the discard on the right, each a rectangle (the pile is drawn at its middle and the rectangle is its click area), drawn at pile scale with their count and label.",
+    "scale": 0.7,
+    "minScale": 0.45,
+    "stepFactor": 0.8,
+    "minStepFactor": 0.55,
+    "degPerDomino": 4,
+    "maxSpread": 24,
+    "arc": 22,
+    "hoverScale": 0.95,
+    "lift": 32,
+    "tweenMs": 120,
+    "gap": { "alpha": 0.28, "holderAlpha": 0.25, "colour": "#ffe14d", "width": 3, "dash": 9, "space": 7 },
+    "enter": { "slideMs": 250, "enterMs": 350, "staggerMs": 60 },
+    "area": { "x": 660, "y": 900, "w": 760, "h": 100 },
+    "piles": { "deck": { "x": 500, "y": 890, "w": 130, "h": 110 }, "discard": { "x": 1450, "y": 890, "w": 130, "h": 110 }, "scale": 0.5, "layers": 3, "dx": 3, "dy": -5, "textSize": 28, "labelSize": 18, "labelColour": "#b8c4b4", "emptyAlpha": 0.3 }
+  },
   "combatLayout": {
-    "comment": "Combat screen layout (#228, #231 Spotlight), read by CombatScene.ts, columnLayout.ts, enemyUnit.ts, setOffTally.ts, turnRail.ts and combatHud.ts. Px on the 1920x1080 table; boxes are x, y top-left with w, h. Colours are #rrggbb. The column is stacked top to bottom from its content: the portrait card shrinks first (between card.minH and card.maxH) when the stack runs short, then the gaps between sections shrink (never below column.minGap; they grow to column.maxGap when there is room). Bars, shields, the enemy's body and the set-off preview all follow from the column: nothing else repeats their places. The seat tabs run across the top right of the column; the board is below them, the hand and actions at the bottom.",
+    "comment": "Combat screen layout (#228, #231 Spotlight; the board rectangle is the fuse board's area and the cascade counter's strip is its top, #229; the hand's place is handFan.area and handFan.piles), read by CombatScene.ts, columnLayout.ts, enemyUnit.ts, setOffTally.ts, turnRail.ts and combatHud.ts. Px on the 1920x1080 table; boxes are x, y top-left with w, h. Colours are #rrggbb. The column is stacked top to bottom from its content: the portrait card shrinks first (between card.minH and card.maxH) when the stack runs short, then the gaps between sections shrink (never below column.minGap; they grow to column.maxGap when there is room). Bars, shields, the enemy's body and the set-off preview all follow from the column: nothing else repeats their places. The seat tabs run across the top right of the column; the board is below them, the hand and actions at the bottom.",
     "background": {
       "dim": { "colour": "#0a0f0c", "alpha": 0.62 },
       "blur": { "scale": 0.25, "px": 3 },
@@ -198,15 +233,14 @@
       "name": { "dx": 26, "y": 26, "size": 26, "colour": "#f3ead6", "maxW": 150 },
       "tags": { "y": 26, "h": 24, "size": 14, "gap": 6, "padX": 10, "lead": { "fill": "#3a3744", "text": "#c9c4d4" }, "you": { "fill": "#ffd54a", "text": "#2a2200" }, "next": { "fill": "#8fe3a5", "text": "#0c2a16" }, "away": { "fill": "#3a3744", "text": "#9aa3b2" }, "pass": { "fill": "#ff9a94", "text": "#2a0c0a" } },
       "counts": { "y": 56, "size": 16, "colour": "#b8c4b4" },
-      "charm": { "size": 26, "step": 32, "fill": "#2b2140" },
       "hand": { "top": 74, "bottom": 30, "minScale": 0.2, "maxScale": 0.33, "scaleStep": 0.01, "gapX": 6, "gapY": 3 },
+      "charm": { "size": 26, "step": 32, "fill": "#2b2140" },
       "you": { "text": "Your hand is below", "size": 18, "colour": "#cdd2d8" },
       "caption": { "dy": 16, "size": 16, "colour": "#8fe3a5", "text": "Lit: playable after your", "passText": "Nothing to play after your" },
       "next": { "glow": "#ffe36b", "glowWidth": 14, "glowAlpha": 0.55, "dimAlpha": 0.45 },
       "zoom": { "scale": 0.9, "gapY": 14 }
     },
     "board": { "x": 500, "y": 204, "w": 1400, "h": 652 },
-    "hand": { "x": 660, "y": 870, "w": 900, "h": 196, "hint": { "y": 858, "size": 22, "colour": "#cfe9dc" }, "deck": { "x": 568, "y": 960, "discardY": 1020, "size": 20, "colour": "#cfe9dc" } },
     "actions": {
       "pass": { "x": 1595, "y": 868, "w": 295, "h": 60, "fill": "#163a2c", "stroke": "#f3ead6", "strokeAlpha": 0.6, "size": 28, "colour": "#f3ead6" },
       "setOff": { "x": 1595, "y": 944, "w": 295, "h": 100, "fill": "#ffd54a", "stroke": "#22201c", "strokeWidth": 3, "size": 40, "colour": "#22201c", "offFill": "#163a2c", "offColour": "#5f8f7a" }

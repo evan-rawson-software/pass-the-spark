@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { getOpenEnds, getPendingChoice, previewNextPlayer, previewPlay, previewSetOff, step } from "../engine/battle";
-import type { Board, BattleState, Choice, PendingChoice, SetOffPreview } from "../engine/battle";
+import type { BattleState, Choice, PendingChoice, SetOffPreview } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView, OpenEndView } from "../engine/view";
 import type { Domino } from "../engine/types";
@@ -12,14 +12,11 @@ import { relay } from "./relay";
 import { watchLink } from "./linkBanner";
 import { currentRun, openRunScreen, runSeed, setRun, startSingleRun } from "./runSession";
 import { applyRunChoice } from "../engine/run";
-import { drawDomino, drawEffectIcon, drawSparkGlyph, iconOf } from "./dominoDrawing";
-import type { DominoState, IconKind } from "./dominoDrawing";
-import { SPARK_STYLE } from "./sparks";
+import { drawDomino } from "./dominoDrawing";
+import type { DominoState } from "./dominoDrawing";
 import { seatColour } from "./seatColours";
-import { drawBlessedGlow } from "./sparkShrineArt";
 import { Tooltip } from "./tooltip";
 import type { TipPreview } from "./tooltip";
-import { drawPadlock } from "./passiveIcon";
 import { battleDeckPlayers, openDeckViewer } from "./deckViewer";
 import { button } from "./ui";
 import { setSoundHushed } from "./sound";
@@ -32,12 +29,15 @@ import type { DebugHost } from "./DebugPanel";
 import { scaleTime } from "./playbackSpeed";
 import { SpeedControl } from "./speedControl";
 import { Animator, SKIP_SPEED, animTime, newRefs, paintBar } from "./animations";
+import type { Pos } from "./animations";
+import { FuseBoard, boardArea, chargesInto, liveNumber } from "./fuseBoard";
+import { HandFan, handArea } from "./handFan";
 import { SetOffPreviewUi } from "./setOffPreview";
 import { boardGlow } from "./spectacle";
 import { buildupStrip, litGlowStrength } from "./buildup";
 import { applyEvent, startShown } from "./shownView";
-import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
-import { combatLayoutData } from "./presentation";
+import { isDrawEvent, playDraws } from "./drawAnimation";
+import { combatLayoutData, fuseBoardData } from "./presentation";
 import type { CombatCtx } from "./combatCtx";
 import { drawEnemyUnit } from "./enemyUnit";
 import { TurnRail } from "./turnRail";
@@ -80,16 +80,11 @@ type Update = Extract<HostMessage, { type: "update" }>;
 type Layer = Phaser.GameObjects.Container;
 interface Box { x: number; y: number; w: number; h: number } // centred on x, y
 
-const DW = 240; // a domino at scale 1 (see dominoDrawing.ts)
-const DH = 120;
 const FONT = "Arial, Helvetica, sans-serif";
 
 // Table regions (1920x1080), from data/presentation.json (combatLayout).
-const MAT = combatLayoutData.board; // the board: right of the column, below the seat tabs, above the hand
-const HAND = combatLayoutData.hand; // the active hand, between the column and the buttons
+// The board's area (boardArea) and the hand's place (handArea and the pile positions) are rectangles in data, not placed from other parts here.
 const ACTIONS = combatLayoutData.actions;
-
-const GOLD = 0xffe14d;
 
 export class CombatScene extends Phaser.Scene {
   private state: BattleState | null = null; // single player only
@@ -102,7 +97,13 @@ export class CombatScene extends Phaser.Scene {
   private layer?: Layer;
   private locked = false; // true while events play back: no input
   private selected: string | null = null; // a clicked hand domino, waiting for an open end
-  private hoverUi?: Phaser.GameObjects.Container; // the end highlights and previews of the hovered hand domino
+  private board?: FuseBoard; // the fuse board as drawn (fuseBoard.ts)
+  private fan?: HandFan; // your hand as drawn (handFan.ts)
+  private hoverKey: string | null = null; // the hand domino under the pointer (a fan key), playable or not
+  private handPlayable = new Set<string>(); // the engine's playable ids in the hand as drawn
+  private openCharge = new Map<number, number>(); // the charge reaching each open end, for the player acting
+  private intoKey = "";
+  private intoCache = new Map<number, number>();
   private slotBoxes = new Map<number | "opener", Box>(); // where each open end (and the opener slot) is drawn, for hints and drops
   private drag: { id: string; x: number; y: number; ghost?: Phaser.GameObjects.Container } | null = null; // a hand domino pressed (and maybe being dragged)
   private dragMoved = false; // the last press turned into a drag: it is not a tap
@@ -152,6 +153,10 @@ export class CombatScene extends Phaser.Scene {
     this.settings = data.settings ?? dev.settings;
     this.seed = this.inRun ? runSeed() : data.seed ?? dev.seed;
     this.layer = undefined;
+    this.board = undefined;
+    this.fan = undefined;
+    this.hoverKey = null;
+    this.hoverId = null;
     this.shown = null;
     this.hoverPlay = null;
     this.previewUi?.clear();
@@ -160,7 +165,7 @@ export class CombatScene extends Phaser.Scene {
     this.ctx = this.makeCtx();
     this.rail = new TurnRail(this.ctx);
     this.anim = new Animator(this);
-    this.anim.buildup.frame = () => this.mat; // the camera frames the tree to this screen's own board mat
+    this.anim.buildup.frame = () => boardArea(); // the camera frames the tree to the board's area (data)
     this.locked = false;
     this.selected = null;
     this.drag = null;
@@ -360,7 +365,7 @@ export class CombatScene extends Phaser.Scene {
 
   private showError(message: string): void {
     const t = this.add
-      .text(HAND.x + HAND.w / 2, HAND.y - 14, `The host says: ${message}`, { fontFamily: FONT, fontSize: "26px", color: "#ff9a94", stroke: "#101010", strokeThickness: 5 })
+      .text(handArea().x + handArea().w / 2, handArea().y - 70, `The host says: ${message}`, { fontFamily: FONT, fontSize: "26px", color: "#ff9a94", stroke: "#101010", strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(600);
     this.time.delayedCall(3000, () => t.destroy());
@@ -384,8 +389,9 @@ export class CombatScene extends Phaser.Scene {
 
   private redraw(): void {
     this.tooltip.hide();
-    this.clearHover();
     this.hoverPlay = null;
+    this.board?.destroy(); // stops any burn still running before its graphics go
+    this.fan?.destroy();
     this.layer?.destroy(true);
     const layer = this.add.container(0, 0);
     this.layer = layer;
@@ -413,7 +419,6 @@ export class CombatScene extends Phaser.Scene {
     this.drawBoard(layer, view, active, pending);
     this.drawActiveHand(layer, view, active, pending, turn);
     this.drawActionButtons(layer, view, pending);
-    if (this.selected !== null) this.showHints(layer, this.selected);
     this.pings.place(this.pingBoxes);
     this.previewLayer = this.add.container(0, 0);
     layer.add(this.previewLayer);
@@ -421,7 +426,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   // A player's hand slots as drawn, for the draw animation.
-  private slotsOf(seat: string): { c: Phaser.GameObjects.Container; pos: { x: number; y: number; k: number } }[] {
+  private slotsOf(seat: string): { c: Phaser.GameObjects.Container; pos: Pos }[] {
     const slots = this.anim.refs.handSlots;
     if (!slots.has(seat)) slots.set(seat, []);
     return slots.get(seat)!;
@@ -491,13 +496,6 @@ export class CombatScene extends Phaser.Scene {
     const g = this.add.graphics();
     layer.add(g);
     return g;
-  }
-
-  // A code-drawn effect icon centred on x, y, `s` times its natural size (about 52 units across).
-  private icon(layer: Layer, kind: IconKind, x: number, y: number, s: number): void {
-    const g = this.add.graphics().setPosition(x, y).setScale(s);
-    drawEffectIcon(g, kind);
-    layer.add(g);
   }
 
   private dominoOf(id: string): Domino {
@@ -602,6 +600,7 @@ export class CombatScene extends Phaser.Scene {
   // board after the hovered play. Hidden while a step plays back; the real bars take over.
   private refreshPreview(): void {
     this.refreshNext();
+    this.refreshLive();
     const into = this.previewLayer;
     if (!into?.active) return;
     const view = this.view;
@@ -635,144 +634,93 @@ export class CombatScene extends Phaser.Scene {
   }
 
   // A hand domino hovered, picked or dragged over a legal end: preview the board with it there.
-  private setHoverPlay(id: string | null, end?: number): void {
+  // Returns whether the hovered play changed (and so the preview was refreshed).
+  private setHoverPlay(id: string | null, end?: number): boolean {
     const pending = id === null ? null : getPendingChoice(this.view);
     const next = id !== null && pending && (!this.online || pending.player === this.mySeat()) ? { player: pending.player, domino: id, end } : null;
-    if (JSON.stringify(next) === JSON.stringify(this.hoverPlay)) return;
+    if (JSON.stringify(next) === JSON.stringify(this.hoverPlay)) return false;
     this.hoverPlay = next;
     this.refreshPreview();
+    return true;
   }
 
   // ---- the board (middle) ----
 
+  // The fuse board (fuseBoard.ts): small dominoes joined by fuses, in the area from data. The top strip
+  // of the area is kept free for the cascade counter and callouts (#191).
   private drawBoard(layer: Layer, view: BattleView, active: string, pending: PendingChoice | null): void {
-    const board = view.board;
     this.slotBoxes.clear();
     const selected = this.selected !== null ? pending?.plays.find((o) => o.domino === this.selected) : undefined;
     const legal = new Set<number>(selected?.ends ?? []);
-
-    if (board.nodes.length === 0) {
-      // The opener goes in the middle-left slot.
-      const k = 0.8;
-      const w = DW * k;
-      const h = DH * k;
-      const x = this.mat.x + 50 + w / 2;
-      const y = this.mat.y + this.mat.h / 2;
-      const g = this.gfx(layer);
-      const live = selected !== undefined;
-      if (live) this.glow(g, x - w / 2, y - h / 2, w, h, GOLD, 14);
-      g.fillStyle(GOLD, 0.12);
-      g.fillRoundedRect(x - w / 2, y - h / 2, w, h, 14);
-      g.lineStyle(4, GOLD, 1);
-      g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 14);
-      this.label(layer, x, y, "OPENER", 34, "#ffe14d", 0.5, true);
-      this.slotBoxes.set("opener", { x, y, w, h });
-      const z = this.add.zone(x, y, w, h).setInteractive({ useHandCursor: true });
-      z.on("pointerdown", () => this.onSlotClick("opener"));
-      layer.add(z);
-      return;
-    }
-
-    const lay = layoutBoard(board);
-    // Largest scale at which the whole tree fits the mat (it shrinks as the tree grows).
-    const GAP = 50;
-    const VGAP = 24;
-    const availW = this.mat.w - 80;
-    const availH = this.mat.h - 40 - buildupStrip; // the top of the mat is kept free for the cascade counter and callouts (#191)
-    const k = Math.max(0.2, Math.min(0.8, availW / (lay.cols * DW + (lay.cols - 1) * GAP), availH / (lay.rows * DH + (lay.rows - 1) * VGAP)));
-    const colW = (DW + GAP) * k;
-    const rowH = (DH + VGAP) * k;
-    const left = this.mat.x + 40;
-    const top = this.mat.y + buildupStrip + (this.mat.h - buildupStrip - ((lay.rows - 1) * rowH + DH * k)) / 2 + (DH * k) / 2;
-    const s = Math.max(34, DH * k); // an open end's slot is a square this big
-    const nodeAt = (id: number) => {
-      const p = lay.nodes.get(id)!;
-      return { x: left + p.col * colW + (DW * k) / 2, y: top + p.row * rowH };
-    };
-    const slotAt = (id: number) => {
-      const p = lay.ends.get(id)!;
-      return { x: left + p.col * colW + s / 2, y: top + p.row * rowH };
-    };
+    const A = boardArea();
+    const area = { x: A.x, y: A.y + buildupStrip, w: A.w, h: A.h - buildupStrip };
     const lit = this.shown?.lit ?? new Set<number>();
     const fizzled = this.shown?.fizzled ?? new Set<number>();
     // The charge on the open ends, from the engine (getOpenEnds), for the player acting.
     const opens: OpenEndView[] = getOpenEnds(view, active);
+    this.openCharge = new Map(opens.map((o) => [o.end, o.charge]));
     // The built tree glows brighter, and hotter in colour, as dominoes and charge pile up.
-    const build = boardGlow(board.nodes.length, Math.max(0, ...opens.map((o) => o.charge)));
+    const build = boardGlow(view.board.nodes.length, Math.max(0, ...opens.map((o) => o.charge)));
     const hot = this.anim.litColor();
-
-    // Paths: from each output to whatever hangs on it (a domino or an open slot), in the spark's colour.
-    const g = this.gfx(layer);
-    for (const e of board.ends) {
-      const from = nodeAt(e.node);
-      const child = board.nodes.find((n) => n.end === e.id);
-      const to = child ? nodeAt(child.id) : lay.ends.has(e.id) ? slotAt(e.id) : null;
-      if (!to) continue;
-      const x0 = from.x + (DW * k) / 2;
-      const x1 = to.x - (child ? (DW * k) / 2 : s / 2);
-      const xm = (x0 + x1) / 2;
-      if (build.strength > 0 && !fizzled.has(e.id)) {
-        g.lineStyle(Math.max(8, 26 * k), build.color, 0.35 * build.strength);
-        g.beginPath();
-        g.moveTo(x0, from.y);
-        g.lineTo(xm, from.y);
-        g.lineTo(xm, to.y);
-        g.lineTo(x1, to.y);
-        g.strokePath();
+    const glowG = this.gfx(layer); // under the board: the glow round each domino
+    const board = new FuseBoard(this, layer);
+    this.board = board;
+    board.draw({
+      board: view.board,
+      dominoes: view.dominoes,
+      area,
+      ownerColour: (owner) => seatColour(view.seatOrder, owner),
+      openEnds: opens,
+      fuseCharges: this.chargesFor(view, active),
+      locked: view.locked,
+      blessed: view.blessing?.spark ?? null,
+      lit,
+      fizzled,
+      glow: build.strength > 0 ? { colour: build.color, alpha: 0.14 * build.strength } : undefined,
+      hot,
+    });
+    const refs = this.anim.refs;
+    refs.board = board;
+    board.nodeRefs().forEach((n, id) => refs.nodes.set(id, n));
+    board.slotRefs().forEach((p, id) => refs.slots.set(id, p));
+    for (const n of view.board.nodes) {
+      const b = board.nodeBox(n.id)!;
+      const k = board.scale();
+      if (build.strength > 0) this.glow(glowG, b.x, b.y, b.w, b.h, build.color, 14 * k, build.strength * 2.5);
+      if (lit.has(n.id)) this.glow(glowG, b.x, b.y, b.w, b.h, hot, 14 * k, litGlowStrength(lit.size, view.board.nodes.length));
+      // Hovering a board domino shows it full size (the tooltip); online, hold to ping it.
+      const c = refs.nodes.get(n.id)!.c;
+      this.tooltip.attach(c, this.dominoOf(n.domino));
+      if (this.online) {
+        const ping: PingTarget = { zone: "chain", index: n.id };
+        this.pingBoxes.set(pingKey(ping), c);
+        attachHold(this, c, () => this.sendPing(ping));
       }
-      g.lineStyle(Math.max(3, 9 * k), SPARK_STYLE[e.spark].color, fizzled.has(e.id) ? 0.3 : 0.9);
-      g.beginPath();
-      g.moveTo(x0, from.y);
-      g.lineTo(xm, from.y);
-      g.lineTo(xm, to.y);
-      g.lineTo(x1, to.y);
-      g.strokePath();
     }
 
-    // The dominoes, a lit one glowing in the heat colour.
-    for (const n of board.nodes) {
-      const { x, y } = nodeAt(n.id);
-      if (build.strength > 0) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, build.color, 14 * k, build.strength * 2.5);
-      if (lit.has(n.id)) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, hot, 14 * k, litGlowStrength(lit.size, board.nodes.length));
-      const c = this.domino(layer, n.domino, k, "normal", x, y, undefined, { zone: "chain", index: n.id }, n.owner);
-      this.anim.refs.nodes.set(n.id, { c, pos: { x, y, k } });
-      if (k >= 0.45) this.label(layer, x, y + (DH * k) / 2 + 11, this.nameOf(n.owner, true, 10), 15, "#cfe9dc", 0.5, true);
+    // The opener slot (an empty board), and the open ends: click (with a domino picked) or drop onto
+    // them; online, hold to ping. Aiming a picked domino at an end previews that play.
+    const aim = (hit: Phaser.GameObjects.Container, end?: number) => {
+      if (this.selected === null) return;
+      const id = this.selected;
+      hit.on("pointerover", () => this.setHoverPlay(id, end));
+      hit.on("pointerout", () => this.setHoverPlay(null));
+    };
+    if (view.board.nodes.length === 0) {
+      const hit = board.hit("opener");
+      if (hit) {
+        this.slotBoxes.set("opener", { x: hit.x, y: hit.y, w: hit.width, h: hit.height });
+        hit.setInteractive({ useHandCursor: true });
+        hit.on("pointerdown", () => this.onSlotClick("opener"));
+        aim(hit);
+      }
+      return;
     }
-
-    // The open ends: a glowing slot in the spark's colour with the charge reaching it. The charge and
-    // the triggers a cap placed there would get come from getOpenEnds, for the player acting.
     for (const o of opens) {
-      if (!lay.ends.has(o.end)) continue;
-      const { x, y } = slotAt(o.end);
-      const color = SPARK_STYLE[o.spark].color;
-      const dim = fizzled.has(o.end);
-      const isLegal = legal.has(o.end);
-      const sg = this.gfx(layer);
-      if (dim) sg.setAlpha(0.35);
-      if (isLegal) this.glow(sg, x - s / 2 - 4, y - s / 2 - 4, s + 8, s + 8, GOLD, 14);
-      if (!dim) this.glow(sg, x - s / 2, y - s / 2, s, s, color, 12);
-      sg.fillStyle(0x0d2a20, 0.85);
-      sg.fillRoundedRect(x - s / 2, y - s / 2, s, s, 12);
-      sg.lineStyle(isLegal ? 6 : 4, isLegal ? GOLD : color, 1);
-      sg.strokeRoundedRect(x - s / 2, y - s / 2, s, s, 12);
-      if (o.spark === view.blessing?.spark) drawBlessedGlow(sg, o.spark, x, y, s * 0.28);
-      drawSparkGlyph(sg, o.spark, x, y, s * 0.26);
-      if (o.spark === view.locked) drawPadlock(this, sg, x + s * 0.22, y + s * 0.2, Math.max(0.5, s / 90));
-      if (!dim) {
-        // The charge, a small number in a badge at the corner; ×N when a cap here would go off several times.
-        const r = Math.max(12, s * 0.2);
-        sg.fillStyle(0xffe14d, 1);
-        sg.fillCircle(x + s / 2 - 4, y - s / 2 + 4, r);
-        sg.lineStyle(2, 0x2a2200, 1);
-        sg.strokeCircle(x + s / 2 - 4, y - s / 2 + 4, r);
-        this.label(layer, x + s / 2 - 4, y - s / 2 + 4, String(o.charge), Math.round(r * 1.3), "#2a2200", 0.5, true);
-        if (o.triggers > 1) this.label(layer, x, y + s / 2 + 12, `fires ×${o.triggers}`, 15, "#ffe14d", 0.5, true);
-      }
-      this.anim.refs.slots.set(o.end, { x, y, k });
-      this.slotBoxes.set(o.end, { x, y, w: s, h: s });
-      // Click (with a domino picked) or drop onto it; online, hold to ping it.
-      const hit = this.add.container(x, y).setSize(s, s);
-      layer.add(hit);
+      const hit = board.hit(o.end);
+      if (!hit) continue;
+      const isLegal = legal.has(o.end) && o.spark !== view.locked;
+      this.slotBoxes.set(o.end, { x: hit.x, y: hit.y, w: hit.width, h: hit.height });
       if (this.online) {
         this.pingBoxes.set(pingKey({ zone: "end", index: o.end }), hit);
         hit.setInteractive();
@@ -782,12 +730,19 @@ export class CombatScene extends Phaser.Scene {
         hit.setInteractive({ useHandCursor: true });
         hit.on("pointerdown", () => this.onSlotClick(o.end));
       }
-      if (isLegal && this.selected !== null) {
-        const id = this.selected;
-        hit.on("pointerover", () => this.setHoverPlay(id, o.end));
-        hit.on("pointerout", () => this.setHoverPlay(null));
-      }
+      if (isLegal) aim(hit, o.end);
     }
+  }
+
+  // The charge flowing through each fuse into a placed domino, from the engine (fuseBoard.chargesInto),
+  // remembered while the board and charms are the same.
+  private chargesFor(view: BattleView, player: string): Map<number, number> {
+    const key = JSON.stringify([view.board.nodes.map((n) => [n.domino, n.owner, n.end]), view.players.map((p) => p.charms), view.blessing, player]);
+    if (this.intoKey !== key) {
+      this.intoCache = chargesInto(view, player);
+      this.intoKey = key;
+    }
+    return this.intoCache;
   }
 
   // A soft glow round a rounded rectangle.
@@ -798,102 +753,76 @@ export class CombatScene extends Phaser.Scene {
     }
   }
 
-  // The ends a hand domino fits, each with the engine's preview of playing it there: the charge it
-  // passes on, or what the cap would do. Shown while the domino is hovered, picked or dragged.
-  private showHints(layer: Layer, id: string): void {
-    const pending = getPendingChoice(this.view);
-    const option = pending?.plays.find((o) => o.domino === id);
-    if (!pending || !option) return;
+  // What a hovered, picked or dragged hand domino shows: it lifts in the fan, its legal ends light up
+  // and each shows the engine's preview of playing it there (previewPlay): a cap's value in green over
+  // its sum (red when below its base), or the charge an amplifier or junction passes on. With an end
+  // aimed at (a drag over it, a hover on it) that end is the one lit; the others stay, dimmer. Part of
+  // refreshPreview, so the bar previews and the rail's NEXT highlight follow the same hover.
+  private refreshLive(): void {
+    const board = this.board;
+    const fan = this.fan;
+    if (!board || !fan) return;
+    board.clearLive();
+    board.clearHighlight();
+    fan.pick(this.selected === null ? null : fan.items.find((i) => i.id === this.selected)?.key ?? null);
+    fan.hover(this.drag?.ghost ? null : this.hoverKey);
+    const view = this.view;
+    const pending = this.locked || this.waiting || this.shown ? null : getPendingChoice(view);
+    const id = this.hoverPlay?.domino ?? this.hoverId ?? this.selected;
+    const option = pending && id !== null ? pending.plays.find((o) => o.domino === id) : undefined;
+    if (!pending || id === null || !option || (this.online && pending.player !== this.mySeat())) return;
     const d = this.dominoOf(id);
-    const kind = iconOf(d);
+    const aimed = this.hoverPlay?.domino === id ? this.hoverPlay.end : undefined;
+    board.highlightLegal(option.ends, pending.opener);
     const targets: (number | "opener")[] = pending.opener ? ["opener"] : option.ends;
     for (const t of targets) {
-      const box = this.slotBoxes.get(t);
       // The acting player's own charms: previewPlay with their id, never another seat's view.openEnds.
-      const p = previewPlay(this.view, pending.player, id, t === "opener" ? undefined : t);
-      if (!box || !p) continue;
-      const g = this.gfx(layer);
-      this.glow(g, box.x - box.w / 2 - 4, box.y - box.h / 2 - 4, box.w + 8, box.h + 8, GOLD, 14);
-      g.lineStyle(5, GOLD, 1);
-      g.strokeRoundedRect(box.x - box.w / 2 - 4, box.y - box.h / 2 - 4, box.w + 8, box.h + 8, 14);
-      const text = d.kind === "cap" ? (p.triggers > 1 ? `${p.value}×${p.triggers}` : String(p.value)) : `→ ${p.charge}`;
-      // To the right of the slot, where nothing else is drawn.
-      const t1 = this.label(layer, box.x + box.w / 2 + 12 + 56, box.y, text, 30, "#ffffff", 0.5, true);
-      const w = t1.width + 76;
-      const lx = box.x + box.w / 2 + 12 + w / 2;
-      t1.setX(lx + 16);
-      const bg = this.gfx(layer);
-      bg.fillStyle(0x0d2a20, 0.95);
-      bg.fillRoundedRect(lx - w / 2, box.y - 24, w, 48, 24);
-      bg.lineStyle(3, GOLD, 1);
-      bg.strokeRoundedRect(lx - w / 2, box.y - 24, w, 48, 24);
-      if (kind) this.icon(layer, kind, lx - w / 2 + 28, box.y, 0.5);
-      layer.bringToTop(t1);
+      const p = previewPlay(view, pending.player, id, t === "opener" ? undefined : t);
+      if (!p) continue;
+      const reaching = t === "opener" ? fuseBoardData.openerCharge : this.openCharge.get(t) ?? 0;
+      board.showLive(t, liveNumber(d, p, reaching), aimed === undefined || aimed === t);
     }
-  }
-
-  private clearHover(): void {
-    this.hoverUi?.destroy(true);
-    this.hoverUi = undefined;
   }
 
   // ---- hands ----
 
+  // Your hand (fanned, handFan.ts) between your deck pile and your discard pile, all placed from data.
   private drawActiveHand(layer: Layer, view: BattleView, active: string, pending: PendingChoice | null, turn: string): void {
-    const playable = new Set<string>(pending === null ? [] : pending.plays.map((o) => o.domino));
     const p = view.players.find((x) => x.id === active);
     if (!p) return;
     // Online, the hand is only lit up (and clickable) while it is your seat's turn.
     const onTurn = view.phase !== "over" && (!this.online || turn === active);
-    const g = this.gfx(layer);
-    if (onTurn) {
-      for (let i = 5; i >= 1; i--) {
-        g.lineStyle(i * 5, GOLD, 0.1);
-        g.strokeRoundedRect(HAND.x - i * 2, HAND.y - i * 2, HAND.w + i * 4, HAND.h + i * 4, 50 + i * 2);
+    const playable = new Set<string>(pending === null ? [] : pending.plays.map((o) => o.domino));
+    this.handPlayable = playable;
+    const fan = new HandFan(this, layer, { onHover: (key) => this.onHandHover(key), onDown: (key, pointer) => this.onHandDown(key, pointer) });
+    this.fan = fan;
+    fan.draw({ hand: p.hand, dominoes: view.dominoes, playable: onTurn ? playable : null, owner: seatColour(view.seatOrder, p.id), deck: p.deck.length, discard: p.discard.length });
+    const refs = this.anim.refs;
+    // The piles open this player's deck (#171); the animator draws new dominoes from the deck pile.
+    const deck = fan.deckPoint();
+    const discard = fan.discardPoint();
+    this.deckZone(layer, deck.x, deck.y, fan.deckRect().w, fan.deckRect().h, p.id);
+    this.deckZone(layer, discard.x, discard.y, fan.discardRect().w, fan.discardRect().h, p.id);
+    if (fan.deckPile && fan.deckText) refs.decks.set(p.id, { c: fan.deckPile, text: fan.deckText, x: deck.x, y: deck.y });
+    if (p.hand.length === 0) {
+      const a = handArea();
+      this.label(layer, a.x + a.w / 2, a.y + a.h / 2, "No dominoes in hand", 28, "#7fb59b", 0.5);
+    }
+    const slots = this.slotsOf(p.id);
+    for (const it of fan.items) {
+      const pos = { x: it.slot.x, y: it.slot.y, k: it.slot.k, angle: it.slot.angle };
+      slots[it.index] = { c: it.holder, pos };
+      if (!refs.hand.has(it.id)) refs.hand.set(it.id, pos);
+      const d = this.dominoOf(it.id);
+      const can = onTurn && playable.has(it.id);
+      this.tooltip.attach(it.holder, d, can ? () => this.tipPreviews(d.id) : undefined);
+      if (this.online) {
+        const ping: PingTarget = { zone: "hand", seat: p.id, index: it.index };
+        this.pingBoxes.set(pingKey(ping), it.holder);
+        attachHold(this, it.holder, () => this.sendPing(ping), can ? () => this.onHandTap(it.id) : undefined);
       }
     }
-    // The name, charms and counts are in the turn-order rail now; what is left here is the prompt.
-    let hint = pending === null ? "" : pending.opener ? "Play an opener" : this.selected !== null ? "Pick an open end" : "Play, pass or set off";
-    if (this.online && view.phase !== "over" && !this.locked && this.waiting) hint = "Waiting for the host";
-    const H = HAND.hint;
-    if (hint) this.label(layer, HAND.x + HAND.w / 2, H.y, hint, H.size, H.colour, 0.5);
-    // The deck pile, face down to the left of the hand (#171); clicking it opens this player's deck.
-    const D = HAND.deck;
-    drawDeckStack(this, layer, this.anim.refs, p.id, this.view.dominoes[0], D.x, D.y, p.deck.length);
-    this.deckZone(layer, D.x, D.y - 10, 110, 80, p.id);
-    this.label(layer, D.x, D.discardY, `Discard ${p.discard.length}`, D.size, D.colour, 0.5);
-    if (p.hand.length === 0) {
-      this.label(layer, HAND.x + HAND.w / 2, HAND.y + HAND.h / 2, "No dominoes in hand", 28, "#7fb59b", 0.5);
-      return;
-    }
-    // The largest scale at which the whole hand fits the area.
-    let k = 0.4;
-    for (const s2 of [0.7, 0.6, 0.5, 0.4]) {
-      k = s2;
-      if (Math.floor(HAND.w / (DW * s2 + 4)) * Math.floor(HAND.h / (DH * s2 + 12)) >= p.hand.length) break;
-    }
-    const step = DW * k + 4;
-    const perRow = Math.max(1, Math.floor(HAND.w / step));
-    const rows = Math.ceil(p.hand.length / perRow);
-    const top = HAND.y + (HAND.h - (rows * (DH * k + 12) - 12)) / 2 + (DH * k) / 2;
-    for (let r = 0; r < rows; r++) {
-      const inRow = p.hand.slice(r * perRow, (r + 1) * perRow);
-      const x0 = HAND.x + (HAND.w - inRow.length * step) / 2 + step / 2;
-      inRow.forEach((id, i) => {
-        const state: DominoState = !onTurn ? "normal" : playable.has(id) ? "playable" : "notPlayable";
-        const hx = x0 + i * step;
-        const hy = top + r * (DH * k + 12);
-        const c = this.domino(layer, id, k, state, hx, hy, state === "playable" ? () => this.onHandTap(id) : undefined, { zone: "hand", seat: p.id, index: r * perRow + i }, p.id);
-        if (state === "playable") this.handInput(layer, c, id);
-        if (id === this.selected) {
-          const sel = this.gfx(layer);
-          sel.lineStyle(6, 0xffffff, 1);
-          sel.strokeRoundedRect(hx - (DW * k) / 2 - 4, hy - (DH * k) / 2 - 18, DW * k + 8, DH * k + 8, 12);
-        }
-        if (!this.anim.refs.hand.has(id)) this.anim.refs.hand.set(id, { x: hx, y: hy, k });
-        this.slotsOf(p.id)[r * perRow + i] = { c, pos: { x: hx, y: hy, k } };
-      });
-    }
+    if (this.drag?.ghost) fan.setDragged(fan.items.find((i) => i.id === this.drag!.id)?.key ?? null);
   }
 
   // The actions bottom right (L7): Set off and Pass. Whose turn it is shows on the seat tabs.
@@ -906,29 +835,31 @@ export class CombatScene extends Phaser.Scene {
     });
   }
 
-  // Hover on a playable hand domino shows where it fits and what it would do there; pressing it can
-  // turn into a drag (see onDragMove).
-  private handInput(layer: Layer, c: Phaser.GameObjects.Container, id: string): void {
-    c.on("pointerover", () => {
-      if (this.selected === id || this.drag?.ghost) return;
-      this.clearHover();
-      this.hoverId = id;
-      this.refreshNext();
-      this.hoverUi = this.add.container(0, 0).setDepth(500);
-      this.showHints(this.hoverUi, id);
-      // A domino with one place to go previews that play.
-      const ends = getPendingChoice(this.view)?.plays.find((o) => o.domino === id)?.ends ?? [];
-      if (ends.length === 1) this.setHoverPlay(id, ends[0]);
-    });
-    c.on("pointerout", () => {
-      this.clearHover();
-      this.hoverId = null;
-      this.setHoverPlay(null);
-      this.refreshNext();
-    });
-    c.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      this.drag = { id, x: pointer.worldX, y: pointer.worldY };
-    });
+  // The pointer on a hand domino: it lifts (fan), and, if playable, the hover updates the live numbers,
+  // the bar previews and the rail's NEXT highlight together. A domino with one place to go previews
+  // that play.
+  private onHandHover(key: string | null): void {
+    if (this.drag?.ghost) return;
+    this.hoverKey = key;
+    const item = key === null ? undefined : this.fan?.items.find((i) => i.key === key);
+    const id = item && this.handPlayable.has(item.id) && this.selected !== item.id ? item.id : null;
+    this.hoverId = id;
+    let changed = false;
+    if (id !== null) {
+      const pending = getPendingChoice(this.view);
+      const ends = pending?.plays.find((o) => o.domino === id)?.ends ?? [];
+      changed = this.setHoverPlay(pending?.opener || ends.length === 1 ? id : null, ends[0]);
+    } else changed = this.setHoverPlay(null);
+    if (!changed) this.refreshPreview();
+  }
+
+  // A press on a hand domino: a tap picks it (offline; online the tap fires on release, see
+  // drawActiveHand) and the press may turn into a drag (see onDragMove).
+  private onHandDown(key: string, pointer: Phaser.Input.Pointer): void {
+    const item = this.fan?.items.find((i) => i.key === key);
+    if (!item || !this.handPlayable.has(item.id)) return;
+    if (!this.online) this.onHandTap(item.id);
+    this.drag = { id: item.id, x: pointer.worldX, y: pointer.worldY };
   }
 
   // ---- input ----
@@ -969,13 +900,15 @@ export class CombatScene extends Phaser.Scene {
     if (!drag.ghost) {
       if (Math.hypot(pointer.worldX - drag.x, pointer.worldY - drag.y) < 16) return;
       this.dragMoved = true;
-      this.clearHover();
+      this.hoverKey = null;
+      this.hoverId = null;
       this.tooltip.hide();
       drag.ghost = drawDomino(this, this.dominoOf(drag.id), "large", "normal").setScale(0.55).setDepth(800).setAlpha(0.9);
       if (this.selected !== drag.id) {
         this.selected = drag.id;
         this.redraw();
       }
+      this.fan?.setDragged(this.fan.items.find((i) => i.id === drag.id)?.key ?? null);
     }
     drag.ghost.setPosition(pointer.worldX, pointer.worldY);
     // Over a legal end: preview the board with the domino there.
@@ -1001,6 +934,8 @@ export class CombatScene extends Phaser.Scene {
     drag.ghost.destroy();
     this.time.delayedCall(0, () => (this.dragMoved = false)); // after the release has also reached the domino (it is not a tap)
     const target = this.slotAt(pointer);
+    this.fan?.setDragged(null);
+    this.setHoverPlay(null);
     if (target !== undefined && !this.locked && !this.waiting) this.play(drag.id, target);
   }
 
@@ -1049,6 +984,8 @@ export class CombatScene extends Phaser.Scene {
     this.tweens.timeScale = SKIP_SPEED;
     this.time.timeScale = SKIP_SPEED;
     this.anim.buildup.clear(); // the camera goes back at once and the counter goes
+    this.board?.stopBurns(); // every fuse burnt all the way
+    this.fan?.snap();
   }
 
   private endSkip(): void {
@@ -1124,52 +1061,4 @@ export class CombatScene extends Phaser.Scene {
     this.shown = null;
     return true;
   }
-
-  private get mat(): typeof MAT {
-    return MAT;
-  }
-}
-
-// ---- board layout (geometry only) ----
-
-interface BoardLayout {
-  nodes: Map<number, { col: number; row: number }>;
-  ends: Map<number, { col: number; row: number }>; // the open ends
-  cols: number;
-  rows: number;
-}
-
-// Where each domino and open end sits in a grid: the opener in column 0, each step one column
-// right, branches fanning into their own rows (a junction sits between its branches, a straight run
-// stays on one row). Rows may be fractional. No rules: the tree is whatever the board holds.
-function layoutBoard(board: Board): BoardLayout {
-  const child = new Map<number, number>(); // end id -> the node attached to it
-  for (const n of board.nodes) if (n.end !== null) child.set(n.end, n.id);
-  const outs = (node: number) => board.ends.filter((e) => e.node === node);
-  const span = (node: number): number =>
-    Math.max(1, outs(node).reduce((total, e) => total + (child.has(e.id) ? span(child.get(e.id)!) : 1), 0));
-  const lay: BoardLayout = { nodes: new Map(), ends: new Map(), cols: 1, rows: 1 };
-  const place = (node: number, col: number, top: number): number => {
-    lay.cols = Math.max(lay.cols, col + 1);
-    const rows: number[] = [];
-    let cursor = top;
-    for (const e of outs(node)) {
-      const c = child.get(e.id);
-      if (c === undefined) {
-        lay.ends.set(e.id, { col: col + 1, row: cursor });
-        lay.cols = Math.max(lay.cols, col + 2);
-        rows.push(cursor);
-        cursor += 1;
-      } else {
-        rows.push(place(c, col + 1, cursor));
-        cursor += span(c);
-      }
-    }
-    const row = rows.length > 0 ? (rows[0] + rows[rows.length - 1]) / 2 : top;
-    lay.nodes.set(node, { col, row });
-    return row;
-  };
-  place(0, 0, 0);
-  lay.rows = span(0);
-  return lay;
 }
