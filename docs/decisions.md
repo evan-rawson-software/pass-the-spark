@@ -442,3 +442,4 @@ From the research page "Domino Looks" (how other roguelike deckbuilders draw car
 - **D8 When:** in M10. #189–#191 were already in review, so this comes after them and keeps their effects working.
 - **Next player's highlight (restored):** while you hover or drag a domino, the next player's hand highlights what they could play after it, as in the old game. This replaces the line in #186 that dropped it. The engine answers which dominoes are playable.
 - **Art:** dominoes are drawn in code. The face art `tiles/starter`, `common`, `uncommon` and `rare` retires in #217; `tiles/hidden` stays for face-down piles.
+- **Playback speed control (#220):** in combat, the four speed buttons become one small button showing the current speed, which opens a list of speeds. The menu setting is unchanged.
