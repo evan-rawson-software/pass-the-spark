@@ -18,6 +18,8 @@
     "effect:echo": { "file": "interface/bong_001.ogg", "volume": 0.5, "minGapMs": 120, "rises": true },
     "effect:spectrum": { "file": "interface/glass_002.ogg", "volume": 0.5, "minGapMs": 120, "rises": true },
     "effect:charm": { "file": "interface/open_001.ogg", "volume": 0.5, "minGapMs": 120, "rises": true },
+    "callout": { "file": "interface/confirmation_002.ogg", "volume": 0.8, "minGapMs": 200, "rises": true },
+    "whoosh": { "file": "interface/maximize_001.ogg", "volume": 0.5, "minGapMs": 300, "rises": true, "baseCents": -600 },
     "voteRoll": { "file": "ui-audio/rollover1.ogg", "volume": 0.5, "minGapMs": 40 },
     "coins": { "file": "casino/chips-collide-1.ogg", "volume": 0.7, "minGapMs": 100, "rises": true },
     "buy": { "file": "casino/chips-handle-1.ogg", "volume": 0.7, "minGapMs": 100 },

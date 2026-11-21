@@ -35,6 +35,7 @@ import type { DebugHost } from "./DebugPanel";
 import { SPEEDS, getPlaybackSpeed, onPlaybackSpeedChange, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
 import { Animator, SKIP_SPEED, animTime, newRefs, paintBar } from "./animations";
 import { boardGlow } from "./spectacle";
+import { litGlowStrength } from "./buildup";
 import { applyEvent, startShown } from "./shownView";
 import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
 import type { ShownTable } from "./shownView";
@@ -156,6 +157,7 @@ export class CombatScene extends Phaser.Scene {
     this.totalsTween = undefined;
     this.drawTable();
     this.anim = new Animator(this);
+    this.anim.buildup.frame = () => this.mat; // the camera frames the tree to this screen's own board mat
     this.locked = false;
     this.selected = null;
     this.drag = null;
@@ -842,7 +844,7 @@ export class CombatScene extends Phaser.Scene {
     for (const n of board.nodes) {
       const { x, y } = nodeAt(n.id);
       if (build.strength > 0) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, build.color, 14 * k, build.strength * 2.5);
-      if (lit.has(n.id)) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, hot, 14 * k, 3);
+      if (lit.has(n.id)) this.glow(g, x - (DW * k) / 2, y - (DH * k) / 2, DW * k, DH * k, hot, 14 * k, litGlowStrength(lit.size, board.nodes.length));
       const c = this.domino(layer, n.domino, k, "normal", x, y, undefined, { zone: "chain", index: n.id });
       this.anim.refs.nodes.set(n.id, { c, pos: { x, y, k } });
       if (k >= 0.45) this.label(layer, x, y + (DH * k) / 2 + 11, this.nameOf(n.owner, true, 10), 15, "#cfe9dc", 0.5, true);
@@ -1156,6 +1158,7 @@ export class CombatScene extends Phaser.Scene {
     setSoundHushed(true);
     this.tweens.timeScale = SKIP_SPEED;
     this.time.timeScale = SKIP_SPEED;
+    this.anim.buildup.clear(); // the camera goes back at once and the counter goes
   }
 
   private endSkip(): void {
@@ -1164,6 +1167,7 @@ export class CombatScene extends Phaser.Scene {
     this.anim.skipping = false;
     this.skipHint?.setVisible(false);
     setSoundHushed(false);
+    this.anim.buildup.clear();
     this.tweens.timeScale = 1;
     this.time.timeScale = 1;
   }
