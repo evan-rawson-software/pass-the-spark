@@ -24,7 +24,7 @@ export function rememberSettings(settings: GameSettings): void {
 // start screen is skipped and the battle starts straight away:
 //   enemy=ogre|brute|warden|auditor|glutton   players=2|3|4   seed=<number>
 //   steps=<n>   play n scripted choices (seats take turns; always the first legal play, on its first end)
-export const DEV_PARAMS = ["enemy", "players", "seed", "steps", "ready"];
+export const DEV_PARAMS = ["enemy", "players", "seed", "steps"];
 
 export function hasDevParams(query: URLSearchParams): boolean {
   return DEV_PARAMS.some((k) => query.has(k));
@@ -58,6 +58,5 @@ export function startBattle(settings: GameSettings, seed: number, query = new UR
     if (!choices || !play) continue;
     state = step(state, { type: "play", player, domino: play.domino, end: choices.opener ? undefined : play.ends[0] }).state;
   }
-  for (const r of (query.get("ready") ?? "").split(",").filter(Boolean)) state = step(state, { type: "ready", player: r, ready: true }).state; // TEMP
   return state;
 }
