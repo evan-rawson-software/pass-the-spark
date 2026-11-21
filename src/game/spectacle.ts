@@ -132,7 +132,7 @@ export function stackedNumber(scene: Phaser.Scene, pile: Phaser.GameObjects.Text
 
 // ---- per-effect animations (reused from M8, redrawn for the cascade) ----
 
-export type EffectKind = "damage" | "block" | "coins" | "amplify" | "echo" | "spectrum" | "charm";
+export type EffectKind = "damage" | "block" | "amplify" | "echo" | "spectrum" | "charm";
 
 // A red shot flies to the target and bursts into a jagged star with a slash.
 export function damage(scene: Phaser.Scene, from: Point, to?: Point): void {
@@ -178,17 +178,6 @@ export function block(scene: Phaser.Scene, from: Point, to?: Point): void {
     targets: g, alpha: { from: 1, to: 0 }, scale: { from: 0.3, to: 1.4 }, duration: scaleTime(P.effects.ms + 150), ease: "Back.easeOut",
     onStart: () => g.setAlpha(1), onComplete: done(g),
   });
-}
-
-// Gold discs pop up from the cap.
-export function coins(scene: Phaser.Scene, at: Point): void {
-  for (let i = 0; i < 5; i++) {
-    const c = scene.add.circle(at.x + (i - 2) * 22, at.y + 10, 11, 0xffd23f).setStrokeStyle(3, 0x9a6a00).setDepth(DEPTH).setAlpha(0);
-    scene.tweens.add({
-      targets: c, y: at.y - 70 - (i % 2) * 20, alpha: { from: 1, to: 0 }, delay: scaleTime(i * 50), duration: scaleTime(P.effects.ms + 200), ease: "Cubic.easeOut",
-      onStart: () => c.setAlpha(1), onComplete: done(c),
-    });
-  }
 }
 
 // Orange chevrons rise from an amplifier: the charge just got stronger. `size` grows with the change.
@@ -293,15 +282,14 @@ export function lightning(scene: Phaser.Scene, a: Point, targets: Point[]): void
   }
 }
 
-export interface Tally { damage: number; block: number; coins: number }
+export interface Tally { damage: number; block: number }
 
-// After the last step: the cascade's total damage, block and coins count up in a pill over the
+// After the last step: the cascade's total damage and block count up in a pill over the
 // board, then settle. Resolves when the short hold is over. Sums are of the events' own numbers.
 export async function showTally(scene: Phaser.Scene, tally: Tally, color: number, at: Point): Promise<void> {
   const rows: [string, number, string][] = [];
   if (tally.damage > 0) rows.push(["damage", tally.damage, "#ff6a5f"]);
   if (tally.block > 0) rows.push(["block", tally.block, "#9cc4ff"]);
-  if (tally.coins > 0) rows.push(["coins", tally.coins, "#ffd23f"]);
   if (rows.length === 0) return;
   const w = 120 + rows.length * 250;
   const pill = scene.add.graphics().setDepth(120).setPosition(at.x, at.y);

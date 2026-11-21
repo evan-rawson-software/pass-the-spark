@@ -143,7 +143,7 @@ function drawHalf(g: Phaser.GameObjects.Graphics, sparks: Spark[] | "any", cx: n
 }
 
 // What an icon can show: the three cap effects, the four amplifiers and the junction.
-export type IconKind = "damage" | "block" | "coins" | "add" | "mul" | "echo" | "spectrum" | "junction";
+export type IconKind = "damage" | "block" | "add" | "mul" | "echo" | "spectrum" | "junction";
 
 // The icon a domino's middle column shows, from its data.
 export function iconOf(d: Domino): IconKind | null {
@@ -165,15 +165,6 @@ export function drawEffectIcon(g: Phaser.GameObjects.Graphics, kind: IconKind, c
   } else if (kind === "block") {
     polygon(g, [p(-22, -24), p(22, -24), p(22, 2), p(0, 28), p(-22, 2)], 0x4a6fa5);
     line(g, [p(0, -18), p(0, 18)], 4, 0xdbe6f5);
-  } else if (kind === "coins") {
-    g.fillStyle(0xffd23f, 1);
-    g.lineStyle(3, 0xb8860b, 1);
-    g.fillCircle(0, cy, 24);
-    g.strokeCircle(0, cy, 24);
-    g.lineStyle(3, 0xe0a800, 1);
-    g.strokeCircle(0, cy, 15);
-    g.fillStyle(0xfff3a8, 0.9);
-    g.fillCircle(-8, cy - 8, 4);
   } else if (kind === "add") {
     polygon(g, [p(0, -28), p(24, -2), p(10, -2), p(10, 26), p(-10, 26), p(-10, -2), p(-24, -2)], 0xf08a00);
   } else if (kind === "mul") {

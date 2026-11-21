@@ -14,7 +14,7 @@ export interface Amp {
   value: number;
 }
 
-export type CapEffectKind = "damage" | "block" | "coins";
+export type CapEffectKind = "damage" | "block";
 
 // A cap's effect goes off at base x charge.
 export interface CapEffect {

@@ -17,12 +17,11 @@ export type GameEvent =
   | { type: "setOff"; reason: "player" | "capped" | "passes"; player?: string }
   | { type: "cascadeStep"; depth: number }
   | { type: "nodeLit"; node: number; domino: string; owner: string; charge: number }
-  // A cap goes off: value per trigger, then one damage, block or coins event for each trigger.
+  // A cap goes off: value per trigger, then one damage or block event for each trigger.
   | { type: "capFired"; node: number; domino: string; owner: string; effect: CapEffectKind; value: number; triggers: number }
   // side is the side that is hit. amount reached its health; blocked is what block absorbed.
   | { type: "damage"; side: "party" | "enemy"; amount: number; blocked: number }
   | { type: "block"; side: "party" | "enemy"; amount: number }
-  | { type: "coinsGained"; player: string; amount: number }
   | { type: "charm"; player: string; charm: string } // a charm changed the node just lit (or, for Hall of Mirrors, the junction just played); the screen can flash its icon
   | { type: "fizzle"; end: number; spark: Spark; charge: number } // an open end the cascade left uncapped
   | { type: "enemyAction"; intent: Intent } // followed by the enemy's block and damage events
