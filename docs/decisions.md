@@ -523,3 +523,18 @@ Playtest: in the fanned hand the dominoes overlap, so their output runes are har
 - **N3 Big hands:** when the hand doesn't fit at its normal size, every domino shrinks evenly, but never below about 80% of the normal size. Past that, the hand wraps into a second row above the first, clear of the board. Sizes in data.
 - **N4 Same rule everywhere:** teammates' small dominoes in the seat tabs never overlap either; they shrink, then wrap.
 - **N5 Hover:** the hovered domino still grows and lifts, and draws on top; the others don't move.
+
+## 2026-11-21: Wizards, the arcane circle and spells (A1–A12)
+The players become robed pixel-art wizards around an arcane circle, and caps become spells. All as recommended, except A3. Built in M12.
+- **A1 Layout:** the arcane circle is the floor of the board area, with the domino tree drawn on top of it. The wizards stand around its rim, one per seat, in fixed spots for 2, 3 or 4 players. Spells fly from the circle to the enemy card in the left column. Spotlight stays.
+- **A2 What's pixel art:** the world: wizards, the circle and spells. The interface stays crisp vector art: dominoes, numbers, panels and text.
+- **A3 Enemies (designer's ruling):** enemies keep their high-resolution portraits for now, and the combat background stays as it is. No second art phase is planned yet.
+- **A4 Outfit colour is your seat colour:** the colour you pick for your robe becomes your seat colour everywhere (glow, domino stripes, seat tab). A palette of 8 clearly different colours, in data; no two players share one.
+- **A5 Customizing:** colour, one of 5 robes and one of 5 hats, with a live preview in the lobby. Choices are remembered on your device; new players get random ones. In single player, each seat's wizard is set on the start screen.
+- **A6 Spells:** each cap is a spell, set by its spark and effect. Damage: Ember fireball, Tide water lance, Gale wind blade, Storm lightning bolt, Void shadow orb, Rot acid glob. Block caps raise a ward in the spark's colour in front of the wizards. 12 spells, named in data.
+- **A7 Spells and the finale:** each damage spell flies from the circle and hits the enemy with a flinch, and its number pops into the combo counter (#234) as it hits. The health bar still drops once, at the slam, where the circle fires one big final spell carrying the total.
+- **A8 Wizard animations:** an idle loop, a hurt reaction when the party takes damage, and a victory pose. When a wizard's domino fires, they play a cast animation picked from a pool of about 4. The pick is random but seeded from the battle, so every screen in an online game shows the same one.
+- **A9 Circle build-up:** the circle grows more impressive with #234's tiers: a faint glow, then sigils lighting, rotating rings, outer runes with particles, and a full blaze with a beam on lethal. Each tier has 2–3 variants, picked the same seeded way.
+- **A10 Pixel scale:** one art-pixel size for all pixel art (about 4 screen pixels at 1920×1080), nearest-neighbour scaling and small palettes. Wizards are roughly 32×48 art pixels.
+- **A11 Making the art:** a spike first, as with sound. The art session makes the same test set with each method: a local AI model tuned for pixel art plus cleanup; sprites drawn as pixel data in code from layered parts; free or paid pixel-art packs; and a costed note on hiring a pixel artist. The designer picks in a picker.
+- **A12 Milestone and order:** a new "M12: Wizards and spells"; the Godot port becomes M13. M11 finishes first. The art spike starts after the art session finishes #251. Then: customizing in the lobby, then wizards and the circle in battle, then animations and spells.

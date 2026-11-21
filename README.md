@@ -24,7 +24,8 @@ behaviour is pinned down by test cases that the Godot version must also pass.
 9. **Branching cascade:** the combat redesign in `docs/design-branching-cascade.md`. Done.
 10. **Cascade feel:** more effects, animations and sounds in combat, so a chain going off feels amazing. Done.
 11. **Playtest fixes (current):** starter and reward numbers, no manual set off, and a spike on better sounds.
-12. **Godot port:** engine and screens rebuilt in Godot, Steam lobbies.
+12. **Wizards and spells:** pixel-art wizards you customize, an arcane circle and spells for caps.
+13. **Godot port:** engine and screens rebuilt in Godot, Steam lobbies.
 
 Each milestone's issues are in the GitHub milestone with the same "M" number in its title.
 
