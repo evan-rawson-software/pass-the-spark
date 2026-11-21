@@ -33,6 +33,17 @@
   <div class="stage"><canvas id="big"></canvas></div>
   <div class="stage"><canvas id="all"></canvas></div>
   <div class="stage"><canvas id="grid"></canvas></div>
+  <h1>Circle</h1>
+  <p>The arcane circle at ×3, drawn as the game will: the tier's layers stacked, each looping. Cascade steps up one tier at a time, fading the new tier in over the old one, and fires the beam at the top.</p>
+  <div class="bar"><span class="lab">Tier</span><span id="tiers" class="bar"></span></div>
+  <div class="bar"><span class="lab">Variant</span><span id="variants" class="bar"></span></div>
+  <div class="bar"><span class="lab">Play</span><button id="beam">Beam</button><button id="cascade">Cascade</button></div>
+  <div class="stage"><canvas id="circle"></canvas></div>
+  <h1>Spells</h1>
+  <p>Each damage spell flies right and hits; the ward rises in all 6 spark colours; the final spell flies and hits. All at ×3.</p>
+  <div class="stage"><canvas id="spells"></canvas></div>
+  <div class="stage"><canvas id="wards"></canvas></div>
+  <div class="stage"><canvas id="final"></canvas></div>
 </main>
 <script type="module">
 const ROOT = new URL("../../", import.meta.url); // the base URL the game is served from
@@ -42,12 +53,15 @@ const { w: FW, h: FH } = D.frame, S = D.scale;
 const loadImage = (path) => new Promise((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = fail; i.src = new URL("art/" + path, ROOT).href; });
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const sheets = {};
-for (const path of [...Object.values(D.sheets), ...D.hats.map((h) => h.sheet), ...D.robes.map((r) => r.sheet)]) sheets[path] = await loadImage(path);
+const C = D.circle;
+for (const path of [...Object.values(D.sheets), ...D.hats.map((h) => h.sheet), ...D.robes.map((r) => r.sheet),
+                    ...C.tiers.flatMap((t) => t.layers.map((l) => l.sheet)), C.beam.sheet,
+                    ...D.spells.map((s) => s.sheet), D.ward.sheet, D.finalSpell.sheet]) sheets[path] = await loadImage(path);
 
 // Recolour a sheet once: every pixel in keyRamp[i] becomes ramp[i]. Cached per sheet and colour.
 const tinted = new Map();
 function tint(path, colour) {
-  const k = path + "|" + colour.id;
+  const k = path + "|" + (colour.id || colour.spark);
   if (tinted.has(k)) return tinted.get(k);
   const im = sheets[path], c = document.createElement("canvas");
   c.width = im.width; c.height = im.height;
@@ -134,7 +148,101 @@ function tick(now) {
   D.colours.forEach((c, i) => drawWizard(all.getContext("2d"), layers(c, st.hat, st.robe), a, f, i * (FW * 2 + 8), 0, 2, false));
   D.hats.forEach((h, i) => D.robes.forEach((r, j) =>
     drawWizard(grid.getContext("2d"), layers(st.colour, h, r), a, f, i * (FW * 2 + 8), j * (FH * 2 + 8), 2, false)));
+  drawCircle(now);
+  drawSpells(now);
   requestAnimationFrame(tick);
+}
+
+// ---------- circle ----------
+const cs = { tier: 0, from: null, fadeAt: 0, variant: 0, beam: false, cascade: null };
+const circle = document.getElementById("circle");
+const CTOP = 60; // art pixels of room above the circle's frame, for the beam
+circle.width = C.frame.w * S; circle.height = (C.frame.h + CTOP) * S;
+function drawTier(x, t, now, alpha) {
+  const tier = C.tiers[t], f = frameAt({ ms: tier.ms, frames: C.frames, loop: true }, now);
+  x.globalAlpha = alpha;
+  for (const l of tier.layers) x.drawImage(sheets[l.sheet], f * C.frame.w, cs.variant * C.frame.h, C.frame.w, C.frame.h, 0, CTOP * S, C.frame.w * S, C.frame.h * S);
+  x.globalAlpha = 1;
+}
+function drawCircle(now) {
+  if (cs.cascade !== null && now >= cs.cascade) { // one tier every 900 ms, then the beam, then from the start
+    if (cs.beam) { cs.beam = false; setTier(0, now); }
+    else if (cs.tier < 4) setTier(cs.tier + 1, now);
+    else cs.beam = true;
+    cs.cascade = now + (cs.beam ? 1600 : 900);
+    syncCircleButtons();
+  }
+  const x = circle.getContext("2d");
+  x.imageSmoothingEnabled = false;
+  x.clearRect(0, 0, circle.width, circle.height);
+  const fade = Math.min(1, (now - cs.fadeAt) / 300);
+  if (cs.from !== null && fade < 1) drawTier(x, cs.from, now, 1 - fade);
+  drawTier(x, cs.tier, now, cs.from === null ? 1 : fade);
+  if (cs.beam) {
+    const b = C.beam, f = frameAt(b, now);
+    const bx = C.centre[0] - b.anchor[0], by = CTOP + C.centre[1] - b.anchor[1];
+    x.drawImage(sheets[b.sheet], f * b.frame.w, 0, b.frame.w, b.frame.h, bx * S, by * S, b.frame.w * S, b.frame.h * S);
+  }
+}
+function setTier(t, now) { cs.from = cs.tier; cs.tier = t; cs.fadeAt = now; }
+function syncCircleButtons() {
+  document.querySelectorAll("#tiers button").forEach((b, i) => b.classList.toggle("on", i === cs.tier));
+  document.querySelectorAll("#variants button").forEach((b, i) => b.classList.toggle("on", i === cs.variant));
+  document.getElementById("beam").classList.toggle("on", cs.beam);
+  document.getElementById("cascade").classList.toggle("on", cs.cascade !== null);
+}
+for (let t = 0; t < C.tiers.length; t++) {
+  const b = document.createElement("button"); b.textContent = "Tier " + t;
+  b.onclick = () => { cs.cascade = null; setTier(t, performance.now()); syncCircleButtons(); };
+  document.getElementById("tiers").appendChild(b);
+}
+for (let v = 0; v < C.variants; v++) {
+  const b = document.createElement("button"); b.textContent = "Variant " + (v + 1);
+  b.onclick = () => { cs.variant = v; syncCircleButtons(); };
+  document.getElementById("variants").appendChild(b);
+}
+document.getElementById("beam").onclick = () => { cs.beam = !cs.beam; syncCircleButtons(); };
+document.getElementById("cascade").onclick = () => {
+  const now = performance.now();
+  if (cs.cascade === null) { cs.beam = false; setTier(0, now); cs.cascade = now + 900; } else cs.cascade = null;
+  syncCircleButtons();
+};
+syncCircleButtons();
+
+// ---------- spells ----------
+const LANE = 160; // art pixels a spell flies before it hits
+const spellsC = document.getElementById("spells"), wardsC = document.getElementById("wards"), finalC = document.getElementById("final");
+const SW = D.spells[0].frame.w, SH = D.spells[0].frame.h;
+spellsC.width = (LANE + SW + 60) * S; spellsC.height = D.spells.length * SH * S;
+wardsC.width = D.ward.colours.length * (D.ward.frame.w + 8) * S; wardsC.height = D.ward.frame.h * S;
+finalC.width = (LANE + 2 * D.finalSpell.frame.w) * S; finalC.height = D.finalSpell.frame.h * S;
+const sum = (a) => a.reduce((s, v) => s + v, 0);
+// A spell t ms into its cycle: flying for 600 ms, then its impact centred where the head hit, then a pause.
+function playSpell(x, sp, t, y) {
+  const fly = 600, hit = sum(sp.impact.ms), fw = sp.frame.w, fh = sp.frame.h;
+  t %= fly + hit + 400;
+  if (t < fly) {
+    const f = frameAt(sp.flight, t), px = (t / fly) * LANE;
+    x.drawImage(sheets[sp.sheet], f * fw, sp.flight.row * fh, fw, fh, px * S, y * S, fw * S, fh * S);
+  } else if (t < fly + hit) {
+    const f = frameAt({ ...sp.impact, loop: true }, t - fly);
+    const hx = LANE + sp.head[0] - fw / 2, hy = y + sp.head[1] - fh / 2;
+    x.drawImage(sheets[sp.sheet], f * fw, sp.impact.row * fh, fw, fh, hx * S, hy * S, fw * S, fh * S);
+  }
+}
+function drawSpells(now) {
+  const t = now * (st.slow ? 0.25 : 1);
+  for (const c of [spellsC, wardsC, finalC]) { const x = c.getContext("2d"); x.imageSmoothingEnabled = false; x.clearRect(0, 0, c.width, c.height); }
+  const xs = spellsC.getContext("2d");
+  D.spells.forEach((sp, i) => {
+    playSpell(xs, sp, t + i * 170, i * SH);
+    xs.fillStyle = "#b9aec6"; xs.font = "600 14px system-ui"; xs.fillText(sp.name, (LANE + SW + 4) * S, (i * SH + SH / 2) * S);
+  });
+  playSpell(finalC.getContext("2d"), D.finalSpell, t, 0);
+  const w = D.ward, f = Math.min(frameAt({ ms: [...w.ms, 900], frames: w.frames + 1, loop: true }, t), w.frames - 1);
+  const xw = wardsC.getContext("2d");
+  w.colours.forEach((c, i) => xw.drawImage(tint(w.sheet, c), f * w.frame.w, 0, w.frame.w, w.frame.h,
+    i * (w.frame.w + 8) * S, 0, w.frame.w * S, w.frame.h * S));
 }
 requestAnimationFrame(tick);
 </script>
