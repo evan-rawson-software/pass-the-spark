@@ -491,3 +491,17 @@ The designer compared the Kenney packs with generated clips in the Cascade Sound
 - **How they ship:** as ordinary `.ogg` files under `public/audio/generated/`. The game plays them like any other clip; there is no live synthesis.
 - **What changes:** this replaces H7's "real sound files from Kenney's CC0 packs" and #235's "no synthesized sound", for the `combo:*` cues only. Every other cue keeps its current file.
 - **What stays:** the per-cap ping still climbs the pentatonic scale.
+
+## 2026-11-21: Playtest fixes (P1–P8, S1–S3)
+From the designer's first playtest of the branching cascade with the new combat screen. All as recommended. Built in M11 (playtest fixes).
+- **P1 Starter caps:** Strike (Ember and Tide) goes from 3 to 7 damage, and Smash (Ember and Tide) from 10 to 8. The two were too far apart. Guards stay at 3 block.
+- **P2 Fight rewards:** fights and elites offer only uncommon and rare dominoes. The old common share moves to uncommon in every act. Boss rewards stay all rare.
+- **P3 Trader:** the trader stops selling commons too; the common share moves to uncommon. Commons stay in the data, but nothing offers them.
+- **P4 Stronger reward caps:** damage caps in reward pools beat the starters: uncommon 8–10 (was 4–6), rare 11–14 (was 6–9). Block caps are unchanged.
+- **P5 No manual set off:** the "set off" choice is removed. The cascade fires only when every player passes in a row, or when no open ends are left (both triggers already existed). Pass becomes the main button.
+- **P6 A pass that fires:** when your pass would complete the round of passes, the button reads "Pass and fire" and carries the lethal glow (#222). The tally's label becomes "If it fires now".
+- **P7 Balance check:** after P1–P5, run the battle and run sims and report win rates against the numbers before. The designer decides whether to re-tune enemy health; no tuning in these PRs.
+- **P8 Milestones:** a new "M11: Playtest fixes"; the Godot port becomes M12. M9 and M10 close.
+- **S1 Sound spike:** the local art session compares ways to make sounds: local AI models (such as Stable Audio Open in ComfyUI), curated free libraries (Sonniss GDC bundles, Freesound CC0), a dedicated sound-effect generator (jsfxr or ChipTone), and a hosted paid AI generator. Candidates for four cues go in a picker for the designer, with a short report.
+- **S2 Paid tools:** the hosted paid generator is included in the comparison; buy it only if it clearly wins.
+- **S3 Scope:** the spike picks the method only. Replacing the game's sounds is a follow-up issue.
