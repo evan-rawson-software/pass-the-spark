@@ -13,17 +13,24 @@
 //               deal after block already in place (surplus block is worth little).
 //               Capping a strongly charged end earns a bonus per point of charge above 1, on top of its value
 //               The cap on the last open end sets the chain off, so it is scored like the cascade
-//   pass:       a small cost (it gives the turn away). With a cap on the board, passing is how the bot
-//               asks for the cascade: lethal wins; otherwise what the cascade is worth, minus a fizzle
+//   pass:       a small cost (it gives the turn away). With a cap on the board and a pass that fires
+//               the cascade (view.passFires), passing is how the bot asks for it: lethal wins; otherwise what the cascade is worth, minus a fizzle
 //               penalty for the charge on every end it would leave uncapped
 
 import { getPendingChoice, previewCascade, previewPlay, previewSetOff } from "../src/engine/battle";
 import type { Choice } from "../src/engine/battle";
 import { nextInt } from "../src/engine/rng";
+import { loadContent } from "../src/engine/content";
 import type { BattleView } from "../src/engine/view";
 import type { CapEffectKind } from "../src/engine/types";
 
-const BASE_CAP_VALUE = 3; // what a cap we expect to land is worth per point of charge
+// What a cap we expect to land is worth per point of charge: the starter Strike's damage, read from
+// the data (found by name among the starter deck's dominoes, not by position). Ember's and Tide's
+// Strike are averaged if they ever differ.
+const { dominoes, starterDeck } = loadContent();
+const strikes = starterDeck.map((id) => dominoes.find((d) => d.id === id)!).filter((d) => d.kind === "cap" && d.name.endsWith(" Strike"));
+if (strikes.length === 0) throw new Error("no Strike in the starter deck");
+const BASE_CAP_VALUE = strikes.reduce((sum, d) => sum + d.effect!.base, 0) / strikes.length;
 const EXPECTED_CAPS = 2; // at most this many caps in hand count toward the value of building charge
 const CHARGED_END_BONUS = 1; // per point of charge above 1 on an end a cap goes on
 const SURPLUS_BLOCK_WEIGHT = 0.25; // block beyond what the intent will deal
@@ -55,7 +62,7 @@ export function botChoice(view: BattleView, seat: string, rng: number): { choice
   const expected = Math.min(capsInHand, EXPECTED_CAPS); // caps we can still put on the paths we build
 
   let passScore = -PASS_COST;
-  if (previewSetOff(view)?.canSetOff) {
+  if (view.passFires && previewSetOff(view)?.canSetOff) {
     const lethal = cascade.damage >= view.enemy.health;
     const fizzled = view.openEnds.reduce((sum, e) => sum + e.charge, 0);
     passScore = lethal ? LETHAL : SET_OFF_SHARE * worth - FIZZLE_WEIGHT * BASE_CAP_VALUE * fizzled;
