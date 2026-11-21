@@ -32,7 +32,7 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
       // The finished board goes to its owners' discard piles.
       for (const node of v.board.nodes) v.players.find((p) => p.id === node.owner)?.discard.push(node.domino);
       v.round = ev.round;
-      v.board = { nodes: [], ends: [] };
+      v.board = { nodes: [], ends: [], nextNode: v.board.nextNode, nextEnd: v.board.nextEnd };
       v.locked = null;
       v.enemy.staggered = false;
       for (const p of v.players) p.ready = false;
@@ -63,7 +63,8 @@ export function applyEvent(s: ShownTable, ev: GameEvent): void {
       if (player) removeOne(player.hand, ev.domino);
       if (d) {
         v.board.nodes.push({ id: ev.node, domino: ev.domino, owner: ev.player, end: ev.end, depth: ev.depth });
-        outputsOf(v, ev.player, d).forEach((spark, index) => v.board.ends.push({ id: v.board.ends.length, node: ev.node, index, spark }));
+        v.board.nextNode = ev.node + 1; // ids are the engine's: counters that only rise
+        outputsOf(v, ev.player, d).forEach((spark, index) => v.board.ends.push({ id: v.board.nextEnd++, node: ev.node, index, spark }));
       }
       break;
     }

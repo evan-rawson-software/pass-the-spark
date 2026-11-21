@@ -337,8 +337,8 @@ export async function createHost(options: HostOptions): Promise<Host> {
       const p = battle.players.find((x) => x.id === t.seat);
       return p !== undefined && i < p.hand.length;
     }
-    if (t.zone === "chain") return i < battle.board.nodes.length;
-    if (t.zone === "end") return i < battle.board.ends.length && !battle.board.nodes.some((n) => n.end === i);
+    if (t.zone === "chain") return battle.board.nodes.some((n) => n.id === i);
+    if (t.zone === "end") return battle.board.ends.some((e) => e.id === i) && !battle.board.nodes.some((n) => n.end === i);
     return false;
   }
 

@@ -6,8 +6,8 @@ import type { RunChoice, RunEvent } from "../engine/run";
 import type { BattleView, RunView } from "../engine/view";
 import type { Look } from "./look";
 
-// What a ping points at, named by position so it can only ever name something visible: a seat's
-// hand slot, a domino on the board (its node index), or an open end of the board (its end index).
+// What a ping points at, named by id so it can only ever name something visible: a seat's
+// hand slot, a domino on the board (its node id), or an open end of the board (its end id).
 export type PingTarget =
   | { zone: "hand"; seat: string; index: number }
   | { zone: "chain"; index: number }
