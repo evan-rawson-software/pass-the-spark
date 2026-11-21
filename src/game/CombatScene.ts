@@ -35,7 +35,7 @@ import type { DebugHost } from "./DebugPanel";
 import { SPEEDS, getPlaybackSpeed, onPlaybackSpeedChange, scaleTime, setPlaybackSpeed } from "./playbackSpeed";
 import { Animator, SKIP_SPEED, animTime, newRefs, paintBar } from "./animations";
 import { boardGlow } from "./spectacle";
-import { litGlowStrength } from "./buildup";
+import { buildupStrip, litGlowStrength } from "./buildup";
 import { applyEvent, startShown } from "./shownView";
 import { drawDeckStack, isDrawEvent, playDraws } from "./drawAnimation";
 import type { ShownTable } from "./shownView";
@@ -789,12 +789,12 @@ export class CombatScene extends Phaser.Scene {
     const GAP = 50;
     const VGAP = 24;
     const availW = this.mat.w - 80;
-    const availH = this.mat.h - 40;
+    const availH = this.mat.h - 40 - buildupStrip; // the top of the mat is kept free for the cascade counter and callouts (#191)
     const k = Math.max(0.2, Math.min(0.8, availW / (lay.cols * DW + (lay.cols - 1) * GAP), availH / (lay.rows * DH + (lay.rows - 1) * VGAP)));
     const colW = (DW + GAP) * k;
     const rowH = (DH + VGAP) * k;
     const left = this.mat.x + 40;
-    const top = this.mat.y + (this.mat.h - ((lay.rows - 1) * rowH + DH * k)) / 2 + (DH * k) / 2;
+    const top = this.mat.y + buildupStrip + (this.mat.h - buildupStrip - ((lay.rows - 1) * rowH + DH * k)) / 2 + (DH * k) / 2;
     const s = Math.max(34, DH * k); // an open end's slot is a square this big
     const nodeAt = (id: number) => {
       const p = lay.nodes.get(id)!;

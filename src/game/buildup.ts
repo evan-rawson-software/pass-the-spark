@@ -20,8 +20,9 @@ const B = (presentationJson as unknown as {
   buildup: {
     pitch: { maxSteps: number };
     glow: { litMin: number; litMax: number };
-    counter: { x: number; y: number; size: number; spacing: number; pump: number; pumpMs: number; fadeMs: number };
-    callouts: { max: number; x: number; y: number; size: number; ms: number; list: Callout[] };
+    strip: number;
+    counter: { at: number; size: number; spacing: number; pump: number; pumpMs: number; fadeMs: number };
+    callouts: { max: number; at: number; size: number; ms: number; list: Callout[] };
     camera: { minNodes: number; zoomOut: number; minZoom: number; pad: number; easeMs: number; restoreMs: number; push: { minCap: number; zoom: number; reducedZoom: number; inMs: number; holdMs: number } };
   };
 }).buildup;
@@ -38,6 +39,9 @@ export interface BuildupRefs {
 
 const DW = 240;
 const DH = 120;
+
+// The height of the strip at the top of the board mat kept free for the counter and callouts.
+export const buildupStrip = B.strip;
 
 // The pitch step for the Nth step of a cascade: climbs one step at a time up to the data's cap.
 export function pitchLinks(step: number): number {
@@ -153,6 +157,7 @@ export class Buildup {
   private totals: Record<Kind, number> = { damage: 0, block: 0, coins: 0 };
   private rows = new Map<Kind, HudText>();
   private words: HudText[] = [];
+  private fading: HudText[] = []; // counter rows fading out: still re-placed until they are gone
   private fired = new Set<number>();
   private shownWords = 0;
   private base: { z: number; c: Pt } = { z: 1, c: { x: W / 2, y: H / 2 } };
@@ -184,7 +189,7 @@ export class Buildup {
     if (!this.big) return;
     const t = this.treeBox(refs);
     const f = this.frame();
-    const fit = Math.min(B.camera.zoomOut, f.w / t.w, f.h / t.h);
+    const fit = Math.min(B.camera.zoomOut, f.w / t.w, (f.h - B.strip) / t.h);
     const z = Math.max(B.camera.minZoom, Math.min(1, fit));
     this.base = framed(z, { x: t.x + t.w / 2, y: t.y + t.h / 2 }, this.keep);
     this.cam.to(this.base.z, this.base.c, B.camera.easeMs);
@@ -224,13 +229,13 @@ export class Buildup {
     shown.forEach(([k, label, color], i) => {
       let row = this.rows.get(k);
       if (!row) {
-        row = new HudText(this.scene, 0, B.counter.y, "", B.counter.size, color);
+        row = new HudText(this.scene, 0, this.stripY(), "", B.counter.size, color);
         row.obj.setAlpha(0);
         this.scene.tweens.add({ targets: row.obj, alpha: 1, duration: scaleTime(B.counter.fadeMs) });
         this.rows.set(k, row);
       }
       row.obj.setText(`${this.totals[k]} ${label}`);
-      row.sx = B.counter.x + (i - (shown.length - 1) / 2) * B.counter.spacing;
+      row.sx = this.stripX(B.counter.at) + (i - (shown.length - 1) / 2) * B.counter.spacing;
     });
   }
 
@@ -246,7 +251,7 @@ export class Buildup {
     if (this.shownWords >= B.callouts.max) return;
     this.shownWords++;
     const c = list[hit];
-    const w = new HudText(this.scene, B.callouts.x, B.callouts.y, c.word, B.callouts.size, c.color);
+    const w = new HudText(this.scene, this.stripX(B.callouts.at), this.stripY(), c.word, B.callouts.size, c.color);
     this.words.push(w);
     playSound("callout", 1 + hit * 2);
     const soft = reducedFlashing(); // a fade instead of a burst
@@ -269,7 +274,14 @@ export class Buildup {
     this.cam.restore(B.camera.restoreMs);
     const rows = [...this.rows.values()];
     this.rows.clear();
-    this.scene.tweens.add({ targets: rows.map((r) => r.obj), alpha: 0, duration: scaleTime(B.counter.fadeMs), onComplete: () => rows.forEach((r) => r.obj.destroy()) });
+    this.fading.push(...rows);
+    this.scene.tweens.add({
+      targets: rows.map((r) => r.obj), alpha: 0, duration: scaleTime(B.counter.fadeMs),
+      onComplete: () => {
+        rows.forEach((r) => r.obj.destroy());
+        this.fading = this.fading.filter((r) => !rows.includes(r));
+      },
+    });
   }
 
   // Everything back to normal at once (a new round, a skipped cascade, the step is over).
@@ -284,6 +296,8 @@ export class Buildup {
     this.totals = { damage: 0, block: 0, coins: 0 };
     this.rows.forEach((r) => r.obj.destroy());
     this.rows.clear();
+    this.fading.forEach((r) => r.obj.destroy());
+    this.fading = [];
     this.words.forEach((w) => w.obj.destroy());
     this.words = [];
     this.base = { z: 1, c: { x: W / 2, y: H / 2 } };
@@ -293,8 +307,19 @@ export class Buildup {
   private sync(): void {
     const z = this.cam.zoom;
     this.rows.forEach((r) => r.sync(z));
+    this.fading.forEach((r) => r.sync(z));
     this.words = this.words.filter((w) => w.obj.active);
     this.words.forEach((w) => w.sync(z));
+  }
+
+  // The counter and callouts live in the free strip at the top of this screen's board mat.
+  private stripY(): number {
+    return this.frame().y + B.strip / 2;
+  }
+
+  private stripX(at: number): number {
+    const f = this.frame();
+    return f.x + f.w * at;
   }
 
   // The tree's bounds with a margin: every domino and open end.
