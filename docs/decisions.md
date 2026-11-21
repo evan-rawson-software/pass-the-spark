@@ -454,3 +454,14 @@ From the research page "Domino Looks" (how other roguelike deckbuilders draw car
   - **P6:** the numbers come from the engine's preview;
   - **P7:** a new M10 issue.
   - (P4, coins by name plates, was dropped with coin caps.)
+
+## 2026-11-21: Combat layout (L1–L8)
+From the research page "Combat Table" (how other deckbuilders lay out combat). All as recommended. Built in #228, then #229, in M10. The screen reads top to bottom as the enemy, the board, then the party.
+- **L1 The enemy as one unit:** portrait at the top centre; name, tier and passive chips beside it (full text on hover); the intent as a speech bubble at its head; the health bar right under it.
+- **L2 Party bar at the bottom:** party health and block above your hand, the same width as the enemy bar and facing it.
+- **L3 Turn-order rail:** every seat in turn order down the left, with seat colour, LEAD/YOU/NEXT tags, charms, counts and their hand as small dominoes. The next player's highlight shows there. It replaces the side hands, the turn-order row and "Round N".
+- **L4 Board:** no frame box; the background is dimmed with a vignette.
+- **L5 Your hand:** fanned at the bottom centre between your deck and discard piles. The hand frame, name tag and prompt line go.
+- **L6 Utilities:** round, playback speed and menu in one small top-right cluster.
+- **L7 Actions:** a big Set off button bottom right, with Pass above it and "Your turn" over both.
+- **L8 Order:** #218's unbuilt screen work is folded into #229; #218 closes as superseded, and its engine preview stays.
