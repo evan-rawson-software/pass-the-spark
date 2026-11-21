@@ -120,9 +120,9 @@
     "id": "overcharge",
     "name": "Overcharge",
     "pool": "rare",
-    "description": "Your Double amplifiers multiply by 3 instead of 2.",
+    "description": "Your Double amplifiers multiply by 1 more.",
     "numbers": {
-      "multiplier": 3
+      "multiplierAdd": 1
     }
   },
   {
