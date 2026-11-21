@@ -52,6 +52,7 @@
   "charms/bulwark.png",
   "charms/resonance.png",
   "charms/lap_runner.png",
+  "charms/junction_runner.png",
   "charms/coin_purse.png",
   "charms/haggler.png",
   "charms/prism.png",
@@ -80,5 +81,9 @@
   "backgrounds/title.jpg",
   "backgrounds/rest.jpg",
   "backgrounds/trader.jpg",
-  "backgrounds/act_transition.jpg"
+  "backgrounds/act_transition.jpg",
+  "fx/spark.png",
+  "fx/slash.png",
+  "fx/bolt.png",
+  "fx/shard.png"
 ]
