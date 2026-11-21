@@ -26,7 +26,7 @@
       "amplifier": "#f4ecdc",
       "junction": "#dde5ee",
       "junctionSplit": "#5d6b7c",
-      "cap": { "damage": "#f8d9d3", "block": "#d6e4f7", "other": "#ece7dc" },
+      "cap": { "damage": "#f8d9d3", "block": "#d6e4f7" },
       "text": "#22201c",
       "glow": "#ffe36b",
       "anyRing": "#8a8a8a",

@@ -264,9 +264,7 @@ function strokePathOf(g: Phaser.GameObjects.Graphics, pts: Pt[], width: number, 
 function faceColour(d: Domino): number {
   if (d.kind === "amplifier") return hexColour(L.colours.amplifier);
   if (d.kind === "junction") return hexColour(L.colours.junction);
-  // Damage is red and block is blue; any other cap (a coins cap, until #221 removes it) gets the neutral tint.
-  const kind = d.effect?.kind;
-  return hexColour(kind === "damage" || kind === "block" ? L.colours.cap[kind] : L.colours.cap.other);
+  return hexColour(L.colours.cap[d.effect?.kind ?? "damage"]);
 }
 
 // The intake: the notch ringed in its spark's colour, with the glyph inside. Two sparks split the
