@@ -276,8 +276,8 @@ export async function createHost(options: HostOptions): Promise<Host> {
     apply(m.seat, choice, from);
   }
 
-  // True when the target names a domino every player can see right now: a seat's hand slot, a place
-  // in the chain (a board node). Anything else (a bad shape, the enemy, which has no hand any more) is dropped.
+  // True when the target names something every player can see right now: a seat's hand slot, a board
+  // node, or an open end. Anything else (a bad shape, a capped end) is dropped.
   function visibleTarget(target: unknown): target is PingTarget {
     const battle = run?.battle;
     if (!battle || battle.phase === "over" || !target || typeof target !== "object") return false;
@@ -289,6 +289,7 @@ export async function createHost(options: HostOptions): Promise<Host> {
       return p !== undefined && i < p.hand.length;
     }
     if (t.zone === "chain") return i < battle.board.nodes.length;
+    if (t.zone === "end") return i < battle.board.ends.length && !battle.board.nodes.some((n) => n.end === i);
     return false;
   }
 

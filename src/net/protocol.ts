@@ -5,12 +5,12 @@ import type { GameEvent } from "../engine/events";
 import type { RunChoice, RunEvent } from "../engine/run";
 import type { BattleView, RunView } from "../engine/view";
 
-// A domino a ping points at, named by position so it can only ever name a visible one: a seat's
-// hand slot, a place in this battle's chain, or a revealed slot in the enemy's hand.
+// What a ping points at, named by position so it can only ever name something visible: a seat's
+// hand slot, a domino on the board (its node index), or an open end of the board (its end index).
 export type PingTarget =
   | { zone: "hand"; seat: string; index: number }
   | { zone: "chain"; index: number }
-  | { zone: "enemy"; index: number };
+  | { zone: "end"; index: number };
 
 // client -> host
 export type ClientMessage =
