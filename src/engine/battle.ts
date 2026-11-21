@@ -424,6 +424,53 @@ export function previewPlay(input: PendingInput, playerId: string, dominoId: str
   return { charge: flow.charge, value, triggers, total: value * triggers };
 }
 
+// What the seat after `playerId` could play once `dominoId` has been played. A hand preview for the
+// "next player's highlight": playable lists the domino ids in their hand that would have a legal end;
+// mustPass is true when they would have nothing to play. If the play caps the last open end the chain
+// sets off, so nothing is playable and mustPass is false.
+export interface NextPlayerPreview {
+  player: string;
+  playable: string[];
+  mustPass: boolean;
+}
+
+// With an end (or no end for the opener) it looks at that one play; with end omitted on a non-empty
+// board it is the union over all of the player's legal ends for the domino. Returns null when the
+// domino cannot be played. Works on a state or a view; never changes it.
+export function previewNextPlayer(input: PendingInput & Pick<BattleState, "seatOrder">, playerId: string, dominoId: string, end?: number): NextPlayerPreview | null {
+  const player = input.players.find((p) => p.id === playerId);
+  if (!player || !player.hand.includes(dominoId)) return null;
+  const d = getDomino(input, dominoId);
+  const opener = input.board.nodes.length === 0;
+  let ends: (number | null)[];
+  if (opener) {
+    if (end !== undefined || d.kind === "cap") return null;
+    ends = [null];
+  } else {
+    const legal = legalEnds(input, d, playerId);
+    if (end !== undefined && !legal.includes(end)) return null;
+    ends = end !== undefined ? [end] : legal;
+  }
+  const next = input.seatOrder[(input.seatOrder.indexOf(playerId) + 1) % input.seatOrder.length];
+  const playable = new Set<string>();
+  let sets = false;
+  for (const e of ends) {
+    const board: Board = JSON.parse(JSON.stringify(input.board));
+    addToBoard(board, playerId, d, e, outputsOf(input, playerId, d));
+    const after = { ...input, board, players: JSON.parse(JSON.stringify(input.players)) as PlayerState[] };
+    removeOne(getPlayer(after, playerId).hand, dominoId);
+    if (openEnds(after).length === 0) {
+      sets = true;
+      continue;
+    }
+    for (const id of unique(getPlayer(after, next).hand)) {
+      if (legalEnds(after, getDomino(after, id), next).length > 0) playable.add(id);
+    }
+  }
+  const hand = getPlayer(input, next).hand;
+  return { player: next, playable: unique(hand).filter((id) => playable.has(id)), mustPass: !sets && playable.size === 0 };
+}
+
 // What setting off now would do, in total.
 export interface CascadePreview {
   damage: number; // reaching the enemy's health, after its block
