@@ -45,7 +45,7 @@ There is no lead, no seat order and no pass.
 - Each player has a Ready toggle. While you are Ready you can't place or take back; press it again to stop being Ready.
 - Teammates placing or taking back doesn't change your Ready.
 - **When every player is Ready, the cascade fires.** An empty board can fire: nothing goes off, and the enemy acts.
-- An away player (online, dropped) counts as Ready. After the existing 60-second delay the host can place and take back for them, as with turns in 0.1.
+- An away player (online, dropped) holds up the table for the existing 60-second delay, with "Waiting for [name]" on their seat tab. After that they count as Ready, and the host can place, take back and toggle Ready for them until they return, as with turns in 0.1.
 
 ### Hands and drawing
 - **Hand size = your placements + 2** (the extra is data). At the start of every round, including round 1, each player draws until their hand is at their hand size.

@@ -25,7 +25,7 @@ Planner defaults for the M14 spec, accepted with V1–V10 ("rec"). Say if any sh
 
 - **B1 Milestones:** M14 "The new round" (recommendations 1 and 2) and M15 "Rules-changing content" (recommendation 3). M12 keeps its number; M13 stays on hold.
 - **B2 Integration branch:** M14 PRs target a `v0.2` branch made from `main`, as M9 used `cascade`. `main` and GitHub Pages keep 0.1 playable until `v0.2` is playable end to end, then it merges. `v0.2` may fail typecheck and tests between the engine issues and the screen issues; each PR keeps its own new tests passing and lists the known failures. `main` is merged into `v0.2` as M12 work lands.
-- **B3 Ready:** while you are Ready you can't place or take back. Teammates' plays don't change your Ready. When every player is Ready the cascade fires, even on an empty board. An away player counts as Ready.
+- **B3 Ready:** while you are Ready you can't place or take back. Teammates' plays don't change your Ready. When every player is Ready the cascade fires, even on an empty board. An away player counts as Ready once the existing 60-second delay has passed, so a short drop can't fire the cascade without them.
 - **B4 Taking back:** only your own domino, only while nothing hangs from it. The placement is refunded.
 - **B5 Simultaneous play online:** the host applies choices in arrival order. A choice that is no longer legal is refused with a message to that player only.
 - **B6 The combo total:** the sum of every hit value before enemy block. It is what the combo counter shows and what is compared with the line.
