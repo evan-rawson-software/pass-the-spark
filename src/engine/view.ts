@@ -2,10 +2,10 @@
 
 import type { BattleState } from "./battle";
 import { getOpenEnds, upcomingIntents } from "./battle";
-import type { EnemyState, Intent } from "./battle";
+import type { EnemyState } from "./battle";
 import { getRunWindow } from "./run";
 import type { RunState } from "./run";
-import type { Spark } from "./types";
+import type { Intent, Spark } from "./types";
 import { spyglassRounds } from "./battleCharms";
 
 // An open end of the board. charge is what reaches it; triggers is how many times a cap placed there would go off.
@@ -18,10 +18,10 @@ export interface OpenEndView {
   triggers: number;
 }
 
-// enemy leaves out the intent list, so only Spyglass shows more than this round's intent.
+// enemy leaves out the intent list, the pattern and the rolled queue, so only Spyglass shows more than this round's intent.
 // openEnds and upcomingIntents are for the player the view is for.
 export type BattleView = Omit<BattleState, "rng" | "enemy"> & {
-  enemy: Omit<EnemyState, "intents">;
+  enemy: Omit<EnemyState, "intents" | "pattern" | "queue" | "rolled" | "lastIntent" | "repeats">;
   openEnds: OpenEndView[];
   upcomingIntents: Intent[]; // the intents of the next rounds: empty unless this player holds Spyglass
 };
@@ -33,7 +33,7 @@ export function getView(state: BattleState, playerId: string): BattleView {
   if (!state.players.some((p) => p.id === playerId)) throw new Error("no such player " + playerId);
   const copy: BattleState = JSON.parse(JSON.stringify(state));
   const { rng, enemy, ...rest } = copy;
-  const { intents, ...enemyView } = enemy;
+  const { intents, pattern, queue, rolled, lastIntent, repeats, ...enemyView } = enemy;
   return { ...rest, enemy: enemyView, openEnds: getOpenEnds(copy, playerId), upcomingIntents: upcomingIntents(copy, spyglassRounds(copy, playerId)) };
 }
 

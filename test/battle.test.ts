@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { applyChoice, createBattle, getPendingChoice, previewCascade, previewPlay, step } from "../src/engine/battle";
 import type { BattleState, Choice } from "../src/engine/battle";
 import { getView } from "../src/engine/view";
-import type { Domino } from "../src/engine/types";
+import type { Domino, Enemy } from "../src/engine/types";
 import { loadContent } from "../src/engine/content";
 
 const content = loadContent();
@@ -14,16 +14,28 @@ const echoTide: Domino = { id: "echo_tide", name: "Tide Echo", kind: "amplifier"
 const spectrumGale: Domino = { id: "spectrum_gale", name: "Gale Spectrum", kind: "amplifier", intake: ["Gale"], output: ["Gale"], amp: { op: "spectrum", value: 1 } };
 const dominoes = [...content.dominoes, doubleTide, strike4, echoTide, spectrumGale];
 
-// Three players, Ogre (100 health), the enemy attacks for 12 every round. Hands are set to known dominoes.
-function setup(hands: string[][], attack = 12): BattleState {
+// A test enemy with 100 health that makes one attack of `attack` every round.
+function dummy(attack: number, passives: Enemy["passives"] = []): Enemy {
+  return {
+    id: "dummy",
+    name: "Dummy",
+    tier: "basic",
+    maxHealth: 100,
+    intents: [{ id: "hit", actions: [{ kind: "attack", value: attack }] }],
+    pattern: { type: "cycle", order: ["hit"] },
+    passives,
+  };
+}
+
+// Three players against the dummy, which attacks for 12 every round. Hands are set to known dominoes.
+function setup(hands: string[][], attack = 12, passives: Enemy["passives"] = []): BattleState {
   const state = createBattle({
     config: content.config,
-    content: { dominoes, enemies: content.enemies },
+    content: { dominoes, enemies: [dummy(attack, passives)] },
     players: ["a", "b", "c"].map((id) => ({ id, deck: content.starterDeck })),
     seatOrder: ["a", "b", "c"],
-    enemyId: "ogre",
+    enemyId: "dummy",
     seed: 1,
-    intents: [{ attack: [attack], block: 0 }],
   });
   hands.forEach((hand, i) => (state.players[i].hand = hand));
   return state;
@@ -35,7 +47,7 @@ function play(s: BattleState, domino: string, end?: number): BattleState {
 
 test("worked example: boost, junction, double, guard and strike set off by themselves for 6 block and 16 damage, then the enemy attacks", () => {
   let s = setup([["boost_ember", "guard_gale"], ["junction_ember", "strike4_ember"], ["double_tide"]]);
-  expect(s.intent).toEqual({ attack: [12], block: 0 });
+  expect(s.intent).toEqual({ id: "hit", actions: [{ kind: "attack", value: 12 }] });
 
   s = play(s, "boost_ember"); // a: charge 1 + 1 = 2, open end 0 (Ember)
   s = play(s, "junction_ember", 0); // b: ends 1 (Tide) and 2 (Gale), both at charge 2
@@ -64,7 +76,7 @@ test("worked example: boost, junction, double, guard and strike set off by thems
     { domino: "guard_gale", effect: "block", value: 6, triggers: 1 },
     { domino: "strike4_ember", effect: "damage", value: 16, triggers: 1 },
   ]);
-  expect(events.find((e) => e.type === "enemyAction")).toMatchObject({ intent: { attack: [12] } });
+  expect(events.find((e) => e.type === "enemyAction")).toMatchObject({ intent: { actions: [{ kind: "attack", value: 12 }] } });
   expect(events.filter((e) => e.type === "damage" && e.side === "party")).toEqual([{ type: "damage", side: "party", amount: 6, blocked: 6 }]);
 
   expect(s.enemy.health).toBe(100 - 16);
@@ -128,21 +140,51 @@ test("a full round of passes sets the chain off: uncapped ends fizzle, and with 
   expect(empty.state.round).toBe(3);
 });
 
+test("the Warden's lock blocks an attachment, and the Auditor fires when a cap repeats the spark before it", () => {
+  const passives: Enemy["passives"] = [
+    { kind: "warden", sparks: ["Ember"], name: "Warden" },
+    { kind: "auditor", damage: 7, name: "Auditor" },
+  ];
+  let s = setup([["junction_ember", "guard_gale"], ["junction_tide", "strike_ember"], ["guard_gale"]], 5, passives);
+  expect(s.locked).toBe("Ember");
+  s = play(s, "junction_ember"); // a: ends 0 (Tide) and 1 (Gale)
+  s = play(s, "junction_tide", 0); // b: ends 2 (Gale) and 3 (Ember, locked)
+  s = play(s, "guard_gale", 1); // c: caps the first Gale end
+  s = play(s, "guard_gale", 2); // a: caps the second Gale end
+
+  // b has a cap for the Ember end, but the lock makes it the only open end and it is unusable. b can still set off.
+  expect(getView(s, "b").locked).toBe("Ember");
+  expect(getPendingChoice(s)).toEqual({ player: "b", opener: false, plays: [], canSetOff: true });
+  expect(() => play(s, "strike_ember", 3)).toThrow();
+
+  const last = step(s, { type: "setOff" });
+  // Both guards take the Gale spark. The second repeats the first, so the Auditor hits for 7 and the 3 block from the first guard absorbs part of it.
+  expect(last.events.filter((e) => e.type === "passive" || e.type === "capFired" || (e.type === "damage" && e.side === "party"))).toMatchObject([
+    { type: "capFired", owner: "c" },
+    { type: "capFired", owner: "a" },
+    { type: "passive", passive: "auditor", amount: 7 },
+    { type: "damage", amount: 4, blocked: 3 },
+    { type: "damage", amount: 2, blocked: 3 }, // the enemy's attack of 5 meets the second guard's 3 block
+    { type: "passive", passive: "warden", spark: "Ember" }, // round 2 starts and the lock is chosen again
+  ]);
+  expect(last.state.party.health).toBe(90 - 4 - 2);
+  expect(last.state.locked).toBe("Ember"); // the lock is chosen again for round 2 (the only spark in the list)
+});
+
 test("charms: Keystone adds after a Double's own change, Hall of Mirrors opens a third end, Tide Lens adds to a cap", () => {
   const doubleEmber: Domino = { id: "double_ember", name: "Ember Double", kind: "amplifier", intake: ["Ember"], output: ["Ember"], amp: { op: "mul", value: 2 } };
   let s = createBattle({
     config: content.config,
-    content: { dominoes: [...dominoes, doubleEmber], enemies: content.enemies },
+    content: { dominoes: [...dominoes, doubleEmber], enemies: [dummy(12)] },
     players: [
       { id: "a", deck: content.starterDeck, charms: ["keystone", "hall_of_mirrors"] },
       { id: "b", deck: content.starterDeck, charms: ["tide_lens"] },
       { id: "c", deck: content.starterDeck },
     ],
     seatOrder: ["a", "b", "c"],
-    enemyId: "ogre",
+    enemyId: "dummy",
     seed: 1,
     charms: content.charms,
-    intents: [{ attack: [12], block: 0 }],
   });
   [["double_ember", "junction_ember", "guard_gale"], ["strike_tide"], ["guard_tide"]].forEach((hand, i) => (s.players[i].hand = hand));
 
