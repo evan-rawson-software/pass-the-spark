@@ -2,9 +2,6 @@
 // battles follow the sim rules in docs/decisions.md ("Simulation"); every random pick uses the
 // seeded RNG, so the same seed and player count always give the same run. Tooling, not engine rules.
 
-import { getView } from "../src/engine/view";
-import type { BattleView } from "../src/engine/view";
-import type { Choice } from "../src/engine/battle";
 import { applyRunChoice, createRun, getPendingRunChoices } from "../src/engine/run";
 import type { RunChoice, RunPendingChoice, RunState } from "../src/engine/run";
 import { nextInt } from "../src/engine/rng";
@@ -16,6 +13,8 @@ import { upgradeChoices, wellSparks, wellStage } from "../src/engine/events/wish
 import { loadContent } from "../src/engine/content";
 import { botChoice } from "./bot";
 import { createPlannerBot } from "./planner";
+import { nextSeatChoice } from "./seats";
+import type { BattleBot } from "./seats";
 import type { Domino, Rarity, Spark } from "../src/engine/types";
 
 export const content = loadContent();
@@ -132,17 +131,12 @@ function traderChoice(run: RunState, p: Extract<RunPendingChoice, { type: "trade
   return pick.one(items);
 }
 
-type BattleBot = (view: BattleView, seat: string, rng: number) => { choice: Choice; rng: number };
-
-function choose(run: RunState, p: RunPendingChoice, pick: Picker, bought: Record<string, number>, bot: BattleBot): RunChoice {
+function choose(run: RunState, p: RunPendingChoice, pick: Picker, bought: Record<string, number>): RunChoice {
   switch (p.type) {
     case "vote":
       return { type: "vote", node: pick.one(p.options) };
-    case "battle": {
-      const b = bot(getView(run.battle!, p.player), p.player, pick.state);
-      pick.state = b.rng;
-      return { type: "battle", choice: b.choice };
-    }
+    case "battle":
+      throw new Error("battle choices are made by the seats in turn (playRun)");
     case "reward":
       return { type: "reward", pick: rarest(p.offer, pick).id };
     case "charmReward": {
@@ -170,6 +164,7 @@ export function playRun(playerCount: number, seed: number, maxSteps: number, whi
   const held = new Set<string>();
   let steps = 0;
   let lastPhase = "";
+  let lastSeat = -1; // the seat that acted last in a battle
   while (run.phase !== "over" && steps < maxSteps) {
     const pending = getPendingRunChoices(run);
     if (pending.length === 0) throw new Error(`run stalled (seed ${seed}, ${playerCount} players, phase ${run.phase})`);
@@ -178,7 +173,15 @@ export function playRun(playerCount: number, seed: number, maxSteps: number, whi
       lastPhase = stop;
       bought = {}; // a new stop starts the Trader purchase count again
     }
-    run = applyRunChoice(run, pending[0].player, choose(run, pending[0], pick, bought, bot)).run;
+    if (run.phase === "battle") {
+      // Everyone builds at once: the seats take turns until every seat is Ready.
+      const next = nextSeatChoice(run.battle!, lastSeat, bot, pick.state);
+      lastSeat = next.seat;
+      pick.state = next.rng;
+      run = applyRunChoice(run, next.player, { type: "battle", choice: next.choice }).run;
+    } else {
+      run = applyRunChoice(run, pending[0].player, choose(run, pending[0], pick, bought)).run;
+    }
     steps += 1;
     if (run.phase === "battle" && run.position?.type === "boss" && bossHealth[run.actIndex] === null) bossHealth[run.actIndex] = run.health;
     for (const id of players) for (const c of run.charms[id]) held.add(c);

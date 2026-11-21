@@ -5,16 +5,20 @@
 import type { CapEffectKind, Intent, Spark } from "./types";
 
 export type GameEvent =
-  | { type: "roundStart"; round: number; lead: string }
+  | { type: "roundStart"; round: number }
   | { type: "intent"; intent: Intent } // what the enemy will do after this round's cascade
   | { type: "draw"; player: string; count: number; dominoes: string[] }
   | { type: "reshuffle"; player: string } // the player's discard pile became their deck, mid-draw
-  // node and end index the board; end is null for the opener. charge is the charge after an amplifier or junction,
+  // node and end index the board; end is null for the opener. A play uses one of the owner's placements. charge is the charge after an amplifier or junction,
   // or the charge reaching a cap.
   | { type: "play"; player: string; domino: string; node: number; end: number | null; depth: number; charge: number }
-  | { type: "pass"; player: string }
-  // The chain goes off: by a player's choice, because every end is capped, or because everyone passed in a row.
-  | { type: "setOff"; reason: "capped" | "passes" }
+  // A player took one of their own nodes back: the domino is in their hand again and the placement is refunded.
+  // node is the node's index before it left the board (the later nodes close up by one).
+  | { type: "takeBack"; player: string; domino: string; node: number }
+  // A player set Ready on or off (while Ready they can't place or take back).
+  | { type: "ready"; player: string; ready: boolean }
+  // The chain goes off, because the last player became Ready.
+  | { type: "setOff"; reason: "ready" }
   | { type: "cascadeStep"; depth: number }
   | { type: "nodeLit"; node: number; domino: string; owner: string; charge: number }
   // A cap goes off: value per trigger, then one damage or block event for each trigger.

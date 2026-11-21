@@ -1,36 +1,36 @@
 import { expect, test } from "vitest";
-import { applyChoice, createBattle, getPendingChoice, previewCascade, previewPlay, previewSetOff, step } from "../src/engine/battle";
-import type { BattleState, Choice } from "../src/engine/battle";
+import { applyChoice, createBattle, getPlayerChoices, previewCascade, previewPlay, previewSetOff, step } from "../src/engine/battle";
+import type { BattleState, StepResult } from "../src/engine/battle";
 import { getView } from "../src/engine/view";
 import type { Domino, Enemy } from "../src/engine/types";
 import { loadContent } from "../src/engine/content";
 
 const content = loadContent();
 
-// Test-only dominoes, so the worked example from docs/design-branching-cascade.md can be built exactly.
+// Test-only dominoes for the older cascade scenarios below.
 const doubleTide: Domino = { id: "double_tide", name: "Tide Double", kind: "amplifier", intake: ["Tide"], output: ["Ember"], amp: { op: "mul", value: 2 } };
 const strike4: Domino = { id: "strike4_ember", name: "Ember Strike 4", kind: "cap", intake: ["Ember"], output: [], effect: { kind: "damage", base: 4 } };
 const echoTide: Domino = { id: "echo_tide", name: "Tide Echo", kind: "amplifier", intake: ["Tide"], output: ["Tide"], amp: { op: "echo", value: 1 } };
 const spectrumGale: Domino = { id: "spectrum_gale", name: "Gale Spectrum", kind: "amplifier", intake: ["Gale"], output: ["Gale"], amp: { op: "spectrum", value: 1 } };
 const dominoes = [...content.dominoes, doubleTide, strike4, echoTide, spectrumGale];
 
-// A test enemy with 100 health that makes one attack of `attack` every round.
-function dummy(attack: number, passives: Enemy["passives"] = []): Enemy {
+// A test enemy that makes one attack of `attack` every round.
+function dummy(attack: number, passives: Enemy["passives"] = [], maxHealth = 100): Enemy {
   return {
     id: "dummy",
     name: "Dummy",
     tier: "basic",
-    maxHealth: 100,
+    maxHealth,
     intents: [{ id: "hit", actions: [{ kind: "attack", value: attack }] }],
     pattern: { type: "cycle", order: ["hit"] },
     passives,
   };
 }
 
-// Three players against the dummy, which attacks for 12 every round. Hands are set to known dominoes.
-function setup(hands: string[][], attack = 12, passives: Enemy["passives"] = []): BattleState {
+// Players a, b, c against the dummy, which attacks for 12 every round. Hands are set to known dominoes.
+function setup(hands: string[][], attack = 12, passives: Enemy["passives"] = [], config = content.config): BattleState {
   const state = createBattle({
-    config: { ...content.config, enemyHealthPercentByPartySize: [100, 100, 100, 100] }, // the dummy keeps 100 health
+    config,
     content: { dominoes, enemies: [dummy(attack, passives)] },
     players: ["a", "b", "c"].map((id) => ({ id, deck: content.starterDeck })),
     seatOrder: ["a", "b", "c"],
@@ -41,120 +41,184 @@ function setup(hands: string[][], attack = 12, passives: Enemy["passives"] = [])
   return state;
 }
 
-function play(s: BattleState, domino: string, end?: number): BattleState {
-  return applyChoice(s, { type: "play", domino, end });
+function play(s: BattleState, player: string, domino: string, end?: number): BattleState {
+  return applyChoice(s, { type: "play", player, domino, end });
 }
 
-test("worked example: boost, junction, double, guard and strike set off by themselves for 6 block and 16 damage, then the enemy attacks", () => {
-  let s = setup([["boost_ember", "guard_gale"], ["junction_ember", "strike4_ember"], ["double_tide"]]);
-  expect(s.intent).toEqual({ id: "hit", actions: [{ kind: "attack", value: 12 }] });
+function takeBack(s: BattleState, player: string, node: number): BattleState {
+  return applyChoice(s, { type: "takeBack", player, node });
+}
 
-  s = play(s, "boost_ember"); // a: charge 1 + 1 = 2, open end 0 (Ember)
-  s = play(s, "junction_ember", 0); // b: ends 1 (Tide) and 2 (Gale), both at charge 2
-  expect(getView(s, "a").openEnds).toMatchObject([
-    { end: 1, spark: "Tide", charge: 2 },
-    { end: 2, spark: "Gale", charge: 2 },
+function ready(s: BattleState, player: string, value = true): BattleState {
+  return applyChoice(s, { type: "ready", player, ready: value });
+}
+
+// Every player sets Ready, the first ones in turn; the step of the last one is returned (it fires the cascade).
+function fire(s: BattleState): StepResult {
+  const ids = s.seatOrder;
+  for (const id of ids.slice(0, -1)) s = ready(s, id);
+  return step(s, { type: "ready", player: ids[ids.length - 1], ready: true });
+}
+
+test("worked example (design.md): 4 players build at once in an interleaved order; 110 cap damage, 25 block, the enemy attacks, next round's hands", () => {
+  const ogre = dummy(20, [], 340);
+  const s0 = createBattle({
+    config: content.config,
+    content: { dominoes: content.dominoes, enemies: [ogre] },
+    players: ["ana", "ben", "cy", "dee"].map((id) => ({ id, deck: content.starterDeck })),
+    seatOrder: ["ana", "ben", "cy", "dee"],
+    enemyId: "dummy",
+    seed: 3,
+  });
+  expect(s0.players.map((p) => [p.placements, p.hand.length])).toEqual([[3, 5], [3, 5], [3, 5], [3, 5]]); // 12 placements split 3 each; hand size 3 + 2
+  const hands = [
+    ["boost_gale_ember", "boost_ember", "strike_ember", "boost_tide", "guard_tide"], // ana
+    ["boost_ember_tide", "boost_tide", "strike_tide", "guard_tide", "strike_gale"], // ben
+    ["boost_tide_gale", "junction_ember", "guard_gale", "boost_ember", "strike_tide"], // cy
+    ["junction_gale", "junction_tide", "strike_gale", "junction_ember", "boost_ember_tide"], // dee
+  ];
+  hands.forEach((hand, i) => (s0.players[i].hand = hand));
+  const nextDraws = s0.players.map((p) => p.deck.slice(0, 3));
+
+  // The build, interleaved across the players.
+  let s = play(s0, "ana", "boost_gale_ember"); // the opener: charge 2, Ember out (end 0)
+  s = play(s, "ben", "boost_ember_tide", 0); // 3, Tide (end 1)
+  s = play(s, "cy", "boost_tide_gale", 1); // 4, Gale (end 2)
+  s = play(s, "dee", "junction_gale", 2); // Ember (end 3) and Tide (end 4), both at 4
+  s = play(s, "ben", "boost_tide", 4); // 5, Tide (end 5)
+  s = play(s, "ana", "boost_ember", 3); // 5, Ember (end 6)
+  s = play(s, "dee", "junction_tide", 5); // Gale (end 7) and Ember (end 8) at 5
+  s = play(s, "cy", "junction_ember", 6); // Tide (end 9) and Gale (end 10) at 5
+  expect(getView(s, "ana").openEnds.map((e) => [e.end, e.spark, e.charge])).toEqual([[7, "Gale", 5], [8, "Ember", 5], [9, "Tide", 5], [10, "Gale", 5]]);
+  expect(previewPlay(s, "ben", "strike_tide", 9)).toMatchObject({ value: 35 });
+  s = play(s, "ben", "strike_tide", 9);
+  s = play(s, "dee", "strike_gale", 7);
+  s = play(s, "cy", "guard_gale", 10);
+  expect(previewCascade(s)).toEqual({ damage: 70, block: 25 }); // the Ember strike is not on yet
+  s = play(s, "ana", "strike_ember", 8);
+
+  expect(s.board.nodes.map((n) => [n.owner, n.domino, n.end, n.depth])).toEqual([
+    ["ana", "boost_gale_ember", null, 0], ["ben", "boost_ember_tide", 0, 1], ["cy", "boost_tide_gale", 1, 2], ["dee", "junction_gale", 2, 3],
+    ["ben", "boost_tide", 4, 4], ["ana", "boost_ember", 3, 4], ["dee", "junction_tide", 5, 5], ["cy", "junction_ember", 6, 5],
+    ["ben", "strike_tide", 9, 6], ["dee", "strike_gale", 7, 6], ["cy", "guard_gale", 10, 6], ["ana", "strike_ember", 8, 6],
   ]);
-  expect(previewPlay(s, "c", "double_tide", 1)).toMatchObject({ charge: 4 });
-  s = play(s, "double_tide", 1); // c: Tide branch now at 4, open end 3 (Ember)
-  expect(previewPlay(s, "a", "guard_gale", 2)).toMatchObject({ value: 6, triggers: 1 });
-  s = play(s, "guard_gale", 2); // a caps the Gale branch
-  expect(previewPlay(s, "b", "strike4_ember", 3)).toMatchObject({ value: 16, total: 16 });
-  expect(previewCascade(s)).toEqual({ damage: 0, block: 6 }); // the strike is not on the board yet
+  expect(getView(s, "ana").openEnds).toEqual([]); // placing the last cap fires nothing
+  expect(s.round).toBe(1);
+  expect(s.players.map((p) => getPlayerChoices(s, p.id)!.placementsLeft)).toEqual([0, 0, 0, 0]);
+  expect(s.players.map((p) => p.hand.length)).toEqual([2, 2, 2, 2]);
 
-  const last = step(s, { type: "play", domino: "strike4_ember", end: 3 }); // b: every end is capped
+  // Everyone presses Ready; the last one fires it.
+  s = ready(ready(ready(s, "dee"), "ana"), "cy");
+  expect(s.round).toBe(1);
+  const last = step(s, { type: "ready", player: "ben", ready: true });
   s = last.state;
-  const events = last.events;
-
-  expect(events.map((e) => e.type).slice(0, 2)).toEqual(["play", "setOff"]);
-  expect(events[1]).toMatchObject({ type: "setOff", reason: "capped" });
-  // Steps by depth: boost (0), junction (1), double and guard (2, in creation order), strike (3).
-  expect(events.filter((e) => e.type === "cascadeStep" || e.type === "nodeLit").map((e) => (e.type === "cascadeStep" ? "step" + e.depth : (e as { domino: string }).domino))).toEqual([
-    "step0", "boost_ember", "step1", "junction_ember", "step2", "double_tide", "guard_gale", "step3", "strike4_ember",
+  expect(last.events.map((e) => e.type).slice(0, 2)).toEqual(["ready", "setOff"]);
+  expect(last.events.filter((e) => e.type === "capFired")).toMatchObject([
+    { domino: "strike_tide", value: 35 }, { domino: "strike_gale", value: 35 }, { domino: "guard_gale", effect: "block", value: 25 }, { domino: "strike_ember", value: 40 },
   ]);
-  expect(events.filter((e) => e.type === "capFired")).toMatchObject([
-    { domino: "guard_gale", effect: "block", value: 6, triggers: 1 },
-    { domino: "strike4_ember", effect: "damage", value: 16, triggers: 1 },
-  ]);
-  expect(events.find((e) => e.type === "enemyAction")).toMatchObject({ intent: { actions: [{ kind: "attack", value: 12 }] } });
-  expect(events.filter((e) => e.type === "damage" && e.side === "party")).toEqual([{ type: "damage", side: "party", amount: 6, blocked: 6 }]);
-
-  expect(s.enemy.health).toBe(100 - 16);
-  expect(s.party.health).toBe(90 - 6);
+  expect(last.events.find((e) => e.type === "enemyAction")).toMatchObject({ intent: { actions: [{ kind: "attack", value: 20 }] } }); // not staggered: only caps hit in this issue
+  expect(last.events.filter((e) => e.type === "damage" && e.side === "party")).toEqual([{ type: "damage", side: "party", amount: 0, blocked: 20 }]);
+  expect(s.enemy.health).toBe(340 - 110);
+  expect(s.party.health).toBe(90);
   expect(s.party.block).toBe(0);
+
+  // The next round: an empty board, nobody Ready, the board's dominoes in the discards, hands refilled to 5.
   expect(s.round).toBe(2);
-  expect(s.lead).toBe("b"); // the lead moved on one seat
   expect(s.board.nodes).toEqual([]);
-  expect(s.players[0].discard).toEqual(expect.arrayContaining(["boost_ember", "guard_gale"])); // the board went to the owners' discards
+  expect(s.players.map((p) => p.ready)).toEqual([false, false, false, false]);
+  expect(s.players.map((p) => p.discard)).toEqual([
+    ["boost_gale_ember", "boost_ember", "strike_ember"], ["boost_ember_tide", "boost_tide", "strike_tide"],
+    ["boost_tide_gale", "junction_ember", "guard_gale"], ["junction_gale", "junction_tide", "strike_gale"],
+  ].map((d) => expect.arrayContaining(d)));
+  expect(s.players.map((p) => p.hand)).toEqual(hands.map((h, i) => [...h.slice(3), ...nextDraws[i]]));
+  expect(s.players.map((p) => getPlayerChoices(s, p.id)!.placementsLeft)).toEqual([3, 3, 3, 3]);
+});
+
+test("take-backs refund the placement; refused for a node with a child, a teammate's node and while Ready; placing is refused past the budget", () => {
+  // 3 placements for the party: 1 each.
+  let s = setup([["boost_ember", "strike_ember"], ["junction_ember", "strike_tide"], ["guard_gale"]], 12, [], { ...content.config, partyPlacements: 3 });
+  expect(s.players.map((p) => p.placements)).toEqual([1, 1, 1]);
+
+  s = play(s, "a", "boost_ember"); // the opener
+  expect(() => play(s, "a", "strike_ember", 0)).toThrow(/no placements/); // the budget is spent
+  // With no placements left, a can still take back while not Ready.
+  expect(getPlayerChoices(s, "a")).toMatchObject({ placementsLeft: 0, plays: [], takeBacks: [0], ready: false });
+
+  s = play(s, "b", "junction_ember", 0);
+  expect(getPlayerChoices(s, "a")!.takeBacks).toEqual([]); // the opener has a child now
+  expect(() => takeBack(s, "a", 0)).toThrow(); // a node with a child
+  expect(() => takeBack(s, "c", 1)).toThrow(); // a teammate's node
+  expect(() => takeBack(s, "a", 1)).toThrow();
+  expect(() => takeBack(s, "a", 9)).toThrow(); // no such node
+
+  s = ready(s, "b");
+  expect(() => ready(s, "b")).toThrow(); // Ready when already Ready is an error, not a no-op
+  expect(() => takeBack(s, "b", 1)).toThrow(/Ready/);
+  expect(() => play(s, "b", "strike_tide", 1)).toThrow(/Ready/);
+  expect(getPlayerChoices(s, "b")).toMatchObject({ ready: true, plays: [], takeBacks: [] });
+  expect(() => ready(s, "c", false)).toThrow(); // not Ready: nothing to switch off
+  s = ready(s, "b", false);
+
+  // b takes back the junction: it returns to b's hand, the placement is refunded, and a's opener is free again.
+  const back = step(s, { type: "takeBack", player: "b", node: 1 });
+  s = back.state;
+  expect(back.events).toEqual([{ type: "takeBack", player: "b", domino: "junction_ember", node: 1 }]);
+  expect(s.players[1].hand).toContain("junction_ember");
+  expect(getPlayerChoices(s, "b")).toMatchObject({ placementsLeft: 1, takeBacks: [] });
+  expect(s.board.ends).toHaveLength(1);
+  expect(getPlayerChoices(s, "a")!.takeBacks).toEqual([0]);
+
+  // The opener goes the same way; the board is empty and the next placement is an opener again.
+  s = takeBack(s, "a", 0);
+  expect(s.board).toEqual({ nodes: [], ends: [] });
+  expect(getPlayerChoices(s, "a")).toMatchObject({ opener: true, placementsLeft: 1 });
+  s = play(s, "b", "junction_ember");
+  expect(s.board.nodes).toMatchObject([{ owner: "b", domino: "junction_ember", end: null, depth: 0 }]);
 });
 
 test("echo and spectrum on a branching tree: echo doubles the caps further along its path, spectrum counts the sparks on its path", () => {
   let s = setup([["boost_ember", "spectrum_gale"], ["junction_ember", "strike_tide"], ["echo_tide", "guard_gale"]], 8);
-  s = play(s, "boost_ember"); // a: charge 2
-  s = play(s, "junction_ember", 0); // b: end 1 Tide, end 2 Gale, both charge 2
-  s = play(s, "echo_tide", 1); // c: charge 2, caps further on go off twice; open end 3 (Tide)
+  s = play(s, "a", "boost_ember"); // charge 2
+  s = play(s, "b", "junction_ember", 0); // end 1 Tide, end 2 Gale, both charge 2
+  s = play(s, "c", "echo_tide", 1); // charge 2, caps further on go off twice; open end 3 (Tide)
   expect(getView(s, "a").openEnds).toMatchObject([
     { end: 2, spark: "Gale", charge: 2, triggers: 1 },
     { end: 3, spark: "Tide", charge: 2, triggers: 2 },
   ]);
   // Spectrum on the Gale end: the path's sparks are Ember (the junction) and Gale (itself), so 2 + 2.
   expect(previewPlay(s, "a", "spectrum_gale", 2)).toMatchObject({ charge: 4 });
-  s = play(s, "spectrum_gale", 2); // a: open end 4 (Gale) at charge 4
+  s = play(s, "a", "spectrum_gale", 2); // open end 4 (Gale) at charge 4
   expect(getView(s, "b").openEnds.map((e) => [e.end, e.charge])).toEqual([[3, 2], [4, 4]]);
   expect(previewPlay(s, "b", "strike_tide", 3)).toMatchObject({ value: 14, triggers: 2, total: 28 });
-  s = play(s, "strike_tide", 3); // b: 7 x 2 = 14, twice
+  s = play(s, "b", "strike_tide", 3); // 7 x 2 = 14, twice
   expect(previewCascade(s)).toEqual({ damage: 28, block: 0 });
-  s = play(s, "guard_gale", 4); // c: 3 x 4 = 12 block; every end is capped
+  s = play(s, "c", "guard_gale", 4); // 5 x 4 = 20 block
+  s = fire(s).state;
 
   expect(s.enemy.health).toBe(100 - 28);
-  expect(s.party.health).toBe(90); // the 12 block absorbed the whole attack of 8
+  expect(s.party.health).toBe(90); // the 20 block absorbed the whole attack of 8
   expect(s.round).toBe(2);
 });
 
-test("a full round of passes sets the chain off: uncapped ends fizzle, and with no cap nothing fires", () => {
+test("Ready fires uncapped ends as fizzles, and an empty board can fire: nothing goes off and the enemy still acts", () => {
   let s = setup([["boost_ember"], ["junction_ember"], ["strike_tide"]], 8);
-  s = play(s, "boost_ember");
-  s = play(s, "junction_ember", 0); // ends 1 (Tide) and 2 (Gale)
-  s = play(s, "strike_tide", 1); // the Gale end stays open
-  expect(getPendingChoice(s)).toMatchObject({ player: "a" });
+  s = play(s, "a", "boost_ember");
+  s = play(s, "b", "junction_ember", 0); // ends 1 (Tide) and 2 (Gale)
+  s = play(s, "c", "strike_tide", 1); // the Gale end stays open
 
-  const pass: Choice = { type: "pass" };
-  s = applyChoice(s, pass);
-  s = applyChoice(s, pass);
-  const last = step(s, pass);
-  s = last.state;
-  expect(last.events.find((e) => e.type === "setOff")).toMatchObject({ reason: "passes" });
-  expect(last.events.filter((e) => e.type === "fizzle")).toEqual([{ type: "fizzle", end: 2, spark: "Gale", charge: 2 }]);
+  const first = fire(s);
+  s = first.state;
+  expect(first.events.find((e) => e.type === "setOff")).toMatchObject({ reason: "ready" });
+  expect(first.events.filter((e) => e.type === "fizzle")).toEqual([{ type: "fizzle", end: 2, spark: "Gale", charge: 2 }]);
   expect(s.enemy.health).toBe(100 - 14); // 7 x charge 2
   expect(s.party.health).toBe(90 - 8);
   expect(s.round).toBe(2);
 
-  // Round 2: everyone passes with an empty board. Nothing fires, and the enemy still acts.
-  s = applyChoice(s, pass);
-  s = applyChoice(s, pass);
-  const empty = step(s, pass);
+  const empty = fire(s);
   expect(empty.events.some((e) => e.type === "capFired" || e.type === "nodeLit" || e.type === "fizzle")).toBe(false);
   expect(empty.state.enemy.health).toBe(100 - 14);
   expect(empty.state.party.health).toBe(90 - 16);
   expect(empty.state.round).toBe(3);
-});
-
-test("three players: two passes do not fire the cascade and the third does (passFires says so); a setOff choice is rejected", () => {
-  let s = setup([["boost_ember"], ["strike_tide"], ["guard_gale"]]);
-  s = play(s, "boost_ember"); // a: open end 0 (Ember)
-  expect(() => step(s, { type: "setOff" } as unknown as Choice)).toThrow(); // there is no manual set off
-  expect(getView(s, "b").passFires).toBe(false);
-
-  s = applyChoice(s, { type: "pass" }); // b
-  expect(getView(s, "c").passFires).toBe(false);
-  s = applyChoice(s, { type: "pass" }); // c
-  expect(s.round).toBe(1);
-  expect(getView(s, "a").passFires).toBe(true); // a's pass would be the third in a row
-
-  const last = step(s, { type: "pass" });
-  expect(last.events.find((e) => e.type === "setOff")).toEqual({ type: "setOff", reason: "passes" });
-  expect(last.state.round).toBe(2);
-  expect(getView(last.state, "a").passFires).toBe(false);
 });
 
 test("the Warden's lock blocks an attachment, and the Auditor fires when a cap repeats the spark before it", () => {
@@ -164,36 +228,34 @@ test("the Warden's lock blocks an attachment, and the Auditor fires when a cap r
   ];
   let s = setup([["junction_ember", "guard_gale"], ["junction_tide", "strike_ember"], ["guard_gale"]], 5, passives);
   expect(s.locked).toBe("Ember");
-  s = play(s, "junction_ember"); // a: ends 0 (Tide) and 1 (Gale)
-  s = play(s, "junction_tide", 0); // b: ends 2 (Gale) and 3 (Ember, locked)
-  s = play(s, "guard_gale", 1); // c: caps the first Gale end
-  s = play(s, "guard_gale", 2); // a: caps the second Gale end
+  s = play(s, "a", "junction_ember"); // ends 0 (Tide) and 1 (Gale)
+  s = play(s, "b", "junction_tide", 0); // ends 2 (Gale) and 3 (Ember, locked)
+  s = play(s, "c", "guard_gale", 1); // caps the first Gale end
+  s = play(s, "a", "guard_gale", 2); // caps the second Gale end
 
-  // b has a cap for the Ember end, but the lock makes it the only open end and it is unusable. b can only pass.
+  // b has a cap for the Ember end, but the lock makes it the only open end and it is unusable.
   expect(getView(s, "b").locked).toBe("Ember");
-  expect(getPendingChoice(s)).toEqual({ player: "b", opener: false, plays: [] });
-  expect(() => play(s, "strike_ember", 3)).toThrow();
+  expect(getPlayerChoices(s, "b")).toMatchObject({ opener: false, plays: [] });
+  expect(() => play(s, "b", "strike_ember", 3)).toThrow();
 
-  s = applyChoice(s, { type: "pass" }); // b
-  s = applyChoice(s, { type: "pass" }); // c
-  const last = step(s, { type: "pass" }); // a: the round of passes sets the chain off
-  // Both guards take the Gale spark. The second repeats the first, so the Auditor hits for 7 and the 3 block from the first guard absorbs part of it.
+  const last = fire(s);
+  // Both guards take the Gale spark. The second repeats the first, so the Auditor hits for 7 and the 5 block from the first guard absorbs part of it.
   expect(last.events.filter((e) => e.type === "passive" || e.type === "capFired" || (e.type === "damage" && e.side === "party"))).toMatchObject([
     { type: "capFired", owner: "c" },
     { type: "capFired", owner: "a" },
     { type: "passive", passive: "auditor", amount: 7 },
-    { type: "damage", amount: 4, blocked: 3 },
-    { type: "damage", amount: 2, blocked: 3 }, // the enemy's attack of 5 meets the second guard's 3 block
+    { type: "damage", amount: 2, blocked: 5 },
+    { type: "damage", amount: 0, blocked: 5 }, // the enemy's attack of 5 meets the second guard's 5 block
     { type: "passive", passive: "warden", spark: "Ember" }, // round 2 starts and the lock is chosen again
   ]);
-  expect(last.state.party.health).toBe(90 - 4 - 2);
+  expect(last.state.party.health).toBe(90 - 2);
   expect(last.state.locked).toBe("Ember"); // the lock is chosen again for round 2 (the only spark in the list)
 });
 
 test("charms: Keystone adds after a Double's own change, Hall of Mirrors opens a third end, Tide Lens adds to a cap", () => {
   const doubleEmber: Domino = { id: "double_ember", name: "Ember Double", kind: "amplifier", intake: ["Ember"], output: ["Ember"], amp: { op: "mul", value: 2 } };
   let s = createBattle({
-    config: { ...content.config, enemyHealthPercentByPartySize: [100, 100, 100, 100] },
+    config: content.config,
     content: { dominoes: [...dominoes, doubleEmber], enemies: [dummy(12)] },
     players: [
       { id: "a", deck: content.starterDeck, charms: ["keystone", "hall_of_mirrors"] },
@@ -207,10 +269,9 @@ test("charms: Keystone adds after a Double's own change, Hall of Mirrors opens a
   });
   [["double_ember", "junction_ember", "guard_gale"], ["strike_tide"], ["guard_tide"]].forEach((hand, i) => (s.players[i].hand = hand));
 
-  s = play(s, "double_ember"); // 1 x 2 = 2, then Keystone +1 = 3
+  s = play(s, "a", "double_ember"); // 1 x 2 = 2, then Keystone +1 = 3
   expect(getView(s, "b").openEnds).toMatchObject([{ end: 0, spark: "Ember", charge: 3 }]);
-  s = applyChoice(applyChoice(s, { type: "pass" }), { type: "pass" });
-  const junction = step(s, { type: "play", domino: "junction_ember", end: 0 }); // Hall of Mirrors: Tide, Gale and a second Tide
+  const junction = step(s, { type: "play", player: "a", domino: "junction_ember", end: 0 }); // Hall of Mirrors: Tide, Gale and a second Tide
   s = junction.state;
   expect(junction.events.map((e) => e.type)).toEqual(["play", "charm"]);
   expect(getView(s, "b").openEnds).toMatchObject([
@@ -219,14 +280,32 @@ test("charms: Keystone adds after a Double's own change, Hall of Mirrors opens a
     { end: 3, spark: "Tide", charge: 3 },
   ]);
   expect(previewPlay(s, "b", "strike_tide", 1)).toMatchObject({ value: 23, total: 23 }); // 7 x 3 + 2 from Tide Lens
-  s = play(s, "strike_tide", 1);
-  s = play(s, "guard_tide", 3);
-  const last = step(s, { type: "play", domino: "guard_gale", end: 2 });
+  s = play(s, "b", "strike_tide", 1);
+  s = play(s, "c", "guard_tide", 3);
+  s = play(s, "a", "guard_gale", 2);
+  const last = fire(s);
 
   const charms = last.events.filter((e) => e.type === "charm").map((e) => (e as { player: string; charm: string }).player + ":" + (e as { charm: string }).charm);
   expect(charms).toEqual(["a:keystone", "b:tide_lens"]);
   expect(last.state.enemy.health).toBe(100 - 23);
-  expect(last.state.party.health).toBe(90); // 27 block absorbed the attack of 12
+  expect(last.state.party.health).toBe(90); // 30 block absorbed the attack of 12
+});
+
+test("hand size is placements + 2, plus Early Riser +1 and Deep Pockets +2 (no charm adds placements)", () => {
+  const s = createBattle({
+    config: content.config,
+    content: { dominoes, enemies: [dummy(12)] },
+    players: [
+      { id: "a", deck: content.starterDeck, charms: ["early_riser", "deep_pockets"] },
+      { id: "b", deck: content.starterDeck, charms: ["early_riser"] },
+      { id: "c", deck: content.starterDeck },
+    ],
+    seatOrder: ["a", "b", "c"],
+    enemyId: "dummy",
+    seed: 1,
+    charms: content.charms,
+  });
+  expect(s.players.map((p) => [p.placements, p.hand.length])).toEqual([[4, 9], [4, 7], [4, 6]]);
 });
 
 test("at party size 2, enemy health and each attack hit use the 2-player table entries, after growth, rounded up", () => {
@@ -236,7 +315,7 @@ test("at party size 2, enemy health and each attack hit use the 2-player table e
   const s = createBattle({ config, content: { dominoes, enemies: [smolder] }, players: ["a", "b"].map((id) => ({ id, deck: content.starterDeck })), seatOrder: ["a", "b"], enemyId: "dummy", seed: 1 });
   expect(s.enemy.health).toBe(150);
   expect(getView(s, "a").intent.actions).toEqual([{ kind: "attack", value: 13, hits: 2 }]); // ceil(10 x 1.25)
-  const last = step(applyChoice(s, { type: "pass" }), { type: "pass" }); // two passes in a row set off a 2-player board
+  const last = fire(s); // both Ready on an empty board
   expect(last.events.filter((e) => e.type === "damage" && e.side === "party")).toHaveLength(2); // each hit scaled, not the total
   expect(last.state.party.health).toBe(90 - 26);
   expect(getView(last.state, "a").intent.actions).toEqual([{ kind: "attack", value: 15, hits: 2 }]); // round 2: ceil(12 x 1.25) after growth
@@ -258,10 +337,10 @@ test("the set-off preview, for a hover or the board as it stands, matches what s
     });
     [["boost_ember", "guard_gale"], ["junction_ember", "strike4_ember"], ["double_tide"]].forEach((hand, i) => (s.players[i].hand = hand));
     s.enemy.health = enemyHealth;
-    s = play(s, "boost_ember");
-    s = play(s, "junction_ember", 0);
-    s = play(s, "double_tide", 1);
-    return play(s, "guard_gale", 2); // b is next, holding the strike
+    s = play(s, "a", "boost_ember");
+    s = play(s, "b", "junction_ember", 0);
+    s = play(s, "c", "double_tide", 1);
+    return play(s, "a", "guard_gale", 2); // b holds the strike
   };
 
   for (const enemyHealth of [100, 5]) {
@@ -271,18 +350,18 @@ test("the set-off preview, for a hover or the board as it stands, matches what s
     const hover = previewSetOff(view, { player: "b", domino: "strike4_ember", end: 3 });
     const now = previewSetOff(view);
     expect(JSON.stringify(s)).toBe(before); // nothing advanced: board, intent queue and rng are as they were
-    expect(now).toMatchObject({ canSetOff: true, damage: 0, partyBlockGain: 6 }); // the strike is not on the board yet
+    expect(now).toMatchObject({ canSetOff: true, damage: 0, partyBlockGain: 10 }); // the strike is not on the board yet
     expect(previewSetOff(view, { player: "b", domino: "strike4_ember", end: 0 })).toBeNull(); // not a legal end
 
-    const { state, events } = step(s, { type: "play", domino: "strike4_ember", end: 3 });
+    const { state, events } = fire(play(s, "b", "strike4_ember", 3));
     const dealt = events.filter((e) => e.type === "damage" && e.side === "enemy") as { amount: number; blocked: number }[];
     expect(hover?.damage).toBe(Math.min(dealt.reduce((n, e) => n + e.amount, 0), enemyHealth)); // the last hit can overkill
     expect(hover?.enemyBlockUsed).toBe(dealt.reduce((n, e) => n + e.blocked, 0));
     expect(hover?.partyHealth).toBe(state.party.health);
     expect(hover?.lethal).toBe(state.result === "won");
     if (enemyHealth === 100) {
-      // Hoarder: 5 dominoes x 2 = 10 block, used up first (16 - 10 = 6 gets through). Long Night: 2 caps, so 3 hits of 7 against 6 block.
-      expect(hover).toMatchObject({ damage: 6, enemyBlockUsed: 10, enemyBlock: 0, enemyHealth: 94, lethal: false, partyBlockGain: 6, partyDamage: 15, partyHealth: 75 });
+      // Hoarder: 5 dominoes x 2 = 10 block, used up first (16 - 10 = 6 gets through). Long Night: 2 caps, so 3 hits of 7 against 10 block.
+      expect(hover).toMatchObject({ damage: 6, enemyBlockUsed: 10, enemyBlock: 0, enemyHealth: 94, lethal: false, partyBlockGain: 10, partyDamage: 11, partyHealth: 79 });
     } else {
       expect(hover).toMatchObject({ lethal: true, enemyHealth: 0, partyDamage: 0, partyHealth: 90 });
       expect(events.some((e) => e.type === "enemyAction")).toBe(false);

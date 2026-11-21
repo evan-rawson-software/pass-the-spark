@@ -6,23 +6,21 @@
 // Columns:
 //   win      share of battles won
 //   rounds   average rounds per battle
-//   pass     share of player turns that were a pass
-//   >1 opt   share of player turns with more than one distinct legal choice. A choice is a play
-//            (one domino on one end; the opener has no end), or pass. Pass is always legal, so
-//            this is the share of turns where something besides passing was possible.
-//   >1 play  share of player turns with more than one distinct play (domino x end), the closer
-//            comparison with the old "more than one option" figure (about 30% of answer decisions in #123)
-//   opts     average distinct legal choices per player turn (plays + pass)
-//   plays    average distinct plays (domino x end) per player turn
+//   >1 opt   share of seat turns with more than one distinct legal choice. A choice is a play
+//            (one domino on one end; the opener has no end), or Ready. Ready is always legal for a seat
+//            that is not Ready, so this is the share of turns where something besides Ready was possible.
+//   >1 play  share of seat turns with more than one distinct play (domino x end)
+//   opts     average distinct legal choices per seat turn (plays + Ready)
+//   plays    average distinct plays (domino x end) per seat turn
 //   board    average dominoes on the board per cascade
 //   junc     average junctions (branch points) per cascade
 //   caps     average caps per cascade
 //   fizz     average ends left uncapped (fizzled) per cascade
 //   dmg      average damage reaching the enemy's health per cascade (after its block)
 //
-// After each table: the spread of damage per cascade (0 / 1-5 / 6-10 / 11+), damage caps against block
-// caps that went off, and how cascades started (every end capped / everyone passed); then the spread
-// of damage as a share of the enemy's health at the start of the fight.
+// After each table: the spread of damage per cascade (0 / 1-5 / 6-10 / 11+) and damage caps against block
+// caps that went off; then the spread of damage as a share of the enemy's health at the start of the fight.
+// At the end: dominoes per cascade by party size.
 // The same arguments give the same output.
 
 import { enemies, playRandomBattle } from "./randomPlay";
@@ -56,7 +54,6 @@ interface Totals {
   wins: number;
   rounds: number;
   turns: number;
-  passes: number;
   withChoice: number;
   withPlays: number;
   choices: number;
@@ -71,18 +68,16 @@ interface Totals {
   shares: number[]; // cascades dealing SHARE_LABELS of the enemy's health
   damageCaps: number;
   blockCaps: number;
-  ended: Record<string, number>;
 }
 const empty = (): Totals => ({
-  wins: 0, rounds: 0, turns: 0, passes: 0, withChoice: 0, withPlays: 0, choices: 0, playOptions: 0, cascades: 0, nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0,
-  buckets: [0, 0, 0, 0], shares: [0, 0, 0, 0, 0], damageCaps: 0, blockCaps: 0, ended: { capped: 0, passes: 0 },
+  wins: 0, rounds: 0, turns: 0, withChoice: 0, withPlays: 0, choices: 0, playOptions: 0, cascades: 0, nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0,
+  buckets: [0, 0, 0, 0], shares: [0, 0, 0, 0, 0], damageCaps: 0, blockCaps: 0,
 });
 
 function add(t: Totals, r: Omit<BattleStats, "final">): void {
   if (r.result === "won") t.wins += 1;
   t.rounds += r.rounds;
   t.turns += r.turns;
-  t.passes += r.passes;
   t.withChoice += r.turnsWithChoice;
   t.withPlays += r.turnsWithPlays;
   t.choices += r.choices;
@@ -99,7 +94,6 @@ function add(t: Totals, r: Omit<BattleStats, "final">): void {
     t.shares[SHARE_LIMITS.filter((limit) => share >= limit).length] += 1;
     t.damageCaps += c.damageCaps;
     t.blockCaps += c.blockCaps;
-    t.ended[c.ended] += 1;
   }
 }
 
@@ -108,12 +102,12 @@ const num = (n: number, d: number, places = 2) => (d === 0 ? "-" : (n / d).toFix
 
 function cells(t: Totals): string[] {
   return [
-    pct(t.wins, battles), num(t.rounds, battles, 1), pct(t.passes, t.turns), pct(t.withChoice, t.turns), pct(t.withPlays, t.turns), num(t.choices, t.turns), num(t.playOptions, t.turns),
+    pct(t.wins, battles), num(t.rounds, battles, 1), pct(t.withChoice, t.turns), pct(t.withPlays, t.turns), num(t.choices, t.turns), num(t.playOptions, t.turns),
     num(t.nodes, t.cascades), num(t.junctions, t.cascades), num(t.caps, t.cascades), num(t.fizzled, t.cascades), num(t.damage, t.cascades, 1),
   ];
 }
 
-const header = ["win", "rounds", "pass", ">1 opt", ">1 play", "opts", "plays", "board", "junc", "caps", "fizz", "dmg"];
+const header = ["win", "rounds", ">1 opt", ">1 play", "opts", "plays", "board", "junc", "caps", "fizz", "dmg"];
 const widths = header.map((h) => Math.max(h.length, 7));
 const row = (label: string, who: string, values: string[]) =>
   label.padEnd(24) + who.padEnd(8) + values.map((v, i) => v.padStart(widths[i] + 1)).join("");
@@ -143,10 +137,7 @@ async function main(): Promise<void> {
     players.forEach((player, i) => {
       const x = t[player];
       const b = x.buckets.map((n) => pct(n, x.cascades).padStart(6));
-      const e = [x.ended.capped, x.ended.passes].map((n) => pct(n, x.cascades).padStart(6));
-      console.log(
-        (i === 0 ? label : "").padEnd(10) + player.padEnd(8) + b.join(" ") + " |" + String(x.damageCaps).padStart(8) + String(x.blockCaps).padStart(8) + " |" + e.join(" "),
-      );
+      console.log((i === 0 ? label : "").padEnd(10) + player.padEnd(8) + b.join(" ") + " |" + String(x.damageCaps).padStart(8) + String(x.blockCaps).padStart(8));
     });
   };
 
@@ -158,13 +149,14 @@ async function main(): Promise<void> {
   };
 
   const sizes = [2, 3, 4];
+  const perSize = new Map<number, Per>();
   const jobs: Job[] = [];
   for (const partySize of sizes) for (const enemy of enemies) for (const player of players) jobs.push({ enemy: enemy.id, partySize, player, seed: baseSeed, count: battles });
   const done = await runJobs(jobs, args.workers, work);
 
   console.log(`${battles} battles per enemy and party size, base seed ${baseSeed}`);
-  console.log("opts/plays count distinct legal choices per player turn; see the column notes at the top of scripts/sim.ts.");
-  console.log("'>1 opt' counts pass as a choice; '>1 play' counts only plays (domino x end). 'pass' is the share of turns that were a pass.");
+  console.log("opts/plays count distinct legal choices per seat turn; see the column notes at the top of scripts/sim.ts.");
+  console.log("'>1 opt' counts Ready as a choice; '>1 play' counts only plays (domino x end).");
   console.log("Board, junc, caps, fizz and dmg are per cascade, averaged over all cascades of the battles.");
 
   for (const partySize of sizes) {
@@ -194,10 +186,8 @@ async function main(): Promise<void> {
     group("all", all, enemies.length);
 
     console.log("");
-    console.log(`HOW CASCADES WENT (${partySize} players): share of cascades by damage dealt | caps that went off | how the cascade started`);
-    console.log(
-      "".padEnd(18) + ["0", "1-5", "6-10", "11+"].map((h) => h.padStart(6)).join(" ") + " |" + "dmg caps".padStart(8) + "blk caps".padStart(8) + " |" + ["capped", "passes"].map((h) => h.padStart(6)).join(" "),
-    );
+    console.log(`HOW CASCADES WENT (${partySize} players): share of cascades by damage dealt | caps that went off`);
+    console.log("".padEnd(18) + ["0", "1-5", "6-10", "11+"].map((h) => h.padStart(6)).join(" ") + " |" + "dmg caps".padStart(8) + "blk caps".padStart(8));
     for (const [tier, t] of byTier) behaviour(tier, t);
     behaviour("all", all);
 
@@ -206,7 +196,13 @@ async function main(): Promise<void> {
     console.log("".padEnd(18) + SHARE_LABELS.map((h) => h.padStart(8)).join(" "));
     for (const [tier, t] of byTier) shares(tier, t);
     shares("all", all);
+    perSize.set(partySize, all);
   }
+
+  console.log("");
+  console.log("DOMINOES PER CASCADE BY PARTY SIZE (all enemies; the design aims for about the same at every size)");
+  console.log("".padEnd(10) + sizes.map((n) => `${n} players`.padStart(11)).join(""));
+  for (const player of players) console.log(player.padEnd(10) + sizes.map((n) => num(perSize.get(n)![player].nodes, perSize.get(n)![player].cascades).padStart(11)).join(""));
 }
 
 if (inWorker) serve(work);

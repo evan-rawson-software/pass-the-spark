@@ -177,7 +177,7 @@ export function validateConfig(data: unknown): Config {
   const file = "data/config.json";
   const id = "(config)";
   if (!isObject(data)) fail(file, id, "must be an object");
-  for (const field of ["partyMaxHealth", "playerDrawPerRound", "playerFirstDraw", "playerHandLimit", "triggerCap", "openEndLimit"]) {
+  for (const field of ["partyMaxHealth", "partyPlacements", "handExtra", "triggerCap", "openEndLimit"]) {
     checkPositive(file, id, data, field);
   }
   for (const field of ["enemyHealthPercentByPartySize", "enemyAttackPercentByPartySize"]) {

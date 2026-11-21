@@ -75,9 +75,8 @@ export interface Enemy {
 
 export interface Config {
   partyMaxHealth: number;
-  playerDrawPerRound: number;
-  playerFirstDraw: number; // drawn in round 1 instead of playerDrawPerRound
-  playerHandLimit: number;
+  partyPlacements: number; // dominoes the whole party may place in a round; each player gets this divided by the party size, rounded down
+  handExtra: number; // a player's hand size is their placements plus this
   triggerCap: number;
   openEndLimit: number; // at most this many open ends on the board at once
   // Enemy starting health, in percent of its data health, for parties of 1, 2, 3 and 4 players.
@@ -194,7 +193,7 @@ export interface Charm {
   pool: CharmPool; // normal: elite offers and the Trader; rare: boss offers
   description: string; // one line for tooltips
   sparks?: Spark[]; // the sparks the charm reacts to (Lightning Rod)
-  numbers: Record<string, number>; // this charm's own numbers (bonus, extra draws, coins, percent)
+  numbers: Record<string, number>; // this charm's own numbers (bonus, hand size, coins, percent)
 }
 
 // data/events.json: the question-mark stops.

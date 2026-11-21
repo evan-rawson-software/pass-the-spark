@@ -30,18 +30,18 @@
     "id": "deep_pockets",
     "name": "Deep Pockets",
     "pool": "normal",
-    "description": "Your hand limit is +2.",
+    "description": "Your hand size is +2.",
     "numbers": {
-      "handLimit": 2
+      "handSize": 2
     }
   },
   {
     "id": "early_riser",
     "name": "Early Riser",
     "pool": "normal",
-    "description": "You draw 1 extra domino at the start of each round.",
+    "description": "Your hand size is +1.",
     "numbers": {
-      "draws": 1
+      "handSize": 1
     }
   },
   {

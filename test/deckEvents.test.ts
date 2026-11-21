@@ -13,7 +13,7 @@ test("Twin Forge: the weld has the first domino's intake, amplifier and upgrades
 
   // a's first domino is an upgraded Ember Boost; the second is a rare amplifier with a Gale output.
   const first = run.decks.a.find((id) => id.startsWith("boost_ember#"))!;
-  const second = run.decks.a.find((id) => id.startsWith("boost_gale#"))!;
+  const second = run.decks.a.find((id) => id.startsWith("boost_tide_gale#"))!;
   const strike = run.decks.a.find((id) => id.startsWith("strike_ember#"))!;
   const junction = run.decks.a.find((id) => id.startsWith("junction_ember#"))!;
   const boost = run.dominoes.find((d) => d.id === first)!;

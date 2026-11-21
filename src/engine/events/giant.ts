@@ -16,11 +16,11 @@ export interface GiantState {
   woke: boolean;
 }
 
-// Starts at the lead and goes round in seat order (the run's player order).
-export function openGiant(data: EventData, players: string[], lead: string): GiantState {
+// Starts at the first seat and goes round in seat order (the run's player order).
+export function openGiant(data: EventData, players: string[], firstSeat: string): GiantState {
   const grabbed: Record<string, number> = {};
   for (const id of players) grabbed[id] = 0;
-  return { turn: lead, wakePercent: data.numbers.wakeStartPercent, grabbed, stopped: [], woke: false };
+  return { turn: firstSeat, wakePercent: data.numbers.wakeStartPercent, grabbed, stopped: [], woke: false };
 }
 
 export interface GiantStep {
