@@ -33,6 +33,8 @@ export interface BattleStats {
   rounds: number;
   turns: number; // seat turns taken (a placement or Ready)
   enemyHealth: number; // the enemy's health at the start
+  healthLost: number; // party health lost over the battle (0 to max health)
+  incoming: number; // what the enemy's attacks and passives hit the party for, before block: the loss of a party that blocked nothing
   turnsWithChoice: number; // turns with more than one distinct legal choice (plays and Ready together)
   turnsWithPlays: number; // turns with more than one distinct play (domino x end)
   choices: number; // distinct legal choices summed over all turns
@@ -80,7 +82,7 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
   let pick = seed; // the picker's own RNG state
   const bot: BattleBot = player === "planner" ? createPlannerBot() : player === "stock" ? botChoice : randomBot;
   const stats: BattleStats = {
-    result: null, rounds: 0, turns: 0, enemyHealth: state.enemy.health, turnsWithChoice: 0, turnsWithPlays: 0, choices: 0, playOptions: 0, cascades: [], steps: 0, final: state,
+    result: null, rounds: 0, turns: 0, enemyHealth: state.enemy.health, healthLost: 0, incoming: 0, turnsWithChoice: 0, turnsWithPlays: 0, choices: 0, playOptions: 0, cascades: [], steps: 0, final: state,
   };
   const fresh = (): CascadeStats => ({ nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0, combo: 0, lineReached: false, damageCaps: 0, blockCaps: 0 });
   let cascade = fresh();
@@ -106,6 +108,7 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
         if (kind === "junction") cascade.junctions += 1;
         if (kind === "cap") cascade.caps += 1;
       } else if (e.type === "fizzle") cascade.fizzled += 1;
+      else if (e.type === "damage" && e.side === "party") stats.incoming += e.amount + e.blocked;
       else if (e.type === "damage" && e.side === "enemy") {
         cascade.damage += e.amount;
         cascade.combo += e.amount + e.blocked; // a hit before block
@@ -120,6 +123,7 @@ export function playRandomBattle(enemyId: string, seed: number, maxSteps: number
   }
   stats.result = state.result;
   stats.rounds = state.round;
+  stats.healthLost = state.party.maxHealth - Math.max(state.party.health, 0);
   stats.final = state;
   return stats;
 }

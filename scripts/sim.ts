@@ -18,6 +18,8 @@
 //   fizz     average ends left uncapped (fizzled) per cascade
 //   dmg      average damage reaching the enemy's health per cascade (after its block)
 //   combo    average combo total per cascade: every hit before enemy block
+//   lost     party health lost per battle (of the party's max health)
+//   hit      what the enemy's hits were worth per battle before block: the health lost by a party that blocked nothing
 //   line     share of cascades whose combo total reached the enemy's line (the enemy is staggered)
 //
 // After each table: the spread of damage per cascade (0 / 1-5 / 6-10 / 11+) and damage caps against block
@@ -55,6 +57,8 @@ function work(job: Job): Omit<BattleStats, "final">[] {
 interface Totals {
   wins: number;
   rounds: number;
+  healthLost: number;
+  incoming: number;
   turns: number;
   withChoice: number;
   withPlays: number;
@@ -74,13 +78,15 @@ interface Totals {
   blockCaps: number;
 }
 const empty = (): Totals => ({
-  wins: 0, rounds: 0, turns: 0, withChoice: 0, withPlays: 0, choices: 0, playOptions: 0, cascades: 0, nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0, combo: 0, lines: 0,
+  wins: 0, rounds: 0, healthLost: 0, incoming: 0, turns: 0, withChoice: 0, withPlays: 0, choices: 0, playOptions: 0, cascades: 0, nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0, combo: 0, lines: 0,
   buckets: [0, 0, 0, 0], shares: [0, 0, 0, 0, 0], damageCaps: 0, blockCaps: 0,
 });
 
 function add(t: Totals, r: Omit<BattleStats, "final">): void {
   if (r.result === "won") t.wins += 1;
   t.rounds += r.rounds;
+  t.healthLost += r.healthLost;
+  t.incoming += r.incoming;
   t.turns += r.turns;
   t.withChoice += r.turnsWithChoice;
   t.withPlays += r.turnsWithPlays;
@@ -110,11 +116,11 @@ function cells(t: Totals): string[] {
   return [
     pct(t.wins, battles), num(t.rounds, battles, 1), pct(t.withChoice, t.turns), pct(t.withPlays, t.turns), num(t.choices, t.turns), num(t.playOptions, t.turns),
     num(t.nodes, t.cascades), num(t.junctions, t.cascades), num(t.caps, t.cascades), num(t.fizzled, t.cascades), num(t.damage, t.cascades, 1),
-    num(t.combo, t.cascades, 1), pct(t.lines, t.cascades),
+    num(t.combo, t.cascades, 1), pct(t.lines, t.cascades), num(t.healthLost, battles, 1), num(t.incoming, battles, 1),
   ];
 }
 
-const header = ["win", "rounds", ">1 opt", ">1 play", "opts", "plays", "board", "junc", "caps", "fizz", "dmg", "combo", "line"];
+const header = ["win", "rounds", ">1 opt", ">1 play", "opts", "plays", "board", "junc", "caps", "fizz", "dmg", "combo", "line", "lost", "hit"];
 const widths = header.map((h) => Math.max(h.length, 7));
 const row = (label: string, who: string, values: string[]) =>
   label.padEnd(24) + who.padEnd(8) + values.map((v, i) => v.padStart(widths[i] + 1)).join("");
@@ -136,6 +142,8 @@ async function main(): Promise<void> {
       const c = cells(t[player]);
       c[0] = pct(t[player].wins, count * battles);
       c[1] = num(t[player].rounds, count * battles, 1);
+      c[13] = num(t[player].healthLost, count * battles, 1);
+      c[14] = num(t[player].incoming, count * battles, 1);
       console.log(row(i === 0 ? label : "", player, c));
     });
   };

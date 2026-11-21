@@ -98,6 +98,28 @@ async function main(): Promise<void> {
     console.log(`act ${a + 1} boss`.padEnd(30) + cells.join(""));
   }
 
+  console.log("");
+  header("LINE REACHED (share of battle cascades)");
+  const stops = ["fight", "elite", "boss"];
+  for (let a = 0; a < acts; a++) {
+    for (let t = 0; t < 3; t++) {
+      const cells = groups.map((g) => col(pct(g.stats.reduce((n, s) => n + s.lines[a * 3 + t], 0), g.stats.reduce((n, s) => n + s.cascades[a * 3 + t], 0))));
+      console.log(`act ${a + 1} ${stops[t]}`.padEnd(30) + cells.join(""));
+    }
+  }
+
+  console.log("");
+  header("BOSSES: runs that fought it, and the share of those it beat");
+  for (const act of content.run.acts) {
+    for (const boss of act.bossPool) {
+      const cells = groups.map((g) => {
+        const faced = g.stats.filter((s) => s.bossesFaced.includes(boss));
+        return col(`${faced.length} ${pct(faced.filter((s) => s.diedTo === boss).length, faced.length)}`);
+      });
+      console.log(boss.padEnd(30) + cells.join(""));
+    }
+  }
+
   for (const bot of bots) {
     const all = groups.find((g) => g.bot === bot && g.name === "all")!.stats;
     console.log("");
