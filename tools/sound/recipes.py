@@ -409,7 +409,7 @@ def fire_tail(start, length, seed, gain=0):
     return [(roar, start, gain)] + crackle
 
 
-@recipe("combo:line", "A")
+@recipe("combo:line", "pick")
 def _():
     run = [(voice(SQ, NOTE(step(i), C6), p_duty=0.3, p_env_sustain=0.03, p_env_punch=0.4, p_env_decay=0.12), i * 0.035, -4) for i in range(5)]
     t = 5 * 0.035
@@ -418,18 +418,7 @@ def _():
         "Jackpot: a quick 5-note square run up from C6 into a held C major chord (C6 E6 G6, a saw C7 on top) with vibrato, a fire whoosh with crackles, a few sparkles, reverb"
 
 
-@recipe("combo:line", "B")
-def _():
-    whoop = voice(SQ, C5, p_freq_ramp=0.32, p_freq_limit=0, p_duty=0.35, p_env_sustain=0.06, p_env_decay=0.12, p_lpf_freq=0.8)
-    t = 0.13
-    bell = [(voice(SINE, f, p_env_sustain=0.03, p_env_punch=0.5, p_env_decay=sustain(0.55)), t, g)
-            for f, g in ((C6, 0), (NOTE(7, C6), -3), (NOTE(16, C6), -7), (C6 * 2.76, -12))]
-    burst = voice(NOISE, p_base_freq=0.45, p_env_sustain=0.03, p_env_punch=0.8, p_env_decay=0.25, p_lpf_freq=0.7, seed=74)
-    return reverb(comp(mix((whoop, 0, -5), *bell, (burst, t, -7), *fire_tail(t + 0.05, 0.55, seed=75, gain=-5)), -18, 3), 0.9, 0.22), \
-        "Ignition: a square whoop sweeping up into a bright sine bell (C6 G6 E7, with a metallic overtone), a burst of flame and a crackling fire whoosh, reverb"
-
-
-@recipe("enemy:stagger", "A")
+@recipe("enemy:stagger", "pick")
 def _():
     a = voice(SQ, NOTE(0, C4) / 4, p_freq_ramp=-0.04, p_duty=0.5, p_vib_strength=0.3, p_vib_speed=0.28,
               p_env_sustain=sustain(0.25), p_env_decay=sustain(0.3), p_lpf_freq=0.35)
@@ -438,16 +427,6 @@ def _():
     thud = voice(NOISE, p_base_freq=0.18, p_env_sustain=0.02, p_env_punch=0.6, p_env_decay=0.22, p_lpf_freq=0.45, seed=78)
     return reverb(comp(mix((thud, 0, 0), (a, 0.02, -2), (b, 0.02, -4)), -18, 3), 0.45, 0.15), \
         "Dazed: a dull thud, then two low-passed squares on C2, slightly out of tune with each other, wobbling and sagging, room"
-
-
-@recipe("enemy:stagger", "B")
-def _():
-    reel = voice(SAW, 98, p_freq_ramp=-0.12, p_vib_strength=0.35, p_vib_speed=0.24, p_env_sustain=sustain(0.2),
-                 p_env_decay=sustain(0.32), p_lpf_freq=0.3, p_lpf_ramp=-0.05)
-    sub = voice(SINE, 90, p_freq_limit=P(45), p_freq_ramp=-0.25, p_env_sustain=0.06, p_env_decay=0.3)
-    oof = voice(NOISE, p_base_freq=0.25, p_env_sustain=0.02, p_env_punch=0.5, p_env_decay=0.15, p_lpf_freq=0.4, seed=80)
-    return reverb(comp(softclip(mix((oof, 0, -2), (sub, 0, 0), (reel, 0.03, -3)), 2), -18, 3), 0.45, 0.15), \
-        "Reeling: a soft 'oof' and a sine thud dropping to 45 Hz, then a low-passed saw sliding down from G2 with a slow, woozy wobble, room"
 
 
 # How the picker groups the cues.
