@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { SKIP } from "../engine/rewards";
 import type { Domino, Rarity } from "../engine/types";
 import { drawDomino, dominoPixelSize } from "./dominoDrawing";
+import { dominoLook } from "./presentation";
 import type { DominoSize } from "./dominoDrawing";
 import { drawPartyHud, drawRunHeader } from "./partyHud";
 import { actingSeat, currentRun, nextPending, seatName, submitRunChoice, watchRun } from "./runSession";
@@ -16,34 +17,10 @@ import { button, drawBackground, label } from "./ui";
 // to pick is highlighted and large, and one person picks for each seat in turn. Online (#49) your
 // own offer is large, teammates' are small with "picked" or "choosing", and everyone picks at once.
 
-const RARITY_STYLE: Record<Rarity, { color: number; text: string; gems: number }> = {
-  common: { color: 0xb8c4bd, text: "#d8e2dc", gems: 1 },
-  uncommon: { color: 0x4fa3e8, text: "#8ccaff", gems: 2 },
-  rare: { color: 0xffc83d, text: "#ffd86b", gems: 3 },
-};
-
-// Rarity marker drawn by code: one, two or three diamonds in the rarity's colour, plus its name.
+// The rarity's name under a large domino, in the colour of the gem on its face.
 function drawRarity(scene: Phaser.Scene, x: number, y: number, rarity: Rarity | undefined, size: DominoSize): void {
-  if (!rarity) return;
-  const style = RARITY_STYLE[rarity];
-  const r = size === "large" ? 11 : 7;
-  const g = scene.add.graphics();
-  g.fillStyle(style.color, 1);
-  g.lineStyle(2, 0x2a2a2a, 1);
-  const gap = r * 2.4;
-  const left = x - ((style.gems - 1) * gap) / 2 - (size === "large" ? 44 : 0);
-  for (let i = 0; i < style.gems; i++) {
-    const cx = left + i * gap;
-    g.beginPath();
-    g.moveTo(cx, y - r);
-    g.lineTo(cx + r, y);
-    g.lineTo(cx, y + r);
-    g.lineTo(cx - r, y);
-    g.closePath();
-    g.fillPath();
-    g.strokePath();
-  }
-  if (size === "large") label(scene, x + 10, y, rarity, 24, { bold: true, color: style.text });
+  if (!rarity || size !== "large") return;
+  label(scene, x, y, rarity, 24, { bold: true, origin: 0.5, color: dominoLook.colours.rarity[rarity] });
 }
 
 export class RewardScene extends Phaser.Scene {
