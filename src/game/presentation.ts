@@ -5,6 +5,7 @@ import presentation from "../../data/presentation.json";
 export const seatColourData = presentation.seatColours;
 export const comfortData = presentation.comfort;
 export const fxData = presentation.fx;
+export const dominoLook = presentation.dominoLook;
 
 // "#rrggbb" to a Phaser colour number.
 export function hexColour(hex: string): number {

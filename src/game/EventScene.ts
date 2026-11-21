@@ -330,17 +330,17 @@ export class EventScene extends Phaser.Scene {
         const data = eventData(run, summary.event);
         const text: CoinPart[] = w.prize === "coins" ? ["+", w.coins] : [w.prize === "none" ? "Nothing" : w.prize === "remove" ? "Removed" : w.prize === "upgrade" ? "Upgraded" : "Took"];
         const tip = new Tooltip(this);
-        const turned = drawDomino(this, w.turned, "large", "normal").setScale(0.4).setPosition(TEXT_X + 330, y + 40);
+        const turned = drawDomino(this, w.turned, "large", "normal", { scale: 0.4 }).setScale(0.4).setPosition(TEXT_X + 330, y + 40);
         tip.attach(turned, w.turned);
         label(this, TEXT_X + 410, y - 6, `${w.spark ?? ""} ${w.prize === "coins" ? "" : prizeText(w.prize, data)}`.trim(), 24, { color: "#cfe9dc" });
         coinLine(this, TEXT_X + 410, y + 28, text, 30, { bold: true, color: w.prize === "none" ? "#9fb8aa" : "#7dffb0" });
         r.before.forEach((d, k) => {
-          const c = drawDomino(this, d, "large", "normal").setScale(0.4).setPosition(TEXT_X + 640 + k * 110, y + 40);
+          const c = drawDomino(this, d, "large", "normal", { scale: 0.4 }).setScale(0.4).setPosition(TEXT_X + 640 + k * 110, y + 40);
           tip.attach(c, d);
         });
         if (r.before.length > 0 && r.after) label(this, TEXT_X + 700, y + 40, ">", 40, { bold: true, color: GOLD, origin: 0.5 });
         if (r.after) {
-          const c = drawDomino(this, r.after, "large", "normal").setScale(0.4).setPosition(TEXT_X + 760, y + 40);
+          const c = drawDomino(this, r.after, "large", "normal", { scale: 0.4 }).setScale(0.4).setPosition(TEXT_X + 760, y + 40);
           tip.attach(c, r.after);
         }
         return;
@@ -350,11 +350,11 @@ export class EventScene extends Phaser.Scene {
         return;
       }
       r.before.forEach((d, k) => {
-        const c = drawDomino(this, d, "large", "normal").setScale(0.4).setPosition(TEXT_X + 440 + k * 110, y + 40);
+        const c = drawDomino(this, d, "large", "normal", { scale: 0.4 }).setScale(0.4).setPosition(TEXT_X + 440 + k * 110, y + 40);
         tooltip.attach(c, d);
       });
       label(this, TEXT_X + 440 + r.before.length * 110, y + 40, ">", 40, { bold: true, color: GOLD });
-      const after = drawDomino(this, r.after, "large", "normal").setScale(0.4).setPosition(TEXT_X + 440 + r.before.length * 110 + 110, y + 40);
+      const after = drawDomino(this, r.after, "large", "normal", { scale: 0.4 }).setScale(0.4).setPosition(TEXT_X + 440 + r.before.length * 110 + 110, y + 40);
       tooltip.attach(after, r.after);
       if (r.cost > 0) coinLine(this, TEXT_X + 50, y + 44, ["Paid ", r.cost], 24, { color: "#cfe9dc" });
     });

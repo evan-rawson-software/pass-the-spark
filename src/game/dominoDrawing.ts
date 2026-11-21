@@ -1,6 +1,7 @@
 import Phaser from "phaser";
-import type { Domino, Spark } from "../engine/types";
+import type { Domino, DominoKind, Spark } from "../engine/types";
 import { artImage } from "./art";
+import { dominoLook, hexColour } from "./presentation";
 import { SPARK_ORDER, SPARK_STYLE } from "./sparks";
 
 // All domino drawing lives here. Placeholder art: sprites will replace this
@@ -21,14 +22,20 @@ export const DOMINO_STATES: DominoState[] = [
 ];
 
 const SIZE_SCALE: Record<DominoSize, number> = { large: 1, small: 0.5 };
-const W = 240; // large-size units; small is the same drawing at half scale
-const H = 120;
-const RAISE = 14;
+const L = dominoLook;
+const U = L.unit;
 const DARK = 0x2a2a2a;
+const OUTLINE = hexColour(L.colours.outline);
+const W = L.extent.amplifier.w * U; // the common cell width: every kind's socket sits on its left edge
+const H = L.extent.amplifier.h * U; // the hidden back, and the bar height of every kind
+const RAISE = L.raise;
 
-export function dominoPixelSize(size: DominoSize): { w: number; h: number } {
+// A domino's size on screen. With a kind, that kind's exact size (a junction is taller, a cap
+// narrower); without one, the cell any kind fits in, for laying out a row or grid.
+export function dominoPixelSize(size: DominoSize, kind?: DominoKind): { w: number; h: number } {
   const s = SIZE_SCALE[size];
-  return { w: W * s, h: H * s };
+  if (kind) return { w: L.extent[kind].w * U * s, h: L.extent[kind].h * U * s };
+  return { w: W * s, h: L.extent.junction.h * U * s };
 }
 
 type Pt = { x: number; y: number };
@@ -131,17 +138,6 @@ export function drawAnySymbol(g: Phaser.GameObjects.Graphics, x: number, y: numb
   g.strokeCircle(x, y, r * 0.3);
 }
 
-function drawHalf(g: Phaser.GameObjects.Graphics, sparks: Spark[] | "any", cx: number): void {
-  if (sparks === "any") {
-    drawAnySymbol(g, cx, 0, 26);
-  } else if (sparks.length === 1) {
-    drawSparkGlyph(g, sparks[0], cx, 0, 24);
-  } else {
-    drawSparkGlyph(g, sparks[0], cx, -27, 16);
-    drawSparkGlyph(g, sparks[1], cx, 27, 16);
-  }
-}
-
 // What an icon can show: the three cap effects, the four amplifiers and the junction.
 export type IconKind = "damage" | "block" | "coins" | "add" | "mul" | "echo" | "spectrum" | "junction";
 
@@ -210,62 +206,223 @@ export function drawEffectIcon(g: Phaser.GameObjects.Graphics, kind: IconKind, c
   }
 }
 
-// The number printed under the icon: an amplifier's amount (+1, ×2) or a cap's base.
+
+// The number in the middle: an amplifier's amount (+1, ×2, an echo's repeat count) or a cap's base.
+// A Spectrum shows its icon only, since its value depends on the path.
 export function iconNumber(d: Domino): string {
   if (d.kind === "cap") return d.effect ? String(d.effect.base) : "";
-  if (d.kind === "amplifier" && d.amp) return (d.amp.op === "mul" ? "×" : "+") + d.amp.value;
+  if (d.kind === "amplifier" && d.amp && d.amp.op !== "spectrum") return (d.amp.op === "mul" ? "×" : "+") + d.amp.value;
   return "";
 }
 
-// Draws the face; returns the number text, if any, so the caller can keep it above overlays.
-function drawFace(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, c: Phaser.GameObjects.Container, domino: Domino, tileArt: boolean): Phaser.GameObjects.Text | null {
-  if (!tileArt) {
-    g.fillStyle(0xf4ecd8, 1);
-    g.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
-    g.fillStyle(0xe3d6b3, 1);
-    g.fillRect(-W / 2 + 6, -H / 2 + 6, 74, H - 12);
-    g.fillRect(W / 2 - 80, -H / 2 + 6, 74, H - 12);
-    g.lineStyle(3, DARK, 1);
-    g.lineBetween(-40, -H / 2 + 4, -40, H / 2 - 4);
-    g.lineBetween(40, -H / 2 + 4, 40, H / 2 - 4);
-    g.strokeRoundedRect(-W / 2, -H / 2, W, H, 14);
-  }
+// ---- Silhouettes. Points are in mockup units, converted to pixels by toPx.
 
-  drawHalf(g, domino.intake, -80);
-  if (domino.kind === "cap") {
-    // A cap closes its branch: no outputs, just a solid end.
-    g.fillStyle(0x6b727c, 1);
-    g.fillRoundedRect(W / 2 - 80, -H / 2 + 6, 74, H - 12, 8);
-    g.fillStyle(DARK, 1);
-    g.fillRect(W / 2 - 18, -H / 2 + 6, 12, H - 12);
-  } else {
-    drawHalf(g, domino.output, 80);
+function arc(cx: number, cy: number, r: number, a0: number, a1: number): Pt[] {
+  const pts: Pt[] = [];
+  for (let i = 0; i <= 10; i++) {
+    const a = a0 + ((a1 - a0) * i) / 10;
+    pts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
   }
-
-  const kind = iconOf(domino);
-  if (kind) drawEffectIcon(g, kind, -4);
-  let text: Phaser.GameObjects.Text | null = null;
-  const number = iconNumber(domino);
-  if (number) {
-    const t = scene.add
-      .text(0, 36, number, { fontSize: "34px", fontStyle: "bold", color: "#222222", stroke: "#ffffff", strokeThickness: 4 })
-      .setOrigin(0.5);
-    c.add(t);
-    text = t;
-  }
-  // The ignores-block chip sits in the top band of the middle column (y -56 to -34).
-  const e = domino.effect;
-  if (e?.ignoresBlock && artOn(g, "ui/ignores_block", -20, -45, 30)) {
-    // art shown
-  } else if (e?.ignoresBlock) {
-    g.fillStyle(DARK, 1);
-    g.fillRoundedRect(-38, -56, 36, 22, 6);
-    polygon(g, [{ x: -29, y: -52 }, { x: -11, y: -52 }, { x: -11, y: -45 }, { x: -20, y: -37 }, { x: -29, y: -45 }], 0x8fb4ea, 0xffffff);
-    line(g, [{ x: -33, y: -37 }, { x: -7, y: -53 }], 5, 0xff3b3b);
-  }
-  return text;
+  return pts;
 }
 
+const HALF_PI = Math.PI / 2;
+// The socket notch, bottom to top through the inside of the face.
+const NOTCH = (): Pt[] => arc(0, 50, 22, HALF_PI, -HALF_PI);
+
+function outline(kind: DominoKind): Pt[] {
+  if (kind === "amplifier") {
+    return [{ x: 0, y: 0 }, { x: 175, y: 0 }, { x: 216, y: 50 }, { x: 175, y: 100 }, { x: 0, y: 100 }, ...NOTCH()];
+  }
+  if (kind === "junction") {
+    return [
+      { x: 0, y: 0 }, { x: 105, y: 0 }, { x: 130, y: -18 }, { x: 214, y: -18 }, { x: 214, y: 40 }, { x: 150, y: 40 },
+      { x: 150, y: 60 }, { x: 214, y: 60 }, { x: 214, y: 118 }, { x: 130, y: 118 }, { x: 105, y: 100 }, { x: 0, y: 100 },
+      ...NOTCH(),
+    ];
+  }
+  return [{ x: 0, y: 0 }, { x: 120, y: 0 }, ...arc(120, 50, 50, -HALF_PI, HALF_PI), { x: 0, y: 100 }, ...NOTCH()];
+}
+
+// Mockup units to pixels in the body container: socket edge at the cell's left, bar centred on y 0.
+function toPx(p: Pt): Pt {
+  return { x: -W / 2 + p.x * U, y: (p.y - 50) * U };
+}
+
+function pathOf(kind: DominoKind): Pt[] {
+  return outline(kind).map(toPx);
+}
+
+function fillPath(g: Phaser.GameObjects.Graphics, pts: Pt[]): void {
+  g.beginPath();
+  g.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+  g.closePath();
+  g.fillPath();
+}
+
+function strokePathOf(g: Phaser.GameObjects.Graphics, pts: Pt[], width: number, color: number, alpha = 1): void {
+  g.lineStyle(width, color, alpha);
+  g.beginPath();
+  g.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+  g.closePath();
+  g.strokePath();
+}
+
+function faceColour(d: Domino): number {
+  if (d.kind === "amplifier") return hexColour(L.colours.amplifier);
+  if (d.kind === "junction") return hexColour(L.colours.junction);
+  // Damage is red and block is blue; any other cap (a coins cap, until #221 removes it) gets the neutral tint.
+  const kind = d.effect?.kind;
+  return hexColour(kind === "damage" || kind === "block" ? L.colours.cap[kind] : L.colours.cap.other);
+}
+
+// The intake: the notch ringed in its spark's colour, with the glyph inside. Two sparks split the
+// ring and show both glyphs; "any" shows the any symbol.
+function drawSocket(g: Phaser.GameObjects.Graphics, sparks: Spark[] | "any"): void {
+  const k = L.socket;
+  const c = toPx({ x: k.x, y: k.y });
+  const origin = toPx({ x: 0, y: 50 });
+  const ringR = 22 * U;
+  const ring = (a0: number, a1: number, colour: number) => {
+    const pts = arc(origin.x, origin.y, ringR, a0, a1);
+    g.lineStyle(k.ring * U, colour, 1);
+    g.beginPath();
+    g.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+    g.strokePath();
+  };
+  if (sparks === "any") {
+    ring(HALF_PI, -HALF_PI, hexColour(L.colours.anyRing));
+    drawAnySymbol(g, c.x, c.y, k.glyph * U);
+  } else if (sparks.length === 1) {
+    ring(HALF_PI, -HALF_PI, SPARK_STYLE[sparks[0]].color);
+    drawSparkGlyph(g, sparks[0], c.x, c.y, k.glyph * U);
+  } else {
+    ring(0, -HALF_PI, SPARK_STYLE[sparks[0]].color);
+    ring(HALF_PI, 0, SPARK_STYLE[sparks[1]].color);
+    drawSparkGlyph(g, sparks[0], c.x + k.dualDx * U, c.y - k.dualDy * U, k.dualGlyph * U);
+    drawSparkGlyph(g, sparks[1], c.x + k.dualDx * U, c.y + k.dualDy * U, k.dualGlyph * U);
+  }
+}
+
+function star(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number): void {
+  const pts: Pt[] = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -HALF_PI + (i * Math.PI) / 5;
+    const rr = i % 2 === 0 ? r : r * 0.45;
+    pts.push({ x: x + Math.cos(a) * rr, y: y + Math.sin(a) * rr });
+  }
+  polygon(g, pts, hexColour(L.colours.star), OUTLINE);
+}
+
+function gem(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number, rarity: "common" | "uncommon" | "rare"): void {
+  const colour = hexColour(L.colours.rarity[rarity]);
+  if (rarity === "rare") {
+    for (let i = 3; i >= 1; i--) {
+      g.fillStyle(colour, 0.14);
+      g.fillCircle(x, y, r + i * 4);
+    }
+  }
+  polygon(g, [{ x, y: y - r }, { x: x + r, y }, { x, y: y + r }, { x: x - r, y }], colour, OUTLINE);
+  g.fillStyle(0xffffff, 0.7);
+  g.fillTriangle(x, y - r * 0.6, x + r * 0.45, y - r * 0.1, x - r * 0.1, y - r * 0.1);
+}
+
+// The ignores-block sigil: a dark disc ringed in gold, with a crossed-out shield (or the art).
+function sigil(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number): void {
+  const k = L.sigil;
+  g.fillStyle(hexColour(L.colours.sigilFill), 1);
+  g.fillCircle(x, y, r);
+  g.lineStyle(k.ring, hexColour(L.colours.sigilRing), 1);
+  g.strokeCircle(x, y, r);
+  if (artOn(g, "ui/ignores_block", x, y, r * 1.5)) return;
+  const q = r / 15;
+  polygon(g, [
+    { x: x - 7 * q, y: y - 8 * q }, { x: x + 7 * q, y: y - 8 * q }, { x: x + 7 * q, y: y },
+    { x, y: y + 9 * q }, { x: x - 7 * q, y: y },
+  ], 0x8fb4ea, 0xffffff);
+  line(g, [{ x: x - 10 * q, y: y + 8 * q }, { x: x + 10 * q, y: y - 9 * q }], 3.5 * q, 0xff3b3b);
+}
+
+function icon(scene: Phaser.Scene, body: Phaser.GameObjects.Container, kind: IconKind, at: { x: number; y: number }, scale: number): void {
+  const p = toPx(at);
+  const ig = scene.add.graphics().setPosition(p.x, p.y).setScale(scale * U);
+  body.add(ig);
+  drawEffectIcon(ig, kind);
+}
+
+function numberText(scene: Phaser.Scene, body: Phaser.GameObjects.Container, text: string, at: { x: number; y: number; size: number }): void {
+  const p = toPx(at);
+  const t = scene.add
+    .text(p.x, p.y, text, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${Math.round(at.size * U)}px`, fontStyle: "bold", color: L.colours.text })
+    .setOrigin(0.5);
+  body.add(t);
+}
+
+// Draws the face: everything inside the silhouette. `detail` shows the stripe, gem and star.
+function drawFace(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, body: Phaser.GameObjects.Container, d: Domino, owner: number | undefined, detail: boolean): void {
+  const pts = pathOf(d.kind);
+  g.fillStyle(faceColour(d), 1);
+  fillPath(g, pts);
+  if (d.kind === "junction") {
+    g.lineStyle(L.junctionSplit.width * U, hexColour(L.colours.junctionSplit), 1);
+    for (const [a, b] of L.junctionSplit.lines) {
+      const p = toPx({ x: a[0], y: a[1] });
+      const q = toPx({ x: b[0], y: b[1] });
+      g.lineBetween(p.x, p.y, q.x, q.y);
+    }
+  }
+  strokePathOf(g, pts, L.strokeWidth * U, OUTLINE);
+
+  if (owner !== undefined && detail) {
+    const k = L.stripe;
+    const barLen = d.kind === "amplifier" ? 175 : d.kind === "junction" ? 105 : 120;
+    const p = toPx({ x: k.x, y: k.y });
+    const w = (barLen - k.trim) * U;
+    g.fillStyle(owner, 1);
+    g.fillRoundedRect(p.x, p.y, w, k.h * U, (k.h * U) / 2);
+    g.lineStyle(k.outline, OUTLINE, 1);
+    g.strokeRoundedRect(p.x, p.y, w, k.h * U, (k.h * U) / 2);
+  }
+
+  drawSocket(g, d.intake);
+  const outs = d.kind === "amplifier" ? L.outputs.amplifier : d.kind === "junction" ? L.outputs.junction : [];
+  outs.forEach((o, i) => {
+    const p = toPx(o);
+    drawSparkGlyph(g, d.output[i] ?? d.output[0], p.x, p.y, L.outputs.glyph * U);
+  });
+
+  const kind = iconOf(d);
+  const n = L.number;
+  if (d.kind === "amplifier" && kind) {
+    if (d.amp?.op === "spectrum") {
+      icon(scene, body, kind, n.spectrumIcon, n.spectrumIcon.scale);
+    } else {
+      icon(scene, body, kind, n.amplifierIcon, n.iconScale);
+      numberText(scene, body, iconNumber(d), n.amplifier);
+    }
+  } else if (d.kind === "cap" && kind) {
+    icon(scene, body, kind, n.capIcon, n.capIcon.scale);
+    numberText(scene, body, iconNumber(d), n.cap);
+  }
+
+  if (d.kind === "cap" && d.effect?.ignoresBlock) {
+    const p = toPx(L.sigil);
+    sigil(g, p.x, p.y, L.sigil.r * U);
+  }
+  if (detail && d.upgraded && d.upgraded.length > 0) {
+    const p = toPx(L.star);
+    star(g, p.x, p.y, L.star.r * U);
+  }
+  if (detail && d.rarity) {
+    const p = toPx(L.gem[d.kind]);
+    gem(g, p.x, p.y, L.gem.r * U, d.rarity);
+  }
+}
+
+// The face-down back: a plain rectangle, a pile and not a domino.
 function drawBack(g: Phaser.GameObjects.Graphics): void {
   g.fillStyle(0x2c3e6b, 1);
   g.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
@@ -282,50 +439,51 @@ function drawBack(g: Phaser.GameObjects.Graphics): void {
   g.strokeRoundedRect(-W / 2, -H / 2, W, H, 14);
 }
 
-// Builds a domino centred on (0, 0) of the returned container. The caller
-// positions it. `domino` is ignored for the "hidden" state.
-export function drawDomino(scene: Phaser.Scene, domino: Domino, size: DominoSize, state: DominoState): Phaser.GameObjects.Container {
+export interface DominoOptions {
+  owner?: number; // the owner stripe's colour (a seat colour); none draws no stripe
+  scale?: number; // the scale the caller will show it at, if not its size's: small shows hide the stripe, gem and star
+}
+
+// Builds a domino centred on (0, 0) of the returned container: its socket edge on the left of the
+// cell, the bar centred vertically. The caller positions it. `domino` is ignored for "hidden".
+export function drawDomino(scene: Phaser.Scene, domino: Domino, size: DominoSize, state: DominoState, opts: DominoOptions = {}): Phaser.GameObjects.Container {
   const c = scene.add.container(0, 0);
   c.setScale(SIZE_SCALE[size]);
-  c.setSize(W, H);
+  const hidden = state === "hidden";
+  c.setSize(W, hidden ? H : L.extent[domino.kind].h * U);
 
-  const shadow = scene.add.graphics();
   const raised = state === "playable";
-  shadow.fillStyle(0x000000, raised ? 0.35 : 0.25);
-  shadow.fillRoundedRect(-W / 2 + 4, -H / 2 + 8, W, H, 14);
+  const pts = hidden ? [] : pathOf(domino.kind);
+  const shadow = scene.add.graphics();
+  shadow.fillStyle(0x000000, raised ? L.shadow.raisedAlpha : L.shadow.alpha);
+  if (hidden) shadow.fillRoundedRect(-W / 2 + L.shadow.dx, -H / 2 + L.shadow.dy, W, H, 14);
+  else fillPath(shadow.setPosition(L.shadow.dx, L.shadow.dy), pts);
   c.add(shadow);
 
   const body = scene.add.container(0, raised ? -RAISE : 0);
   c.add(body);
-  // The tile image, if any, is the lowest thing on the face: the graphics layer (and the fallback
-  // drawings on it) and the glyph images all sit above it.
-  const tile = state === "hidden" ? "hidden" : (domino.rarity ?? "starter");
-  const tileArt = artImage(scene, `tiles/${tile}`, 0, 0, W, H, body) !== null;
-  const g = scene.add.graphics();
-  body.add(g);
-
-  if (raised) {
-    for (let i = 4; i >= 1; i--) {
-      g.lineStyle(i * 5, 0xfff176, 0.12);
-      g.strokeRoundedRect(-W / 2 - i * 2, -H / 2 - i * 2, W + i * 4, H + i * 4, 14 + i * 2);
-    }
+  if (hidden) {
+    const artShown = artImage(scene, "tiles/hidden", 0, 0, W, H, body) !== null;
+    const g = scene.add.graphics();
+    body.add(g);
+    if (!artShown) drawBack(g);
+    return c;
   }
 
-  // State marks go on their own layer, above any art, with the number text kept above them.
-  if (state === "hidden") {
-    if (!tileArt) drawBack(g);
-  } else {
-    const text = drawFace(scene, g, body, domino, tileArt);
-    const over = scene.add.graphics();
-    body.add(over);
-    if (state === "notPlayable") {
-      over.fillStyle(0x10131c, 0.55);
-      over.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
-    } else if (raised) {
-      over.lineStyle(5, 0xffe14d, 1);
-      over.strokeRoundedRect(-W / 2, -H / 2, W, H, 14);
-    }
-    if (text) body.bringToTop(text);
+  const g = scene.add.graphics();
+  body.add(g);
+  if (raised) strokePathOf(g, pts, L.playable.glowWidth, hexColour(L.colours.glow), L.playable.glowAlpha);
+  const detail = (opts.scale ?? SIZE_SCALE[size]) >= L.minDetailScale;
+  drawFace(scene, g, body, domino, opts.owner, detail);
+
+  // State marks go on their own layer, above any art and the number.
+  const over = scene.add.graphics();
+  body.add(over);
+  if (state === "notPlayable") {
+    over.fillStyle(0x10131c, L.dimAlpha);
+    fillPath(over, pts);
+  } else if (raised) {
+    strokePathOf(over, pts, L.playable.outlineWidth, 0xffe14d);
   }
   return c;
 }

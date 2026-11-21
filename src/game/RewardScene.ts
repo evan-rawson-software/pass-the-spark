@@ -102,7 +102,7 @@ export class RewardScene extends Phaser.Scene {
       const status = !done ? (isActive || online ? "choosing" : "waiting") : choice === SKIP ? "skipped" : "picked";
       label(this, 60, cy + 48, status, 22, { bold: true, color: !done ? "#cfe9dc" : "#8fe3a8" });
 
-      const { w, h } = dominoPixelSize(size);
+      const { w } = dominoPixelSize(size);
       const step = w + (isActive ? 90 : 60);
       offer.forEach((d, i) => {
         const x = 520 + i * step + w / 2;
@@ -111,17 +111,19 @@ export class RewardScene extends Phaser.Scene {
         const state = decided && !taken ? "notPlayable" : "normal";
         const c = drawDomino(this, d, size, state).setPosition(x, cy - (isActive ? 14 : 0));
         tooltip.attach(c, d);
+        // The domino's own size: a junction is taller, a cap narrower. Its socket edge is the cell's left.
+        const own = dominoPixelSize(size, d.kind);
         if (taken) {
           const g = this.add.graphics();
           g.lineStyle(6, 0x8fe3a8, 1);
-          g.strokeRoundedRect(x - w / 2 - 6, c.y - h / 2 - 6, w + 12, h + 12, 14);
+          g.strokeRoundedRect(x - w / 2 - 6, c.y - own.h / 2 - 6, own.w + 12, own.h + 12, 14);
         }
         if (canPick) {
           c.on("pointerover", () => c.setScale(1.06));
           c.on("pointerout", () => c.setScale(1));
           c.on("pointerdown", () => submitRunChoice(this, id, { type: "reward", pick: d.id }));
         }
-        drawRarity(this, x, c.y + h / 2 + (isActive ? 36 : 18), d.rarity, size);
+        drawRarity(this, x - (w - own.w) / 2, c.y + own.h / 2 + (isActive ? 36 : 18), d.rarity, size);
       });
       // The charm offer (#108): after an elite 1 charm to take or skip, after a boss 3 rare ones.
       if (charmOffer) {
