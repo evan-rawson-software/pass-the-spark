@@ -14,7 +14,8 @@ import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { coinLine } from "./coinIcon";
 import { Tooltip } from "./tooltip";
 import { deckViewerState } from "./deckViewer";
-import { drawBackground, FONT, label, PLAYER_COLORS } from "./ui";
+import { seatColour } from "./seatColours";
+import { drawBackground, FONT, label } from "./ui";
 
 // The map screen (#51). It draws the act the engine generated: floors bottom to top, the
 // connections, a code-drawn icon per stop type and the boss at the top. The party's position is
@@ -325,7 +326,7 @@ export class MapScene extends Phaser.Scene {
     const g = this.add.graphics();
     run.players.forEach((id, i) => {
       const y = 390 + i * 56;
-      g.fillStyle(PLAYER_COLORS[i % PLAYER_COLORS.length], 1);
+      g.fillStyle(seatColour(run.players, id), 1);
       g.fillCircle(80, y, 14);
       g.lineStyle(2, 0x0d2a20, 1);
       g.strokeCircle(80, y, 14);
@@ -360,7 +361,7 @@ export class MapScene extends Phaser.Scene {
       const y = row ? floorY(floor, this.run.map.floors.length) : BOSS_Y;
       ids.forEach((id, k) => {
         const mx = x + (k - (ids.length - 1) / 2) * 34;
-        const color = PLAYER_COLORS[this.run.players.indexOf(id) % PLAYER_COLORS.length];
+        const color = seatColour(this.run.players, id);
         const dot = this.add.circle(mx, y + NODE_R + 26, 15, color).setStrokeStyle(3, 0x0d2a20);
         const text = this.add.text(mx, y + NODE_R + 26, String(this.run.players.indexOf(id) + 1), { fontFamily: FONT, fontSize: "18px", color: "#0d2a20", fontStyle: "bold" }).setOrigin(0.5);
         this.voteLayer.add([dot, text]);

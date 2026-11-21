@@ -3,7 +3,7 @@ import { loadContent } from "../engine/content";
 import { DOMINO_STATES, drawAnySymbol, drawDomino, drawSparkGlyph } from "./dominoDrawing";
 import type { DominoState } from "./dominoDrawing";
 import type { Domino } from "../engine/types";
-import { hexColour, seatColourData } from "./presentation";
+import { paletteColour } from "./wizard";
 import { SPARK_ORDER, SPARK_STYLE } from "./sparks";
 
 const dominoes = loadContent().dominoes;
@@ -70,7 +70,7 @@ export class DominoTestScene extends Phaser.Scene {
       variants.push({ name: `${kind}, same outputs`, d: { ...d, output: d.output.map(() => spark(2)) } });
     }
     variants.push({ name: "cap, ignores block", d: { ...cap, effect: { ...(cap.effect ?? { kind: "damage", base: 4 }), ignoresBlock: true }, rarity: "rare" }, owner: true });
-    const seat = hexColour(seatColourData.colours[0]);
+    const seat = paletteColour(0);
     const vTop = top + dominoes.length * rowH + 80;
     label(40, vTop - 60, "Variants (both sizes)", "30px").setColor("#ffe14d");
     variants.forEach((v, i) => {

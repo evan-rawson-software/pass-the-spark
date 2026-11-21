@@ -5,6 +5,7 @@ import type { Choice } from "../engine/battle";
 import type { RunChoice } from "../engine/run";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
+import type { Look } from "./look";
 import type { ClientMessage, HostMessage, PingTarget } from "./protocol";
 import { hostPeerId } from "./room";
 import type { Connection, Transport } from "./transport";
@@ -23,6 +24,7 @@ export interface ClientOptions {
   name: string;
   token: string;
   unlocks: () => string[]; // this player's unlocks now (from the profile), read at every hello
+  look?: () => Look; // this player's saved look, read at every hello (the host fixes it if it must)
   onMessage?: (message: HostMessage) => void;
   // The link to the host: lost ("reconnecting"), back ("ok", once the host has welcomed us), or given up ("gone").
   onLink?: (status: LinkStatus) => void;
@@ -35,6 +37,7 @@ export interface Client {
   sendChoice(choice: Choice): void;
   sendRunChoice(choice: RunChoice, window: string): void;
   sendPing(target: PingTarget): void;
+  sendLook(look: Look): void; // in the lobby: the host ignores it when the colour is taken
   close(): void;
 }
 
@@ -61,6 +64,11 @@ export async function joinRoom(options: ClientOptions): Promise<Client> {
     sendPing(target) {
       if (connection.status !== "open") return;
       const message: ClientMessage = { type: "ping", target };
+      connection.send(message);
+    },
+    sendLook(look) {
+      if (connection.status !== "open") return;
+      const message: ClientMessage = { type: "look", look };
       connection.send(message);
     },
     close() {
@@ -93,7 +101,7 @@ export async function joinRoom(options: ClientOptions): Promise<Client> {
     c.onStatus((status) => {
       if (status === "closed" && c === connection && !closed) void reconnect();
     });
-    const hello: ClientMessage = { type: "hello", buildId: options.buildId, name: options.name, token: options.token, unlocks: options.unlocks() };
+    const hello: ClientMessage = { type: "hello", buildId: options.buildId, name: options.name, token: options.token, unlocks: options.unlocks(), look: options.look?.() as Look };
     c.send(hello);
   }
 

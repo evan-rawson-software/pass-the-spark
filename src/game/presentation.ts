@@ -2,7 +2,6 @@ import presentation from "../../data/presentation.json";
 
 // Tuning for the screen's look (data/presentation.json). Each feature reads only its own part.
 
-export const seatColourData = presentation.seatColours;
 export const comfortData = presentation.comfort;
 export const fxData = presentation.fx;
 export const dominoLook = presentation.dominoLook;
@@ -21,3 +20,4 @@ export const setOffPreviewData = presentation.setOffPreview;
 export const fuseBoardData = presentation.fuseBoard;
 export const handRowData = presentation.handRow;
 export const combatLayoutData = presentation.combatLayout;
+export const wizardLookData = presentation.wizardLook;
