@@ -18,7 +18,7 @@ import type { SavedRoom } from "./room";
 import type { Connection, Transport } from "./transport";
 
 export const MAX_SEATS = 4;
-export const MIN_SEATS = 3;
+export const MIN_SEATS = 2;
 export const MAX_NAME_LENGTH = 24;
 // How long the game waits for an away player before the host may play for them.
 export const PLAY_FOR_DELAY_MS = 60_000;
@@ -276,8 +276,8 @@ export async function createHost(options: HostOptions): Promise<Host> {
     apply(m.seat, choice, from);
   }
 
-  // True when the target names a domino every player can see right now: a seat's hand slot, a place
-  // in the chain, or a revealed enemy slot. Anything else (a hidden enemy domino, a bad shape) is dropped.
+  // True when the target names something every player can see right now: a seat's hand slot, a board
+  // node, or an open end. Anything else (a bad shape, a capped end) is dropped.
   function visibleTarget(target: unknown): target is PingTarget {
     const battle = run?.battle;
     if (!battle || battle.phase === "over" || !target || typeof target !== "object") return false;
@@ -288,8 +288,8 @@ export async function createHost(options: HostOptions): Promise<Host> {
       const p = battle.players.find((x) => x.id === t.seat);
       return p !== undefined && i < p.hand.length;
     }
-    if (t.zone === "chain") return i < battle.chain.played.length;
-    if (t.zone === "enemy") return i < battle.enemy.hand.length && battle.enemy.revealed[i] === true;
+    if (t.zone === "chain") return i < battle.board.nodes.length;
+    if (t.zone === "end") return i < battle.board.ends.length && !battle.board.nodes.some((n) => n.end === i);
     return false;
   }
 

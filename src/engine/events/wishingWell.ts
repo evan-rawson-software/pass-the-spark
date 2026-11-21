@@ -1,6 +1,6 @@
 // The Wishing Well (personal): a player turns over a random domino from their own deck (the run's
-// RNG, host only); its output spark decides the prize, which data/events.json keys by spark. With two
-// outputs the player picks which one counts. The prize may need one more pick (a domino to remove or
+// RNG, host only); its intake spark decides the prize, which data/events.json keys by spark. With a
+// dual intake the player picks which spark counts; an "any" intake lets them pick any spark that has a prize. The prize may need one more pick (a domino to remove or
 // upgrade, a rare to take), so each player has a small state in event.wells until they finish.
 // Every step is an ordinary personal choice: option 1 (turn over) with no pick, then option 1 again
 // with the pick the stage asks for. Skip (option 0) ends it at any stage with no prize.
@@ -20,7 +20,7 @@ export const PRIZE_KINDS: PrizeKind[] = ["coins", "remove", "upgrade", "rare"];
 // One player's progress; open to everyone.
 export interface WellState {
   domino: Domino; // the domino turned over (a copy)
-  spark: Spark | null; // the output spark that counts; null until chosen (only when it has two outputs)
+  spark: Spark | null; // the intake spark that counts; null until chosen (only when the intake is dual or "any")
   offers: Domino[] | null; // the rare offer, for a rare prize
 }
 
@@ -35,6 +35,11 @@ function data(run: RunState): EventData {
 
 export function prizeFor(run: RunState, spark: Spark): PrizeKind {
   return (data(run).prizes as Record<string, string>)[spark] as PrizeKind;
+}
+
+// The sparks the player may pick from for a turned domino: its intakes, or every spark with a prize for "any".
+export function wellSparks(run: RunState, domino: Domino): Spark[] {
+  return domino.intake === "any" ? (Object.keys(data(run).prizes ?? {}) as Spark[]) : domino.intake;
 }
 
 export function wellStage(run: RunState, player: string): WellStage {
@@ -94,11 +99,12 @@ function apply(run: RunState, player: string, _action: unknown, _cost: number, p
     run.rng = r.state;
     const turned: WellState = { domino: JSON.parse(JSON.stringify(find(run, deck[r.value]))), spark: null, offers: null };
     (event.wells ??= {})[player] = turned;
-    return turned.domino.output.length === 1 ? settle(run, player, turned, turned.domino.output[0]) : null;
+    return turned.domino.intake !== "any" && turned.domino.intake.length === 1 ? settle(run, player, turned, turned.domino.intake[0]) : null;
   }
   if (!pick) throw new Error("this step needs a pick");
   if (well.spark === null) {
-    if (pick.spark === undefined || !well.domino.output.includes(pick.spark)) throw new Error(`pick one of the domino's outputs: ${well.domino.output.join(", ")}`);
+    const choices = wellSparks(run, well.domino);
+    if (pick.spark === undefined || !choices.includes(pick.spark)) throw new Error(`pick one of the spark choices: ${choices.join(", ")}`);
     return settle(run, player, well, pick.spark);
   }
   const kind = prizeFor(run, well.spark);

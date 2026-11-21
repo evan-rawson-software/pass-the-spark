@@ -1,20 +1,33 @@
 {
-  "_comment": "The heat ladder (#133): chain spectacle tiers, read by screen code only. A tier is on while the chain's links (strength) and lap are both at least its minimums. The last tier that is on sets the colour.",
+  "_comment": "Cascade spectacle (#187), read by screen code only. A heat tier is on once the cascade has lit minNodes dominoes or a cap of at least minCap (its value per trigger, from the capFired event) has gone off; the last tier on sets the colour and how many sparks trail each flow. While building, the same tiers read the board's node count and the biggest charge on an open end. Tier colours are 0xRRGGBB strings.",
   "tiers": [
-    { "id": "clack", "minLinks": 1, "minLap": 1, "color": "0xfff2c2" },
-    { "id": "trails", "minLinks": 4, "minLap": 1, "color": "0xffe14d" },
-    { "id": "sweep", "minLinks": 1, "minLap": 2, "color": "0xffb347" },
-    { "id": "shake", "minLinks": 7, "minLap": 1, "color": "0xff6a3d" },
-    { "id": "lightning", "minLinks": 1, "minLap": 3, "color": "0x9fe8ff" }
+    { "minNodes": 1, "minCap": 1, "color": "0xfff2c2" },
+    { "minNodes": 4, "minCap": 8, "color": "0xffe14d" },
+    { "minNodes": 8, "minCap": 16, "color": "0xff9a3d" },
+    { "minNodes": 12, "minCap": 30, "color": "0xff5a3d" }
   ],
-  "meter": { "full": 60, "maxScale": 1.5 },
-  "dimAlpha": 0.35,
-  "sweepMs": 700,
-  "trailMs": 350,
-  "lightningMs": 260,
-  "shake": { "ms": 220, "intensity": 0.004, "perLap": 0.002 },
-  "stackedNumbers": { "step": 34, "growth": 0.04, "ms": 1400 },
-  "slowMotion": { "timeScale": 0.35, "holdMs": 350 },
-  "topple": { "stepMs": 110, "maxMs": 1200, "fallMs": 300, "tallyPopMs": 160, "holdMs": 500 },
-  "effects": { "travelMs": 350, "ms": 450 }
+  "build": { "fullNodes": 10 },
+  "step": { "pulseMs": 380 },
+  "amp": { "fullChange": 8 },
+  "stack": { "step": 34, "growth": 0.12, "ms": 1400 },
+  "shake": { "minCap": 16, "ms": 220, "intensity": 0.004, "perTier": 0.002 },
+  "lightning": { "minCap": 40, "ms": 280, "bolts": 3 },
+  "slowMotion": { "minCap": 60, "timeScale": 0.35, "holdMs": 400 },
+  "effects": { "travelMs": 350, "ms": 450 },
+  "tally": { "countMs": 500, "holdMs": 500, "popMs": 160 },
+  "seatColours": {
+    "comment": "One colour per seat, by seat order. Chosen to differ from each other, from the six spark colours and from the gold turn highlight.",
+    "colours": ["#e8364f", "#22d3ee", "#ff7ad9", "#f5f5f5"]
+  },
+  "comfort": {
+    "comment": "Defaults for the menu comfort settings.",
+    "shakeDefault": true,
+    "reducedFlashingDefault": false
+  },
+  "fx": {
+    "comment": "Code-drawn fallbacks for the effect textures (fx/<id>). glow and ring are always code-drawn.",
+    "glow": { "steps": 12, "peakAlpha": 0.5 },
+    "ring": { "lineWidthFraction": 0.06, "alpha": 0.9 },
+    "fallbackAlpha": 0.95
+  }
 }

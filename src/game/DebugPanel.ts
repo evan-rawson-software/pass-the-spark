@@ -1,4 +1,4 @@
-import { ENEMY_SEAT, getPendingChoice } from "../engine/battle";
+import { getPendingChoice } from "../engine/battle";
 import { handLimitOf } from "../engine/battleCharms";
 import type { BattleState } from "../engine/battle";
 import { content, dominoes } from "./devBattle";
@@ -11,7 +11,7 @@ import { unlockAll } from "./profile";
 export interface DebugHost {
   getState(): BattleState | null;
   getSeed(): number;
-  // Online, on the host: the panel only looks (enemy hand, step mode, state dump). Restarting and
+  // Online, on the host: the panel only looks (step mode, state dump). Restarting and
   // editing hands would have to go through the host, which is not part of #34.
   readOnly?: boolean;
   isLocked(): boolean; // true while events play back
@@ -27,9 +27,8 @@ const STYLE =
 const BTN = "margin:2px 4px 2px 0;padding:3px 8px;cursor:pointer";
 
 class DebugPanel {
-  showEnemyHand = false;
   stepMode = false;
-  allowFewerPlayers = false; // the online lobby's Start works with fewer than 3 players
+  allowFewerPlayers = false; // the online lobby's Start works with fewer than 2 players
   onLobbyChange: (() => void) | null = null; // the lobby screen redraws when this changes
   private enabled = true; // off for a player who joined someone else's room
   private host: DebugHost | null = null;
@@ -174,7 +173,7 @@ class DebugPanel {
         this.allowFewerPlayers = lBox.checked;
         this.onLobbyChange?.();
       });
-      add(lLabel, "span", " Host can start with fewer than 3 players");
+      add(lLabel, "span", " Host can start with fewer than 2 players");
       return;
     }
     const state = host.getState();
@@ -202,18 +201,6 @@ class DebugPanel {
       }
       host.restart(n);
     });
-
-    // Enemy hand
-    const e = section("Enemy hand");
-    const eLabel = add(e, "label");
-    const eBox = add(eLabel, "input");
-    eBox.type = "checkbox";
-    eBox.checked = this.showEnemyHand;
-    eBox.addEventListener("change", () => {
-      this.showEnemyHand = eBox.checked;
-      host.redraw();
-    });
-    add(eLabel, "span", " Show enemy hand (DEBUG, reveals hidden dominoes)");
 
     // Step mode
     const st = section("Step mode");
@@ -279,14 +266,14 @@ class DebugPanel {
     add: <K extends keyof HTMLElementTagNameMap>(p: HTMLElement, tag: K, text?: string) => HTMLElementTagNameMap[K],
     button: (p: HTMLElement, text: string, onClick: () => void) => HTMLButtonElement,
   ): void {
-    const seats = [...state.players.map((p) => p.id), ENEMY_SEAT];
+    const seats = state.players.map((p) => p.id);
     if (!seats.includes(this.editTarget)) {
       this.editTarget = seats[0];
       this.editHand = this.handOf(state, this.editTarget);
     }
     const sel = add(parent, "select");
     for (const id of seats) {
-      const o = add(sel, "option", id === ENEMY_SEAT ? "Enemy" : id);
+      const o = add(sel, "option", id);
       o.value = id;
     }
     sel.value = this.editTarget;
@@ -349,30 +336,22 @@ class DebugPanel {
   }
 
   private handOf(state: BattleState, seat: string): string[] {
-    return (seat === ENEMY_SEAT ? state.enemy.hand : (state.players.find((p) => p.id === seat)?.hand ?? [])).slice();
+    return (state.players.find((p) => p.id === seat)?.hand ?? []).slice();
   }
 
   private limitOf(state: BattleState, seat: string): number {
-    return seat === ENEMY_SEAT ? state.enemy.handLimit : handLimitOf(state, seat);
+    return handLimitOf(state, seat);
   }
 
   // The debug edit: a copy of the state with one hand replaced. Returns an error text if the
   // result would leave the battle without a playable turn.
   private withHand(input: BattleState, seat: string, hand: string[]): BattleState | string {
     const state: BattleState = JSON.parse(JSON.stringify(input));
-    if (seat === ENEMY_SEAT) {
-      const old = state.enemy;
-      // Keep revealed the same length as hand; a slot stays revealed only if it is unchanged.
-      state.enemy.revealed = hand.map((id, i) => old.hand[i] === id && old.revealed[i] === true);
-      state.enemy.hand = hand.slice();
-    } else {
-      const p = state.players.find((q) => q.id === seat);
-      if (!p) return "No such player.";
-      p.hand = hand.slice();
-    }
+    const p = state.players.find((q) => q.id === seat);
+    if (!p) return "No such player.";
+    p.hand = hand.slice();
     const pending = getPendingChoice(state);
-    if (pending && pending.type === "opener" && pending.dominoes.length === 0) return "The lead would have no opener.";
-    if (pending && pending.type === "answer" && pending.options.length === 0) return "The player on turn would have no answer.";
+    if (pending && pending.opener && pending.plays.length === 0) return "The lead would have no opener.";
     return state;
   }
 }

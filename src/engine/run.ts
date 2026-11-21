@@ -3,7 +3,7 @@
 // (run.rng), and every battle gets its own seed drawn from it.
 // applyRunChoice never changes its input: it works on a JSON copy.
 
-import { ENEMY_SEAT, createBattleWithEvents, getPendingChoice, makeStarterInstances, step } from "./battle";
+import { createBattleWithEvents, getPendingChoice, makeStarterInstances, step } from "./battle";
 import type { BattleState, Choice, PendingChoice } from "./battle";
 import { rollCharmsForPlayers, charmById, heldCharmNumber, traderPrice, COIN_PURSE } from "./charms";
 import type { Content } from "./content";
@@ -197,7 +197,7 @@ export function createRun(setup: RunSetup): RunState {
 export function createRunWithEvents(setup: RunSetup): RunStepResult {
   const { players, seed } = setup;
   if (players.length === 0) throw new Error("a run needs players");
-  if (new Set(players).size !== players.length || players.includes(ENEMY_SEAT)) throw new Error("player ids must be unique and not 'enemy'");
+  if (new Set(players).size !== players.length) throw new Error("player ids must be unique");
   const content: Content = JSON.parse(JSON.stringify(setup.content));
   const act = content.run.acts[0];
   const events: RunEvent[] = [];
@@ -561,7 +561,7 @@ function applyTraderAction(run: RunState, playerId: string, action: TraderAction
 function blessedStrength(run: RunState): number {
   const shrine = run.content.events.find((e) => e.id === "spark_shrine");
   if (!shrine) throw new Error("no spark_shrine in data/events.json");
-  return shrine.numbers.blessedAnswerStrength;
+  return shrine.numbers.blessedCharge;
 }
 
 function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void {
@@ -577,11 +577,11 @@ function startBattle(run: RunState, type: BattleType, events: RunEvent[]): void 
   const seed = nextUint32(run.rng);
   run.rng = seed.state;
 
-  // Seats rotate one place per battle; the enemy stays last. The lead is a player, not a seat,
+  // Seats rotate one place per battle; the lead is a player, not a seat,
   // so rotating the seats doesn't change who leads.
   const shift = run.battlesFought % run.players.length;
   const seats = run.players.slice(shift).concat(run.players.slice(0, shift));
-  const seatOrder = [...seats, ENEMY_SEAT];
+  const seatOrder = seats;
   const result = createBattleWithEvents({
     config,
     content: { dominoes, enemies },
@@ -617,7 +617,8 @@ function finishBattle(run: RunState, events: RunEvent[]): void {
   const earned: Record<string, number> = {};
   const base = currentAct(run).battleCoins[type];
   for (const id of run.players) {
-    const amount = base + heldCharmNumber(run.content.charms, run.charms[id], COIN_PURSE, "coins");
+    // Coins the player's own coin caps earned in the battle count on top.
+    const amount = base + heldCharmNumber(run.content.charms, run.charms[id], COIN_PURSE, "coins") + (battle.players.find((p) => p.id === id)?.coins ?? 0);
     earned[id] = amount;
     run.coins[id] += amount;
     events.push({ type: "coins", player: id, amount });

@@ -5,13 +5,13 @@
     "forWin": 100
   },
   "levels": [
-    { "experience": 150, "unlock": "lookout", "name": "Lookout", "description": "Dominoes that reveal some of an enemy's hidden dominoes." },
-    { "experience": 350, "unlock": "advancedSparks", "name": "Advanced sparks", "description": "Storm and Void sparks in the dominoes you are offered." },
-    { "experience": 600, "unlock": "echo", "name": "Echo", "description": "Dominoes that make the next domino trigger twice." },
-    { "experience": 900, "unlock": "twoSpark", "name": "Two-spark outputs", "description": "Dominoes that pass on two sparks at once." },
-    { "experience": 1300, "unlock": "ignoresBlock", "name": "Ignores block", "description": "Damage that goes straight through block." },
-    { "experience": 1800, "unlock": "spectrum", "name": "Spectrum", "description": "Effects that grow with the different sparks in the chain." },
-    { "experience": 2400, "unlock": "mimic", "name": "Mimic", "description": "Dominoes that repeat the previous domino's effect." },
+    { "experience": 150, "unlock": "advancedSparks", "name": "Advanced sparks", "description": "Storm and Void sparks in the dominoes you are offered." },
+    { "experience": 350, "unlock": "echo", "name": "Echo", "description": "Amplifiers that make every cap further along the path go off again." },
+    { "experience": 600, "unlock": "boostTwo", "name": "Boost +2", "description": "Amplifiers that add 2 charge." },
+    { "experience": 900, "unlock": "coinCaps", "name": "Coin caps", "description": "Caps that pay coins to whoever played them." },
+    { "experience": 1300, "unlock": "ignoresBlock", "name": "Ignores block", "description": "Damage caps that go straight through block." },
+    { "experience": 1800, "unlock": "spectrum", "name": "Spectrum", "description": "Amplifiers that grow with the different sparks on the path." },
+    { "experience": 2400, "unlock": "double", "name": "Double", "description": "Amplifiers that double the charge." },
     { "experience": 3200, "unlock": "anyIntake", "name": "Any intake", "description": "Dominoes that can take any spark." }
   ]
 }

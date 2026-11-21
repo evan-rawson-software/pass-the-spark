@@ -1,25 +1,24 @@
 import Phaser from "phaser";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
-import type { Domino } from "../engine/types";
 import { scaleTime } from "./playbackSpeed";
-import { Heat, METER_FULL, METER_MAX_SCALE, heatColor } from "./heat";
-import type { EffectCue } from "./heat";
-import { playEffect, topple } from "./effects";
-import type { Tally } from "./effects";
+import { reducedFlashing } from "./comfort";
+import { playSound } from "./sound";
+import { amplify, block, boardGlow, centre, charm, coins, damage, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, showTally, split, spectrum, sputter, stackedNumber } from "./spectacle";
+import type { Point, Tally } from "./spectacle";
 
-// Basic table animations (#25), driven only by engine events and the numbers in them.
-// Every duration goes through scaleTime. The scene redraws from getView when the step is over,
-// so nothing here has to be exact: it only has to look right on the way.
+// The cascade playback, driven only by engine events and the numbers in them (#186, #187): charge
+// flows outward step by step, amplifiers flare, junctions split the glow, caps go off with their
+// own animation and stacking numbers, fizzled ends sputter, then a tally of the whole cascade and
+// the enemy's intent. Heat (spectacle.ts, data/presentation.json) grows with the cascade's size
+// and its biggest caps. Every duration goes through scaleTime. The scene redraws from getView when
+// the step is over, so nothing here has to be exact: it only has to look right on the way.
 
-const FONT = "Arial, Helvetica, sans-serif";
+// The fast-forward factor while a skipped cascade finishes whatever was already playing.
+export const SKIP_SPEED = 1000;
+
 const DW = 240; // a domino at scale 1
 const DH = 120;
-const GOLD = 0xffe14d;
-const RED = 0xff3b2f;
-const ENEMY_ROW = { x: 630, y: 40, w: 870, h: 60 }; // the enemy's hand row (CombatScene)
-
-export const COMBO_METER_FULL = METER_FULL; // strength x lap at which the meter looks full (cosmetic only; data/presentation.json)
 
 export interface Pos { x: number; y: number; k: number }
 interface Box { x: number; y: number; w: number; h: number }
@@ -34,23 +33,23 @@ export interface BarRef {
   color: number;
 }
 
-// What the scene drew last, so animations can find their targets. The scene calls reset() at the
+// What the scene drew last, so animations can find their targets. The scene calls newRefs() at the
 // start of every redraw and fills these in as it draws.
 export interface Refs {
   layer?: Container;
   hand: Map<string, Pos>; // the active hand, by domino id
-  chain: { c: Container; pos: Pos }[];
-  enemyHand: { c: Container; pos: Pos }[];
+  nodes: Map<number, { c: Container; pos: Pos }>; // board nodes, by node id
+  slots: Map<number, Pos>; // open ends, by end id
   handSlots: Map<string, { c: Container; pos: Pos }[]>; // every player's hand, by seat and position (draw animation, #153)
-  decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck stack, "enemy" included
+  decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck stack
   bars: Map<string, BarRef>; // "enemy" | "party"
   shields: Map<string, { text: Text; x: number; y: number }>;
-  meter?: { text: Text; rect: Box; scale: number };
+  intent?: Box; // the enemy's intent card
   charms: Map<string, { x: number; y: number }>; // "seat:charm" -> the charm icon under its name plate (#108)
 }
 
 export function newRefs(): Refs {
-  return { hand: new Map(), chain: [], enemyHand: [], handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map() };
+  return { hand: new Map(), nodes: new Map(), slots: new Map(), handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map() };
 }
 
 export function paintBar(b: BarRef, value: number): void {
@@ -68,25 +67,7 @@ export function paintBar(b: BarRef, value: number): void {
   b.text.setText(`${Math.round(value)} / ${b.max}`);
 }
 
-// The meter grows and turns from gold to red as strength x lap climbs.
-export function comboLook(total: number): { scale: number; color: number } {
-  const f = Math.min(1, total / COMBO_METER_FULL);
-  const lerp = (a: number, b: number) => Math.round(a + (b - a) * f);
-  const color = (lerp((GOLD >> 16) & 255, (RED >> 16) & 255) << 16) | (lerp((GOLD >> 8) & 255, (RED >> 8) & 255) << 8) | lerp(GOLD & 255, RED & 255);
-  return { scale: 1 + (METER_MAX_SCALE - 1) * f, color };
-}
-
-export function hexString(color: number): string {
-  return "#" + color.toString(16).padStart(6, "0");
-}
-
 // ---- small effects ----
-
-function tweenDone(scene: Phaser.Scene, config: Phaser.Types.Tweens.TweenBuilderConfig): Promise<void> {
-  return new Promise((resolve) => {
-    scene.tweens.add({ ...config, onComplete: () => resolve() });
-  });
-}
 
 function counter(scene: Phaser.Scene, from: number, to: number, ms: number, onValue: (v: number) => void): void {
   if (from === to) return;
@@ -96,206 +77,188 @@ function counter(scene: Phaser.Scene, from: number, to: number, ms: number, onVa
   });
 }
 
-function floatText(scene: Phaser.Scene, x: number, y: number, text: string, color: string, size = 44, ms = 1000): void {
-  const t = scene.add
-    .text(x, y, text, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: "bold", color, stroke: "#101010", strokeThickness: 6 })
-    .setOrigin(0.5)
-    .setDepth(100);
-  scene.tweens.add({
-    targets: t, y: y - 70, alpha: 0, duration: scaleTime(ms), ease: "Cubic.easeOut",
-    onComplete: () => t.destroy(),
-  });
-}
-
 function flash(scene: Phaser.Scene, b: Box, color = 0xffffff): void {
+  // Reduced flashing: a faint, slow fade instead of a bright blink.
+  const soft = reducedFlashing();
   const g = scene.add.graphics().setDepth(90);
-  g.fillStyle(color, 0.5);
+  g.fillStyle(color, soft ? 0.18 : 0.5);
   g.fillRoundedRect(b.x, b.y, b.w, b.h, 14);
-  g.lineStyle(5, color, 1);
+  g.lineStyle(5, color, soft ? 0.5 : 1);
   g.strokeRoundedRect(b.x, b.y, b.w, b.h, 14);
-  scene.tweens.add({ targets: g, alpha: 0, duration: scaleTime(300), onComplete: () => g.destroy() });
-}
-
-// A ring that grows and fades around a point.
-function ring(scene: Phaser.Scene, x: number, y: number, color: number, delay = 0): void {
-  const g = scene.add.graphics().setDepth(95).setPosition(x, y).setAlpha(0);
-  g.lineStyle(8, color, 1);
-  g.strokeCircle(0, 0, 60);
-  scene.tweens.add({
-    targets: g, scale: { from: 0.5, to: 2.4 }, alpha: { from: 1, to: 0 },
-    delay: scaleTime(delay), duration: scaleTime(450), ease: "Cubic.easeOut",
-    onStart: () => g.setAlpha(1),
-    onComplete: () => g.destroy(),
-  });
+  scene.tweens.add({ targets: g, alpha: 0, duration: scaleTime(soft ? 700 : 300), onComplete: () => g.destroy() });
 }
 
 function boxOf(p: Pos): Box {
   return { x: p.x - (DW * p.k) / 2, y: p.y - (DH * p.k) / 2, w: DW * p.k, h: DH * p.k };
 }
 
+const CAP_COLOR = { damage: "#ff6a5f", block: "#9cc4ff", coins: "#ffd23f" };
+const CAP_SOUND = { damage: "effect:damage", block: "effect:block", coins: "coins" };
+
 // ---- the animator ----
 
 export interface Snapshot {
   party: { health: number; block: number };
   enemy: { health: number; block: number };
-  total: number;
 }
 
 export function snapshot(view: BattleView): Snapshot {
   return {
     party: { health: view.party.health, block: view.party.block },
     enemy: { health: view.enemy.health, block: view.enemy.block },
-    total: view.chain.strength * view.chain.lap,
   };
 }
 
 // How long (ms at 1x) the table should wait for an event's animation.
-export function animTime(ev: GameEvent, dominoes: Domino[]): number {
-  switch (ev.type) {
-    case "opener":
-    case "play":
-      return 350;
-    case "trigger": return flourishOf(ev, dominoes) ? 600 : 250;
-    case "damage": case "block": case "heal": return ev.amount > 0 || ev.blocked > 0 ? 350 : 0;
-    case "glutton": return 350;
-    case "hoarder": case "smolder": return 350;
-    case "amplify": return 250;
-    case "reveal": return 350;
-    case "lapUp": return 450;
-    case "blockReset": return 300;
-    default: return 0;
-  }
-}
-
-function flourishOf(ev: Extract<GameEvent, { type: "trigger" }>, dominoes: Domino[]): "echo" | "mimic" | "reflect" | null {
-  const kind = dominoes.find((d) => d.id === ev.domino)?.effect.kind;
-  if (kind === "mimic") return "mimic";
-  if (kind === "reflect") return "reflect";
-  if (ev.index > 0) return "echo";
-  return null;
+export function animTime(ev: GameEvent): number {
+  return ev.type === "play" ? 350 : 0;
 }
 
 export class Animator {
   refs: Refs = newRefs();
-  private anchor: Box | null = null; // where the domino whose effect is going off sits
+  // The cascade being played, all from events: the nodes lit so far, the charge each was lit with,
+  // the biggest cap so far (value per trigger) and the heat tier those make.
+  private lit: number[] = [];
+  private charges = new Map<number, number>();
+  private biggest = 0;
+  private tier = -1;
+  private inCascade = false;
+  private tally: Tally = { damage: 0, block: 0, coins: 0 };
+  private pile: Phaser.GameObjects.Text[] = []; // stacked numbers still on screen
+  skipping = false; // the player skipped the cascade: slow motion is off and the fast-forward stays on
 
-  // What each domino of the open chain did, from the engine's damage and block events, for the
-  // topple's tally (#134). One entry per opener or play, in chain order.
-  private tally: Tally[] = [];
-  private chainOpen = false;
+  constructor(private scene: Phaser.Scene) {
+    scene.tweens.timeScale = 1; // a restarted scene never inherits slow motion or a skip
+    scene.time.timeScale = 1;
+  }
 
-  heat: Heat; // the heat ladder (#133); the scene's chain drawing also calls heat.decorate and heat.syncRoom
+  // The colour lit dominoes glow in: it follows the heat of the cascade being played.
+  litColor(): number {
+    return heatColor(this.tier);
+  }
 
-  constructor(private scene: Phaser.Scene, public dominoes: Domino[], dim: Phaser.GameObjects.Rectangle) {
-    this.heat = new Heat(scene, dim);
+  private resetHeat(): void {
+    this.lit = [];
+    this.charges.clear();
+    this.biggest = 0;
+    this.tier = -1;
   }
 
   // Plays an event's animation. `apply` updates the shown table and redraws it; it is called once,
-  // after any "before" animation (the chain clearing) and before the "after" ones.
+  // before the animation starts, so the new node or lit state is there to animate. Resolves when
+  // the animation wants the table held (the tally, slow motion); most events resolve at once.
   async run(ev: GameEvent, shown: BattleView, apply: () => void): Promise<void> {
     const scene = this.scene;
+    // The cascade is over when the enemy's block resets (or the battle ends): tally it first.
+    if (this.inCascade && (ev.type === "blockReset" || ev.type === "battleEnd")) {
+      this.inCascade = false;
+      const total = this.tally;
+      this.tally = { damage: 0, block: 0, coins: 0 };
+      await showTally(scene, total, this.litColor(), { x: 960, y: 520 });
+    }
     const before = snapshot(shown);
-    let refs = this.refs; // the scene replaces these on every redraw, so read them again after apply()
-    let from: Pos | undefined;
-    if (ev.type === "opener" || ev.type === "play") {
-      // From the player's hand, or the enemy's row (its first slot: which one it was stays hidden).
-      from = ev.type === "play" && ev.seat === "enemy" ? undefined : refs.hand.get(ev.domino);
-      if (!from) from = refs.enemyHand[0]?.pos;
-    }
-    if (ev.type === "chainEnd") {
-      // The chain topples back along the line, last to first, tallying what it did (#134).
-      const cs = refs.chain.filter((e) => e.c.active);
-      const hidden = Math.max(0, this.tally.length - refs.chain.length); // dominoes scrolled off the table
-      const extra = this.tally.slice(0, hidden).reduce((t, n) => ({ damage: t.damage + n.damage, block: t.block + n.block }), { damage: 0, block: 0 });
-      await topple(
-        scene, cs.map((e) => ({ c: e.c, w: DW * e.pos.k })), this.tally.slice(hidden), extra,
-        heatColor(shown.chain.strength, shown.chain.lap), { x: 960, y: 580 }, shown.chain.lap,
-      );
-      this.chainOpen = false;
-    }
-    this.countChain(ev);
+    const from = ev.type === "play" ? this.refs.hand.get(ev.domino) : undefined; // read before the redraw replaces it
     apply();
-    refs = this.refs;
+    const refs = this.refs; // replaced by the redraw in apply()
     const after = snapshot(shown);
+    let slow = false;
 
     switch (ev.type) {
-      case "opener":
+      case "roundStart":
+        this.resetHeat();
+        floatText(scene, 960, 470, `Round ${ev.round}`, "#ffffff", 56, 1000);
+        break;
       case "play": {
-        const last = refs.chain[refs.chain.length - 1];
-        if (last && from) {
-          this.anchor = boxOf(last.pos);
-          last.c.setPosition(from.x, from.y).setScale(from.k);
-          refs.layer?.bringToTop(last.c);
-          scene.tweens.add({ targets: last.c, x: last.pos.x, y: last.pos.y, scale: last.pos.k, duration: scaleTime(350), ease: "Cubic.easeOut" });
-        }
-        // Heat ladder: links (strength) and lap come straight from the event.
-        if (ev.type === "play") {
-          const prev = refs.chain[refs.chain.length - 2];
-          this.heat.onPlay(ev.strength, ev.lap, prev && boxOf(prev.pos), last && boxOf(last.pos));
+        playSound("clack");
+        // The building hum rises with the tree (the node id is how many are on the board, less one).
+        playSound("hum", ev.node + 1);
+        const node = refs.nodes.get(ev.node);
+        if (node && from) {
+          node.c.setPosition(from.x, from.y).setScale(from.k);
+          refs.layer?.bringToTop(node.c);
+          scene.tweens.add({ targets: node.c, x: node.pos.x, y: node.pos.y, scale: node.pos.k, duration: scaleTime(350), ease: "Cubic.easeOut" });
         }
         break;
       }
-      case "leftover": {
-        const slot = refs.enemyHand[ev.position];
-        if (slot) this.anchor = boxOf(slot.pos);
+      case "pass":
+        floatText(scene, 960, 470, `${ev.player} passes`, "#ffd9a0", 44, 900);
+        break;
+      case "setOff": {
+        const why = ev.reason === "player" ? `${ev.player} sets it off` : ev.reason === "capped" ? "Every end is capped" : "Everyone passed";
+        floatText(scene, 960, 470, why, "#ffe14d", 48, 1000);
+        this.resetHeat();
+        this.inCascade = true;
+        this.tally = { damage: 0, block: 0, coins: 0 };
+        this.pile = [];
+        // The whole tree swells with the charge it holds before it goes.
+        const glow = boardGlow(shown.board.nodes.length, 0);
+        refs.nodes.forEach((n) => flash(scene, boxOf(n.pos), glow.color));
         break;
       }
-      case "trigger": {
-        if (this.anchor) {
-          flash(scene, this.anchor);
-          const f = flourishOf(ev, this.dominoes);
-          const cx = this.anchor.x + this.anchor.w / 2;
-          const cy = this.anchor.y + this.anchor.h / 2;
-          const links = shown.chain.strength;
-          const lap = shown.chain.lap;
-          const prev = refs.chain[refs.chain.length - 2];
-          const effectAt = (kind: EffectCue, to?: { x: number; y: number }) =>
-            playEffect(scene, kind, { from: this.anchor!, to, prev: prev && boxOf(prev.pos), enemyRow: ENEMY_ROW }, links, lap);
-          // The domino's own flourish first: Mimic and Reflect show themselves, then what they copied.
-          if (f === "echo") floatText(scene, cx, cy - 20, `ECHO ×${ev.index + 1}`, "#7fe6ff", 40, 900);
-          else if (f === "mimic") {
-            effectAt("mimic");
-            floatText(scene, cx, cy - 20, "MIMIC", "#d9a6ff", 40, 900);
-          } else if (f === "reflect") {
-            effectAt("reflect");
-            floatText(scene, cx, cy - 20, "REFLECT", "#ffb066", 40, 900);
+      case "nodeLit":
+        this.nodeLit(ev, shown);
+        break;
+      case "capFired": {
+        this.biggest = Math.max(this.biggest, ev.value);
+        this.tier = heatTier(this.lit.length, this.biggest);
+        const node = refs.nodes.get(ev.node);
+        playSound(CAP_SOUND[ev.effect], 1 + this.tier * 3);
+        if (node) {
+          const at = centre(boxOf(node.pos));
+          const target = this.targetOf(ev.effect, refs);
+          for (let i = 0; i < Math.min(ev.triggers, 4); i++) {
+            const go = () => (ev.effect === "damage" ? damage(scene, at, target) : ev.effect === "block" ? block(scene, at, target) : coins(scene, at));
+            if (i === 0) go();
+            else scene.time.delayedCall(scaleTime(i * 110), go);
           }
-          // Then the effect that went off. Damage flies to the side it hits; block and heal land on their own side.
-          const kind = ev.effect.kind;
-          if (kind === "damage") {
-            const bar = refs.bars.get(ev.side === "party" ? "enemy" : "party");
-            effectAt("damage", bar && { x: bar.x + bar.w / 2, y: bar.y + bar.h / 2 });
-          } else if (kind === "block") {
-            const sh = refs.shields.get(ev.side);
-            effectAt("block", sh && { x: sh.x + 30, y: sh.y });
-          } else if (kind === "heal") {
-            const bar = refs.bars.get(ev.side);
-            effectAt("heal", bar && { x: bar.x + bar.w / 2, y: bar.y + bar.h / 2 });
-          } else if (kind === "amplify" || kind === "echo" || kind === "lookout") {
-            effectAt(kind);
+          const text = ev.triggers > 1 ? `${ev.value}×${ev.triggers}` : String(ev.value);
+          floatText(scene, node.pos.x, node.pos.y, text, CAP_COLOR[ev.effect], Math.max(30, Math.round(60 * node.pos.k + 18 + this.tier * 6)), 1000);
+          if (ev.value >= P.lightning.minCap && !reducedFlashing()) {
+            const ends = this.lit
+              .filter((id) => id !== ev.node)
+              .slice(-P.lightning.bolts)
+              .map((id) => refs.nodes.get(id))
+              .filter((n): n is NonNullable<typeof n> => n !== undefined)
+              .map((n) => centre(boxOf(n.pos)));
+            lightning(scene, at, ends);
+            playSound("lightning");
           }
-          if (ev.effect.spectrum && (kind === "damage" || kind === "block" || kind === "heal")) effectAt("spectrum");
+        }
+        if (ev.value >= P.shake.minCap) {
+          shake(scene, this.tier);
+          playSound("shake");
+        }
+        slow = ev.value >= P.slowMotion.minCap && !reducedFlashing() && !this.skipping;
+        break;
+      }
+      case "fizzle": {
+        playSound("fizzle");
+        const at = refs.slots.get(ev.end);
+        if (at) {
+          sputter(scene, at);
+          floatText(scene, at.x, at.y - 20, "fizzle", "#9aa3b2", 26, 800);
         }
         break;
       }
       case "charm": {
-        // The charm icon flashes (#108); screen-only, the engine already counted the effect.
+        playSound("effect:charm", 1 + this.tier * 3);
+        // The charm icon bursts (#108); screen-only, the engine already counted the effect.
         const at = refs.charms.get(`${ev.player}:${ev.charm}`);
-        if (at) {
-          flash(scene, { x: at.x - 16, y: at.y - 16, w: 32, h: 32 }, 0xffe14d);
-          playEffect(scene, "charm", { from: { x: at.x - 16, y: at.y - 16, w: 32, h: 32 } }, shown.chain.strength, shown.chain.lap);
-        }
+        if (at) charm(scene, at);
         break;
       }
+      case "enemyAction":
+        if (refs.intent) flash(scene, refs.intent, 0xff3b2f);
+        break;
       case "damage": {
         const key = ev.side;
         const sh = refs.shields.get(key);
         const bar = refs.bars.get(key);
+        const stack = ev.side === "enemy" && this.inCascade;
+        if (stack) this.tally.damage += ev.amount;
         if (ev.amount > 0 && bar) {
-          const at = bar.x + bar.w / 2;
-          if (!this.heat.damageNumber(shown.chain.strength, shown.chain.lap, at, bar.y - 10, `-${ev.amount}`, "#ff6a5f")) {
-            floatText(scene, at, bar.y - 10, `-${ev.amount}`, "#ff6a5f");
-          }
+          if (stack) stackedNumber(scene, this.pile, bar.x + bar.w / 2, bar.y - 10, `-${ev.amount}`, "#ff6a5f", this.tier);
+          else floatText(scene, bar.x + bar.w / 2, bar.y - 10, `-${ev.amount}`, "#ff6a5f");
         }
         if (ev.blocked > 0 && sh) floatText(scene, sh.x + 30, sh.y - 10, `${ev.blocked} blocked`, "#9cc4ff", 32);
         this.tweenHealth(key, before, after);
@@ -303,80 +266,107 @@ export class Animator {
       }
       case "block": {
         const sh = refs.shields.get(ev.side);
-        if (ev.amount > 0 && sh) floatText(scene, sh.x + 30, sh.y - 10, `+${ev.amount}`, "#9cc4ff");
+        const stack = ev.side === "party" && this.inCascade;
+        if (stack) this.tally.block += ev.amount;
+        if (ev.amount > 0 && sh) {
+          if (stack) stackedNumber(scene, this.pile, sh.x + 30, sh.y - 10, `+${ev.amount}`, "#9cc4ff", this.tier);
+          else floatText(scene, sh.x + 30, sh.y - 10, `+${ev.amount}`, "#9cc4ff");
+        }
         this.tweenHealth(ev.side, before, after);
         break;
       }
-      case "heal":
-      case "glutton": {
-        const side = ev.type === "glutton" ? "enemy" : ev.side;
-        const amount = ev.type === "glutton" ? ev.heal : ev.amount;
-        const bar = refs.bars.get(side);
-        if (amount > 0 && bar) floatText(scene, bar.x + bar.w / 2, bar.y - 10, `+${amount}`, "#7dff9e");
-        if (ev.type === "glutton" && amount > 0 && bar) floatText(scene, bar.x + bar.w / 2, bar.y + 70, "Glutton", "#7dff9e", 30, 1000);
-        this.tweenHealth(side, before, after);
+      case "coinsGained":
+        if (this.inCascade) this.tally.coins += ev.amount;
+        floatText(scene, 960, 600, `${ev.player}: +${ev.amount} coins`, "#ffd23f", 40, 1000);
+        break;
+      case "passive": {
+        const bar = refs.bars.get(ev.passive === "auditor" ? "party" : "enemy");
+        if (ev.passive === "warden") floatText(scene, 960, 470, `Warden locks ${ev.spark}`, "#ff8a8a", 40, 1100);
+        else if (bar) {
+          const text = ev.passive === "auditor" ? `Auditor: -${ev.amount}` : ev.passive === "glutton" ? `Glutton +${ev.amount}` : ev.passive === "hoarder" ? "Hoarder" : ev.passive === "longNight" ? `Long Night +${ev.amount}` : `Smolder +${ev.amount}`;
+          floatText(scene, bar.x + bar.w / 2, bar.y + 70, text, "#ffb066", 32, 1000);
+        }
+        if (ev.passive === "glutton") this.tweenHealth("enemy", before, after);
         break;
       }
-      // Short labels for what the old log line used to say (#155).
-      case "enemyNoReaction":
-        floatText(scene, 960, 215, "No reaction", "#ffd9a0", 40, 900);
-        break;
-      case "smolder":
-        floatText(scene, 960, 215, `Leftovers at strength ${ev.strength}`, "#ffb066", 34, 900);
-        break;
-      case "auditor": {
-        const bar = refs.bars.get("party");
-        if (bar) floatText(scene, bar.x + bar.w / 2, bar.y + 70, `Auditor: -${ev.damage}`, "#ff9a94", 34, 1000);
-        break;
-      }
-      case "hoarder": {
-        const sh = refs.shields.get("enemy");
-        if (sh) floatText(scene, sh.x + 60, sh.y - 50, "Hoarder", "#9cc4ff", 30, 1000);
-        break;
-      }
-      case "sparkLocked":
-        floatText(scene, 960, 470, `Warden locks ${ev.spark}`, "#ff8a8a", 40, 1100);
-        break;
-      case "chainEnd":
-        floatText(scene, 960, 470, "Chain broken", "#ffd9a0", 56, 1100);
-        break;
       case "blockReset":
         this.tweenHealth("party", before, after);
         this.tweenHealth("enemy", before, after);
         break;
-      case "reveal":
-        for (const p of ev.positions) {
-          const slot = refs.enemyHand[p];
-          if (!slot) continue;
-          slot.c.setScale(0, slot.pos.k);
-          scene.tweens.add({ targets: slot.c, scaleX: slot.pos.k, duration: scaleTime(300), ease: "Back.easeOut" });
-        }
-        break;
       default:
         break;
     }
-    this.meter(ev, before.total, after.total);
-    if (ev.type === "lapUp") this.heat.onLapUp(ev.lap);
-    if (ev.type === "chainEnd") this.heat.onChainEnd();
-    // Lap 3+: slow motion after each play. Local to this screen; scaled by playback speed.
-    if (ev.type === "play") await this.heat.slowMotion(ev.strength, ev.lap);
+    if (slow) await this.slowMotion();
   }
 
-  // Adds what an event did to the open chain's per-domino tally (the engine's own numbers).
-  private countChain(ev: GameEvent): void {
-    if (ev.type === "roundStart") {
-      this.tally = [];
-      this.chainOpen = false;
-    } else if (ev.type === "opener") {
-      this.tally = [{ damage: 0, block: 0 }];
-      this.chainOpen = true;
-    } else if (ev.type === "play") {
-      this.tally.push({ damage: 0, block: 0 });
-    } else if (this.chainOpen && this.tally.length > 0) {
-      const t = this.tally[this.tally.length - 1];
-      if (ev.type === "damage" && ev.side === "enemy") t.damage += ev.amount;
-      else if (ev.type === "block" && ev.side === "party") t.block += ev.amount;
+  // Where a cap's effect lands: the enemy's bar, or the party's block counter. Coins stay at the cap.
+  private targetOf(effect: "damage" | "block" | "coins", refs: Refs): Point | undefined {
+    if (effect === "damage") {
+      const bar = refs.bars.get("enemy");
+      return bar ? { x: bar.x + bar.w / 2, y: bar.y + bar.h / 2 } : undefined;
     }
+    if (effect === "block") {
+      const sh = refs.shields.get("party");
+      return sh ? { x: sh.x + 30, y: sh.y } : undefined;
+    }
+    return undefined;
+  }
+
+  // A domino lights: it flashes in the heat colour with its charge, an amplifier flares (bigger for
+  // a bigger change), a junction splits the glow, and charge flows out along each branch at once.
+  private nodeLit(ev: Extract<GameEvent, { type: "nodeLit" }>, shown: BattleView): void {
+    const scene = this.scene;
+    const refs = this.refs;
+    this.lit.push(ev.node);
+    this.tier = heatTier(this.lit.length, this.biggest);
+    const color = heatColor(this.tier);
+    playSound("tick", this.lit.length);
+    const node = refs.nodes.get(ev.node);
+    if (!node) return;
+    const box = boxOf(node.pos);
+    const at = centre(box);
+    flash(scene, box, color);
+    floatText(scene, node.pos.x, node.pos.y - (DH * node.pos.k) / 2 - 8, String(ev.charge), "#ffe14d", Math.max(22, Math.round(40 * node.pos.k + 14)), 700);
+
+    // What it did to the charge: compare with the charge its parent was lit with.
+    const board = shown.board;
+    const me = board.nodes.find((n) => n.id === ev.node);
+    const parent = me && me.end !== null ? board.ends.find((e) => e.id === me.end)?.node : undefined;
+    const was = parent !== undefined ? this.charges.get(parent) : undefined;
+    this.charges.set(ev.node, ev.charge);
+    const d = shown.dominoes.find((x) => x.id === ev.domino);
+    const pitch = 1 + this.tier * 3;
+    if (d?.kind === "amplifier" && d.amp && was !== undefined) {
+      const size = 0.6 + Math.min(1, Math.max(0, ev.charge - was) / P.amp.fullChange);
+      if (d.amp.op === "echo") { echo(scene, at); playSound("effect:echo", pitch); }
+      else if (d.amp.op === "spectrum") { spectrum(scene, at, size); playSound("effect:spectrum", pitch); }
+      else { amplify(scene, at, size); playSound("effect:amplify", pitch); }
+    }
+    if (d?.kind === "junction") {
+      split(scene, at, color);
+      playSound("junction", pitch);
+    }
+
+    // Charge flows out along each branch, all at once.
+    const from = node.pos;
+    for (const e of board.ends.filter((x) => x.node === ev.node)) {
+      const child = board.nodes.find((n) => n.end === e.id);
+      const to = child ? refs.nodes.get(child.id)?.pos : refs.slots.get(e.id);
+      if (!to) continue;
+      const x0 = from.x + (DW * from.k) / 2;
+      const x1 = to.x - (child ? (DW * to.k) / 2 : Math.max(34, DH * to.k) / 2);
+      const xm = (x0 + x1) / 2;
+      flow(scene, [{ x: x0, y: from.y }, { x: xm, y: from.y }, { x: xm, y: to.y }, { x: x1, y: to.y }], color, 10 + 8 * from.k, this.tier);
+    }
+  }
+
+  // The biggest caps hold the table for a moment in slow motion (the tweens slow; the hold is
+  // scaled by playback speed and local to this screen).
+  private async slowMotion(): Promise<void> {
+    this.scene.tweens.timeScale = P.slowMotion.timeScale;
+    playSound("slowMotion");
+    await new Promise<void>((resolve) => this.scene.time.delayedCall(scaleTime(P.slowMotion.holdMs), resolve));
+    this.scene.tweens.timeScale = this.skipping ? SKIP_SPEED : 1;
   }
 
   private tweenHealth(side: "party" | "enemy", before: Snapshot, after: Snapshot): void {
@@ -390,35 +380,5 @@ export class Animator {
       const cur = this.refs.shields.get(side);
       if (cur && cur.text.active) cur.text.setText(String(Math.round(v)));
     });
-  }
-
-  private meter(ev: GameEvent, from: number, to: number): void {
-    const m = this.refs.meter;
-    if (!m || from === to) return;
-    const scene = this.scene;
-    if (to > from) {
-      // Pop: start big and settle at the size the new value calls for.
-      m.text.setScale(m.scale * 1.5);
-      scene.tweens.add({ targets: m.text, scale: m.scale, duration: scaleTime(280), ease: "Back.easeOut" });
-    } else {
-      // Reset: shrink from the old size.
-      m.text.setScale(comboLook(from).scale);
-      scene.tweens.add({ targets: m.text, scale: m.scale, duration: scaleTime(300), ease: "Cubic.easeIn" });
-    }
-    if (ev.type === "lapUp") {
-      const { x, y, w, h } = m.rect;
-      const g = scene.add.graphics().setDepth(95).setPosition(x + w / 2, y + h / 2);
-      g.lineStyle(8, GOLD, 1);
-      g.strokeRoundedRect(-w / 2, -h / 2, w, h, 40);
-      scene.tweens.add({
-        targets: g, scale: { from: 1, to: 1.25 }, alpha: { from: 1, to: 0 },
-        duration: scaleTime(450), ease: "Cubic.easeOut", onComplete: () => g.destroy(),
-      });
-      floatText(scene, x + w / 2, y + h - 10, `LAP ${this.lapOf(ev)}`, "#ffe14d", 36, 900);
-    }
-  }
-
-  private lapOf(ev: GameEvent): number {
-    return ev.type === "lapUp" ? ev.lap : 0;
   }
 }

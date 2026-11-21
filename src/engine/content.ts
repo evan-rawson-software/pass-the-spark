@@ -30,7 +30,7 @@ export interface Content {
 
 export function loadContent(): Content {
   const dominoes = validateDominoes(dominoesJson);
-  const enemies = validateEnemies(enemiesJson, dominoes);
+  const enemies = validateEnemies(enemiesJson);
   const pools = validatePools(poolsJson);
   return {
     config: validateConfig(configJson),

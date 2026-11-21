@@ -4,10 +4,17 @@
   "playerFirstDraw": 5,
   "playerHandLimit": 10,
   "triggerCap": 100,
-  "enemyReactionsScaleWithLap": false,
-  "auditorDamage": {
-    "rule": "strength"
-  },
-  "gluttonHeal": 5,
-  "enemyHealthPercentByPartySize": [100, 100, 100, 165]
+  "openEndLimit": 4,
+  "enemyHealthPercentByPartySize": [
+    100,
+    100,
+    100,
+    100
+  ],
+  "enemyAttackPercentByPartySize": [
+    100,
+    100,
+    100,
+    100
+  ]
 }

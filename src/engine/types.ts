@@ -2,33 +2,35 @@
 
 export type Spark = "Ember" | "Tide" | "Gale" | "Storm" | "Void" | "Rot";
 
-export type EffectKind =
-  | "damage"
-  | "block"
-  | "heal"
-  | "amplify"
-  | "echo"
-  | "mimic"
-  | "reflect"
-  | "lookout";
+// The three kinds of domino. Amplifiers and junctions have no effect of their own; caps end a branch and carry the effect.
+export type DominoKind = "amplifier" | "junction" | "cap";
 
-export interface Effect {
-  kind: EffectKind;
-  base?: number; // damage, block, heal, amplify only
-  spectrum?: boolean;
-  ignoresBlock?: boolean;
-  // Upgrade parameters. Each is optional and defaults to 0, which keeps the base behaviour.
-  extraTriggers?: number; // echo only: extra pending triggers each time it triggers
-  extraReveals?: number; // lookout only: extra dominoes revealed
-  strengthBonus?: number; // mimic only: added to the strength the copied effect resolves at
+export type AmpOp = "add" | "mul" | "echo" | "spectrum";
+
+// What an amplifier does to the charge passing through it.
+// add: charge + value. mul: charge x value. echo: caps further along go off `value` extra times. spectrum: charge + value per different spark on the path.
+export interface Amp {
+  op: AmpOp;
+  value: number;
+}
+
+export type CapEffectKind = "damage" | "block" | "coins";
+
+// A cap's effect goes off at base x charge.
+export interface CapEffect {
+  kind: CapEffectKind;
+  base: number;
+  ignoresBlock?: boolean; // damage only
 }
 
 export interface Domino {
   id: string;
   name: string;
+  kind: DominoKind;
   intake: Spark[] | "any";
-  output: Spark[]; // one or more
-  effect: Effect;
+  output: Spark[]; // amplifier: exactly 1; junction: exactly 2; cap: none
+  amp?: Amp; // amplifiers only
+  effect?: CapEffect; // caps only
   rarity?: Rarity; // generated dominoes only
   upgraded?: UpgradeSide[]; // sides already upgraded at a rest site (run instances only)
 }
@@ -37,17 +39,28 @@ export type UpgradeSide = "left" | "right";
 
 export type Tier = "basic" | "elite" | "boss";
 
-export type AuditorDamage =
-  | { rule: "strength" } // equal to current strength
-  | { rule: "flat"; amount: number };
+// One thing an enemy does in its turn. An attack makes `hits` hits (default 1) of `value` damage each.
+export type IntentAction = { kind: "attack"; value: number; hits?: number } | { kind: "block"; value: number };
 
-// Parameters are optional overrides of the defaults in Config.
+// What the enemy does after the cascade. Actions are carried out in order.
+export interface Intent {
+  id: string;
+  actions: IntentAction[];
+}
+
+// How the next intent is chosen. cycle: the ids in order, repeating. weighted: a seeded draw by weight
+// (intent id -> weight), never more than maxRepeat (default 2) of the same intent in a row.
+export type Pattern =
+  | { type: "cycle"; order: string[] }
+  | { type: "weighted"; weights: Record<string, number>; maxRepeat?: number };
+
+// Boss passives. Amounts live here, in data.
 export type Passive =
-  | { kind: "auditor"; damage?: AuditorDamage; name: string; text?: string }
-  | { kind: "glutton"; heal?: number; name: string; text?: string }
-  | { kind: "hoarder"; name: string; text?: string }
-  | { kind: "smolder"; name: string; text?: string }
-  | { kind: "longNight"; name: string; text?: string } // its reactions and leftovers scale with lap
+  | { kind: "auditor"; damage: number; name: string; text?: string } // party damage per repeated cap spark
+  | { kind: "glutton"; heal: number; name: string; text?: string } // health healed at the end of every round
+  | { kind: "hoarder"; multiplier: number; name: string; text?: string } // block per domino on the board
+  | { kind: "smolder"; growth: number; name: string; text?: string } // added to each attack hit per round passed
+  | { kind: "longNight"; growth: number; name: string; text?: string } // added to each attack hit per cap set off
   | { kind: "warden"; sparks: Spark[]; name: string; text?: string }; // each round one of these sparks is locked against players
 
 export interface Enemy {
@@ -55,9 +68,8 @@ export interface Enemy {
   name: string;
   tier: Tier;
   maxHealth: number;
-  drawPerRound: number;
-  handLimit: number;
-  deck: string[]; // domino ids
+  intents: Intent[];
+  pattern: Pattern;
   passives: Passive[];
 }
 
@@ -67,11 +79,11 @@ export interface Config {
   playerFirstDraw: number; // drawn in round 1 instead of playerDrawPerRound
   playerHandLimit: number;
   triggerCap: number;
-  enemyReactionsScaleWithLap: boolean;
-  auditorDamage: AuditorDamage;
-  gluttonHeal: number;
+  openEndLimit: number; // at most this many open ends on the board at once
   // Enemy starting health, in percent of its data health, for parties of 1, 2, 3 and 4 players.
   enemyHealthPercentByPartySize: number[];
+  // Each enemy attack hit, in percent of its (grown) value, for parties of 1, 2, 3 and 4 players.
+  enemyAttackPercentByPartySize: number[];
 }
 
 // data/starter-deck.json is a list of domino ids; copies repeat the id.
@@ -80,21 +92,30 @@ export type DeckList = string[];
 // Generated dominoes (data/domino-pools.json).
 export type Rarity = "common" | "uncommon" | "rare";
 export type BattleType = "fight" | "elite" | "boss";
-export type Trait = "spectrum" | "ignoresBlock";
 
-// One possible right side. Value is drawn whole from [min, max]; the output list is drawn from outputs.
-export interface PoolEffect {
-  kind: EffectKind;
-  names: string[]; // word after the spark in the name, e.g. "Strike" -> "Tide Strike"
-  base?: [number, number]; // damage, block, amplify only
-  traits?: Trait[]; // traits this effect may roll
-  outputs: Spark[][];
+// One amplifier a rarity can roll. unlock: the unlock id (data/progression.json) a player needs; none means always available.
+export interface PoolAmp {
+  names: string[]; // word after the spark in the name, e.g. "Boost" -> "Tide Boost"
+  amp: Amp;
+  unlock?: string;
+}
+
+// One cap a rarity can roll. The base is drawn whole from [min, max].
+export interface PoolCap {
+  names: string[];
+  kind: CapEffectKind;
+  base: [number, number];
+  unlock?: string;
 }
 
 export interface RarityPool {
+  kindWeights: Record<DominoKind, number>; // chance weights for the kind; a kind with weight 0 is never rolled
   intakes: (Spark[] | "any")[]; // each entry is one intake; lists hold exactly one spark
-  effects: PoolEffect[];
-  traits: { spectrum: number; ignoresBlock: number }; // chance 0..1 per trait
+  outputs: Spark[]; // single basic sparks an amplifier or junction can output
+  amplifiers: PoolAmp[];
+  junctions: string[]; // name words for junctions
+  caps: PoolCap[];
+  ignoresBlock: number; // chance 0..1 that a damage cap ignores block (once unlocked)
   // Chance 0..1 that each output spark is swapped for a random advanced spark. Uncommon only; 0 elsewhere.
   advancedOutputShare: number;
 }
@@ -137,11 +158,11 @@ export interface ActData {
 
 // How much a right-side upgrade adds. All amounts are whole numbers, 1 or more.
 export interface UpgradeData {
-  numberedPercent: number; // damage, block and heal: base grows by this percent, rounded up
-  amplify: number; // added to Amplify's base
-  echoTriggers: number; // added to Echo's extraTriggers
-  lookoutReveals: number; // added to Lookout's extraReveals
-  mimicStrength: number; // added to Mimic's strengthBonus
+  capPercent: number; // caps: base grows by this percent, rounded up
+  boostAdd: number; // added to an add amplifier's value (Boost)
+  doubleValue: number; // a mul amplifier (Double) becomes x this
+  echoRepeats: number; // added to an echo amplifier's value
+  spectrumAdd: number; // added to a spectrum amplifier's value
 }
 
 export interface RunData {

@@ -44,7 +44,7 @@
       "weight": 4,
       "enabled": true,
       "text": "Three stone bowls glow at a mossy shrine, one each for Ember, Tide and Gale. The party may kneel at one.",
-      "numbers": { "blessedAnswerStrength": 2 }
+      "numbers": { "blessedCharge": 1 }
     },
     {
       "id": "lost_courier",

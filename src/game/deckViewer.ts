@@ -54,7 +54,7 @@ export function battleDeckPlayers(view: BattleView, name: (id: string) => string
 }
 
 function missing(id: string): Domino {
-  return { id, name: id, intake: "any", output: [], effect: { kind: "echo" } };
+  return { id, name: id, kind: "amplifier", intake: "any", output: ["Ember"], amp: { op: "add", value: 0 } };
 }
 
 // ---- grouping (presentation only) ----

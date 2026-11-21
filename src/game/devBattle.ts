@@ -8,10 +8,9 @@ export const content = loadContent();
 export const dominoes = content.dominoes;
 export const enemies = content.enemies;
 
-// What the start screen collects. Seat order is names in order, enemy last;
-// the first name leads.
+// What the start screen collects. Seat order is names in order; the first name leads.
 export interface GameSettings {
-  names: string[]; // 3 or 4 player names
+  names: string[]; // 2 to 4 player names
   enemyId: string;
 }
 
@@ -23,19 +22,18 @@ export function rememberSettings(settings: GameSettings): void {
 
 // Dev query params (all optional). When the page is opened with any of them the
 // start screen is skipped and the battle starts straight away:
-//   enemy=ogre|brute|auditor|glutton   players=3|4   seed=<number>
-//   steps=<n>   play n scripted choices (always the first legal one)
-//   draw=<n>    players draw n per round (to build long chains)
-//   deck=wild   every player's deck is Wildcards (answers anything)
-//   edraw=<n>   the enemy draws n per round (edraw=7 on a boss shows a full hand)
-export const DEV_PARAMS = ["enemy", "players", "seed", "steps", "draw", "deck", "edraw"];
+//   enemy=ogre|brute|warden|auditor|glutton   players=2|3|4   seed=<number>
+//   steps=<n>   play n scripted choices (always the first legal play, on its first end)
+//   draw=<n>    players draw n per round
+export const DEV_PARAMS = ["enemy", "players", "seed", "steps", "draw"];
 
 export function hasDevParams(query: URLSearchParams): boolean {
   return DEV_PARAMS.some((k) => query.has(k));
 }
 
 export function devSettings(query: URLSearchParams): { settings: GameSettings; seed: number } {
-  const count = query.get("players") === "4" ? 4 : 3;
+  const players = Number(query.get("players"));
+  const count = players === 2 || players === 4 ? players : 3;
   return {
     settings: { names: ["Ana", "Ben", "Cy", "Dee"].slice(0, count), enemyId: query.get("enemy") ?? "ogre" },
     seed: Number(query.get("seed") ?? 1),
@@ -47,13 +45,13 @@ export function startBattle(settings: GameSettings, seed: number, query = new UR
   const config = { ...content.config };
   const draw = Number(query.get("draw"));
   if (draw > 0) config.playerDrawPerRound = draw;
-  const deck: DeckList = query.get("deck") === "wild" ? Array(10).fill("wildcard") : content.starterDeck;
+  const deck: DeckList = content.starterDeck;
 
   let state = createBattle({
     config,
-    content: { dominoes, enemies: enemies.map((e) => ({ ...e, drawPerRound: Number(query.get("edraw")) || e.drawPerRound })) },
+    content: { dominoes, enemies },
     players: names.map((id) => ({ id, deck })),
-    seatOrder: [...names, "enemy"],
+    seatOrder: names,
     startingLead: names[0],
     enemyId: settings.enemyId,
     seed,
@@ -61,12 +59,9 @@ export function startBattle(settings: GameSettings, seed: number, query = new UR
   for (let i = Number(query.get("steps") ?? 0); i > 0; i--) {
     const pending = getPendingChoice(state);
     if (!pending) break;
-    state = step(
-      state,
-      pending.type === "opener"
-        ? { type: "opener", domino: pending.dominoes[0] }
-        : { type: "answer", domino: pending.options[0].domino, spark: pending.options[0].sparks[0] },
-    ).state;
+    const play = pending.plays[0];
+    if (!play) break;
+    state = step(state, { type: "play", domino: play.domino, end: pending.opener ? undefined : play.ends[0] }).state;
   }
   return state;
 }

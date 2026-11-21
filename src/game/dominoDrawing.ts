@@ -11,17 +11,13 @@ export type DominoState =
   | "normal"
   | "playable" // raised and glowing
   | "notPlayable" // dimmed
-  | "hidden" // face-down enemy domino
-  | "revealed" // face-up enemy domino with a marker
-  | "playedFaceUp"; // face-up played enemy domino (deck area)
+  | "hidden"; // face-down (deck stacks)
 
 export const DOMINO_STATES: DominoState[] = [
   "normal",
   "playable",
   "notPlayable",
   "hidden",
-  "revealed",
-  "playedFaceUp",
 ];
 
 const SIZE_SCALE: Record<DominoSize, number> = { large: 1, small: 0.5 };
@@ -146,9 +142,19 @@ function drawHalf(g: Phaser.GameObjects.Graphics, sparks: Spark[] | "any", cx: n
   }
 }
 
-// Effect icons, centred on (0, cy), roughly 52 units across.
-function drawEffectIcon(g: Phaser.GameObjects.Graphics, kind: string, cy: number): void {
-  // Effect icons are always drawn in code, never from generated art.
+// What an icon can show: the three cap effects, the four amplifiers and the junction.
+export type IconKind = "damage" | "block" | "coins" | "add" | "mul" | "echo" | "spectrum" | "junction";
+
+// The icon a domino's middle column shows, from its data.
+export function iconOf(d: Domino): IconKind | null {
+  if (d.kind === "junction") return "junction";
+  if (d.kind === "cap") return d.effect?.kind ?? null;
+  return d.amp ? d.amp.op : null;
+}
+
+// Effect icons, code-drawn (never from generated art), centred on (0, cy), roughly 52 units across.
+// Drawn on any Graphics: callers that want one elsewhere give the Graphics a position and scale.
+export function drawEffectIcon(g: Phaser.GameObjects.Graphics, kind: IconKind, cy = 0): void {
   const p = (x: number, y: number): Pt => ({ x, y: cy + y });
   if (kind === "damage") {
     // A red sword, point up, in the same style as the shield.
@@ -159,13 +165,22 @@ function drawEffectIcon(g: Phaser.GameObjects.Graphics, kind: string, cy: number
   } else if (kind === "block") {
     polygon(g, [p(-22, -24), p(22, -24), p(22, 2), p(0, 28), p(-22, 2)], 0x4a6fa5);
     line(g, [p(0, -18), p(0, 18)], 4, 0xdbe6f5);
-  } else if (kind === "heal") {
-    polygon(g, [
-      p(-7, -26), p(7, -26), p(7, -7), p(26, -7), p(26, 7), p(7, 7),
-      p(7, 26), p(-7, 26), p(-7, 7), p(-26, 7), p(-26, -7), p(-7, -7),
-    ], 0x2e9e4f);
-  } else if (kind === "amplify") {
+  } else if (kind === "coins") {
+    g.fillStyle(0xffd23f, 1);
+    g.lineStyle(3, 0xb8860b, 1);
+    g.fillCircle(0, cy, 24);
+    g.strokeCircle(0, cy, 24);
+    g.lineStyle(3, 0xe0a800, 1);
+    g.strokeCircle(0, cy, 15);
+    g.fillStyle(0xfff3a8, 0.9);
+    g.fillCircle(-8, cy - 8, 4);
+  } else if (kind === "add") {
     polygon(g, [p(0, -28), p(24, -2), p(10, -2), p(10, 26), p(-10, 26), p(-10, -2), p(-24, -2)], 0xf08a00);
+  } else if (kind === "mul") {
+    line(g, [p(-18, -18), p(18, 18)], 12, DARK);
+    line(g, [p(-18, 18), p(18, -18)], 12, DARK);
+    line(g, [p(-18, -18), p(18, 18)], 7, 0xa855f7);
+    line(g, [p(-18, 18), p(18, -18)], 7, 0xa855f7);
   } else if (kind === "echo") {
     g.fillStyle(0x1aa6b7, 1);
     g.fillCircle(0, cy, 6);
@@ -175,32 +190,31 @@ function drawEffectIcon(g: Phaser.GameObjects.Graphics, kind: string, cy: number
       g.lineStyle(5, 0x1aa6b7, 1);
       g.strokeCircle(0, cy, r);
     }
-  } else if (kind === "mimic") {
-    g.lineStyle(3, DARK, 1);
-    g.fillStyle(0xe8a8d4, 1);
-    g.fillRect(-26, cy - 26, 32, 32);
-    g.strokeRect(-26, cy - 26, 32, 32);
-    g.fillStyle(0xc2409a, 1);
-    g.fillRect(-6, cy - 6, 32, 32);
-    g.strokeRect(-6, cy - 6, 32, 32);
-  } else if (kind === "reflect") {
-    polygon(g, [p(-26, -18), p(6, -18), p(6, -28), p(26, -12), p(6, 4), p(6, -6), p(-26, -6)], 0x5b6b8c);
-    polygon(g, [p(26, 18), p(-6, 18), p(-6, 28), p(-26, 12), p(-6, -4), p(-6, 6), p(26, 6)], 0x5b6b8c);
-  } else if (kind === "lookout") {
-    const top: Pt[] = [];
-    const bottom: Pt[] = [];
-    for (let i = 0; i <= 12; i++) {
-      const x = -28 + (56 * i) / 12;
-      const h = 17 * (1 - Math.pow(x / 28, 2));
-      top.push(p(x, -h));
-      bottom.unshift(p(x, h));
-    }
-    polygon(g, [...top, ...bottom], 0xffffff);
-    g.fillStyle(0x3b5b92, 1);
-    g.fillCircle(0, cy, 10);
-    g.fillStyle(DARK, 1);
-    g.fillCircle(0, cy, 5);
+  } else if (kind === "spectrum") {
+    [0xff6a13, 0x2f80ed, 0x4cc46a].forEach((color, i) => {
+      g.fillStyle(color, 1);
+      g.lineStyle(2, 0xffffff, 1);
+      const x = (i - 1) * 20;
+      const y = cy + (i === 1 ? -10 : 8);
+      g.fillCircle(x, y, 13);
+      g.strokeCircle(x, y, 13);
+    });
+  } else {
+    // junction: one path in, two out
+    line(g, [p(-26, 0), p(-4, 0)], 9, DARK);
+    line(g, [p(-4, 0), p(8, -16), p(26, -16)], 9, DARK);
+    line(g, [p(-4, 0), p(8, 16), p(26, 16)], 9, DARK);
+    line(g, [p(-26, 0), p(-4, 0)], 5, 0xf4ecd8);
+    line(g, [p(-4, 0), p(8, -16), p(26, -16)], 5, 0xf4ecd8);
+    line(g, [p(-4, 0), p(8, 16), p(26, 16)], 5, 0xf4ecd8);
   }
+}
+
+// The number printed under the icon: an amplifier's amount (+1, ×2) or a cap's base.
+export function iconNumber(d: Domino): string {
+  if (d.kind === "cap") return d.effect ? String(d.effect.base) : "";
+  if (d.kind === "amplifier" && d.amp) return (d.amp.op === "mul" ? "×" : "+") + d.amp.value;
+  return "";
 }
 
 // Draws the face; returns the number text, if any, so the caller can keep it above overlays.
@@ -218,38 +232,36 @@ function drawFace(scene: Phaser.Scene, g: Phaser.GameObjects.Graphics, c: Phaser
   }
 
   drawHalf(g, domino.intake, -80);
-  drawHalf(g, domino.output, 80);
+  if (domino.kind === "cap") {
+    // A cap closes its branch: no outputs, just a solid end.
+    g.fillStyle(0x6b727c, 1);
+    g.fillRoundedRect(W / 2 - 80, -H / 2 + 6, 74, H - 12, 8);
+    g.fillStyle(DARK, 1);
+    g.fillRect(W / 2 - 18, -H / 2 + 6, 12, H - 12);
+  } else {
+    drawHalf(g, domino.output, 80);
+  }
 
-  const e = domino.effect;
-  drawEffectIcon(g, e.kind, -4);
+  const kind = iconOf(domino);
+  if (kind) drawEffectIcon(g, kind, -4);
   let text: Phaser.GameObjects.Text | null = null;
-  if (e.base !== undefined) {
+  const number = iconNumber(domino);
+  if (number) {
     const t = scene.add
-      .text(0, 36, String(e.base), { fontSize: "34px", fontStyle: "bold", color: "#222222", stroke: "#ffffff", strokeThickness: 4 })
+      .text(0, 36, number, { fontSize: "34px", fontStyle: "bold", color: "#222222", stroke: "#ffffff", strokeThickness: 4 })
       .setOrigin(0.5);
     c.add(t);
     text = t;
   }
-  // Flag chips in the top band of the middle column (y -56 to -34).
-  if (e.ignoresBlock && artOn(g, "ui/ignores_block", -20, -45, 30)) {
+  // The ignores-block chip sits in the top band of the middle column (y -56 to -34).
+  const e = domino.effect;
+  if (e?.ignoresBlock && artOn(g, "ui/ignores_block", -20, -45, 30)) {
     // art shown
-  } else if (e.ignoresBlock) {
+  } else if (e?.ignoresBlock) {
     g.fillStyle(DARK, 1);
     g.fillRoundedRect(-38, -56, 36, 22, 6);
     polygon(g, [{ x: -29, y: -52 }, { x: -11, y: -52 }, { x: -11, y: -45 }, { x: -20, y: -37 }, { x: -29, y: -45 }], 0x8fb4ea, 0xffffff);
     line(g, [{ x: -33, y: -37 }, { x: -7, y: -53 }], 5, 0xff3b3b);
-  }
-  if (e.spectrum && artOn(g, "ui/spectrum", 21, -45, 30)) {
-    // art shown
-  } else if (e.spectrum) {
-    g.fillStyle(DARK, 1);
-    g.fillRoundedRect(2, -56, 38, 22, 6);
-    [0xff6a13, 0x2f80ed, 0x4cc46a].forEach((color, i) => {
-      g.fillStyle(color, 1);
-      g.lineStyle(1.5, 0xffffff, 1);
-      g.fillCircle(10 + i * 11, -45, 5.5);
-      g.strokeCircle(10 + i * 11, -45, 5.5);
-    });
   }
   return text;
 }
@@ -270,24 +282,6 @@ function drawBack(g: Phaser.GameObjects.Graphics): void {
   g.strokeRoundedRect(-W / 2, -H / 2, W, H, 14);
 }
 
-// Small round badge in the top-left corner of a face-up enemy domino.
-function drawBadge(g: Phaser.GameObjects.Graphics, kind: "revealed" | "played"): void {
-  const x = -W / 2 + 6;
-  const y = -H / 2 + 6;
-  g.fillStyle(kind === "revealed" ? 0xffd23f : 0x9aa3b2, 1);
-  g.lineStyle(3, DARK, 1);
-  g.fillCircle(x, y, 20);
-  g.strokeCircle(x, y, 20);
-  if (kind === "revealed") {
-    // Gold diamond on navy, echoing the card back: "was hidden, now shown".
-    g.fillStyle(0x2c3e6b, 1);
-    g.fillCircle(x, y, 17);
-    polygon(g, [{ x, y: y - 12 }, { x: x + 9, y }, { x, y: y + 12 }, { x: x - 9, y }], 0xffd23f, 0xffffff);
-  } else {
-    line(g, [{ x: x - 9, y }, { x: x - 2, y: y + 8 }, { x: x + 10, y: y - 8 }], 5, 0xffffff);
-  }
-}
-
 // Builds a domino centred on (0, 0) of the returned container. The caller
 // positions it. `domino` is ignored for the "hidden" state.
 export function drawDomino(scene: Phaser.Scene, domino: Domino, size: DominoSize, state: DominoState): Phaser.GameObjects.Container {
@@ -305,8 +299,7 @@ export function drawDomino(scene: Phaser.Scene, domino: Domino, size: DominoSize
   c.add(body);
   // The tile image, if any, is the lowest thing on the face: the graphics layer (and the fallback
   // drawings on it) and the glyph images all sit above it.
-  const enemy = state === "revealed" || state === "playedFaceUp";
-  const tile = state === "hidden" ? "hidden" : enemy ? "enemy" : (domino.rarity ?? "starter");
+  const tile = state === "hidden" ? "hidden" : (domino.rarity ?? "starter");
   const tileArt = artImage(scene, `tiles/${tile}`, 0, 0, W, H, body) !== null;
   const g = scene.add.graphics();
   body.add(g);
@@ -325,15 +318,7 @@ export function drawDomino(scene: Phaser.Scene, domino: Domino, size: DominoSize
     const text = drawFace(scene, g, body, domino, tileArt);
     const over = scene.add.graphics();
     body.add(over);
-    if (state === "revealed") {
-      over.lineStyle(5, 0xffd23f, 1);
-      over.strokeRoundedRect(-W / 2, -H / 2, W, H, 14);
-      drawBadge(over, "revealed");
-    } else if (state === "playedFaceUp") {
-      over.fillStyle(0x4a5568, 0.22);
-      over.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
-      drawBadge(over, "played");
-    } else if (state === "notPlayable") {
+    if (state === "notPlayable") {
       over.fillStyle(0x10131c, 0.55);
       over.fillRoundedRect(-W / 2, -H / 2, W, H, 14);
     } else if (raised) {
@@ -343,25 +328,4 @@ export function drawDomino(scene: Phaser.Scene, domino: Domino, size: DominoSize
     if (text) body.bringToTop(text);
   }
   return c;
-}
-
-// "Doesn't scale with lap": a small round symbol (a lap arrow crossed out) in the top-right corner.
-// The caller decides when to add it (the engine's ignoresLap says). Uses the generated ui/no_lap
-// image when there is one, else the code drawing. Added to the container, above the tile and marks.
-export function addNoLapSymbol(scene: Phaser.Scene, c: Phaser.GameObjects.Container): void {
-  const x = W / 2 - 4;
-  const y = -H / 2 + 4;
-  if (artImage(scene, "ui/no_lap", x, y, 40, 40, c) !== null) return;
-  const g = scene.add.graphics();
-  g.fillStyle(0x1e2a44, 1);
-  g.lineStyle(3, 0xffffff, 1);
-  g.fillCircle(x, y, 18);
-  g.strokeCircle(x, y, 18);
-  g.lineStyle(4, 0xffe14d, 1);
-  g.beginPath();
-  g.arc(x, y, 9, 0.5, Math.PI * 1.75);
-  g.strokePath();
-  polygon(g, [{ x: x + 9, y: y - 9 }, { x: x + 15, y: y - 1 }, { x: x + 4, y: y - 2 }], 0xffe14d, 0xffe14d);
-  line(g, [{ x: x - 13, y: y + 13 }, { x: x + 13, y: y - 13 }], 4, 0xff3b3b);
-  c.add(g);
 }

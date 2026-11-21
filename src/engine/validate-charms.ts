@@ -31,6 +31,7 @@ export function validateCharms(data: unknown): Charm[] {
     if (id === "lightning_rod" && charm.sparks === undefined) fail(id, `"sparks" is needed`);
     const numbers = charm.numbers;
     if (typeof numbers !== "object" || numbers === null || Array.isArray(numbers)) fail(id, `"numbers" must be an object`);
+    if (id === "overcharge" && (numbers as Record<string, unknown>).multiplierAdd === undefined) fail(id, `numbers.multiplierAdd is needed`);
     for (const [key, value] of Object.entries(numbers)) {
       if (typeof value !== "number" || !Number.isFinite(value) || value < 0) fail(id, `numbers.${key} must be a number, 0 or more`);
     }

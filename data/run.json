@@ -2,7 +2,7 @@
   "startingCoins": 50,
   "actStartHealPercent": 100,
   "restHeal": 20,
-  "upgrade": { "numberedPercent": 50, "amplify": 1, "echoTriggers": 1, "lookoutReveals": 1, "mimicStrength": 1 },
+  "upgrade": { "capPercent": 50, "boostAdd": 1, "doubleValue": 2.5, "echoRepeats": 1, "spectrumAdd": 1 },
   "trader": {
     "stockSize": 5,
     "prices": { "common": 20, "uncommon": 40, "rare": 75 },

@@ -1,38 +1,40 @@
-// Per-player views: the battle state with the enemy's hidden information removed.
+// Per-player views: the battle state, plus the open ends with their charge.
 
-import type { BattleState, EnemyState } from "./battle";
+import type { BattleState } from "./battle";
+import { getOpenEnds, scaledIntent, upcomingIntents } from "./battle";
+import type { EnemyState } from "./battle";
 import { getRunWindow } from "./run";
 import type { RunState } from "./run";
+import type { Intent, Spark } from "./types";
+import { spyglassRounds } from "./battleCharms";
 
-// A hand slot as the players see it: a revealed domino, or only a position.
-export type HandSlot = { revealed: true; domino: string } | { revealed: false };
-
-export interface EnemyView extends Omit<EnemyState, "deck" | "hand" | "revealed"> {
-  deckList: string[]; // every domino in the enemy's deck, sorted (order hidden)
-  deckCount: number; // how many are left to draw (public, like the players' deck sizes)
-  hand: HandSlot[];
+// An open end of the board. charge is what reaches it; triggers is how many times a cap placed there would go off.
+export interface OpenEndView {
+  end: number;
+  node: number;
+  index: number;
+  spark: Spark;
+  charge: number;
+  triggers: number;
 }
 
-export interface BattleView extends Omit<BattleState, "rng" | "enemy"> {
-  enemy: EnemyView;
-}
+// enemy leaves out the intent list, the pattern and the rolled queue, so only Spyglass shows more than this round's intent.
+// openEnds and upcomingIntents are for the player the view is for.
+export type BattleView = Omit<BattleState, "rng" | "enemy"> & {
+  enemy: Omit<EnemyState, "intents" | "pattern" | "queue" | "rolled" | "lastIntent" | "repeats">;
+  openEnds: OpenEndView[];
+  upcomingIntents: Intent[]; // the intents of the next rounds: empty unless this player holds Spyglass
+};
 
-// Player hands are open, so the view is the same for every player.
+// Hands and this round's intent are open to everyone. The open ends show what a cap this player
+// places would get (their charms count), and Spyglass shows its holder the next intents.
 // Returns a copy; the input is not changed.
 export function getView(state: BattleState, playerId: string): BattleView {
   if (!state.players.some((p) => p.id === playerId)) throw new Error("no such player " + playerId);
   const copy: BattleState = JSON.parse(JSON.stringify(state));
   const { rng, enemy, ...rest } = copy;
-  const { deck, hand, revealed, ...enemyRest } = enemy;
-  return {
-    ...rest,
-    enemy: {
-      ...enemyRest,
-      deckList: deck.concat(hand, enemy.discard).sort(),
-      deckCount: deck.length,
-      hand: hand.map((id, i): HandSlot => (revealed[i] ? { revealed: true, domino: id } : { revealed: false })),
-    },
-  };
+  const { intents, pattern, queue, rolled, lastIntent, repeats, ...enemyView } = enemy;
+  return { ...rest, intent: scaledIntent(copy, copy.intent), enemy: enemyView, openEnds: getOpenEnds(copy, playerId), upcomingIntents: upcomingIntents(copy, spyglassRounds(copy, playerId)) };
 }
 
 // The run as a player sees it. Everything in a run is open information (maps, decks, coins, offers,

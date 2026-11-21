@@ -12,7 +12,7 @@ const REQUIRED: Record<string, { kind: string; numbers: string[] }> = {
   tinkers_bench: { kind: "personal", numbers: ["repaintCost"] },
   wishing_well: { kind: "personal", numbers: ["coinPrize", "fallbackCoins"] },
   sleeping_giant: { kind: "push", numbers: ["grabCoins", "wakeStartPercent", "wakeStepPercent", "wakeDamage"] },
-  spark_shrine: { kind: "vote", numbers: ["blessedAnswerStrength"] },
+  spark_shrine: { kind: "vote", numbers: ["blessedCharge"] },
   lost_courier: { kind: "vote", numbers: ["coinsEach"] },
   mirror_pond: { kind: "personal", numbers: [] },
   twin_forge: { kind: "personal", numbers: ["minDeckSize"] },
@@ -60,7 +60,7 @@ export function validateEvents(data: unknown, pools: Pools): EventData[] {
     }
   }
   const shrine = (data.events as EventData[]).find((e) => e.id === "spark_shrine");
-  if (shrine && shrine.numbers.blessedAnswerStrength < 1) fail("spark_shrine", "numbers.blessedAnswerStrength must be at least 1");
+  if (shrine && shrine.numbers.blessedCharge < 1) fail("spark_shrine", "numbers.blessedCharge must be at least 1");
   for (const id of Object.keys(REQUIRED)) {
     if (!seen.includes(id)) fail(id, "missing: every event needs an entry");
   }

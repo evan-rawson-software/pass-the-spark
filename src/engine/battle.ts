@@ -1,19 +1,33 @@
-// Battle state, setup and round flow. Plain functions over plain data.
-// applyChoice never changes its input: it works on a JSON copy.
+// Battle state, setup and round flow for the branching cascade. Plain functions over plain data.
+// The party builds a tree of dominoes, sets it off in one cascade, then the enemy carries out its intent.
+// step never changes its input: it works on a JSON copy.
 
 import { nextInt, shuffle } from "./rng";
 import { validateDominoes } from "./validate";
 import type { GameEvent } from "./events";
-import type { BattleView } from "./view";
-import { answerStrengthBonus, blockBonus, extraDraws, extraEchoTriggers, extraLap, extraReveals, extraSpectrum, handLimitOf, lensBonus, mirrorStrength, lapRunnerBlock, lightningRodTriggers, firstEchoTriggers, sparkStarterStrength, holdsCharm } from "./battleCharms";
-import type { Charm, Config, DeckList, Domino, Effect, Enemy, Passive, Spark } from "./types";
-
-// The enemy's seat id in seatOrder.
-export const ENEMY_SEAT = "enemy";
+import type { BattleView, OpenEndView } from "./view";
+import { capBonus, capExtraTriggers, extraDraws, handLimitOf, junctionRunnerBlock, outputsOf, throughNode } from "./battleCharms";
+import { passiveOf, rollIntentId } from "./enemy";
+import type { CapEffect, Charm, Config, DeckList, Domino, Enemy, Intent, Passive, Pattern, Spark } from "./types";
 
 export interface Content {
   dominoes: Domino[];
   enemies: Enemy[];
+}
+
+// An intent as it is in round `round`: the enemy's data intent with Smolder's growth for that round added.
+function intentFor(enemy: Pick<EnemyState, "intents" | "passives">, id: string, round: number): Intent {
+  const intent: Intent = JSON.parse(JSON.stringify(enemy.intents.find((i) => i.id === id)));
+  const smolder = passiveOf(enemy, "smolder");
+  if (smolder) addToAttacks(intent, smolder.growth * (round - 1));
+  return intent;
+}
+
+// The intents of the `count` rounds after the current one (Spyglass shows them to its holder), exactly
+// as they will be: they are already rolled, with Smolder's growth for those rounds. Long Night's growth is not
+// included, since it only exists once the round's cascade is known.
+export function upcomingIntents(state: Pick<BattleState, "enemy" | "round" | "config" | "players">, count: number): Intent[] {
+  return state.enemy.queue.slice(1, 1 + count).map((id, i) => scaledIntent(state, intentFor(state.enemy, id, state.round + 1 + i)));
 }
 
 export interface PlayerSetup {
@@ -28,22 +42,23 @@ export interface PlayerState {
   hand: string[];
   discard: string[];
   charms: string[]; // charm ids the player holds for this battle (definitions are in BattleState.charmDefs)
-  firstEchoSpent: boolean; // First Echo has already fired this round
+  coins: number; // coins earned in this battle by this player's coin caps; the run adds them to the player's total
 }
 
 export interface EnemyState {
   id: string;
   health: number;
   maxHealth: number;
-  block: number;
-  deck: string[];
-  hand: string[]; // oldest on the left
-  revealed: boolean[]; // revealed[i] is true when hand[i] is revealed to the players
-  discard: string[];
-  drawPerRound: number;
-  handLimit: number;
+  block: number; // gained from an intent; absorbs damage in the next cascade, then resets
+  // Copied from the enemy's data, with the state the pattern needs.
+  intents: Intent[];
+  pattern: Pattern;
   passives: Passive[];
-  faceUp: string[]; // played or discarded since the last reshuffle, for the UI
+  // Intent ids already rolled: this round's first, then the upcoming rounds' (Spyglass reads these).
+  queue: string[];
+  rolled: number; // how many intents have been rolled so far
+  lastIntent: string | null; // the last one rolled
+  repeats: number; // how many in a row of that one
 }
 
 export interface PartyState {
@@ -52,29 +67,27 @@ export interface PartyState {
   block: number;
 }
 
-// Whose effect it is: damage hits the other side, heal and block go to this one.
-export type Side = "party" | "enemy";
-
-// The effect a domino actually had (a Mimic stores what it copied).
-export interface ResolvedEffect {
-  effect: Effect;
-  side: Side;
+// A domino on the board. end is the end it is attached to (null for the opener); depth counts steps from the opener.
+// Nodes are stored in creation order, and a node is always created after the node it hangs from.
+export interface BoardNode {
+  id: number; // index in board.nodes
+  domino: string;
+  owner: string;
+  end: number | null;
+  depth: number;
 }
 
-export interface ChainState {
-  strength: number;
-  lap: number;
-  sparks: Spark[]; // the current spark: one, or a set of two
-  history: Spark[]; // the spark each domino was answered with; reset every round
-  echo: number; // pending extra triggers for the next domino played
-  last: ResolvedEffect | null; // the last domino played this chain, opener included
-  played: { seat: string; domino: string }[]; // every domino laid in this chain in order, opener first, for the screen
-}
-
-// The Spark Shrine's blessing: every answer made with this spark adds `strength` instead of 1.
-export interface Blessing {
+// An output of a node. It is open when no node is attached to it.
+export interface BoardEnd {
+  id: number; // index in board.ends
+  node: number;
+  index: number; // which of the node's outputs
   spark: Spark;
-  strength: number;
+}
+
+export interface Board {
+  nodes: BoardNode[];
+  ends: BoardEnd[];
 }
 
 export interface BattleState {
@@ -82,32 +95,40 @@ export interface BattleState {
   dominoes: Domino[];
   charmDefs: Charm[]; // the charm data the players' charm ids refer to
   rng: number;
-  seatOrder: string[];
+  seatOrder: string[]; // players only
   round: number;
-  lead: string; // this round's lead (the player who plays the opener)
+  lead: string; // this round's lead (the first to take a turn)
   seat: string; // whose turn it is
-  phase: "opener" | "answer" | "over";
-  chain: ChainState;
+  phase: "build" | "over";
+  board: Board;
+  passes: number; // players who have passed in a row
+  intent: Intent; // what the enemy will do after this round's cascade (passive growth is added once known)
+  locked: Spark | null; // the Warden's lock this round: players cannot attach to open ends of this spark
   party: PartyState;
   players: PlayerState[]; // in seat order
   enemy: EnemyState;
   result: "won" | "lost" | null;
   nextLead: string | null;
-  blessing: Blessing | null; // set for the whole battle by the run; null for no blessing
-  locked: Spark | null; // the Warden's locked spark this round: players' dominoes can't be set off by it
+  blessing: { spark: Spark; strength: number } | null; // set by the run (Spark Shrine): a domino attached to this spark adds `strength` charge after its own change
 }
 
-export type PendingChoice =
-  | { type: "opener"; player: string; dominoes: string[] }
-  | {
-      type: "answer";
-      player: string;
-      options: { domino: string; sparks: Spark[] }[];
-    };
+export interface PlayOption {
+  domino: string;
+  ends: number[]; // open ends it can attach to; empty for the opener
+}
+
+// What the player to move can do. Passing is always allowed.
+export interface PendingChoice {
+  player: string;
+  opener: boolean; // the board is empty: play an amplifier or junction without an end
+  plays: PlayOption[];
+  canSetOff: boolean; // at least one cap is on the board
+}
 
 export type Choice =
-  | { type: "opener"; domino: string }
-  | { type: "answer"; domino: string; spark?: Spark }; // spark needed only when ambiguous
+  | { type: "play"; domino: string; end?: number } // end is omitted for the opener
+  | { type: "pass" }
+  | { type: "setOff" };
 
 export interface BattleSetup {
   config: Config;
@@ -125,7 +146,7 @@ export interface BattleSetup {
   // The party's current health, for a battle inside a run. Defaults to max health.
   partyHealth?: number;
   // The party's blessed spark, for a battle inside a run. Defaults to none.
-  blessing?: Blessing | null;
+  blessing?: { spark: Spark; strength: number } | null;
 }
 
 export interface StepResult {
@@ -139,7 +160,7 @@ export function enemyStartingHealth(config: Config, enemy: Enemy, partySize: num
   return Math.ceil((enemy.maxHealth * percent) / 100);
 }
 
-// The battle as it stands after its automatic opening (round 1 draws).
+// The battle as it stands after its automatic opening (round 1 intent and draws).
 export function createBattle(setup: BattleSetup): BattleState {
   return createBattleWithEvents(setup).state;
 }
@@ -149,9 +170,8 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
   const { config, content, seatOrder } = setup;
   const enemyDef = content.enemies.find((e) => e.id === setup.enemyId);
   if (!enemyDef) throw new Error("unknown enemy " + setup.enemyId);
-  const seats = playerSeats(seatOrder);
-  const lead = setup.startingLead ?? seats[0];
-  if (lead === undefined || !seats.includes(lead)) {
+  const lead = setup.startingLead ?? seatOrder[0];
+  if (lead === undefined || !seatOrder.includes(lead)) {
     throw new Error("startingLead must be a player in seatOrder");
   }
 
@@ -162,19 +182,17 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
   const partyHealth = setup.partyHealth ?? config.partyMaxHealth;
   if (!(partyHealth > 0 && partyHealth <= config.partyMaxHealth)) throw new Error("partyHealth must be above 0 and at most max health");
 
-  const enemyHealth = enemyStartingHealth(config, enemyDef, seats.length);
+  const enemyHealth = enemyStartingHealth(config, enemyDef, seatOrder.length);
 
   let rng = setup.seed;
   const players: PlayerState[] = [];
-  for (const id of seats) {
+  for (const id of seatOrder) {
     const p = setup.players.find((x) => x.id === id);
     if (!p || p.deck.length === 0) throw new Error("player needs a deck: " + id);
     const s = shuffle(rng, p.deck);
     rng = s.state;
-    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice(), firstEchoSpent: false });
+    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice(), coins: 0 });
   }
-  const es = shuffle(rng, enemyDef.deck);
-  rng = es.state;
 
   const state: BattleState = {
     config,
@@ -185,8 +203,11 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     round: 0,
     lead,
     seat: lead,
-    phase: "opener",
-    chain: newChain([]),
+    phase: "build",
+    board: { nodes: [], ends: [] },
+    passes: 0,
+    intent: { id: "", actions: [] },
+    locked: null,
     party: { health: partyHealth, maxHealth: config.partyMaxHealth, block: 0 },
     players,
     enemy: {
@@ -194,19 +215,17 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
       health: enemyHealth,
       maxHealth: enemyHealth,
       block: 0,
-      deck: es.value,
-      hand: [],
-      revealed: [],
-      discard: [],
-      drawPerRound: enemyDef.drawPerRound,
-      handLimit: enemyDef.handLimit,
-      passives: enemyDef.passives,
-      faceUp: [],
+      intents: JSON.parse(JSON.stringify(enemyDef.intents)),
+      pattern: JSON.parse(JSON.stringify(enemyDef.pattern)),
+      passives: JSON.parse(JSON.stringify(enemyDef.passives)),
+      queue: [],
+      rolled: 0,
+      lastIntent: null,
+      repeats: 0,
     },
     result: null,
     nextLead: null,
     blessing: setup.blessing ?? null,
-    locked: null,
   };
   const events: GameEvent[] = [];
   startRound(state, events);
@@ -232,17 +251,27 @@ export function makeStarterInstances(
   return { deck: instances.map((d) => d.id), dominoes: instances };
 }
 
-// What getPendingChoice reads. A BattleState or a player's BattleView both fit, so a client can
-// work out what it may play from the view it was sent.
-export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "chain" | "locked">;
+// ---- legality ----
+
+// What the read-only functions need. A BattleState or a player's BattleView both fit, so a client
+// can work out what it may play from the view it was sent.
+export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "board" | "config" | "charmDefs" | "locked" | "blessing">;
 
 export function getPendingChoice(state: PendingInput): PendingChoice | null {
   if (state.phase === "over") return null;
   const player = getPlayer(state, state.seat);
-  if (state.phase === "opener") {
-    return { type: "opener", player: player.id, dominoes: unique(player.hand) };
+  const opener = state.board.nodes.length === 0;
+  const plays: PlayOption[] = [];
+  for (const id of unique(player.hand)) {
+    const d = getDomino(state, id);
+    if (opener) {
+      if (d.kind !== "cap") plays.push({ domino: id, ends: [] });
+    } else {
+      const ends = legalEnds(state, d, player.id);
+      if (ends.length > 0) plays.push({ domino: id, ends });
+    }
   }
-  return { type: "answer", player: player.id, options: legalAnswers(state, player) };
+  return { player: player.id, opener, plays, canSetOff: capCount(state) > 0 };
 }
 
 export function applyChoice(input: BattleState, choice: Choice): BattleState {
@@ -254,206 +283,465 @@ export function step(input: BattleState, choice: Choice): StepResult {
   const events: GameEvent[] = [];
   const state: BattleState = JSON.parse(JSON.stringify(input));
   const pending = getPendingChoice(state);
-  if (!pending || pending.type !== choice.type) throw new Error("unexpected choice");
+  if (!pending) throw new Error("the battle is over");
   const player = getPlayer(state, pending.player);
 
-  if (pending.type === "opener" && choice.type === "opener") {
-    if (!player.hand.includes(choice.domino)) throw new Error("domino not in hand");
-    removeOne(player.hand, choice.domino);
-    player.discard.push(choice.domino);
-    playOpener(state, player, getDomino(state, choice.domino), events);
-    if (state.phase !== "over") advance(state, events);
-  } else if (pending.type === "answer" && choice.type === "answer") {
-    const option = pending.options.find((o) => o.domino === choice.domino);
+  if (choice.type === "play") {
+    const option = pending.plays.find((o) => o.domino === choice.domino);
     if (!option) throw new Error("illegal domino");
-    let spark = choice.spark;
-    if (spark === undefined) {
-      if (option.sparks.length !== 1) throw new Error("spark must be named");
-      spark = option.sparks[0];
+    if (pending.opener ? choice.end !== undefined : choice.end === undefined || !option.ends.includes(choice.end)) {
+      throw new Error("illegal end");
     }
-    if (!option.sparks.includes(spark)) throw new Error("domino does not answer that spark");
     removeOne(player.hand, choice.domino);
-    player.discard.push(choice.domino);
-    play(state, getDomino(state, choice.domino), spark, true, events);
-    if (state.phase !== "over") advance(state, events);
+    addNode(state, player.id, getDomino(state, choice.domino), choice.end ?? null, events);
+    state.passes = 0;
+    if (openEnds(state).length === 0) setOff(state, "capped", events);
+    else nextSeat(state);
+  } else if (choice.type === "pass") {
+    events.push({ type: "pass", player: player.id });
+    state.passes += 1;
+    if (state.passes >= state.seatOrder.length) setOff(state, "passes", events);
+    else nextSeat(state);
+  } else if (choice.type === "setOff") {
+    if (!pending.canSetOff) throw new Error("no cap on the board");
+    events.push({ type: "setOff", reason: "player", player: player.id });
+    endCascadePhase(state, events);
+  } else {
+    throw new Error("unknown choice");
   }
   return { state, events };
 }
 
-// What one way of playing a domino would do. For the opener, triggers is 0 and effect is null (its
-// effect never triggers). effect is what actually happens (a Mimic or Reflect shows what it
-// copies), null when there is nothing to copy. strength is the chain strength it is answered at,
-// before the Spectrum bonus. value is per trigger (damage, block, heal, amplify; otherwise 0).
+// ---- charge and previews ----
+
+// What flows through one node, worked out from the board alone.
+interface NodeFlow {
+  charge: number; // charge arriving (a cap's effect goes off at this)
+  out: number; // charge after the node's own amplifier
+  echo: number; // extra triggers added by Echo amplifiers on the path, this node included
+  sparks: Spark[]; // the different sparks the path was attached to, the opener not counting, this node included
+  intake: Spark | null; // the spark of the end the node is attached to (null for the opener)
+  bonus: number; // caps: flat bonus per trigger from charms
+  extra: number; // caps: extra triggers from charms
+  charms: string[]; // the charms of the node's owner that changed this node, for `charm` events
+}
+
+// A cap's value per trigger: ceil(base x charge), plus the flat bonus from charms.
+function capValue(effect: CapEffect, charge: number, bonus: number): number {
+  return Math.ceil(effect.base * charge) + bonus;
+}
+
+function capTriggers(config: Config, flow: NodeFlow): number {
+  return Math.min(1 + flow.echo + flow.extra, config.triggerCap);
+}
+
+// Nodes are in creation order and a parent is always created first, so one pass is enough.
+// Charms of each node's owner are included; caps then get their charm bonuses in cascade order.
+function computeFlows(state: Pick<BattleState, "board" | "dominoes" | "players" | "charmDefs" | "blessing">): NodeFlow[] {
+  const { nodes, ends } = state.board;
+  const flows: NodeFlow[] = [];
+  for (const node of nodes) {
+    const d = getDomino(state, node.domino);
+    let charge = 1;
+    let echo = 0;
+    let sparks: Spark[] = [];
+    if (node.end !== null) {
+      const end = ends[node.end];
+      const parent = flows[end.node];
+      charge = parent.out;
+      echo = parent.echo;
+      sparks = parent.sparks.includes(end.spark) ? parent.sparks : [...parent.sparks, end.spark];
+    }
+    const through = throughNode(state, node.owner, d, charge, sparks.length, node.end === null);
+    const intake = node.end === null ? null : ends[node.end].spark;
+    // Spark Shrine: a domino attached to the blessed spark adds charge after its own change (and after charms). A cap goes off at the boosted charge.
+    if (intake !== null && state.blessing && intake === state.blessing.spark) {
+      if (d.kind === "cap") charge += state.blessing.strength;
+      else through.out += state.blessing.strength;
+    }
+    flows.push({ charge, out: through.out, echo: echo + through.echo, sparks, intake, bonus: 0, extra: 0, charms: through.charms });
+  }
+  const firstDone: string[] = [];
+  for (const node of cascadeOrder(nodes)) {
+    const d = getDomino(state, node.domino);
+    if (d.kind !== "cap" || !d.effect) continue;
+    const flow = flows[node.id];
+    const bonus = capBonus(state, node.owner, d.effect.kind, flow.intake as Spark);
+    const triggers = capExtraTriggers(state, node.owner, flow.intake as Spark, !firstDone.includes(node.owner));
+    firstDone.push(node.owner);
+    flow.bonus = bonus.bonus;
+    flow.extra = triggers.extra;
+    flow.charms = [...bonus.charms, ...triggers.charms];
+  }
+  return flows;
+}
+
+// The order the cascade goes off in: by depth from the opener, then in creation order.
+function cascadeOrder(nodes: BoardNode[]): BoardNode[] {
+  return nodes.slice().sort((a, b) => a.depth - b.depth || a.id - b.id);
+}
+
+// A cap that is never played, used to ask what a cap placed on an open end would get.
+const PROBE: Domino = { id: "#probe", name: "", kind: "cap", intake: "any", output: [], effect: { kind: "block", base: 0 } };
+
+function openEnds(state: Pick<BattleState, "board">): BoardEnd[] {
+  return state.board.ends.filter((e) => !state.board.nodes.some((n) => n.end === e.id));
+}
+
+// The open ends with the charge reaching each and the triggers a cap placed there by `player` would get.
+export function getOpenEnds(state: Pick<BattleState, "board" | "dominoes" | "config" | "players" | "charmDefs" | "blessing">, player: string): OpenEndView[] {
+  return openEnds(state).map((e) => {
+    const board: Board = JSON.parse(JSON.stringify(state.board));
+    addToBoard(board, player, PROBE, e.id, []);
+    const flow = computeFlows({ ...state, board, dominoes: [...state.dominoes, PROBE] }).pop() as NodeFlow;
+    return { end: e.id, node: e.node, index: e.index, spark: e.spark, charge: flow.charge, triggers: capTriggers(state.config, flow) };
+  });
+}
+
+// What playing a domino on an end would do: the charge it passes on (amplifier, junction; for a
+// junction, to each of its branches) or the value of its effect (cap).
 export interface PlayPreview {
-  opener: boolean;
-  spark: Spark | null; // the spark it would answer; null for the opener
-  strength: number;
-  lap: number;
-  effect: ResolvedEffect | null;
-  triggers: number; // 1 plus pending Echo, at most the trigger cap
-  value: number;
-  spectrumBonus: number; // 0 unless the effect has spectrum
-  lookoutReveals: number; // hidden enemy dominoes it would reveal in total
-  auditorDamage: number; // damage the Auditor would add to the party, 0 if it would not fire
+  charge: number; // amplifier or junction: the charge after it; cap: the charge reaching it
+  value: number; // cap: its effect per trigger; otherwise 0
+  triggers: number; // cap: how many times it goes off; otherwise 0
+  total: number; // value x triggers
 }
 
-// What playing this domino right now would do: one preview per spark it could answer (a single
-// one for the opener), or none if it is not a playable domino of the player whose turn it is.
-// It runs the real resolution on a copy, so the two cannot drift, and never changes the input.
-// It takes the full state or a player's view: resolving a play only needs what the view carries
-// (the chain, the party, the enemy's health, block and passives, and which enemy hand slots are
-// still hidden, for Lookout), never the hidden dominoes themselves.
-export function previewPlay(input: BattleState | BattleView, playerId: string, dominoId: string): PlayPreview[] {
-  const pending = getPendingChoice(input);
-  if (!pending || pending.player !== playerId) return [];
-  if (pending.type === "opener") {
-    if (!pending.dominoes.includes(dominoId)) return [];
-    // Without Spark Starter this finds no trigger: triggers 0 and effect null.
-    const state = workingCopy(input);
-    const events: GameEvent[] = [];
-    playOpener(state, getPlayer(state, playerId), getDomino(state, dominoId), events);
-    const preview = summarize(state, events, null, playerId);
-    if (preview.triggers > 0) preview.strength = sparkStarterStrength(state, playerId);
-    return [preview];
-  }
-  const option = pending.options.find((o) => o.domino === dominoId);
-  if (!option) return [];
-  return option.sparks.map((spark): PlayPreview => {
-    const state = workingCopy(input);
-    const events: GameEvent[] = [];
-    play(state, getDomino(state, dominoId), spark, true, events);
-    return summarize(state, events, spark, playerId);
-  });
+// Preview of a play by the given player: the domino must be in their hand. end is omitted for the
+// opener. Returns null when the domino cannot be played there. Works on a state or a view; never changes it.
+export function previewPlay(input: PendingInput, playerId: string, dominoId: string, end?: number): PlayPreview | null {
+  const player = input.players.find((p) => p.id === playerId);
+  if (!player || !player.hand.includes(dominoId)) return null;
+  const d = getDomino(input, dominoId);
+  const opener = input.board.nodes.length === 0;
+  if (opener ? end !== undefined || d.kind === "cap" : end === undefined || !legalEnds(input, d, playerId).includes(end)) return null;
+  const board: Board = JSON.parse(JSON.stringify(input.board));
+  addToBoard(board, playerId, d, end ?? null, outputsOf(input, playerId, d));
+  const flow = computeFlows({ board, dominoes: input.dominoes, players: input.players, charmDefs: input.charmDefs, blessing: input.blessing }).pop() as NodeFlow;
+  if (d.kind !== "cap" || !d.effect) return { charge: flow.out, value: 0, triggers: 0, total: 0 };
+  const value = capValue(d.effect, flow.charge, flow.bonus);
+  const triggers = capTriggers(input.config, flow);
+  return { charge: flow.charge, value, triggers, total: value * triggers };
 }
 
-// Hover help: the dominoes in the next seat that could answer a domino the player can play now.
-// positions index into that seat's hand (a player's hand, or the enemy's hand slots; only revealed
-// enemy slots are ever listed). If the next seat is the enemy and none of its revealed dominoes
-// could react, the player after the enemy is listed too, with faint set. Works from a view.
-export interface AnswerHighlight {
-  seat: string;
-  positions: number[];
-  faint: boolean;
+// What setting off now would do, in total.
+export interface CascadePreview {
+  damage: number; // reaching the enemy's health, after its block
+  block: number; // gained by the party
+  coins: Record<string, number>; // per player, from their coin caps
 }
 
-export function answerHighlights(view: BattleView, playerId: string, dominoId: string): AnswerHighlight[] {
-  const pending = getPendingChoice(view);
-  if (!pending || pending.player !== playerId) return [];
-  const playable = pending.type === "opener" ? pending.dominoes.includes(dominoId) : pending.options.some((o) => o.domino === dominoId);
-  if (!playable) return [];
-  const output = getDomino(view, dominoId).output;
-  const next = (seat: string) => view.seatOrder[(view.seatOrder.indexOf(seat) + 1) % view.seatOrder.length];
-  // Hand positions the engine's own answer rules accept for this output (the Warden's lock included).
-  const playerMatches = (seat: string, faint: boolean): AnswerHighlight => {
-    const player = getPlayer(view, seat);
-    const legal = new Set(legalAnswers({ ...view, chain: { ...view.chain, sparks: output } }, player).map((o) => o.domino));
-    const positions = player.hand.map((id, i) => (legal.has(id) ? i : -1)).filter((i) => i >= 0);
-    return { seat, positions, faint };
-  };
-  const seat = next(playerId);
-  if (seat !== ENEMY_SEAT) return [playerMatches(seat, false)];
-  const positions: number[] = [];
-  view.enemy.hand.forEach((slot, i) => {
-    if (slot.revealed && answeredSparks(getDomino(view, slot.domino), output).length > 0) positions.push(i);
-  });
-  const result: AnswerHighlight[] = [{ seat, positions, faint: false }];
-  if (positions.length === 0) result.push(playerMatches(next(seat), true));
-  return result;
-}
-
-// A PlayPreview from the events of a play run on a copy (spark null for the opener).
-function summarize(state: BattleState, events: GameEvent[], spark: Spark | null, owner: string): PlayPreview {
-  let strength = 0;
-  let first: { effect: Effect; side: Side; value: number } | null = null;
-  let triggers = 0;
-  let reveals = 0;
-  let auditorDamage = 0;
+export function previewCascade(input: BattleState | BattleView): CascadePreview {
+  const state = { ...JSON.parse(JSON.stringify(input)), rng: 0 } as BattleState;
+  const events: GameEvent[] = [];
+  fireCascade(state, events);
+  const result: CascadePreview = { damage: 0, block: 0, coins: {} };
   for (const e of events) {
-    if (e.type === "play") strength = e.strength;
-    else if (e.type === "trigger") {
-      first = first ?? e;
-      triggers += 1;
-    } else if (e.type === "reveal") reveals += e.positions.length;
-    else if (e.type === "auditor") auditorDamage = e.damage;
+    if (e.type === "damage" && e.side === "enemy") result.damage += e.amount;
+    else if (e.type === "block" && e.side === "party") result.block += e.amount;
+    else if (e.type === "coinsGained") result.coins[e.player] = (result.coins[e.player] ?? 0) + e.amount;
   }
-  return {
-    opener: spark === null,
-    spark,
-    strength,
-    lap: state.chain.lap,
-    effect: first === null ? null : { effect: first.effect, side: first.side },
-    triggers,
-    value: first === null ? 0 : first.value,
-    spectrumBonus: first !== null && first.effect.spectrum ? spectrumBonus(state.chain.history) + extraSpectrum(state, owner) : 0,
-    lookoutReveals: reveals,
-    auditorDamage,
-  };
-}
-
-// A BattleState to run a preview on. From a view, the enemy's hand keeps its length and its
-// revealed flags; a hidden slot gets "" (the resolution of a player's play never reads it) and
-// the deck and random seed are placeholders.
-function workingCopy(input: BattleState | BattleView): BattleState {
-  const copy = JSON.parse(JSON.stringify(input));
-  if (!("deckList" in copy.enemy)) return copy as BattleState;
-  const { deckList, hand, ...enemy } = copy.enemy as BattleView["enemy"];
-  return {
-    ...copy,
-    rng: 0,
-    enemy: {
-      ...enemy,
-      deck: [],
-      hand: hand.map((slot) => (slot.revealed ? slot.domino : "")),
-      revealed: hand.map((slot) => slot.revealed),
-    },
-  } as BattleState;
+  return result;
 }
 
 // ---- internals (all mutate the working copy) ----
 
-const SPARK_STARTER = "spark_starter";
-const LAP_RUNNER = "lap_runner";
-const FIRST_ECHO = "first_echo";
-const LIGHTNING_ROD = "lightning_rod";
-
-function charmEvent(player: string, charm: string, events: GameEvent[]): void {
-  events.push({ type: "charm", player, charm });
+function legalEnds(state: PendingInput, d: Domino, owner: string): number[] {
+  const open = openEnds(state);
+  // A junction replaces one open end with its outputs (two, or three with Hall of Mirrors).
+  if (d.kind === "junction" && open.length - 1 + outputsOf(state, owner, d).length > state.config.openEndLimit) return [];
+  return open.filter((e) => e.spark !== state.locked && (d.intake === "any" || d.intake.includes(e.spark))).map((e) => e.id);
 }
 
-// The opener: it starts the chain and adds no strength. Its effect never triggers, except through
-// Spark Starter (at that charm's strength; the chain's strength stays 0 unless the effect raises it).
-function playOpener(state: BattleState, player: PlayerState, d: Domino, events: GameEvent[]): void {
-  state.chain = newChain(d.output);
-  state.chain.played.push({ seat: player.id, domino: d.id });
-  events.push({ type: "opener", player: player.id, domino: d.id, sparks: d.output.slice() });
-  // A Mimic after the opener can copy its effect.
-  if (d.effect.kind !== "mimic" && d.effect.kind !== "reflect") state.chain.last = { effect: d.effect, side: "party" };
-  state.lead = player.id;
-  if (!holdsCharm(state, player.id, SPARK_STARTER)) return;
-  const strength = sparkStarterStrength(state, player.id);
-  state.chain.strength = strength;
-  const before = events.length;
-  playEffect(state, d, player.id, "party", true, null, events);
-  state.chain.strength -= strength;
-  // Name the charm only if the effect did something (a Mimic opener copies nothing).
-  if (events.slice(before).some((e) => e.type === "trigger")) events.splice(before, 0, { type: "charm", player: player.id, charm: SPARK_STARTER });
+function capCount(state: Pick<BattleState, "board" | "dominoes">): number {
+  return state.board.nodes.filter((n) => getDomino(state, n.domino).kind === "cap").length;
 }
 
-function newChain(sparks: Spark[]): ChainState {
-  return { strength: 0, lap: 1, sparks: sparks.slice(), history: [], echo: 0, last: null, played: [] };
+function addToBoard(board: Board, owner: string, d: Domino, end: number | null, outputs: Spark[]): void {
+  const node: BoardNode = {
+    id: board.nodes.length,
+    domino: d.id,
+    owner,
+    end,
+    depth: end === null ? 0 : board.nodes[board.ends[end].node].depth + 1,
+  };
+  board.nodes.push(node);
+  outputs.forEach((spark, index) => board.ends.push({ id: board.ends.length, node: node.id, index, spark }));
 }
 
-function playerSeats(seatOrder: string[]): string[] {
-  return seatOrder.filter((s) => s !== ENEMY_SEAT);
+function addNode(state: BattleState, owner: string, d: Domino, end: number | null, events: GameEvent[]): void {
+  const outputs = outputsOf(state, owner, d);
+  addToBoard(state.board, owner, d, end, outputs);
+  const node = state.board.nodes[state.board.nodes.length - 1];
+  const flow = computeFlows(state).pop() as NodeFlow;
+  events.push({
+    type: "play",
+    player: owner,
+    domino: d.id,
+    node: node.id,
+    end,
+    depth: node.depth,
+    charge: d.kind === "cap" ? flow.charge : flow.out,
+  });
+  if (outputs.length > d.output.length) events.push({ type: "charm", player: owner, charm: "hall_of_mirrors" });
 }
 
-function getPlayer(state: PendingInput, id: string): PlayerState {
+function nextSeat(state: BattleState): void {
+  state.seat = state.seatOrder[(state.seatOrder.indexOf(state.seat) + 1) % state.seatOrder.length];
+}
+
+// The board is complete: every end capped, or a full round of passes.
+function setOff(state: BattleState, reason: "capped" | "passes", events: GameEvent[]): void {
+  events.push({ type: "setOff", reason });
+  endCascadePhase(state, events);
+}
+
+// The cascade, then the enemy's action, then the round end.
+function endCascadePhase(state: BattleState, events: GameEvent[]): void {
+  const capsFired = fireCascade(state, events);
+  if (isOver(state)) return;
+  longNightGrowth(state, capsFired, events);
+  // Enemy block from its last intent has had its cascade (even a round where nothing fired).
+  state.enemy.block = 0;
+  events.push({ type: "blockReset", side: "enemy" });
+  enemyAct(state, events);
+  if (isOver(state)) return;
+  endRound(state, events);
+}
+
+// Steps by depth from the opener; within a step, nodes in creation order. Open ends fizzle at the end.
+// With no cap on the board nothing fires. Stops the moment the enemy is at 0 health.
+// Returns how many different caps went off (a cap that goes off several times counts once).
+function fireCascade(state: BattleState, events: GameEvent[]): number {
+  if (capCount(state) === 0) return 0;
+  const hoarder = passiveOf(state.enemy, "hoarder");
+  if (hoarder && state.board.nodes.length > 0) {
+    const amount = state.board.nodes.length * hoarder.multiplier;
+    state.enemy.block += amount;
+    events.push({ type: "passive", passive: "hoarder", amount });
+    events.push({ type: "block", side: "enemy", amount });
+  }
+  let capsFired = 0;
+  let lastSpark: Spark | null = null; // the intake spark of the cap trigger just before (Auditor)
+  const flows = computeFlows(state);
+  const { nodes } = state.board;
+  const lastDepth = Math.max(...nodes.map((n) => n.depth));
+  for (let depth = 0; depth <= lastDepth; depth++) {
+    events.push({ type: "cascadeStep", depth });
+    for (const node of cascadeOrder(nodes)) {
+      if (node.depth !== depth) continue;
+      const d = getDomino(state, node.domino);
+      const flow = flows[node.id];
+      events.push({ type: "nodeLit", node: node.id, domino: d.id, owner: node.owner, charge: d.kind === "cap" ? flow.charge : flow.out });
+      for (const charm of flow.charms) events.push({ type: "charm", player: node.owner, charm });
+      if (d.kind === "junction") {
+        const block = junctionRunnerBlock(state, node.owner);
+        if (block > 0) {
+          state.party.block += block;
+          events.push({ type: "charm", player: node.owner, charm: "junction_runner" });
+          events.push({ type: "block", side: "party", amount: block });
+        }
+      }
+      if (d.kind === "cap" && d.effect) {
+        capsFired += 1;
+        const spark = state.board.ends[node.end as number].spark;
+        const firstRepeats = lastSpark === spark;
+        lastSpark = spark;
+        fireCap(state, node, d.effect, capValue(d.effect, flow.charge, flow.bonus), capTriggers(state.config, flow), firstRepeats, events);
+        if (isOver(state)) return capsFired;
+      }
+    }
+  }
+  for (const e of openEnds(state)) events.push({ type: "fizzle", end: e.id, spark: e.spark, charge: flows[e.node].out });
+  return capsFired;
+}
+
+// Each trigger counts as a cap going off for the Auditor: the first repeats the spark of the cap before
+// it only if firstRepeats, and every extra (Echo) trigger repeats the cap's own spark.
+function fireCap(state: BattleState, node: BoardNode, effect: CapEffect, value: number, triggers: number, firstRepeats: boolean, events: GameEvent[]): void {
+  events.push({ type: "capFired", node: node.id, domino: node.domino, owner: node.owner, effect: effect.kind, value, triggers });
+  for (let i = 0; i < triggers; i++) {
+    if (i > 0 || firstRepeats) {
+      auditorStrike(state, events);
+      if (isOver(state)) return;
+    }
+    if (effect.kind === "damage") {
+      const blocked = effect.ignoresBlock ? 0 : Math.min(state.enemy.block, value);
+      state.enemy.block -= blocked;
+      state.enemy.health -= value - blocked;
+      events.push({ type: "damage", side: "enemy", amount: value - blocked, blocked });
+      if (state.enemy.health <= 0) {
+        endBattle(state, "won", events);
+        return;
+      }
+    } else if (effect.kind === "block") {
+      state.party.block += value;
+      events.push({ type: "block", side: "party", amount: value });
+    } else {
+      const owner = getPlayer(state, node.owner);
+      owner.coins += value;
+      events.push({ type: "coinsGained", player: owner.id, amount: value });
+    }
+  }
+}
+
+// Auditor: the party takes damage (block absorbs it).
+function auditorStrike(state: BattleState, events: GameEvent[]): void {
+  const auditor = passiveOf(state.enemy, "auditor");
+  if (!auditor) return;
+  events.push({ type: "passive", passive: "auditor", amount: auditor.damage });
+  hitParty(state, auditor.damage, events);
+}
+
+// Long Night: this round's attack grows for each cap set off.
+function longNightGrowth(state: BattleState, capsFired: number, events: GameEvent[]): void {
+  const longNight = passiveOf(state.enemy, "longNight");
+  if (!longNight || capsFired === 0) return;
+  const before = scaledIntent(state, state.intent);
+  addToAttacks(state.intent, longNight.growth * capsFired);
+  // The event carries the growth as the party sees it (scaled), so a shown intent can add it on.
+  const after = scaledIntent(state, state.intent);
+  const i = after.actions.findIndex((a) => a.kind === "attack");
+  const amount = i < 0 ? 0 : after.actions[i].value - before.actions[i].value;
+  events.push({ type: "passive", passive: "longNight", amount });
+}
+
+function addToAttacks(intent: Intent, amount: number): void {
+  for (const action of intent.actions) if (action.kind === "attack") action.value += amount;
+}
+
+function hitParty(state: BattleState, hit: number, events: GameEvent[]): void {
+  const { party } = state;
+  const blocked = Math.min(party.block, hit);
+  party.block -= blocked;
+  party.health -= hit - blocked;
+  events.push({ type: "damage", side: "party", amount: hit - blocked, blocked });
+  if (party.health <= 0) endBattle(state, "lost", events);
+}
+
+function enemyAct(state: BattleState, events: GameEvent[]): void {
+  const { intent, enemy } = state;
+  const shown = scaledIntent(state, intent);
+  events.push({ type: "enemyAction", intent: shown });
+  for (const action of shown.actions) {
+    if (action.kind === "block") {
+      enemy.block += action.value;
+      events.push({ type: "block", side: "enemy", amount: action.value });
+      continue;
+    }
+    for (let i = 0; i < (action.hits ?? 1); i++) {
+      hitParty(state, action.value, events);
+      if (isOver(state)) return;
+    }
+  }
+}
+
+function endBattle(state: BattleState, result: "won" | "lost", events: GameEvent[]): void {
+  events.push({ type: "battleEnd", result });
+  state.phase = "over";
+  state.result = result;
+  state.nextLead = nextPlayerAfterLead(state);
+}
+
+function nextPlayerAfterLead(state: BattleState): string {
+  return state.seatOrder[(state.seatOrder.indexOf(state.lead) + 1) % state.seatOrder.length];
+}
+
+// Party block resets, the board goes to its owners' discard piles, the lead moves on one seat.
+function endRound(state: BattleState, events: GameEvent[]): void {
+  state.party.block = 0;
+  events.push({ type: "blockReset", side: "party" });
+  for (const node of state.board.nodes) getPlayer(state, node.owner).discard.push(node.domino);
+  const glutton = passiveOf(state.enemy, "glutton");
+  if (glutton) {
+    const amount = Math.min(glutton.heal, state.enemy.maxHealth - state.enemy.health);
+    state.enemy.health += amount;
+    if (amount > 0) events.push({ type: "passive", passive: "glutton", amount });
+  }
+  state.lead = nextPlayerAfterLead(state);
+  startRound(state, events);
+}
+
+// An intent as the party meets it: each attack hit scaled by the party size's attack percent, rounded
+// up, after growth. state.intent itself stays unscaled so growth adds to the data value.
+export function scaledIntent(state: Pick<BattleState, "config" | "players">, intent: Intent): Intent {
+  const percent = state.config.enemyAttackPercentByPartySize[Math.min(Math.max(state.players.length, 1), 4) - 1];
+  const copy: Intent = JSON.parse(JSON.stringify(intent));
+  for (const a of copy.actions) if (a.kind === "attack") a.value = Math.ceil((a.value * percent) / 100);
+  return copy;
+}
+
+// The intent is chosen and shown, then everyone draws, then the lead takes the first turn.
+function startRound(state: BattleState, events: GameEvent[]): void {
+  state.round += 1;
+  state.board = { nodes: [], ends: [] };
+  state.passes = 0;
+  state.seat = state.lead;
+  startPassives(state, events);
+  events.push({ type: "roundStart", round: state.round, lead: state.lead });
+  events.push({ type: "intent", intent: scaledIntent(state, state.intent) });
+  for (const p of state.players) {
+    draw(state, p, (state.round === 1 ? state.config.playerFirstDraw : state.config.playerDrawPerRound) + extraDraws(state, p.id), handLimitOf(state, p.id), events);
+  }
+}
+
+// The enemy's intent for the round, then the passives that act at round start (Smolder, Warden).
+function startPassives(state: BattleState, events: GameEvent[]): void {
+  const { enemy } = state;
+  // Keep the queue as long as the largest Spyglass look-ahead in the charm data, plus this round's intent.
+  if (state.round > 1) enemy.queue.shift();
+  while (enemy.queue.length < lookAhead(state) + 1) state.rng = rollIntentId(enemy, state.rng);
+  state.intent = intentFor(enemy, enemy.queue[0], state.round);
+  const smolder = passiveOf(enemy, "smolder");
+  if (smolder && state.round > 1) events.push({ type: "passive", passive: "smolder", amount: smolder.growth * (state.round - 1) });
+  const warden = passiveOf(enemy, "warden");
+  if (warden) {
+    const pick = nextInt(state.rng, warden.sparks.length);
+    state.rng = pick.state;
+    state.locked = warden.sparks[pick.value];
+    events.push({ type: "passive", passive: "warden", spark: state.locked });
+  }
+}
+
+// The most rounds ahead any Spyglass in the battle's charm data shows.
+function lookAhead(state: Pick<BattleState, "charmDefs">): number {
+  return Math.max(0, ...state.charmDefs.filter((c) => c.id === "spyglass").map((c) => c.numbers.rounds));
+}
+
+// Draw up to `count` dominoes, stopping at the hand limit. An empty deck is reshuffled from the discard pile.
+function draw(state: BattleState, p: PlayerState, count: number, limit: number, events: GameEvent[]): void {
+  let drawn: string[] = [];
+  const flush = () => {
+    if (drawn.length > 0) events.push({ type: "draw", player: p.id, count: drawn.length, dominoes: drawn });
+    drawn = [];
+  };
+  for (let i = 0; i < count; i++) {
+    if (p.hand.length >= limit) break;
+    if (p.deck.length === 0) {
+      if (p.discard.length > 0) {
+        flush();
+        events.push({ type: "reshuffle", player: p.id });
+      }
+      const s = shuffle(state.rng, p.discard);
+      state.rng = s.state;
+      p.deck = s.value;
+      p.discard = [];
+    }
+    if (p.deck.length === 0) break;
+    const id = p.deck.shift() as string;
+    drawn.push(id);
+    p.hand.push(id);
+  }
+  flush();
+}
+
+function getPlayer(state: Pick<BattleState, "players">, id: string): PlayerState {
   const p = state.players.find((x) => x.id === id);
   if (!p) throw new Error("no such player " + id);
   return p;
 }
 
-function getDomino(state: PendingInput, id: string): Domino {
+function getDomino(state: Pick<BattleState, "dominoes">, id: string): Domino {
   const d = state.dominoes.find((x) => x.id === id);
   if (!d) throw new Error("unknown domino " + id);
   return d;
@@ -467,402 +755,7 @@ function removeOne(list: string[], id: string): void {
   list.splice(list.indexOf(id), 1);
 }
 
-// The sparks of the current set that this domino answers.
-function answeredSparks(d: Domino, sparks: Spark[]): Spark[] {
-  return sparks.filter((s) => d.intake === "any" || d.intake.includes(s));
-}
-
-// Players can't answer the Warden's locked spark (the enemy still can).
-function legalAnswers(state: PendingInput, player: PlayerState) {
-  const options: { domino: string; sparks: Spark[] }[] = [];
-  for (const id of unique(player.hand)) {
-    const sparks = answeredSparks(getDomino(state, id), state.chain.sparks).filter((s) => s !== state.locked);
-    if (sparks.length > 0) options.push({ domino: id, sparks });
-  }
-  return options;
-}
-
-// Everyone draws, then the first player (from the lead, in seat order) with a
-// domino as the opener. If nobody has one, the round ends at once.
-function startRound(state: BattleState, events: GameEvent[]): void {
-  state.round += 1;
-  state.chain = newChain([]);
-  // The lead is known only after the draws (an empty-handed lead is skipped), so it is filled in below.
-  const roundStart: GameEvent = { type: "roundStart", round: state.round, lead: state.lead };
-  events.push(roundStart);
-  wardenLock(state, events);
-  for (const p of state.players) p.firstEchoSpent = false;
-  for (const seat of state.seatOrder) {
-    if (seat === ENEMY_SEAT) {
-      const e = state.enemy;
-      draw(state, e, e.drawPerRound, e.handLimit, events, seat, e);
-    } else {
-      draw(state, getPlayer(state, seat), (state.round === 1 ? state.config.playerFirstDraw : state.config.playerDrawPerRound) + extraDraws(state, seat), handLimitOf(state, seat), events, seat);
-    }
-  }
-  const seats = playerSeats(state.seatOrder);
-  const start = seats.indexOf(state.lead);
-  for (let i = 0; i < seats.length; i++) {
-    const p = getPlayer(state, seats[(start + i) % seats.length]);
-    if (p.hand.length > 0) {
-      state.lead = p.id;
-      roundStart.lead = p.id;
-      state.seat = p.id;
-      state.phase = "opener";
-      return;
-    }
-  }
-  endRound(state, events);
-}
-
-// Draw up to `count` dominoes. At the hand limit a player stops; the enemy
-// (which passes `enemy`) first discards its oldest domino to make room.
-// An empty deck is reshuffled from the discard pile, which clears the enemy's face-up list.
-function draw(
-  state: BattleState,
-  p: { deck: string[]; hand: string[]; discard: string[] },
-  count: number,
-  limit: number,
-  events: GameEvent[],
-  seat: string,
-  enemy?: EnemyState,
-): void {
-  // The draw event is written when a run of draws ends, so it sits in order around enemy discards.
-  let drawn: string[] = [];
-  const flush = () => {
-    if (drawn.length === 0) return;
-    events.push(enemy ? { type: "draw", seat, count: drawn.length } : { type: "draw", seat, count: drawn.length, dominoes: drawn });
-    drawn = [];
-  };
-  for (let i = 0; i < count; i++) {
-    if (p.hand.length >= limit) {
-      if (!enemy) break;
-      const old = removeEnemyDomino(enemy, 0);
-      p.discard.push(old);
-      enemy.faceUp.push(old);
-      flush();
-      events.push({ type: "enemyDiscard", domino: old });
-    }
-    if (p.deck.length === 0) {
-      if (p.discard.length > 0) {
-        flush();
-        events.push({ type: "reshuffle", seat });
-      }
-      const s = shuffle(state.rng, p.discard);
-      state.rng = s.state;
-      p.deck = s.value;
-      p.discard = [];
-      if (enemy) enemy.faceUp = [];
-    }
-    if (p.deck.length === 0) break;
-    const id = p.deck.shift() as string;
-    drawn.push(id);
-    if (enemy) addEnemyDomino(enemy, id);
-    else p.hand.push(id);
-  }
-  flush();
-}
-
-// Every change to the enemy's hand goes through these two, so `revealed` stays in step.
-function addEnemyDomino(enemy: EnemyState, id: string): void {
-  enemy.hand.push(id);
-  enemy.revealed.push(false);
-}
-
-function removeEnemyDomino(enemy: EnemyState, index: number): string {
-  enemy.revealed.splice(index, 1);
-  return enemy.hand.splice(index, 1)[0];
-}
-
-// Reveal the leftmost `count` hidden enemy dominoes.
-function lookout(state: BattleState, count: number, events: GameEvent[]): void {
-  const enemy = state.enemy;
-  const positions: number[] = [];
-  for (let i = 0; i < enemy.hand.length && count > 0; i++) {
-    if (!enemy.revealed[i]) {
-      enemy.revealed[i] = true;
-      positions.push(i);
-      count -= 1;
-    }
-  }
-  if (positions.length > 0) events.push({ type: "reveal", positions });
-}
-
-// Pass the spark on until a player must choose, or the chain ends.
-function advance(state: BattleState, events: GameEvent[]): void {
-  for (;;) {
-    const i = state.seatOrder.indexOf(state.seat);
-    const from = state.seat;
-    state.seat = state.seatOrder[(i + 1) % state.seatOrder.length];
-    events.push({ type: "pass", from, to: state.seat, sparks: state.chain.sparks.slice() });
-    if (state.seat === state.lead) {
-      state.chain.lap += 1;
-      events.push({ type: "lapUp", lap: state.chain.lap });
-      glutton(state, events);
-      hoarder(state, events);
-      lapRunner(state, events);
-    }
-    if (state.seat === ENEMY_SEAT) {
-      react(state, events);
-      if (state.phase === "over") return;
-      continue;
-    }
-    if (legalAnswers(state, getPlayer(state, state.seat)).length === 0) {
-      events.push({ type: "chainEnd", reason: "cannotAnswer" });
-      endRound(state, events);
-      return;
-    }
-    state.phase = "answer";
-    return;
-  }
-}
-
-// Lap Runner: the party gains block when the lap goes up and the answer that brought the spark to
-// the lead was a Lap Runner holder's. An enemy reaction just before the lead completes it instead,
-// the opener is not an answer, and nothing happens once the battle is over.
-function lapRunner(state: BattleState, events: GameEvent[]): void {
-  if (state.phase === "over" || state.chain.played.length < 2) return;
-  const seat = state.chain.played[state.chain.played.length - 1].seat;
-  if (seat === ENEMY_SEAT || !holdsCharm(state, seat, LAP_RUNNER)) return;
-  charmEvent(seat, LAP_RUNNER, events);
-  resolve(state, { kind: "block" }, lapRunnerBlock(state, seat), "party", events);
-}
-
-// The enemy plays its leftmost matching domino, or the spark passes unchanged.
-function react(state: BattleState, events: GameEvent[]): void {
-  const enemy = state.enemy;
-  for (let i = 0; i < enemy.hand.length; i++) {
-    const d = getDomino(state, enemy.hand[i]);
-    const sparks = answeredSparks(d, state.chain.sparks);
-    if (sparks.length > 0) {
-      removeEnemyDomino(enemy, i);
-      enemy.discard.push(d.id);
-      enemy.faceUp.push(d.id);
-      play(state, d, sparks[0], false, events);
-      return;
-    }
-  }
-  events.push({ type: "enemyNoReaction", sparks: state.chain.sparks.slice() });
-}
-
-// An answer: strength +1 (or the blessing's amount for the blessed spark), spark history and current spark update, effect triggers.
-function play(state: BattleState, d: Domino, answered: Spark, byPlayer: boolean, events: GameEvent[]): void {
-  const chain = state.chain;
-  // The Auditor: a player answers the same spark as the previous history entry.
-  const repeated = byPlayer && chain.history[chain.history.length - 1] === answered;
-  // Only the spark the answer used counts; Echo repeats and the opener add nothing here.
-  chain.strength += (state.blessing && state.blessing.spark === answered ? state.blessing.strength : 1) + answerStrengthBonus(state, byPlayer ? state.seat : null);
-  chain.history.push(answered);
-  chain.sparks = d.output.slice();
-  const seat = byPlayer ? state.seat : ENEMY_SEAT;
-  chain.played.push({ seat, domino: d.id });
-  events.push({ type: "play", seat, domino: d.id, answeredSpark: answered, strength: chain.strength, lap: chain.lap });
-  const scaleLap = byPlayer || enemyScalesWithLap(state);
-  playEffect(state, d, seat, byPlayer ? "party" : "enemy", scaleLap, byPlayer ? answered : null, events);
-  if (repeated && state.phase !== "over") auditor(state, events);
-}
-
-// Whether the enemy's reactions and leftovers are multiplied by the lap (the config, or the Long Night).
-export function enemyScalesWithLap(state: { config: Config; enemy: { passives: Passive[] } }): boolean {
-  return state.config.enemyReactionsScaleWithLap || state.enemy.passives.some((p) => p.kind === "longNight");
-}
-
-// Whether a domino's effect ignores the lap, for the "doesn't scale with lap" symbol. Works on a
-// view too. A player's Lookout never uses the lap; an enemy domino ignores it unless
-// enemyScalesWithLap.
-export function ignoresLap(state: { config: Config; enemy: { passives: Passive[] } }, domino: Domino, byEnemy: boolean): boolean {
-  return byEnemy ? !enemyScalesWithLap(state) : domino.effect.kind === "lookout";
-}
-
-// Warden passive: at round start one of its sparks is locked, picked with the battle RNG.
-function wardenLock(state: BattleState, events: GameEvent[]): void {
-  const passive = state.enemy.passives.find((p) => p.kind === "warden");
-  if (!passive || passive.kind !== "warden") return;
-  const pick = nextInt(state.rng, passive.sparks.length);
-  state.rng = pick.state;
-  state.locked = passive.sparks[pick.value];
-  events.push({ type: "sparkLocked", spark: state.locked });
-}
-
-// Auditor passive: the party takes damage (block absorbs it). Strength is never reduced.
-function auditor(state: BattleState, events: GameEvent[]): void {
-  const passive = state.enemy.passives.find((p) => p.kind === "auditor");
-  if (!passive || passive.kind !== "auditor") return;
-  const rule = passive.damage ?? state.config.auditorDamage;
-  const amount = rule.rule === "strength" ? state.chain.strength : rule.amount;
-  events.push({ type: "auditor", damage: amount });
-  resolve(state, { kind: "damage" }, amount, "enemy", events);
-}
-
-// Glutton passive: heals a flat amount when lap goes up, capped at max health.
-function glutton(state: BattleState, events: GameEvent[]): void {
-  const passive = state.enemy.passives.find((p) => p.kind === "glutton");
-  if (!passive || passive.kind !== "glutton") return;
-  const enemy = state.enemy;
-  const before = enemy.health;
-  enemy.health = Math.min(enemy.maxHealth, enemy.health + (passive.heal ?? state.config.gluttonHeal));
-  events.push({ type: "glutton", heal: enemy.health - before });
-}
-
-// Hoarder passive: gains block equal to the current strength when lap goes up.
-function hoarder(state: BattleState, events: GameEvent[]): void {
-  if (!state.enemy.passives.some((p) => p.kind === "hoarder")) return;
-  events.push({ type: "hoarder", block: state.chain.strength });
-  resolve(state, { kind: "block" }, state.chain.strength, "enemy", events);
-}
-
-// Resolve a played domino's effect (a Mimic becomes the effect it copies), record it
-// as the chain's last effect, and trigger it once plus any pending Echo triggers.
-// answered is the spark that set a player's domino off (null for the opener).
-function playEffect(state: BattleState, d: Domino, seat: string, side: Side, scaleLap: boolean, answered: Spark | null, events: GameEvent[]): void {
-  const chain = state.chain;
-  const effect = d.effect;
-  let resolved: ResolvedEffect | null = { effect, side };
-  if (effect.kind === "mimic") {
-    resolved = chain.last === null ? null : { effect: chain.last.effect, side: "party" };
-  } else if (effect.kind === "reflect") {
-    // Mimic in reverse: the copied effect is turned against the party (an enemy effect is unchanged).
-    resolved = chain.last === null ? null : { effect: chain.last.effect, side: "enemy" };
-  }
-  if (resolved === null) return;
-  chain.last = resolved;
-  let triggers = 1 + chain.echo;
-  chain.echo = 0;
-  // Charms that add triggers for a player's domino; each counts toward the cap.
-  if (seat !== ENEMY_SEAT) {
-    const player = getPlayer(state, seat);
-    const extra = (charm: string, total: number) => {
-      if (total > 1 && triggers < state.config.triggerCap) {
-        triggers += total - 1;
-        charmEvent(seat, charm, events);
-      }
-    };
-    if (!player.firstEchoSpent && holdsCharm(state, seat, FIRST_ECHO)) {
-      player.firstEchoSpent = true;
-      extra(FIRST_ECHO, firstEchoTriggers(state, seat));
-    }
-    extra(LIGHTNING_ROD, lightningRodTriggers(state, seat, answered));
-  }
-  triggers = Math.min(triggers, state.config.triggerCap);
-  // An upgraded Mimic resolves what it copied at extra strength; chain strength is unaffected.
-  const bonus = effect.kind === "mimic" ? (effect.strengthBonus ?? 0) + (side === "party" && seat !== ENEMY_SEAT ? mirrorStrength(state, seat) : 0) : 0;
-  for (let i = 0; i < triggers; i++) {
-    trigger(state, resolved.effect, resolved.side, scaleLap, events, seat, d.id, i, answered, bonus);
-    if (state.phase === "over") return;
-  }
-}
-
-// One trigger of an effect at the chain's current strength and lap.
-function trigger(
-  state: BattleState,
-  effect: Effect,
-  side: Side,
-  scaleLap: boolean,
-  events: GameEvent[],
-  seat: string,
-  dominoId: string,
-  index: number,
-  answered: Spark | null,
-  strengthBonus = 0,
-): void {
-  const chain = state.chain;
-  const strengthNow = chain.strength + strengthBonus;
-  const owner = side === "party" && seat !== ENEMY_SEAT ? seat : null; // whose charms apply
-  if (effect.kind === "amplify") {
-    const amount = effect.base ?? 0;
-    events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: amount });
-    chain.strength += amount;
-    events.push({ type: "amplify", amount, strength: chain.strength });
-  } else if (effect.kind === "echo") {
-    events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: 0 });
-    chain.echo += 1 + (effect.extraTriggers ?? 0) + extraEchoTriggers(state, owner);
-    events.push({ type: "echoPending", count: chain.echo });
-  } else if (effect.kind === "lookout") {
-    events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value: 0 });
-    if (side === "party") lookout(state, Math.ceil(strengthNow / 2) + (effect.extraReveals ?? 0) + extraReveals(state, owner), events);
-  } else {
-    let strength = strengthNow;
-    if (effect.spectrum) strength += spectrumBonus(chain.history) + extraSpectrum(state, owner);
-    let value = (effect.base ?? 0) * strength;
-    if (scaleLap) value *= chain.lap + extraLap(state, owner);
-    // Flat charm bonuses come last: the lens of the spark that set this domino off, and Bulwark.
-    if (owner !== null) {
-      value += lensBonus(state, owner, answered);
-      if (effect.kind === "block") value += blockBonus(state, owner);
-    }
-    events.push({ type: "trigger", seat, domino: dominoId, index, effect, side, value });
-    resolve(state, effect, value, side, events);
-  }
-}
-
-// Spectrum: the number of different sparks in the history.
-function spectrumBonus(history: Spark[]): number {
-  return history.filter((x, i) => history.indexOf(x) === i).length;
-}
-
-function resolve(state: BattleState, effect: Effect, value: number, side: Side, events: GameEvent[]): void {
-  const { party, enemy } = state;
-  const own = side === "party" ? party : enemy;
-  const target = side === "party" ? enemy : party;
-  if (effect.kind === "damage") {
-    let dmg = value;
-    if (!effect.ignoresBlock) {
-      const soaked = Math.min(target.block, dmg);
-      target.block -= soaked;
-      dmg -= soaked;
-    }
-    target.health -= dmg;
-    events.push({ type: "damage", side: side === "party" ? "enemy" : "party", amount: dmg, blocked: value - dmg });
-  } else if (effect.kind === "block") {
-    own.block += value;
-    events.push({ type: "block", side, amount: value, blocked: 0 });
-  } else if (effect.kind === "heal") {
-    const before = own.health;
-    own.health = Math.min(own.maxHealth, own.health + value);
-    events.push({ type: "heal", side, amount: own.health - before, blocked: 0 });
-  }
-  if (enemy.health <= 0) endBattle(state, "won", events);
-  else if (party.health <= 0) endBattle(state, "lost", events);
-}
-
-function nextPlayerAfterLead(state: BattleState): string {
-  const seats = playerSeats(state.seatOrder);
-  return seats[(seats.indexOf(state.lead) + 1) % seats.length];
-}
-
-function endBattle(state: BattleState, result: "won" | "lost", events: GameEvent[]): void {
-  events.push({ type: "battleEnd", result });
-  state.phase = "over";
-  state.result = result;
-  state.nextLead = nextPlayerAfterLead(state);
-}
-
-function endRound(state: BattleState, events: GameEvent[]): void {
-  // Leftovers go off at strength 1 (the Smolder: the chain's final strength, at least 1), left to right, and stay in hand.
-  const smolder = state.enemy.passives.some((p) => p.kind === "smolder");
-  const leftoverStrength = smolder ? Math.max(1, state.chain.strength) : 1;
-  if (smolder && state.enemy.hand.length > 0) events.push({ type: "smolder", strength: leftoverStrength });
-  const hand = state.enemy.hand.slice();
-  for (let i = 0; i < hand.length; i++) {
-    const id = hand[i];
-    const d = getDomino(state, id);
-    if (!state.enemy.revealed[i]) {
-      state.enemy.revealed[i] = true;
-      events.push({ type: "reveal", positions: [i] });
-    }
-    events.push({ type: "leftover", domino: id, position: i });
-    // A leftover Reflect repeats the chain's last domino (the opener if nothing followed it).
-    const effect = d.effect.kind === "reflect" ? state.chain.last?.effect : d.effect;
-    if (effect === undefined) continue;
-    let value = (effect.base ?? 0) * leftoverStrength;
-    if (enemyScalesWithLap(state)) value *= state.chain.lap;
-    events.push({ type: "trigger", seat: ENEMY_SEAT, domino: id, index: 0, effect, side: "enemy", value });
-    resolve(state, effect, value, "enemy", events);
-    if (state.phase === "over") return;
-  }
-  state.party.block = 0;
-  state.enemy.block = 0;
-  events.push({ type: "blockReset" });
-  state.lead = nextPlayerAfterLead(state);
-  startRound(state, events);
+// A function, so TypeScript doesn't keep an earlier "not over" narrowing after a call changed the state.
+function isOver(state: BattleState): boolean {
+  return state.phase === "over";
 }

@@ -7,7 +7,7 @@ import { getPlaybackSpeed } from "./playbackSpeed";
 // whose file is missing is silently skipped. Playback speed never slows a sound: it only makes the
 // gap between repeats of a cue longer, so fast playback plays fewer sounds.
 
-interface Cue { file: string; volume: number; minGapMs: number; rises?: boolean }
+interface Cue { file: string; volume: number; minGapMs: number; rises?: boolean; baseCents?: number }
 const D = soundJson as unknown as { tickPitch: { stepCents: number; maxSteps: number }; cues: Record<string, Cue> };
 
 export const SOUND_FILES = Array.from(new Set(Object.values(D.cues).map((c) => c.file)));
@@ -52,10 +52,16 @@ export function setSoundSettings(change: Partial<SoundSettings>): void {
 
 const lastPlayed = new Map<string, number>();
 
-// Play a cue. `links` raises the pitch of rising cues (tick, topple) along the chain.
+// Play a cue. `links` raises the pitch of rising cues (tick, hum, effects) with the cascade step or heat.
+let hushed = false;
+// A skipped cascade plays no sound for what it jumps over.
+export function setSoundHushed(value: boolean): void {
+  hushed = value;
+}
+
 export function playSound(cue: string, links = 1): void {
   const c = D.cues[cue];
-  if (!c || !out || settings.muted) return;
+  if (!c || !out || settings.muted || hushed) return;
   const volume = c.volume * settings.master * settings.effects;
   const key = soundKey(c.file);
   if (volume <= 0 || !out.has(key)) return;
@@ -63,7 +69,7 @@ export function playSound(cue: string, links = 1): void {
   if (now - (lastPlayed.get(cue) ?? -Infinity) < c.minGapMs * getPlaybackSpeed()) return;
   lastPlayed.set(cue, now);
   const steps = c.rises ? Math.min(Math.max(links - 1, 0), D.tickPitch.maxSteps) : 0;
-  out.play(key, { volume, detune: steps * D.tickPitch.stepCents });
+  out.play(key, { volume, detune: (c.baseCents ?? 0) + steps * D.tickPitch.stepCents });
 }
 
 // Sounds for what the engine says happened in a run step (rest, a purchase or removal, coins won).

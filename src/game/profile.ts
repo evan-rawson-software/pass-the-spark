@@ -8,8 +8,15 @@ import { content } from "./devBattle";
 const KEY = "pass-the-spark.profile";
 const data = content.progression;
 
+// The comfort settings (menu: screen shake, reduced flashing) live in the profile too.
+export interface Comfort {
+  shake: boolean;
+  reducedFlashing: boolean;
+}
+
 interface StoredProfile extends Profile {
   lastRun?: string;
+  comfort?: Comfort;
 }
 
 export function loadProfile(): StoredProfile {
@@ -17,7 +24,9 @@ export function loadProfile(): StoredProfile {
     const p = JSON.parse(window.localStorage.getItem(KEY) ?? "null") as Partial<StoredProfile> | null;
     if (!p || typeof p.experience !== "number" || !Number.isFinite(p.experience) || p.experience < 0 || !Array.isArray(p.unlocks)) return { ...NEW_PROFILE, unlocks: [] };
     const unlocks = allUnlocks(data).filter((id) => p.unlocks!.includes(id));
-    return { experience: p.experience, unlocks, ...(typeof p.lastRun === "string" ? { lastRun: p.lastRun } : {}) };
+    const c = p.comfort;
+    const comfort = c && typeof c.shake === "boolean" && typeof c.reducedFlashing === "boolean" ? { comfort: { shake: c.shake, reducedFlashing: c.reducedFlashing } } : {};
+    return { experience: p.experience, unlocks, ...(typeof p.lastRun === "string" ? { lastRun: p.lastRun } : {}), ...comfort };
   } catch {
     return { ...NEW_PROFILE, unlocks: [] };
   }
@@ -29,6 +38,15 @@ function saveProfile(profile: StoredProfile): void {
   } catch {
     // storage unavailable: the profile lasts until the page closes
   }
+}
+
+// The saved comfort settings; a profile without them gets the defaults from `defaults`.
+export function loadComfort(defaults: Comfort): Comfort {
+  return loadProfile().comfort ?? defaults;
+}
+
+export function saveComfort(comfort: Comfort): void {
+  saveProfile({ ...loadProfile(), comfort });
 }
 
 export function resetProfile(): void {
@@ -59,6 +77,6 @@ export function awardExperience(runId: string, gained: number): void {
   const profile = loadProfile();
   if (profile.lastRun === runId) return;
   const result = applyExperience(data, profile, gained);
-  saveProfile({ ...result.profile, lastRun: runId });
+  saveProfile({ ...result.profile, lastRun: runId, ...(profile.comfort ? { comfort: profile.comfort } : {}) });
   lastAward = { runId, gained, newUnlocks: result.newUnlocks };
 }

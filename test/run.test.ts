@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { loadContent } from "../src/engine/content";
 import type { Content } from "../src/engine/content";
+import type { Choice } from "../src/engine/battle";
 import { SKIP } from "../src/engine/rewards";
 import { pickEvent } from "../src/engine/eventStops";
 import { applyRunChoice, createRun, getPendingRunChoices } from "../src/engine/run";
@@ -11,7 +12,7 @@ const players = ["a", "b", "c"];
 // Weaker enemies, so the plain "first legal move" play below wins its battles.
 function easyContent() {
   const content = loadContent();
-  for (const e of content.enemies) if (e.tier === "basic") e.maxHealth = 200;
+  for (const e of content.enemies) if (e.tier === "basic") e.maxHealth = 60;
   return content;
 }
 
@@ -39,10 +40,8 @@ function play(start: RunState, stop: (run: RunState) => boolean): { run: RunStat
       r = applyRunChoice(run, owed.player, { type: "event", option: 0 });
     } else {
       const p = owed.pending;
-      const choice =
-        p.type === "opener"
-          ? { type: "opener" as const, domino: p.dominoes[0] }
-          : { type: "answer" as const, domino: p.options[0].domino, spark: p.options[0].sparks[0] };
+      const first = p.plays[0]; // the first legal play, else set off or pass
+      const choice: Choice = first ? { type: "play", domino: first.domino, end: first.ends[0] } : { type: p.canSetOff ? "setOff" : "pass" };
       r = applyRunChoice(run, owed.player, { type: "battle", choice });
     }
     run = r.run;
@@ -55,7 +54,7 @@ test("two battles: health carries over, seats rotate and the lead carries over; 
   const start = createRun({ players, seed: 5, content: easyContent() });
 
   const first = play(start, (r) => r.battle !== null).run;
-  expect(first.battle!.seatOrder).toEqual(["a", "b", "c", "enemy"]);
+  expect(first.battle!.seatOrder).toEqual(["a", "b", "c"]);
   expect(first.battle!.lead).toBe("a");
   expect(first.battle!.party.health).toBe(first.maxHealth);
 
@@ -68,7 +67,7 @@ test("two battles: health carries over, seats rotate and the lead carries over; 
   const carriedLead = afterFirst.lead;
 
   const second = play(afterFirst, (r) => r.battle !== null).run;
-  expect(second.battle!.seatOrder).toEqual(["b", "c", "a", "enemy"]); // one seat on, enemy still last
+  expect(second.battle!.seatOrder).toEqual(["b", "c", "a"]); // one seat on
   expect(second.battle!.lead).toBe(carriedLead); // the rotation didn't change who leads
   expect(second.battle!.party.health).toBe(afterFirst.health); // health carried over
   expect(second.battle!.round).toBe(1);
