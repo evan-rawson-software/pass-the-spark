@@ -12,7 +12,7 @@ const players = ["a", "b", "c"];
 // Weaker enemies, so the plain "first legal move" play below wins its battles.
 function easyContent() {
   const content = loadContent();
-  for (const e of content.enemies) if (e.tier === "basic") e.maxHealth = 30;
+  for (const e of content.enemies) if (e.tier === "basic") e.maxHealth = 60;
   return content;
 }
 

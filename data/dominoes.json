@@ -134,5 +134,31 @@
       "kind": "block",
       "base": 3
     }
+  },
+  {
+    "id": "smash_ember",
+    "name": "Ember Smash",
+    "kind": "cap",
+    "intake": [
+      "Ember"
+    ],
+    "output": [],
+    "effect": {
+      "kind": "damage",
+      "base": 10
+    }
+  },
+  {
+    "id": "smash_tide",
+    "name": "Tide Smash",
+    "kind": "cap",
+    "intake": [
+      "Tide"
+    ],
+    "output": [],
+    "effect": {
+      "kind": "damage",
+      "base": 10
+    }
   }
 ]
