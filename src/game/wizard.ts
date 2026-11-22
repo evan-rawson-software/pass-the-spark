@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import art from "../../data/wizard-art.json";
 import type { Look } from "../net/look";
+import { getPlaybackSpeed } from "./playbackSpeed";
 import { hexColour } from "./presentation";
 
 // Putting a wizard together (#262), from the sheets in public/art/wizards/ and data/wizard-art.json
@@ -148,8 +149,10 @@ export class Wizard extends Phaser.GameObjects.Image {
     return this;
   }
 
+  // Casts, hurt and victory follow the playback speed and the scene's tween time (slow motion, hit-stop and a
+  // skip's fast-forward), like the spells they go with (#265). The idle loop always runs at normal speed.
   preUpdate(_time: number, delta: number): void {
-    this.elapsed += delta;
+    this.elapsed += this.current === "idle" ? delta : delta * getPlaybackSpeed() * this.scene.tweens.timeScale;
     this.showFrame();
   }
 
