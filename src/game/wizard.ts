@@ -47,11 +47,16 @@ export function paletteColour(i: number): number {
 
 // Swaps every pixel of a key shade for the colour's shade.
 function recolour(canvas: HTMLCanvasElement, colourId: string): void {
+  recolourRamp(canvas, colourData(colourId).ramp);
+}
+
+// The same with any ramp (a ward takes its spark's).
+export function recolourRamp(canvas: HTMLCanvasElement, ramp: string[]): void {
   const ctx = canvas.getContext("2d")!;
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const p = image.data;
   const from = art.keyRamp.map(hex);
-  const to = colourData(colourId).ramp.map(hex);
+  const to = ramp.map(hex);
   for (let i = 0; i < p.length; i += 4) {
     if (p[i + 3] === 0) continue;
     const j = from.findIndex((f) => f[0] === p[i] && f[1] === p[i + 1] && f[2] === p[i + 2]);

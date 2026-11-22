@@ -174,6 +174,7 @@ export class CombatScene extends Phaser.Scene {
     this.tabs = new SeatTabs(this.ctx);
     this.anim = new Animator(this);
     this.wizards = new BattleWizards(this); // above the circle (the animator made it), under the redrawn layer
+    this.anim.wizards = this.wizards; // they cast, flinch and celebrate with the cascade (#265)
     this.anim.buildup.frame = () => ({ ...combatLayoutData.board }); // the camera frames the tree to the board mat (data); the tree itself is fitted inside the circle (boardArea)
     this.anim.redraw = () => this.redraw(); // the slam redraws the table with the real numbers
     this.locked = false;

@@ -3,6 +3,7 @@ import art from "../../data/wizard-art.json";
 import type { Look } from "../net/look";
 import { hexColour, battleWizardsData as D } from "./presentation";
 import { seatLook } from "./runSession";
+import { seededPick } from "./seededPick";
 import { Wizard, WIZARD_FRAME, WIZARD_SCALE, lookColour, wizardTexture } from "./wizard";
 
 // The wizards in battle (#264): one per seat, standing on a spot of the arcane circle's rim, in their
@@ -62,6 +63,29 @@ export class BattleWizards {
       s.shadow.forEach((e) => e.setAlpha(D.wizard.shadow.alpha * alpha));
     }
     this.mark(input.you);
+  }
+
+  // The wizard of `seat` plays one of the casts (#265, A8): which is a seeded pick from `parts` (the
+  // enemy, round and node) and the seat, so every screen shows the same. A cast in progress starts over; then idle.
+  cast(seat: string, ...parts: (string | number)[]): void {
+    const casts = art.animations.casts;
+    this.standing.get(seat)?.wizard.play(casts[seededPick(casts.length, ...parts, seat)].id, "idle");
+  }
+
+  // Every wizard flinches, then idles (the party took damage).
+  hurt(): void {
+    this.standing.forEach((s) => s.wizard.play("hurt", "idle"));
+  }
+
+  // Every wizard celebrates, looping until the screen changes (the battle is won).
+  victory(): void {
+    this.standing.forEach((s) => s.wizard.play("victory"));
+  }
+
+  // Every wizard back to its idle loop at once (a skipped cascade).
+  idle(): void {
+    let i = 0;
+    this.standing.forEach((s) => s.wizard.play("idle", undefined, D.wizard.idleOffsetMs[i++ % D.wizard.idleOffsetMs.length]));
   }
 
   // Where a seat's wizard stands (the middle of its feet), by party size and seat order.

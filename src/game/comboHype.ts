@@ -1,12 +1,14 @@
 import Phaser from "phaser";
 import presentation from "../../data/presentation.json";
 import type { GameEvent } from "../engine/events";
+import type { Spark } from "../engine/types";
 import type { Refs } from "./animations";
 import { reducedFlashing, shakeEnabled } from "./comfort";
 import { fxFallback, fxObject } from "./fx";
 import { scaleTime } from "./playbackSpeed";
 import { combatLayoutData, hexColour } from "./presentation";
 import { playSound, stopSound } from "./sound";
+import type { Spells } from "./spells";
 
 // Cascade hype (#234, H1-H9; #276): one big combo number in the middle of the board area, fixed on screen
 // whatever the camera does. Every hit's spark (a cap's, or a smaller one from an amplifier or junction)
@@ -91,6 +93,8 @@ export interface HypeHost {
   impact(t: { amount: number; blocked: number; killed: boolean; startHealth: number }): void; // the enemy takes the slam (reactions, bars)
   partyBlock(): void; // the block lands on the party's block chip
   skipping(): boolean; // the scene is fast-forwarding (a skipped cascade)
+  spells: Spells; // damage spells, wards and the final spell (#265)
+  flinch(): void; // a spell landed: the enemy flinches a little
   stagger(): void; // the slam is in: the enemy reels, and its intent card shows the halved attack
   circle: { tier(tier: number): void; beam(): void; rest(now: boolean): void }; // the arcane circle follows the combo's tier (#264)
 }
@@ -212,7 +216,8 @@ export class ComboHype {
   // A cap fired (worldAt: where it is on the table): it bursts, and its spark flies into the number.
   // Returns a function for a short freeze on the hit, to run after anything else the cap does (none when
   // `noFreeze`: the cap already holds the table in slow motion).
-  cap(ev: Extract<GameEvent, { type: "capFired" }>, worldAt: Pt, noFreeze: boolean): (() => Promise<void>) | undefined {
+  // A damage cap casts its `spark`'s spell at the enemy; its number joins the combo as the spell lands.
+  cap(ev: Extract<GameEvent, { type: "capFired" }>, worldAt: Pt, noFreeze: boolean, spark?: Spark): (() => Promise<void>) | undefined {
     if (!this.on) return undefined;
     this.beats++;
     const kind: Kind = ev.effect;
@@ -223,7 +228,8 @@ export class ComboHype {
       return undefined;
     }
     this.capBurst(worldAt);
-    this.fly(hit, this.toScreen(worldAt));
+    if (kind === "damage" && spark) this.cast(hit, spark, worldAt);
+    else this.fly(hit, this.toScreen(worldAt));
     const ms = D.microFreezeMs[this.tier] ?? 0;
     if (kind === "damage" && !noFreeze && ms > 0 && shakeEnabled()) return () => this.freeze(ms);
     return undefined;
@@ -292,11 +298,13 @@ export class ComboHype {
     this.host.circle.rest(true); // a skipped cascade leaves the circle at rest
     this.quick = true;
     for (const hit of [...this.flights]) hit.cancel?.();
+    this.host.spells.clear();
   }
 
   // Everything away at once (a new round, the scene going).
   clear(): void {
     this.host.circle.rest(true);
+    this.host.spells.clear();
     this.token++;
     this.on = false;
     this.begun = false;
@@ -752,6 +760,27 @@ export class ComboHype {
     });
   }
 
+  // A damage spell flies from its cap to the enemy card; landing is what counts its number into the
+  // combo (as a spark's landing did), with the enemy's small flinch.
+  private cast(hit: Hit, spark: Spark, from: Pt): void {
+    const token = this.token;
+    this.flights.add(hit);
+    let stop = (): void => {};
+    const finish = (): void => {
+      stop();
+      this.flights.delete(hit);
+      if (token !== this.token) return;
+      hit.landed = true;
+      hit.counted = true;
+      this.add(hit.kind, hit.amount, 1, false, hit.crosses);
+      if (!this.quick) this.host.flinch();
+      if (hit.crosses) this.reachLine();
+      this.wake();
+    };
+    hit.cancel = finish;
+    stop = this.host.spells.fly(spark, from, () => this.host.aim(), this.beats, finish);
+  }
+
   // Where the block number will appear when there is none yet: beside the damage number.
   private blockPlace(): Pt {
     const c = this.centre();
@@ -816,6 +845,7 @@ export class ComboHype {
     if (!this.on) return;
     await this.slam(killed, quick);
     this.host.circle.rest(false); // the circle settles back to tier 0
+    this.host.spells.endWards(false);
   }
 
   private async slam(killed: boolean, quick: boolean): Promise<void> {
@@ -867,11 +897,13 @@ export class ComboHype {
     // Flight: the damage into the enemy, the block (if any) to the party's chip.
     this.stopFire();
     const aim = (): Pt => this.toScreen(this.host.aim());
+    const finalSpell = this.host.spells.finalFlight(tier, killed, () => this.host.aim(), S.flightMs * q);
     const blockFlight = s.block > 0 ? this.fly2("block", S.flightMs * q).then(() => this.host.partyBlock()) : Promise.resolve();
-    await this.fly2("damage", S.flightMs * q, aim);
+    await Promise.all([this.fly2("damage", S.flightMs * q, aim), finalSpell]);
     if (token !== this.token) return;
     // Impact: a white flash, a burst, the boom and shake, a short freeze, then the enemy takes it.
     const hit = aim();
+    this.host.spells.finalImpact(tier, killed, this.host.aim());
     const lethalSound = killed ? "combo:slamLethal" : "combo:slam";
     playSound(lethalSound, 1, S.gain[tier]);
     this.flash(0xffffff, S.flashAlpha[tier], S.flashMs);
