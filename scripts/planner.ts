@@ -135,7 +135,7 @@ function slim(view: BattleView): BattleView {
 
 // The best tree of dominoes to add to this board, as placements in building order. Empty when
 // adding nothing is best.
-export function planTree(full: BattleView, rng: number): Placement[] {
+export function planTree(full: BattleView, rng: number, beamWidth = BEAM_WIDTH): Placement[] {
   const view = slim(full);
   const baseEnd = view.board.nextEnd; // ids from here on are the plan's own
   const baseNode = view.board.nextNode;
@@ -194,7 +194,7 @@ export function planTree(full: BattleView, rng: number): Placement[] {
     const next = [...children.values()];
     for (const t of next) if (better(t, best, "exact")) best = t;
     next.sort((a, b) => (better(a, b, "rank") ? -1 : 1));
-    beam = next.slice(0, BEAM_WIDTH);
+    beam = next.slice(0, beamWidth);
   }
   return best.plan;
 }
@@ -253,14 +253,14 @@ function matchPlan(view: BattleView, rng: number, memory: Memory): Map<number, n
 // comes after another seat's waits (choice null) and is asked again after the others have placed. A seat
 // with none left sets Ready. The RNG state is returned unchanged: the tie keys are hashed from it, so
 // every seat sees the same tie-breaks while the board is the same.
-export function createPlannerBot(): (view: BattleView, seat: string, rng: number) => { choice: Choice | null; rng: number } {
+export function createPlannerBot(beamWidth = BEAM_WIDTH): (view: BattleView, seat: string, rng: number) => { choice: Choice | null; rng: number } {
   let memory: Memory | null = null;
   return (view, seat, rng) => {
     const pending = getPlayerChoices(view, seat);
     if (pending === null) throw new Error("the battle is over");
     let matched = memory ? matchPlan(view, rng, memory) : null;
     if (!memory || !matched) {
-      const plan = planTree(view, rng);
+      const plan = planTree(view, rng, beamWidth);
       matched = new Map();
       memory = { plan, baseNode: view.board.nextNode, basis: basis(view, rng, view.board.nextNode, matched, plan) };
     }

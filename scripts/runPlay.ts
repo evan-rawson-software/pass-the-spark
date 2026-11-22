@@ -12,7 +12,7 @@ import { dominoUnavailable, repaintChoices } from "../src/engine/events/deckEven
 import { upgradeChoices, wellSparks, wellStage } from "../src/engine/events/wishingWell";
 import { loadContent } from "../src/engine/content";
 import { botChoice } from "./bot";
-import { createPlannerBot } from "./planner";
+import { BEAM_WIDTH, createPlannerBot } from "./planner";
 import { nextSeatChoice } from "./seats";
 import type { BattleBot } from "./seats";
 import type { Domino, Rarity, Spark } from "../src/engine/types";
@@ -32,6 +32,10 @@ export interface RunStats {
   actsCleared: number; // bosses beaten
   bossHealth: (number | null)[]; // party health entering each act's boss (null: never got there)
   charmsHeld: string[]; // every charm any player held at some point
+  cascades: number[]; // cascades set off in battles, by act and stop (index act * 3 + 0 fight, 1 elite, 2 boss)
+  lines: number[]; // of those, the cascades whose combo total reached the enemy's line
+  bossesFaced: string[]; // the bosses the party fought
+  diedTo: string | null; // the enemy that beat the party (null: it won or hit the step cap)
 }
 
 // Seeded random picks; the state is also handed to the bot for its tie-breaks.
@@ -154,14 +158,18 @@ function choose(run: RunState, p: RunPendingChoice, pick: Picker, bought: Record
   }
 }
 
-export function playRun(playerCount: number, seed: number, maxSteps: number, which: "stock" | "planner" = "stock"): RunStats {
-  const bot: BattleBot = which === "planner" ? createPlannerBot() : botChoice;
+export function playRun(playerCount: number, seed: number, maxSteps: number, which: "stock" | "planner" = "stock", beam = BEAM_WIDTH): RunStats {
+  const bot: BattleBot = which === "planner" ? createPlannerBot(beam) : botChoice;
   const players = Array.from({ length: playerCount }, (_, i) => "p" + (i + 1));
   let run = createRun({ players, seed, content });
   const pick = new Picker((seed ^ 0x9e3779b9) >>> 0);
   let bought: Record<string, number> = {};
   const bossHealth: (number | null)[] = content.run.acts.map(() => null);
   const held = new Set<string>();
+  const cascades: number[] = content.run.acts.flatMap(() => [0, 0, 0]);
+  const lines: number[] = cascades.slice();
+  const bossesFaced = new Set<string>();
+  let enemyNow: string | null = null; // the enemy of the battle in play (the battle is gone once the run is over)
   let steps = 0;
   let lastPhase = "";
   let lastSeat = -1; // the seat that acted last in a battle
@@ -178,7 +186,13 @@ export function playRun(playerCount: number, seed: number, maxSteps: number, whi
       const next = nextSeatChoice(run.battle!, lastSeat, bot, pick.state);
       lastSeat = next.seat;
       pick.state = next.rng;
-      run = applyRunChoice(run, next.player, { type: "battle", choice: next.choice }).run;
+      const slot = run.actIndex * 3 + (run.position?.type === "boss" ? 2 : run.position?.type === "elite" ? 1 : 0);
+      const result = applyRunChoice(run, next.player, { type: "battle", choice: next.choice });
+      enemyNow = run.battle!.enemy.id;
+      if (run.position?.type === "boss") bossesFaced.add(enemyNow);
+      run = result.run;
+      if (result.events.some((e) => e.type === "setOff")) cascades[slot] += 1;
+      if (result.events.some((e) => e.type === "lineReached")) lines[slot] += 1;
     } else {
       run = applyRunChoice(run, pending[0].player, choose(run, pending[0], pick, bought)).run;
     }
@@ -197,5 +211,9 @@ export function playRun(playerCount: number, seed: number, maxSteps: number, whi
     actsCleared: run.result === "won" ? content.run.acts.length : run.actIndex,
     bossHealth,
     charmsHeld: [...held],
+    cascades,
+    lines,
+    bossesFaced: [...bossesFaced],
+    diedTo: run.result === "lost" ? enemyNow : null,
   };
 }
