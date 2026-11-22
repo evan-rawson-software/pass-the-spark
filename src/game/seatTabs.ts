@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import type { BattleView } from "../engine/view";
 import { drawDomino, dominoPixelSize } from "./dominoDrawing";
-import { rowSlots } from "./handRow";
+import { followUpRing, rowSlots } from "./handRow";
 import { charmWithTip, charmsByIds } from "./charmUi";
 import { seatColour } from "./seatColours";
 import { lookOf, wizardPortrait } from "./battleWizards";
@@ -33,13 +33,21 @@ export interface TabsInput {
   nameOf(seat: string): string; // the seat's full name, for "Waiting for [name]"
 }
 
+interface SmallDomino { id: string; x: number; y: number; w: number; h: number; c: Phaser.GameObjects.Container } // x, y: the outline's centre; w, h: its size as drawn
+
 export class SeatTabs {
   private zoom?: Phaser.GameObjects.Container;
+  private small = new Map<string, SmallDomino[]>(); // each seat's small hand dominoes as drawn (not the front seat's)
+  private rings?: Phaser.GameObjects.Graphics;
+  private layer?: Layer;
 
   constructor(private ctx: CombatCtx) {}
 
   draw(layer: Layer, view: BattleView, input: TabsInput): void {
     this.hideZoom();
+    this.small = new Map();
+    this.rings = undefined;
+    this.layer = layer;
     const seats = view.seatOrder.filter((s) => view.players.some((p) => p.id === s));
     const w = (D.w - (seats.length - 1) * D.gap) / seats.length;
     seats.forEach((seat, i) => this.tab(layer, view, seat, D.x + i * (w + D.gap), w, input));
@@ -150,6 +158,8 @@ export class SeatTabs {
     const sizes = player.hand.map((id) => dominoPixelSize("large", view.dominoes.find((q) => q.id === id)!.kind));
     const spots = rowSlots(sizes, { x: x + D.padX, y: top, w: availW, h: availH }, Hd);
     const slots = ctx.slots(seat);
+    const small: SmallDomino[] = [];
+    this.small.set(seat, small);
     player.hand.forEach((id, i) => {
       const { x: px, y: py, k } = spots[i];
       // The drawing is centred on the widest cell with its socket at the left edge: shift it so the outline is centred on (px, py).
@@ -160,8 +170,24 @@ export class SeatTabs {
       c.on("pointerout", () => this.hideZoom());
       c.on("destroy", () => this.hideZoom());
       slots[i] = { c, pos: { x: cx, y: py, k } };
+      small.push({ id, x: px, y: py, w: sizes[i].w * k, h: sizes[i].h * k, c });
     });
     if (n === 0) ctx.label(layer, x + w / 2, top + availH / 2, "No dominoes", D.you.size, D.you.colour, 0.5, false);
+  }
+
+  // The follow-up highlight (#295): per seat, the hand dominoes (by id) that could be placed after the hovered
+  // play get a ring, the rest fade. null clears it. A seat missing from the map is all dim.
+  setFollowUp(lit: Record<string, string[]> | null): void {
+    if (this.rings?.active) this.rings.clear();
+    else if (lit && this.layer?.active) this.rings = this.ctx.gfx(this.layer);
+    for (const [seat, list] of this.small) {
+      const ids = lit ? new Set(lit[seat] ?? []) : null;
+      for (const d of list) {
+        if (!d.c.active) continue;
+        d.c.setAlpha(!ids || ids.has(d.id) ? 1 : combatLayoutData.followUp.dimAlpha);
+        if (ids?.has(d.id) && this.rings?.active) followUpRing(this.rings, d.x, d.y, d.w, d.h, combatLayoutData.followUp.tabWidth);
+      }
+    }
   }
 
   // A filled tag, its right edge at `right`. Returns its width.

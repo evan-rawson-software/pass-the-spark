@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { getOpenEnds, getPlayerChoices, previewBuild, previewPlay, previewSetOff, step } from "../engine/battle";
+import { getOpenEnds, getPlayerChoices, previewBuild, previewFollowUps, previewPlay, previewSetOff, step } from "../engine/battle";
 import type { BattleState, Choice, PlayerChoices, SetOffPreview } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView, OpenEndView } from "../engine/view";
@@ -820,15 +820,18 @@ export class CombatScene extends Phaser.Scene {
     board.clearHighlight();
     handRow.pick(this.selected === null ? null : handRow.items.find((i) => i.id === this.selected)?.key ?? null);
     handRow.hover(this.drag?.ghost ? null : this.hoverKey);
+    this.tabs.setFollowUp(null);
+    handRow.setFollowUp(null, null);
     const view = this.view;
     const front = this.frontSeat();
     const pending = this.locked || this.waiting || this.shown ? null : getPlayerChoices(view, front);
-    const id = this.hoverPlay?.domino ?? this.hoverId ?? this.selected;
+    const id = this.hoverPlay?.domino ?? this.hoverId ?? this.selected ?? (this.drag?.ghost && this.drag.node === undefined ? this.drag.id : null);
     const option = pending && id !== null ? pending.plays.find((o) => o.domino === id) : undefined;
     if (!pending || id === null || !option) return;
     const d = this.dominoOf(id);
     const aimed = this.hoverPlay?.domino === id ? this.hoverPlay.end : undefined;
     board.highlightLegal(option.ends, pending.opener);
+    this.showFollowUps(front, id, aimed ?? option.ends[0]);
     const targets: (number | "opener")[] = pending.opener ? ["opener"] : option.ends;
     for (const t of targets) {
       // The acting seat's own charms: previewPlay with its id, never another seat's view.openEnds.
@@ -837,6 +840,17 @@ export class CombatScene extends Phaser.Scene {
       const reaching = t === "opener" ? fuseBoardData.openerCharge : this.openCharge.get(t) ?? 0;
       board.showLive(t, liveNumber(d, p, reaching), aimed === undefined || aimed === t);
     }
+  }
+
+  // The follow-up highlight (#295): what each seat could place on the open ends of `id` played at `end` (the aimed
+  // end, else the first legal one; none on an empty board). The engine answers (previewFollowUps); this only lights.
+  private showFollowUps(front: string, id: string, end: number | undefined): void {
+    const result = previewFollowUps(this.view, { player: front, domino: id, end });
+    if (!result) return;
+    this.tabs.setFollowUp(result);
+    const items = this.handRow?.items ?? [];
+    const source = items.find((i) => i.id === id && i.key === this.hoverKey) ?? items.find((i) => i.id === id);
+    this.handRow?.setFollowUp(new Set(result[front] ?? []), source?.key ?? null);
   }
 
   // ---- hands ----

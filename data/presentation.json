@@ -288,6 +288,7 @@
       "count": { "y": 918, "size": 24, "colour": "#cfe9dc", "text": "of", "tail": "ready" }
     },
     "takeBack": { "size": 34, "dx": -6, "dy": 4, "fill": "#fffbea", "stroke": "#22201c", "strokeWidth": 3, "colour": "#22201c", "text": "↩", "textSize": 26, "hideMs": 160, "dragHandPad": 30 },
+    "followUp": { "comment": "The follow-up highlight (#295), read by handRow.ts, seatTabs.ts and CombatScene.ts: while a hand domino is hovered, picked or dragged, the dominoes (in the seat tabs and in your own hand) that could be placed on its open ends light up with a ring in glow (width px on screen: handWidth in your hand, tabWidth in the tabs; halo is the soft outer ring's alpha), and the rest fade to dimAlpha. Legality only (B8): no totals. Your own hand also lifts the hovered domino and dims unplayable ones; the ring is the extra mark there.", "glow": "#6fe3ff", "handWidth": 6, "tabWidth": 3, "halo": 0.35, "pad": 4, "dimAlpha": 0.35 },
     "handFrame": { "width": 4, "pad": 10, "padTop": 26, "label": { "size": 22, "dy": -44 } },
     "note": {
       "dy": -70, "size": 26, "colour": "#ff9a94", "ms": 3000,
