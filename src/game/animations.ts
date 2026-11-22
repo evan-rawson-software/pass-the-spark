@@ -1,9 +1,12 @@
 import Phaser from "phaser";
 import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
+import type { Spark } from "../engine/types";
 import { scaleTime } from "./playbackSpeed";
 import { reducedFlashing } from "./comfort";
 import { ArcaneCircle } from "./arcaneCircle";
+import { BattleWizards } from "./battleWizards";
+import { Spells } from "./spells";
 import { Buildup } from "./buildup";
 import { playSound, setSoundHushed } from "./sound";
 import { ComboHype } from "./comboHype";
@@ -117,6 +120,20 @@ const CAP_SOUND = { damage: "effect:damage", block: "effect:block" };
 // event waits for it to land first.
 const IN_STEP: GameEvent["type"][] = ["nodeLit", "capFired", "damage", "block", "charm", "fizzle", "passive", "lineReached"];
 
+// The spark a cap's spell is made of: the one flowing into it (its parent's end), else its own intake.
+function capSpark(view: BattleView, node: number): Spark {
+  const n = view.board.nodes.find((x) => x.id === node);
+  const end = n && n.end !== null ? view.board.ends.find((e) => e.id === n.end) : undefined;
+  if (end) return end.spark;
+  const intake = n ? view.dominoes.find((d) => d.id === n.domino)?.intake : undefined;
+  return Array.isArray(intake) ? intake[0] : "Ember";
+}
+
+// Where a seat's wizard stands on the table (its feet).
+function wizardSpot(view: BattleView, seat: string): { x: number; y: number } {
+  return BattleWizards.spot(view.seatOrder.length, Math.max(0, view.seatOrder.indexOf(seat)));
+}
+
 // ---- the animator ----
 
 export interface Snapshot {
@@ -148,6 +165,8 @@ export class Animator {
   private lastShown?: BattleView; // the table as the last event left it, for the slam
   redraw: () => void = () => {}; // the scene's redraw from the shown table (set by the scene)
   skipping = false; // the player skipped the cascade: slow motion is off and the fast-forward stays on
+  wizards?: BattleWizards; // the wizards, who cast, flinch and celebrate (#265; set by the scene)
+  spells: Spells; // damage spells, wards and the final spell (#265)
   circle: ArcaneCircle; // the arcane circle under the tree, climbing with the combo's tier (#264)
   private circleRound = -1; // the round the circle's resting variant was picked for
   buildup: Buildup; // pitch, glow and camera (#191)
@@ -171,12 +190,15 @@ export class Animator {
     scene.time.timeScale = 1;
     this.buildup = new Buildup(scene);
     this.circle = new ArcaneCircle(scene);
+    this.spells = new Spells(scene);
     this.hype = new ComboHype(scene, {
       refs: () => this.refs,
       aim: () => this.reactions.where(),
       skipping: () => this.skipping,
       impact: (t) => this.slamImpact(t),
       partyBlock: () => this.landBlock(),
+      spells: this.spells,
+      flinch: () => this.reactions.flinch(),
       circle: { tier: (t) => this.circle.setTier(t), beam: () => this.circle.showBeam(), rest: (now) => this.circle.rest(now) },
       stagger: () => {
         this.redraw(); // the intent card now shows the halved attack
@@ -276,6 +298,7 @@ export class Animator {
       scene.time.timeScale = 1;
       setSoundHushed(false);
       await this.hype.finish(ev.type === "battleEnd" && ev.result === "won", true);
+      if (ev.type === "battleEnd" && ev.result === "won") this.wizards?.victory();
       setSoundHushed(true);
       scene.tweens.timeScale = SKIP_SPEED;
       scene.time.timeScale = SKIP_SPEED;
@@ -296,8 +319,10 @@ export class Animator {
   // The cascade was skipped, or the scene is going: every shot ends now. Events held for a landing
   // run (flush) unless the scene is going away.
   clearShots(flush = true): void {
-    if (flush) this.hype.skip();
-    else this.hype.clear();
+    if (flush) {
+      this.hype.skip();
+      this.wizards?.idle(); // casts end at once
+    } else this.hype.clear();
   }
 
   private async play(ev: GameEvent, shown: BattleView, apply: () => void): Promise<void> {
@@ -366,10 +391,12 @@ export class Animator {
         this.tier = heatTier(this.lit.length, this.biggest);
         const node = refs.nodes.get(ev.node);
         playSound(CAP_SOUND[ev.effect], this.buildup.step());
+        const spark = capSpark(shown, ev.node);
+        if (ev.effect === "block") this.spells.ward(spark, wizardSpot(shown, ev.owner));
         if (node) {
           const at = centre(boxOf(node.pos));
           this.buildup.cap(ev.value, at);
-          microFreeze = this.hype.cap(ev, at, ev.value >= P.slowMotion.minCap);
+          microFreeze = this.hype.cap(ev, at, ev.value >= P.slowMotion.minCap, spark);
           seatGlow(scene, at, boxOf(node.pos).w, seatColour(shown.seatOrder, ev.owner), true);
           const text = ev.triggers > 1 ? `${ev.value}×${ev.triggers}` : String(ev.value);
           floatText(scene, at.x, at.y, text, CAP_COLOR[ev.effect], Math.max(30, Math.round(60 * node.pos.k + 18 + this.tier * 6)), 1000);
@@ -407,6 +434,9 @@ export class Animator {
         if (at) charm(scene, at);
         break;
       }
+      case "battleEnd":
+        if (ev.result === "won") this.wizards?.victory();
+        break;
       case "enemyAction":
         this.buildup.finish();
         if (refs.intent) {
@@ -435,6 +465,7 @@ export class Animator {
           sh?.text.setText(String(before.party.block + this.hype.owed("party", "block")));
           hold = this.reactions.lunge().then(() => {
             this.reactions.partyHit(ev.amount);
+            if (ev.amount > 0) this.wizards?.hurt(); // damage that got through the block
             const lag = ev.blocked > 0 ? reactionData.impact.blockFirstMs : 0;
             this.tweenHealth(key, before, after, lag);
             this.reactions.ghostHit(key, before[key].health, after[key].health, lag);
@@ -484,6 +515,7 @@ export class Animator {
     const scene = this.scene;
     const refs = this.refs;
     this.lit.push(ev.node);
+    this.wizards?.cast(ev.owner, shown.enemy.id, shown.round, ev.node); // its owner casts, whatever the domino is (A8)
     this.tier = heatTier(this.lit.length, this.biggest);
     const color = this.litColor();
     const links = this.buildup.step(); // the pitch climbs with each cascade step, up to a cap in data
