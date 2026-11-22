@@ -8,7 +8,7 @@ import { drawPadlock } from "./passiveIcon";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import { reducedFlashing } from "./comfort";
 import { scaleTime } from "./playbackSpeed";
-import { combatLayoutData, dominoLook, fuseBoardData as D, hexColour } from "./presentation";
+import { battleWizardsData, dominoLook, fuseBoardData as D, hexColour } from "./presentation";
 import { SPARK_STYLE } from "./sparks";
 
 // The fuse board (#229, taking over #218's screen part): small dominoes joined by fuses, a charge
@@ -30,9 +30,10 @@ type Layer = Phaser.GameObjects.Container;
 // A domino's own silhouette size at scale 1 (a junction is taller, a cap narrower).
 const sizeOf = (kind: DominoKind) => dominoPixelSize("large", kind);
 
-// The board's area, from data (combatLayout.board): CombatScene reads it from here, so a later layout moves it in data.
+// The tree's area, from data: the inner box of the arcane circle (battleWizards.circle.inner), so the tree
+// stays inside the circle and clear of the wizards on its rim (#264). CombatScene reads it from here.
 export function boardArea(): Rect {
-  return { ...combatLayoutData.board };
+  return { ...battleWizardsData.circle.inner };
 }
 
 // ---- layout (pure geometry, in nominal px at the board scale) ----

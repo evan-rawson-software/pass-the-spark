@@ -4,6 +4,7 @@ import { drawDomino, dominoPixelSize } from "./dominoDrawing";
 import { rowSlots } from "./handRow";
 import { charmWithTip, charmsByIds } from "./charmUi";
 import { seatColour } from "./seatColours";
+import { lookOf, wizardPortrait } from "./battleWizards";
 import { combatLayoutData, hexColour } from "./presentation";
 import type { CombatCtx, Layer } from "./combatCtx";
 import { fitText } from "./combatCtx";
@@ -78,10 +79,9 @@ export class SeatTabs {
     for (let i = tags.length - 1; i >= 0; i--) right -= this.pill(layer, right, ty, tags[i].text, tags[i].fill, tags[i].ink) + G.gap;
     const tagsLeft = tags.length > 0 ? right + G.gap : x + w - D.padX;
 
-    // The seat colour and the name, which opens the seat's deck.
+    // The seat's wizard (head and hat, in its seat colour) and the name, which opens the seat's deck.
     const N = D.name;
-    g.fillStyle(colour, 1);
-    g.fillCircle(x + D.padX + D.dot.dx, y + N.y, D.dot.r);
+    wizardPortrait(s, layer, lookOf(view.seatOrder, seat), x + D.padX + D.portrait.dx, y + N.y);
     const nx = x + D.padX + N.dx;
     const name = ctx.label(layer, nx, y + N.y, ctx.nameOf(seat, true, 10), N.size, N.colour, 0, true);
     fitText(name, Math.max(40, Math.min(N.maxW, tagsLeft - 10 - nx)));
