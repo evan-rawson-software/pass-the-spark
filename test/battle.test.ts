@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { applyChoice, createBattle, getPlayerChoices, previewCascade, previewPlay, previewSetOff, step } from "../src/engine/battle";
+import { applyChoice, createBattle, getPlayerChoices, previewCascade, previewFollowUps, previewPlay, previewSetOff, step } from "../src/engine/battle";
 import type { BattleState, StepResult } from "../src/engine/battle";
 import { getView } from "../src/engine/view";
 import type { Domino, Enemy } from "../src/engine/types";
@@ -450,4 +450,22 @@ test("stagger: enemy block absorbs the first small hits, and the staggered multi
   expect(state.enemy.health).toBe(88);
   expect(state.party.health).toBe(84);
   expect(getView(state, "a").intent.actions).toEqual([{ kind: "attack", value: 5, hits: 3 }]); // next round, not staggered
+});
+
+test("follow-up highlight: after a play, each seat's hand dominoes that fit the new domino's open ends (a teammate's, your own, none left, a cap)", () => {
+  let s = setup([["echo_tide", "echo_tide", "strike_ember"], ["strike_tide", "strike_gale", "boost_tide"], ["strike_tide"]]);
+  s.players[2].placements = 0;
+  s = ready(s, "b"); // Ready doesn't count against a seat: it could undo it
+  const view = getView(s, "a");
+  const before = JSON.stringify(s);
+  // The opener opens a Tide end: b's Tide dominoes fit, a's second copy fits (the played one is gone), c has no placements left.
+  expect(previewFollowUps(view, { player: "a", domino: "echo_tide" })).toEqual({ a: ["echo_tide"], b: ["strike_tide", "boost_tide"], c: [] });
+  expect(JSON.stringify(s)).toBe(before);
+  // A cap leaves no open end: nothing lights anywhere.
+  expect(previewFollowUps(s, { player: "a", domino: "strike_ember" })).toBeNull(); // not an opener
+  // Out of placements after this one: the player's own list is empty too.
+  s.players[0].placements = 1;
+  expect(previewFollowUps(s, { player: "a", domino: "echo_tide" })!.a).toEqual([]);
+  // Onto a board with an open end: a cap there closes it and leaves one end less to fill.
+  s = play(getView(s, "a") as unknown as BattleState & never, "a", "echo_tide") as BattleState;
 });

@@ -504,6 +504,26 @@ function previewCopy(input: BattleState | BattleView, play?: { player: string; d
   return state;
 }
 
+// Which hand dominoes each seat could place on one of the new domino's open ends after `play` (the follow-up
+// highlight). Runs on a copy with the play applied and asks getPlayerChoices of every seat, so charms, locked
+// sparks, the open-end limit and placements left all come from the same rules. Ready is ignored (it can be
+// undone). The played domino leaves its owner's hand: another copy of it still counts. A cap, or a seat with
+// no placements left, gives an empty list. Keyed by seat; null when the play is illegal. B8: legality only.
+export function previewFollowUps(input: BattleState | BattleView, play: { player: string; domino: string; end?: number }): Record<string, string[]> | null {
+  const state = previewCopy(input, play);
+  if (state === null) return null;
+  removeOne(getPlayer(state, play.player).hand, play.domino);
+  const added = state.board.nodes[state.board.nodes.length - 1].id;
+  const mine = new Set(state.board.ends.filter((e) => e.node === added).map((e) => e.id));
+  const out: Record<string, string[]> = {};
+  for (const p of state.players) {
+    p.ready = false;
+    const choices = getPlayerChoices(state, p.id);
+    out[p.id] = choices ? choices.plays.filter((o) => o.ends.some((e) => mine.has(e))).map((o) => o.domino) : [];
+  }
+  return out;
+}
+
 // What the build shows the party without giving away whether the board is lethal or reaches the line (B8): the
 // block the whole board would give, and the health the party would lose to the intent's full, unhalved attack
 // after that block. It runs the real cascade and enemy action on a copy where the enemy cannot die and has no

@@ -3,7 +3,7 @@ import type { Domino } from "../engine/types";
 import { drawDomino, dominoPixelSize } from "./dominoDrawing";
 import type { DominoState } from "./dominoDrawing";
 import { scaleTime } from "./playbackSpeed";
-import { dominoLook, handRowData as D, hexColour } from "./presentation";
+import { combatLayoutData, dominoLook, handRowData as D, hexColour } from "./presentation";
 import { SPARK_ORDER } from "./sparks";
 
 // Your hand (#253, replacing #229's fan): sorted amplifiers, then junctions, then caps (by intake
@@ -92,6 +92,17 @@ export function handArea(): Rect {
   return { ...D.area };
 }
 
+// The follow-up ring (#295): a soft halo and a bright outline round a domino whose outline is w x h, centred on
+// (x, y). `width` is in the graphics' own units (the caller divides by its scale to get a steady width on screen).
+export function followUpRing(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, width: number): void {
+  const F = combatLayoutData.followUp;
+  const pad = F.pad;
+  g.lineStyle(width * 2, hexColour(F.glow), F.halo);
+  g.strokeRoundedRect(x - w / 2 - pad, y - h / 2 - pad, w + 2 * pad, h + 2 * pad, 8 + pad);
+  g.lineStyle(width, hexColour(F.glow), 1);
+  g.strokeRoundedRect(x - w / 2 - pad / 2, y - h / 2 - pad / 2, w + pad, h + pad, 8 + pad / 2);
+}
+
 export interface HandInput {
   hand: string[]; // the engine's hand, domino ids
   dominoes: Domino[];
@@ -129,6 +140,8 @@ export class HandRow {
   private hovered: string | null = null;
   private dragged: string | null = null;
   private picked: string | null = null;
+  private rings: Phaser.GameObjects.Graphics[] = [];
+  private followOn = false;
 
   constructor(scene: Phaser.Scene, layer: Layer, cb: HandCallbacks = {}) {
     this.scene = scene;
@@ -176,6 +189,26 @@ export class HandRow {
       holder.on("pointerdown", (p: Phaser.Input.Pointer) => this.cb.onDown?.(o.key, p));
       this.list.push({ key: o.key, id: o.id, index: o.index, kind: d.kind, holder, slot });
     });
+  }
+
+  // The follow-up highlight (#295): the dominoes whose ids are in `lit` get a ring and the rest fade, except
+  // the source (the hovered, picked or dragged one, `sourceKey`), which stays as it is. null clears it.
+  setFollowUp(lit: Set<string> | null, sourceKey: string | null): void {
+    this.rings.forEach((g) => g.destroy());
+    this.rings = [];
+    const was = this.followOn;
+    this.followOn = lit !== null;
+    if (!was && !lit) return; // nothing to put back (a new draw may still be fading in)
+    for (const it of this.list) {
+      if (it.key === this.dragged) continue; // a dragged one keeps its own fade
+      it.holder.setAlpha(!lit || it.key === sourceKey || lit.has(it.id) ? 1 : combatLayoutData.followUp.dimAlpha);
+      if (!lit || it.key === sourceKey || !lit.has(it.id)) continue;
+      const size = dominoPixelSize("large", it.kind);
+      const g = this.scene.add.graphics();
+      it.holder.add(g);
+      followUpRing(g, 0, 0, size.w, size.h, combatLayoutData.followUp.handWidth / it.slot.k);
+      this.rings.push(g);
+    }
   }
 
   // Where new draws come in from: the left edge of the row's area (for animations).
@@ -282,6 +315,8 @@ export class HandRow {
       it.holder.destroy();
     }
     this.list = [];
+    this.rings = [];
+    this.followOn = false;
     this.hovered = null;
     this.picked = null;
     this.dragged = null;
