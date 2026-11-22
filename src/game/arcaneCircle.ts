@@ -31,6 +31,7 @@ export class ArcaneCircle {
   private tierAlpha: number[] = C.tiers.map((t) => (t.tier === 0 ? 1 : 0));
   private beamAlpha = 0;
   private variant = 0;
+  private restVariant = 0; // the variant at rest: the round's, which every screen shares (a cascade has its own)
   private tier = 0;
   private beam = false;
   private elapsed = 0;
@@ -67,9 +68,16 @@ export class ArcaneCircle {
     this.layers.push({ tier, image, ms });
   }
 
-  // The variant every tier shows from now on, picked from values every screen shares (Z2).
+  // The variant of a cascade, picked from values every screen shares (Z2).
   pick(...parts: (string | number)[]): void {
     this.variant = seededPick(C.variants, ...parts);
+    this.apply();
+  }
+
+  // The variant at rest, picked the same way; the circle shows it now and returns to it after a cascade.
+  pickRest(...parts: (string | number)[]): void {
+    this.restVariant = seededPick(C.variants, ...parts);
+    this.variant = this.restVariant;
     this.apply();
   }
 
@@ -89,14 +97,21 @@ export class ArcaneCircle {
   rest(now = false): void {
     this.tier = 0;
     this.beam = false;
-    if (!now) return this.fadeTo(D.restMs);
+    if (!now) return this.fadeTo(D.restMs, () => this.pickBack());
     this.fade?.stop();
+    this.variant = this.restVariant;
     this.tierAlpha = C.tiers.map((t) => (t.tier === 0 ? 1 : 0));
     this.beamAlpha = 0;
     this.apply();
   }
 
-  private fadeTo(ms: number): void {
+  // Tier 0 alone is showing again: it goes back to the rest variant.
+  private pickBack(): void {
+    this.variant = this.restVariant;
+    this.apply();
+  }
+
+  private fadeTo(ms: number, done?: () => void): void {
     this.fade?.stop();
     const from = [...this.tierAlpha];
     const beamFrom = this.beamAlpha;
@@ -107,6 +122,7 @@ export class ArcaneCircle {
         from.forEach((a, i) => (this.tierAlpha[i] = a + ((i === this.tier ? 1 : 0) - a) * f));
         this.beamAlpha = beamFrom + ((this.beam ? 1 : 0) - beamFrom) * f;
       },
+      onComplete: done,
     });
   }
 

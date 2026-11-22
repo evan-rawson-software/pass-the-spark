@@ -190,7 +190,7 @@ export class Animator {
   syncCircle(view: BattleView): void {
     if (view.round === this.circleRound) return;
     this.circleRound = view.round;
-    this.circle.pick(view.enemy.id, view.round);
+    this.circle.pickRest(view.enemy.id, view.round);
   }
 
   // What the table still holds back until the slam, added to the shown value (comboHype.ts).
