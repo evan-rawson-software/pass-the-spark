@@ -452,20 +452,23 @@ test("stagger: enemy block absorbs the first small hits, and the staggered multi
   expect(getView(state, "a").intent.actions).toEqual([{ kind: "attack", value: 5, hits: 3 }]); // next round, not staggered
 });
 
-test("follow-up highlight: after a play, each seat's hand dominoes that fit the new domino's open ends (a teammate's, your own, none left, a cap)", () => {
-  let s = setup([["echo_tide", "echo_tide", "strike_ember"], ["strike_tide", "strike_gale", "boost_tide"], ["strike_tide"]]);
+test("follow-up highlight: after a play, each seat's hand dominoes that fit the new domino's open ends (a teammate's, your own, none left, only the new node's ends, a cap)", () => {
+  const hands = [["echo_tide", "echo_tide", "junction_ember", "strike_ember"], ["strike_tide", "strike_gale", "boost_tide"], ["strike_tide", "strike_gale"]];
+  let s = setup(hands);
   s.players[2].placements = 0;
   s = ready(s, "b"); // Ready doesn't count against a seat: it could undo it
-  const view = getView(s, "a");
   const before = JSON.stringify(s);
-  // The opener opens a Tide end: b's Tide dominoes fit, a's second copy fits (the played one is gone), c has no placements left.
-  expect(previewFollowUps(view, { player: "a", domino: "echo_tide" })).toEqual({ a: ["echo_tide"], b: ["strike_tide", "boost_tide"], c: [] });
-  expect(JSON.stringify(s)).toBe(before);
-  // A cap leaves no open end: nothing lights anywhere.
-  expect(previewFollowUps(s, { player: "a", domino: "strike_ember" })).toBeNull(); // not an opener
-  // Out of placements after this one: the player's own list is empty too.
-  s.players[0].placements = 1;
+  // Empty board: the opener opens a Tide end. b's Tide dominoes fit, a's second copy fits (the played one is gone), c has no placements left.
+  expect(previewFollowUps(getView(s, "a"), { player: "a", domino: "echo_tide" })).toEqual({ a: ["echo_tide"], b: ["strike_tide", "boost_tide"], c: [] });
+  expect(JSON.stringify(s)).toBe(before); // nothing changed
+  expect(previewFollowUps(s, { player: "a", domino: "strike_ember" })).toBeNull(); // a cap can't open: an illegal play
+  s.players[0].placements = 1; // out of placements after this one: the player's own list is empty too
   expect(previewFollowUps(s, { player: "a", domino: "echo_tide" })!.a).toEqual([]);
-  // Onto a board with an open end: a cap there closes it and leaves one end less to fill.
-  s = play(getView(s, "a") as unknown as BattleState & never, "a", "echo_tide") as BattleState;
+
+  // A board with open ends already: a opens with a junction (Tide end 0, Gale end 1).
+  s = play(setup(hands), "a", "junction_ember");
+  // b plays boost_tide on the Tide end: only the new node's Tide end counts. b's strike_gale fits the old Gale end, so it is not listed.
+  expect(previewFollowUps(s, { player: "b", domino: "boost_tide", end: 0 })).toEqual({ a: ["echo_tide"], b: ["strike_tide"], c: ["strike_tide"] });
+  // A cap closes its end and opens none: every seat's list is empty, though the other end is still open.
+  expect(previewFollowUps(s, { player: "c", domino: "strike_gale", end: 1 })).toEqual({ a: [], b: [], c: [] });
 });
