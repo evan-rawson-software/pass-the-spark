@@ -248,6 +248,8 @@ export class Animator {
   // play at the final numbers, at normal speed.
   async skipEvent(ev: GameEvent, shown: BattleView): Promise<void> {
     this.lastShown = shown;
+    // A new round resets the hype as when watched (the cascade's end has already played): else the meter stays hidden.
+    if (ev.type === "roundStart") this.hype.clear();
     if (ev.type === "setOff" && !this.hype.on) {
       this.inCascade = true;
       this.hype.begin({ health: shown.enemy.health, block: shown.enemy.block, line: shown.enemy.line });
