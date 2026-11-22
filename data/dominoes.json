@@ -15,6 +15,21 @@
     }
   },
   {
+    "id": "boost_ember_tide",
+    "name": "Ember-Tide Boost",
+    "kind": "amplifier",
+    "intake": [
+      "Ember"
+    ],
+    "output": [
+      "Tide"
+    ],
+    "amp": {
+      "op": "add",
+      "value": 1
+    }
+  },
+  {
     "id": "boost_tide",
     "name": "Tide Boost",
     "kind": "amplifier",
@@ -30,11 +45,11 @@
     }
   },
   {
-    "id": "boost_gale",
-    "name": "Gale Boost",
+    "id": "boost_tide_gale",
+    "name": "Tide-Gale Boost",
     "kind": "amplifier",
     "intake": [
-      "Gale"
+      "Tide"
     ],
     "output": [
       "Gale"
@@ -45,14 +60,14 @@
     }
   },
   {
-    "id": "boost_ember_tide",
-    "name": "Ember-Tide Boost",
+    "id": "boost_gale_ember",
+    "name": "Gale-Ember Boost",
     "kind": "amplifier",
     "intake": [
-      "Ember"
+      "Gale"
     ],
     "output": [
-      "Tide"
+      "Ember"
     ],
     "amp": {
       "op": "add",
@@ -84,6 +99,18 @@
     ]
   },
   {
+    "id": "junction_gale",
+    "name": "Gale Junction",
+    "kind": "junction",
+    "intake": [
+      "Gale"
+    ],
+    "output": [
+      "Ember",
+      "Tide"
+    ]
+  },
+  {
     "id": "strike_ember",
     "name": "Ember Strike",
     "kind": "cap",
@@ -93,7 +120,7 @@
     "output": [],
     "effect": {
       "kind": "damage",
-      "base": 7
+      "base": 8
     }
   },
   {
@@ -110,16 +137,16 @@
     }
   },
   {
-    "id": "guard_gale",
-    "name": "Gale Guard",
+    "id": "strike_gale",
+    "name": "Gale Strike",
     "kind": "cap",
     "intake": [
       "Gale"
     ],
     "output": [],
     "effect": {
-      "kind": "block",
-      "base": 3
+      "kind": "damage",
+      "base": 7
     }
   },
   {
@@ -132,33 +159,20 @@
     "output": [],
     "effect": {
       "kind": "block",
-      "base": 3
+      "base": 5
     }
   },
   {
-    "id": "smash_ember",
-    "name": "Ember Smash",
+    "id": "guard_gale",
+    "name": "Gale Guard",
     "kind": "cap",
     "intake": [
-      "Ember"
+      "Gale"
     ],
     "output": [],
     "effect": {
-      "kind": "damage",
-      "base": 8
-    }
-  },
-  {
-    "id": "smash_tide",
-    "name": "Tide Smash",
-    "kind": "cap",
-    "intake": [
-      "Tide"
-    ],
-    "output": [],
-    "effect": {
-      "kind": "damage",
-      "base": 8
+      "kind": "block",
+      "base": 5
     }
   }
 ]

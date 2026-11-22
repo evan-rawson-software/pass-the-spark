@@ -1,12 +1,13 @@
 // Battle state, setup and round flow for the branching cascade. Plain functions over plain data.
-// The party builds a tree of dominoes, sets it off in one cascade, then the enemy carries out its intent.
+// Everyone builds one tree of dominoes at the same time, each from their own hand and within their own
+// placements. When every player is Ready it goes off in one cascade, then the enemy carries out its intent.
 // step never changes its input: it works on a JSON copy.
 
 import { nextInt, shuffle } from "./rng";
 import { validateDominoes } from "./validate";
 import type { GameEvent } from "./events";
 import type { BattleView, OpenEndView } from "./view";
-import { capBonus, capExtraTriggers, extraDraws, handLimitOf, junctionRunnerBlock, outputsOf, throughNode } from "./battleCharms";
+import { capBonus, capExtraTriggers, handSizeBonus, junctionRunnerBlock, outputsOf, throughNode } from "./battleCharms";
 import { passiveOf, rollIntentId } from "./enemy";
 import type { CapEffect, Charm, Config, DeckList, Domino, Enemy, Intent, Passive, Pattern, Spark } from "./types";
 
@@ -42,6 +43,8 @@ export interface PlayerState {
   hand: string[];
   discard: string[];
   charms: string[]; // charm ids the player holds for this battle (definitions are in BattleState.charmDefs)
+  placements: number; // dominoes this player may have on the board in a round: the party total divided by the party size, rounded down
+  ready: boolean; // while Ready a player can't place or take back; the cascade fires when every player is Ready
 }
 
 export interface EnemyState {
@@ -49,6 +52,8 @@ export interface EnemyState {
   health: number;
   maxHealth: number;
   block: number; // gained from an intent; absorbs damage in the next cascade, then resets
+  line: number; // the combo total that staggers the enemy (data)
+  staggered: boolean; // the cascade reached the line this round: each attack hit is halved; clears at round end
   // Copied from the enemy's data, with the state the pattern needs.
   intents: Intent[];
   pattern: Pattern;
@@ -67,9 +72,11 @@ export interface PartyState {
 }
 
 // A domino on the board. end is the end it is attached to (null for the opener); depth counts steps from the opener.
-// Nodes are stored in creation order, and a node is always created after the node it hangs from.
+// Nodes are stored in creation order, which is placement order, and a node is always created after the node it
+// hangs from. Ids are stable: a node keeps its id when another is taken back, so ids rise in creation order
+// but can have gaps. Always look a node up by id, never by position.
 export interface BoardNode {
-  id: number; // index in board.nodes
+  id: number; // from board.nextNode; never reused
   domino: string;
   owner: string;
   end: number | null;
@@ -78,7 +85,7 @@ export interface BoardNode {
 
 // An output of a node. It is open when no node is attached to it.
 export interface BoardEnd {
-  id: number; // index in board.ends
+  id: number; // from board.nextEnd; never reused
   node: number;
   index: number; // which of the node's outputs
   spark: Spark;
@@ -87,6 +94,10 @@ export interface BoardEnd {
 export interface Board {
   nodes: BoardNode[];
   ends: BoardEnd[];
+  // The ids the next node and the next end get. They only rise, so an id a take-back freed is never reused and a
+  // choice built on an older view can't land on something else. Missing in older saves: max id + 1 then.
+  nextNode: number;
+  nextEnd: number;
 }
 
 export interface BattleState {
@@ -94,20 +105,16 @@ export interface BattleState {
   dominoes: Domino[];
   charmDefs: Charm[]; // the charm data the players' charm ids refer to
   rng: number;
-  seatOrder: string[]; // players only
+  seatOrder: string[]; // players only; it has no effect on a round, it is the order views and sims list them in
   round: number;
-  lead: string; // this round's lead (the first to take a turn)
-  seat: string; // whose turn it is
   phase: "build" | "over";
   board: Board;
-  passes: number; // players who have passed in a row
   intent: Intent; // what the enemy will do after this round's cascade (passive growth is added once known)
   locked: Spark | null; // the Warden's lock this round: players cannot attach to open ends of this spark
   party: PartyState;
   players: PlayerState[]; // in seat order
   enemy: EnemyState;
   result: "won" | "lost" | null;
-  nextLead: string | null;
   blessing: { spark: Spark; strength: number } | null; // set by the run (Spark Shrine): a domino attached to this spark adds `strength` charge after its own change
 }
 
@@ -116,23 +123,28 @@ export interface PlayOption {
   ends: number[]; // open ends it can attach to; empty for the opener
 }
 
-// What the player to move can do. Passing is always allowed.
-export interface PendingChoice {
+// What one player can do right now. Every player acts at the same time, so there is one of these per player.
+export interface PlayerChoices {
   player: string;
-  opener: boolean; // the board is empty: play an amplifier or junction without an end
-  plays: PlayOption[];
+  opener: boolean; // the board is empty: a placement is an amplifier or junction without an end
+  placementsLeft: number; // placements this player has not used this round (a take-back gives one back)
+  ready: boolean;
+  plays: PlayOption[]; // empty while Ready or with no placements left
+  takeBacks: number[]; // this player's nodes with nothing attached to their outputs; empty while Ready
+  canToggleReady: boolean; // Ready can be set to the other value (setting it to the value it has is an error)
 }
 
+// Every choice names its player. The engine throws on an illegal one.
 export type Choice =
-  | { type: "play"; domino: string; end?: number } // end is omitted for the opener
-  | { type: "pass" };
+  | { type: "play"; player: string; domino: string; end?: number } // end is omitted for the opener
+  | { type: "takeBack"; player: string; node: number } // one of the player's own nodes
+  | { type: "ready"; player: string; ready: boolean };
 
 export interface BattleSetup {
   config: Config;
   content: Content;
   players: PlayerSetup[];
   seatOrder: string[];
-  startingLead?: string;
   enemyId: string;
   seed: number;
   // Charm data, needed when any player holds charms. Defaults to none.
@@ -167,10 +179,6 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
   const { config, content, seatOrder } = setup;
   const enemyDef = content.enemies.find((e) => e.id === setup.enemyId);
   if (!enemyDef) throw new Error("unknown enemy " + setup.enemyId);
-  const lead = setup.startingLead ?? seatOrder[0];
-  if (lead === undefined || !seatOrder.includes(lead)) {
-    throw new Error("startingLead must be a player in seatOrder");
-  }
 
   const extra = validateDominoes(setup.extraDominoes ?? [], "extraDominoes");
   for (const d of extra) {
@@ -180,6 +188,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
   if (!(partyHealth > 0 && partyHealth <= config.partyMaxHealth)) throw new Error("partyHealth must be above 0 and at most max health");
 
   const enemyHealth = enemyStartingHealth(config, enemyDef, seatOrder.length);
+  const placements = Math.floor(config.partyPlacements / seatOrder.length);
 
   let rng = setup.seed;
   const players: PlayerState[] = [];
@@ -188,7 +197,7 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     if (!p || p.deck.length === 0) throw new Error("player needs a deck: " + id);
     const s = shuffle(rng, p.deck);
     rng = s.state;
-    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice() });
+    players.push({ id, deck: s.value, hand: [], discard: [], charms: (p.charms ?? []).slice(), placements, ready: false });
   }
 
   const state: BattleState = {
@@ -198,11 +207,8 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
     rng,
     seatOrder,
     round: 0,
-    lead,
-    seat: lead,
     phase: "build",
-    board: { nodes: [], ends: [] },
-    passes: 0,
+    board: { nodes: [], ends: [], nextNode: 0, nextEnd: 0 },
     intent: { id: "", actions: [] },
     locked: null,
     party: { health: partyHealth, maxHealth: config.partyMaxHealth, block: 0 },
@@ -212,6 +218,8 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
       health: enemyHealth,
       maxHealth: enemyHealth,
       block: 0,
+      line: enemyDef.line,
+      staggered: false,
       intents: JSON.parse(JSON.stringify(enemyDef.intents)),
       pattern: JSON.parse(JSON.stringify(enemyDef.pattern)),
       passives: JSON.parse(JSON.stringify(enemyDef.passives)),
@@ -221,7 +229,6 @@ export function createBattleWithEvents(setup: BattleSetup): StepResult {
       repeats: 0,
     },
     result: null,
-    nextLead: null,
     blessing: setup.blessing ?? null,
   };
   const events: GameEvent[] = [];
@@ -251,59 +258,73 @@ export function makeStarterInstances(
 // ---- legality ----
 
 // What the read-only functions need. A BattleState or a player's BattleView both fit, so a client
-// can work out what it may play from the view it was sent.
-export type PendingInput = Pick<BattleState, "phase" | "seat" | "players" | "dominoes" | "board" | "config" | "charmDefs" | "locked" | "blessing">;
+// can work out what it may do from the view it was sent.
+export type PendingInput = Pick<BattleState, "phase" | "players" | "dominoes" | "board" | "config" | "charmDefs" | "locked" | "blessing">;
 
-export function getPendingChoice(state: PendingInput): PendingChoice | null {
+// The placements a player has not used this round: their share, less the nodes of theirs on the board.
+export function placementsLeft(state: Pick<BattleState, "players" | "board">, playerId: string): number {
+  return getPlayer(state, playerId).placements - state.board.nodes.filter((n) => n.owner === playerId).length;
+}
+
+// What one player can do now; null when the battle is over. The same rules step enforces.
+export function getPlayerChoices(state: PendingInput, playerId: string): PlayerChoices | null {
   if (state.phase === "over") return null;
-  const player = getPlayer(state, state.seat);
+  const player = getPlayer(state, playerId);
   const opener = state.board.nodes.length === 0;
+  const left = placementsLeft(state, playerId);
   const plays: PlayOption[] = [];
-  for (const id of unique(player.hand)) {
-    const d = getDomino(state, id);
-    if (opener) {
-      if (d.kind !== "cap") plays.push({ domino: id, ends: [] });
-    } else {
-      const ends = legalEnds(state, d, player.id);
-      if (ends.length > 0) plays.push({ domino: id, ends });
+  if (!player.ready && left > 0) {
+    for (const id of unique(player.hand)) {
+      const d = getDomino(state, id);
+      if (opener) {
+        if (d.kind !== "cap") plays.push({ domino: id, ends: [] });
+      } else {
+        const ends = legalEnds(state, d, player.id);
+        if (ends.length > 0) plays.push({ domino: id, ends });
+      }
     }
   }
-  return { player: player.id, opener, plays };
+  const takeBacks = player.ready ? [] : state.board.nodes.filter((n) => n.owner === playerId && isLeaf(state.board, n.id)).map((n) => n.id);
+  return { player: playerId, opener, placementsLeft: left, ready: player.ready, plays, takeBacks, canToggleReady: true };
 }
 
 export function applyChoice(input: BattleState, choice: Choice): BattleState {
   return step(input, choice).state;
 }
 
-// True when the seat to act passing now would complete the round of passes, so the cascade fires.
-export function passFires(state: Pick<BattleState, "phase" | "passes" | "seatOrder">): boolean {
-  return state.phase !== "over" && state.passes + 1 >= state.seatOrder.length;
-}
-
 // Apply a choice. Returns the new state and the events in the order they happened.
 export function step(input: BattleState, choice: Choice): StepResult {
   const events: GameEvent[] = [];
   const state: BattleState = JSON.parse(JSON.stringify(input));
-  const pending = getPendingChoice(state);
-  if (!pending) throw new Error("the battle is over");
-  const player = getPlayer(state, pending.player);
+  if (state.phase === "over") throw new Error("the battle is over");
+  const player = getPlayer(state, choice.player);
 
+  if (choice.type === "ready") {
+    if (typeof choice.ready !== "boolean") throw new Error("ready must be true or false");
+    if (player.ready === choice.ready) throw new Error(choice.ready ? "already Ready" : "not Ready");
+    player.ready = choice.ready;
+    events.push({ type: "ready", player: player.id, ready: player.ready });
+    if (state.players.every((p) => p.ready)) setOff(state, events);
+    return { state, events };
+  }
+
+  if (player.ready) throw new Error("a Ready player can't place or take back");
+  const legal = getPlayerChoices(state, player.id) as PlayerChoices;
   if (choice.type === "play") {
-    const option = pending.plays.find((o) => o.domino === choice.domino);
+    if (legal.placementsLeft <= 0) throw new Error("no placements left");
+    const option = legal.plays.find((o) => o.domino === choice.domino);
     if (!option) throw new Error("illegal domino");
-    if (pending.opener ? choice.end !== undefined : choice.end === undefined || !option.ends.includes(choice.end)) {
+    if (legal.opener ? choice.end !== undefined : choice.end === undefined || !option.ends.includes(choice.end)) {
       throw new Error("illegal end");
     }
     removeOne(player.hand, choice.domino);
     addNode(state, player.id, getDomino(state, choice.domino), choice.end ?? null, events);
-    state.passes = 0;
-    if (openEnds(state).length === 0) setOff(state, "capped", events);
-    else nextSeat(state);
-  } else if (choice.type === "pass") {
-    events.push({ type: "pass", player: player.id });
-    state.passes += 1;
-    if (state.passes >= state.seatOrder.length) setOff(state, "passes", events);
-    else nextSeat(state);
+  } else if (choice.type === "takeBack") {
+    if (!legal.takeBacks.includes(choice.node)) throw new Error("can't take that node back");
+    const node = getNode(state.board, choice.node);
+    player.hand.push(node.domino);
+    removeFromBoard(state.board, node.id);
+    events.push({ type: "takeBack", player: player.id, domino: node.domino, node: node.id });
   } else {
     throw new Error("unknown choice");
   }
@@ -335,35 +356,35 @@ function capTriggers(config: Config, flow: NodeFlow): number {
 
 // Nodes are in creation order and a parent is always created first, so one pass is enough.
 // Charms of each node's owner are included; caps then get their charm bonuses in cascade order.
-function computeFlows(state: Pick<BattleState, "board" | "dominoes" | "players" | "charmDefs" | "blessing">): NodeFlow[] {
-  const { nodes, ends } = state.board;
-  const flows: NodeFlow[] = [];
+function computeFlows(state: Pick<BattleState, "board" | "dominoes" | "players" | "charmDefs" | "blessing">): Map<number, NodeFlow> {
+  const { nodes } = state.board;
+  const flows = new Map<number, NodeFlow>(); // by node id, in creation order
   for (const node of nodes) {
     const d = getDomino(state, node.domino);
     let charge = 1;
     let echo = 0;
     let sparks: Spark[] = [];
     if (node.end !== null) {
-      const end = ends[node.end];
-      const parent = flows[end.node];
+      const end = getEnd(state.board, node.end);
+      const parent = flows.get(end.node) as NodeFlow;
       charge = parent.out;
       echo = parent.echo;
       sparks = parent.sparks.includes(end.spark) ? parent.sparks : [...parent.sparks, end.spark];
     }
     const through = throughNode(state, node.owner, d, charge, sparks.length, node.end === null);
-    const intake = node.end === null ? null : ends[node.end].spark;
+    const intake = node.end === null ? null : getEnd(state.board, node.end).spark;
     // Spark Shrine: a domino attached to the blessed spark adds charge after its own change (and after charms). A cap goes off at the boosted charge.
     if (intake !== null && state.blessing && intake === state.blessing.spark) {
       if (d.kind === "cap") charge += state.blessing.strength;
       else through.out += state.blessing.strength;
     }
-    flows.push({ charge, out: through.out, echo: echo + through.echo, sparks, intake, bonus: 0, extra: 0, charms: through.charms });
+    flows.set(node.id, { charge, out: through.out, echo: echo + through.echo, sparks, intake, bonus: 0, extra: 0, charms: through.charms });
   }
   const firstDone: string[] = [];
   for (const node of cascadeOrder(nodes)) {
     const d = getDomino(state, node.domino);
     if (d.kind !== "cap" || !d.effect) continue;
-    const flow = flows[node.id];
+    const flow = flows.get(node.id) as NodeFlow;
     const bonus = capBonus(state, node.owner, d.effect.kind, flow.intake as Spark);
     const triggers = capExtraTriggers(state, node.owner, flow.intake as Spark, !firstDone.includes(node.owner));
     firstDone.push(node.owner);
@@ -374,13 +395,21 @@ function computeFlows(state: Pick<BattleState, "board" | "dominoes" | "players" 
   return flows;
 }
 
-// The order the cascade goes off in: by depth from the opener, then in creation order.
+// The order the cascade goes off in: by depth from the opener, then in creation order (ids rise in creation order).
 function cascadeOrder(nodes: BoardNode[]): BoardNode[] {
   return nodes.slice().sort((a, b) => a.depth - b.depth || a.id - b.id);
 }
 
 // A cap that is never played, used to ask what a cap placed on an open end would get.
 const PROBE: Domino = { id: "#probe", name: "", kind: "cap", intake: "any", output: [], effect: { kind: "block", base: 0 } };
+
+function getNode(board: Board, id: number): BoardNode {
+  return board.nodes.find((n) => n.id === id) as BoardNode;
+}
+
+function getEnd(board: Board, id: number): BoardEnd {
+  return board.ends.find((e) => e.id === id) as BoardEnd;
+}
 
 function openEnds(state: Pick<BattleState, "board">): BoardEnd[] {
   return state.board.ends.filter((e) => !state.board.nodes.some((n) => n.end === e.id));
@@ -390,8 +419,8 @@ function openEnds(state: Pick<BattleState, "board">): BoardEnd[] {
 export function getOpenEnds(state: Pick<BattleState, "board" | "dominoes" | "config" | "players" | "charmDefs" | "blessing">, player: string): OpenEndView[] {
   return openEnds(state).map((e) => {
     const board: Board = JSON.parse(JSON.stringify(state.board));
-    addToBoard(board, player, PROBE, e.id, []);
-    const flow = computeFlows({ ...state, board, dominoes: [...state.dominoes, PROBE] }).pop() as NodeFlow;
+    const probe = addToBoard(board, player, PROBE, e.id, []);
+    const flow = computeFlows({ ...state, board, dominoes: [...state.dominoes, PROBE] }).get(probe.id) as NodeFlow;
     return { end: e.id, node: e.node, index: e.index, spark: e.spark, charge: flow.charge, triggers: capTriggers(state.config, flow) };
   });
 }
@@ -414,72 +443,27 @@ export function previewPlay(input: PendingInput, playerId: string, dominoId: str
   const opener = input.board.nodes.length === 0;
   if (opener ? end !== undefined || d.kind === "cap" : end === undefined || !legalEnds(input, d, playerId).includes(end)) return null;
   const board: Board = JSON.parse(JSON.stringify(input.board));
-  addToBoard(board, playerId, d, end ?? null, outputsOf(input, playerId, d));
-  const flow = computeFlows({ board, dominoes: input.dominoes, players: input.players, charmDefs: input.charmDefs, blessing: input.blessing }).pop() as NodeFlow;
+  const node = addToBoard(board, playerId, d, end ?? null, outputsOf(input, playerId, d));
+  const flow = computeFlows({ board, dominoes: input.dominoes, players: input.players, charmDefs: input.charmDefs, blessing: input.blessing }).get(node.id) as NodeFlow;
   if (d.kind !== "cap" || !d.effect) return { charge: flow.out, value: 0, triggers: 0, total: 0 };
   const value = capValue(d.effect, flow.charge, flow.bonus);
   const triggers = capTriggers(input.config, flow);
   return { charge: flow.charge, value, triggers, total: value * triggers };
 }
 
-// What the seat after `playerId` could play once `dominoId` has been played. A hand preview for the
-// "next player's highlight": playable lists the domino ids in their hand that would have a legal end;
-// mustPass is true when they would have nothing to play. If the play caps the last open end the chain
-// sets off, so nothing is playable and mustPass is false.
-export interface NextPlayerPreview {
-  player: string;
-  playable: string[];
-  mustPass: boolean;
-}
-
-// With an end (or no end for the opener) it looks at that one play; with end omitted on a non-empty
-// board it is the union over all of the player's legal ends for the domino. Returns null when the
-// domino cannot be played. Works on a state or a view; never changes it.
-export function previewNextPlayer(input: PendingInput & Pick<BattleState, "seatOrder">, playerId: string, dominoId: string, end?: number): NextPlayerPreview | null {
-  const player = input.players.find((p) => p.id === playerId);
-  if (!player || !player.hand.includes(dominoId)) return null;
-  const d = getDomino(input, dominoId);
-  const opener = input.board.nodes.length === 0;
-  let ends: (number | null)[];
-  if (opener) {
-    if (end !== undefined || d.kind === "cap") return null;
-    ends = [null];
-  } else {
-    const legal = legalEnds(input, d, playerId);
-    if (end !== undefined && !legal.includes(end)) return null;
-    ends = end !== undefined ? [end] : legal;
-  }
-  const next = input.seatOrder[(input.seatOrder.indexOf(playerId) + 1) % input.seatOrder.length];
-  const playable = new Set<string>();
-  let sets = false;
-  for (const e of ends) {
-    const board: Board = JSON.parse(JSON.stringify(input.board));
-    addToBoard(board, playerId, d, e, outputsOf(input, playerId, d));
-    const after = { ...input, board, players: JSON.parse(JSON.stringify(input.players)) as PlayerState[] };
-    removeOne(getPlayer(after, playerId).hand, dominoId);
-    if (openEnds(after).length === 0) {
-      sets = true;
-      continue;
-    }
-    for (const id of unique(getPlayer(after, next).hand)) {
-      if (legalEnds(after, getDomino(after, id), next).length > 0) playable.add(id);
-    }
-  }
-  const hand = getPlayer(input, next).hand;
-  return { player: next, playable: unique(hand).filter((id) => playable.has(id)), mustPass: !sets && playable.size === 0 };
-}
-
 // What setting off now would do, in total.
 export interface CascadePreview {
   damage: number; // reaching the enemy's health, after its block
   block: number; // gained by the party
+  comboTotal: number; // every hit of the cascade, before enemy block
+  lineReached: boolean; // the combo total reaches the enemy's line
 }
 
 export function previewCascade(input: BattleState | BattleView): CascadePreview {
   const state = { ...JSON.parse(JSON.stringify(input)), rng: 0 } as BattleState;
   const events: GameEvent[] = [];
-  fireCascade(state, events);
-  const result: CascadePreview = { damage: 0, block: 0 };
+  const tally = fireCascade(state, events);
+  const result: CascadePreview = { damage: 0, block: 0, comboTotal: tally.combo, lineReached: state.enemy.staggered };
   for (const e of events) {
     if (e.type === "damage" && e.side === "enemy") result.damage += e.amount;
     else if (e.type === "block" && e.side === "party") result.block += e.amount;
@@ -491,8 +475,10 @@ export function previewCascade(input: BattleState | BattleView): CascadePreview 
 // the real enemy action on a copy (the intent queue and the RNG are not touched). With `play`, the same
 // for the board after that play (a hover). Coins are not part of it.
 export interface SetOffPreview {
-  canSetOff: boolean; // a cap is on the board (without one, damage and block are 0 and only the party side matters)
+  canSetOff: boolean; // the board is not empty (an empty board fires nothing and only the party side matters)
   damage: number; // reaching the enemy's health, after its block
+  comboTotal: number; // every hit of the cascade, before enemy block
+  lineReached: boolean; // the combo total reaches the enemy's line: the enemy's attack is halved in partyDamage
   enemyBlockUsed: number; // the enemy's block worn down by the cascade
   enemyBlock: number; // its block after the cascade (the Hoarder's gain included)
   enemyHealth: number;
@@ -503,7 +489,8 @@ export interface SetOffPreview {
   partyHealth: number;
 }
 
-export function previewSetOff(input: BattleState | BattleView, play?: { player: string; domino: string; end?: number }): SetOffPreview | null {
+// A working copy of a state or view for a preview, with the board after `play` if given (null when that play is illegal).
+function previewCopy(input: BattleState | BattleView, play?: { player: string; domino: string; end?: number }): BattleState | null {
   const copy = JSON.parse(JSON.stringify(input));
   const state = { ...copy, rng: 0, intent: "baseIntent" in copy ? copy.baseIntent : copy.intent } as BattleState;
   if (play) {
@@ -514,13 +501,43 @@ export function previewSetOff(input: BattleState | BattleView, play?: { player: 
     if (opener ? play.end !== undefined || d.kind === "cap" : play.end === undefined || !legalEnds(state, d, play.player).includes(play.end)) return null;
     addToBoard(state.board, play.player, d, play.end ?? null, outputsOf(state, play.player, d));
   }
+  return state;
+}
+
+// What the build shows the party without giving away whether the board is lethal or reaches the line (B8): the
+// block the whole board would give, and the health the party would lose to the intent's full, unhalved attack
+// after that block. It runs the real cascade and enemy action on a copy where the enemy cannot die and has no
+// line to reach, so neither a kill (which stops the cascade and the enemy) nor the stagger changes the numbers.
+export function previewBuild(input: BattleState | BattleView, play?: { player: string; domino: string; end?: number }): { block: number; partyDamage: number } | null {
+  const state = previewCopy(input, play);
+  if (state === null) return null;
+  const realHealth = state.party.health;
+  const out = 1e9;
+  state.enemy.health = out;
+  state.enemy.maxHealth = out;
+  state.enemy.line = Infinity;
+  state.party.health = out;
+  const events: GameEvent[] = [];
+  const tally = fireCascade(state, events);
+  const block = events.reduce((sum, e) => sum + (e.type === "block" && e.side === "party" ? e.amount : 0), 0);
+  longNightGrowth(state, tally.caps, events);
+  state.enemy.block = 0;
+  enemyAct(state, events);
+  return { block, partyDamage: Math.min(realHealth, out - state.party.health) };
+}
+
+export function previewSetOff(input: BattleState | BattleView, play?: { player: string; domino: string; end?: number }): SetOffPreview | null {
+  const state = previewCopy(input, play);
+  if (state === null) return null;
   const events: GameEvent[] = [];
   const before = { enemyHealth: state.enemy.health, partyHealth: state.party.health };
-  const capsFired = fireCascade(state, events);
+  const tally = fireCascade(state, events);
   const enemyBlockUsed = events.reduce((sum, e) => sum + (e.type === "damage" && e.side === "enemy" ? e.blocked : 0), 0);
   const result: SetOffPreview = {
-    canSetOff: capCount(state) > 0,
+    canSetOff: state.board.nodes.length > 0,
     damage: before.enemyHealth - Math.max(state.enemy.health, 0),
+    comboTotal: tally.combo,
+    lineReached: state.enemy.staggered,
     enemyBlockUsed,
     enemyBlock: state.enemy.block,
     enemyHealth: Math.max(state.enemy.health, 0),
@@ -531,7 +548,7 @@ export function previewSetOff(input: BattleState | BattleView, play?: { player: 
     partyHealth: state.party.health,
   };
   if (!isOver(state)) {
-    longNightGrowth(state, capsFired, events);
+    longNightGrowth(state, tally.caps, events);
     state.enemy.block = 0;
     enemyAct(state, events);
   }
@@ -549,27 +566,38 @@ function legalEnds(state: PendingInput, d: Domino, owner: string): number[] {
   return open.filter((e) => e.spark !== state.locked && (d.intake === "any" || d.intake.includes(e.spark))).map((e) => e.id);
 }
 
-function capCount(state: Pick<BattleState, "board" | "dominoes">): number {
-  return state.board.nodes.filter((n) => getDomino(state, n.domino).kind === "cap").length;
-}
-
-function addToBoard(board: Board, owner: string, d: Domino, end: number | null, outputs: Spark[]): void {
+function addToBoard(board: Board, owner: string, d: Domino, end: number | null, outputs: Spark[]): BoardNode {
+  board.nextNode ??= Math.max(-1, ...board.nodes.map((n) => n.id)) + 1;
+  board.nextEnd ??= Math.max(-1, ...board.ends.map((e) => e.id)) + 1;
   const node: BoardNode = {
-    id: board.nodes.length,
+    id: board.nextNode++,
     domino: d.id,
     owner,
     end,
-    depth: end === null ? 0 : board.nodes[board.ends[end].node].depth + 1,
+    depth: end === null ? 0 : getNode(board, getEnd(board, end).node).depth + 1,
   };
   board.nodes.push(node);
-  outputs.forEach((spark, index) => board.ends.push({ id: board.ends.length, node: node.id, index, spark }));
+  outputs.forEach((spark, index) => board.ends.push({ id: board.nextEnd++, node: node.id, index, spark }));
+  return node;
+}
+
+// A node nothing hangs from: none of its outputs has a node attached.
+function isLeaf(board: Board, nodeId: number): boolean {
+  const mine = board.ends.filter((e) => e.node === nodeId).map((e) => e.id);
+  return !board.nodes.some((n) => n.end !== null && mine.includes(n.end));
+}
+
+// Takes a leaf node off the board with its (open) outputs. Nothing else changes or is renumbered: the end it hung
+// from keeps its id and is open again, and the counters are not rewound.
+export function removeFromBoard(board: Board, nodeId: number): void {
+  board.nodes = board.nodes.filter((n) => n.id !== nodeId);
+  board.ends = board.ends.filter((e) => e.node !== nodeId);
 }
 
 function addNode(state: BattleState, owner: string, d: Domino, end: number | null, events: GameEvent[]): void {
   const outputs = outputsOf(state, owner, d);
-  addToBoard(state.board, owner, d, end, outputs);
-  const node = state.board.nodes[state.board.nodes.length - 1];
-  const flow = computeFlows(state).pop() as NodeFlow;
+  const node = addToBoard(state.board, owner, d, end, outputs);
+  const flow = computeFlows(state).get(node.id) as NodeFlow;
   events.push({
     type: "play",
     player: owner,
@@ -582,17 +610,13 @@ function addNode(state: BattleState, owner: string, d: Domino, end: number | nul
   if (outputs.length > d.output.length) events.push({ type: "charm", player: owner, charm: "hall_of_mirrors" });
 }
 
-function nextSeat(state: BattleState): void {
-  state.seat = state.seatOrder[(state.seatOrder.indexOf(state.seat) + 1) % state.seatOrder.length];
-}
-
-// The board is complete: every end capped, or a full round of passes.
+// Every player is Ready (an empty board is fine: nothing goes off).
 // The cascade, then the enemy's action, then the round end.
-function setOff(state: BattleState, reason: "capped" | "passes", events: GameEvent[]): void {
-  events.push({ type: "setOff", reason });
-  const capsFired = fireCascade(state, events);
+function setOff(state: BattleState, events: GameEvent[]): void {
+  events.push({ type: "setOff", reason: "ready" });
+  const tally = fireCascade(state, events);
   if (isOver(state)) return;
-  longNightGrowth(state, capsFired, events);
+  longNightGrowth(state, tally.caps, events);
   // Enemy block from its last intent has had its cascade (even a round where nothing fired).
   state.enemy.block = 0;
   events.push({ type: "blockReset", side: "enemy" });
@@ -601,19 +625,27 @@ function setOff(state: BattleState, reason: "capped" | "passes", events: GameEve
   endRound(state, events);
 }
 
-// Steps by depth from the opener; within a step, nodes in creation order. Open ends fizzle at the end.
-// With no cap on the board nothing fires. Stops the moment the enemy is at 0 health.
-// Returns how many different caps went off (a cap that goes off several times counts once).
-function fireCascade(state: BattleState, events: GameEvent[]): number {
-  if (capCount(state) === 0) return 0;
+// What a cascade added up to: how many different caps went off (a cap that goes off several times counts
+// once) and the combo total, the sum of every hit before enemy block.
+interface Tally {
+  caps: number;
+  combo: number;
+}
+
+// Steps by depth from the opener; within a step, nodes in creation order. Every domino hits as it lights:
+// an amplifier or junction for the charge it passes on, a damage cap for its value per trigger; a block
+// cap gives block instead. Open ends fizzle at the end. An empty board fires nothing; a board with no cap still hits.
+// Stops the moment the enemy is at 0 health.
+function fireCascade(state: BattleState, events: GameEvent[]): Tally {
+  const tally: Tally = { caps: 0, combo: 0 };
+  if (state.board.nodes.length === 0) return tally;
   const hoarder = passiveOf(state.enemy, "hoarder");
-  if (hoarder && state.board.nodes.length > 0) {
+  if (hoarder) {
     const amount = state.board.nodes.length * hoarder.multiplier;
     state.enemy.block += amount;
     events.push({ type: "passive", passive: "hoarder", amount });
     events.push({ type: "block", side: "enemy", amount });
   }
-  let capsFired = 0;
   let lastSpark: Spark | null = null; // the intake spark of the cap trigger just before (Auditor)
   const flows = computeFlows(state);
   const { nodes } = state.board;
@@ -623,8 +655,10 @@ function fireCascade(state: BattleState, events: GameEvent[]): number {
     for (const node of cascadeOrder(nodes)) {
       if (node.depth !== depth) continue;
       const d = getDomino(state, node.domino);
-      const flow = flows[node.id];
-      events.push({ type: "nodeLit", node: node.id, domino: d.id, owner: node.owner, charge: d.kind === "cap" ? flow.charge : flow.out });
+      const flow = flows.get(node.id) as NodeFlow;
+      const capValueNow = d.kind === "cap" && d.effect ? capValue(d.effect, flow.charge, flow.bonus) : 0;
+      const hit = d.kind !== "cap" ? flow.out : d.effect?.kind === "damage" ? capValueNow : 0;
+      events.push({ type: "nodeLit", node: node.id, domino: d.id, owner: node.owner, charge: d.kind === "cap" ? flow.charge : flow.out, hit });
       for (const charm of flow.charms) events.push({ type: "charm", player: node.owner, charm });
       if (d.kind === "junction") {
         const block = junctionRunnerBlock(state, node.owner);
@@ -634,23 +668,42 @@ function fireCascade(state: BattleState, events: GameEvent[]): number {
           events.push({ type: "block", side: "party", amount: block });
         }
       }
-      if (d.kind === "cap" && d.effect) {
-        capsFired += 1;
-        const spark = state.board.ends[node.end as number].spark;
+      if (d.kind !== "cap") {
+        hitEnemy(state, hit, false, tally, events);
+        if (isOver(state)) return tally;
+      } else if (d.effect) {
+        tally.caps += 1;
+        const spark = getEnd(state.board, node.end as number).spark;
         const firstRepeats = lastSpark === spark;
         lastSpark = spark;
-        fireCap(state, node, d.effect, capValue(d.effect, flow.charge, flow.bonus), capTriggers(state.config, flow), firstRepeats, events);
-        if (isOver(state)) return capsFired;
+        fireCap(state, node, d.effect, capValueNow, capTriggers(state.config, flow), firstRepeats, tally, events);
+        if (isOver(state)) return tally;
       }
     }
   }
-  for (const e of openEnds(state)) events.push({ type: "fizzle", end: e.id, spark: e.spark, charge: flows[e.node].out });
-  return capsFired;
+  for (const e of openEnds(state)) events.push({ type: "fizzle", end: e.id, spark: e.spark, charge: (flows.get(e.node) as NodeFlow).out });
+  return tally;
+}
+
+// One hit on the enemy: block absorbs it (unless it ignores block), the combo total grows by the whole hit,
+// and the first hit that takes the total to the line staggers the enemy for the round. Ends the battle at 0 health.
+function hitEnemy(state: BattleState, value: number, ignoresBlock: boolean, tally: Tally, events: GameEvent[]): void {
+  const { enemy } = state;
+  const blocked = ignoresBlock ? 0 : Math.min(enemy.block, value);
+  enemy.block -= blocked;
+  enemy.health -= value - blocked;
+  events.push({ type: "damage", side: "enemy", amount: value - blocked, blocked });
+  tally.combo += value;
+  if (!enemy.staggered && tally.combo >= enemy.line) {
+    enemy.staggered = true;
+    events.push({ type: "lineReached", total: tally.combo, line: enemy.line });
+  }
+  if (enemy.health <= 0) endBattle(state, "won", events);
 }
 
 // Each trigger counts as a cap going off for the Auditor: the first repeats the spark of the cap before
 // it only if firstRepeats, and every extra (Echo) trigger repeats the cap's own spark.
-function fireCap(state: BattleState, node: BoardNode, effect: CapEffect, value: number, triggers: number, firstRepeats: boolean, events: GameEvent[]): void {
+function fireCap(state: BattleState, node: BoardNode, effect: CapEffect, value: number, triggers: number, firstRepeats: boolean, tally: Tally, events: GameEvent[]): void {
   events.push({ type: "capFired", node: node.id, domino: node.domino, owner: node.owner, effect: effect.kind, value, triggers });
   for (let i = 0; i < triggers; i++) {
     if (i > 0 || firstRepeats) {
@@ -658,14 +711,8 @@ function fireCap(state: BattleState, node: BoardNode, effect: CapEffect, value: 
       if (isOver(state)) return;
     }
     if (effect.kind === "damage") {
-      const blocked = effect.ignoresBlock ? 0 : Math.min(state.enemy.block, value);
-      state.enemy.block -= blocked;
-      state.enemy.health -= value - blocked;
-      events.push({ type: "damage", side: "enemy", amount: value - blocked, blocked });
-      if (state.enemy.health <= 0) {
-        endBattle(state, "won", events);
-        return;
-      }
+      hitEnemy(state, value, effect.ignoresBlock === true, tally, events);
+      if (isOver(state)) return;
     } else if (effect.kind === "block") {
       state.party.block += value;
       events.push({ type: "block", side: "party", amount: value });
@@ -707,10 +754,19 @@ function hitParty(state: BattleState, hit: number, events: GameEvent[]): void {
   if (party.health <= 0) endBattle(state, "lost", events);
 }
 
+// Each attack hit halved, rounded down (the stagger). Block actions stay as they are. Returns a copy.
+export function halvedIntent(intent: Intent): Intent {
+  const copy: Intent = JSON.parse(JSON.stringify(intent));
+  for (const a of copy.actions) if (a.kind === "attack") a.value = Math.floor(a.value / 2);
+  return copy;
+}
+
+// The enemy carries out its intent. A staggered enemy's attack hits are halved last, after growth and the party-size percent.
 function enemyAct(state: BattleState, events: GameEvent[]): void {
   const { intent, enemy } = state;
-  const shown = scaledIntent(state, intent);
-  events.push({ type: "enemyAction", intent: shown });
+  const full = scaledIntent(state, intent);
+  const shown = enemy.staggered ? halvedIntent(full) : full;
+  events.push({ type: "enemyAction", intent: shown, fullIntent: full, staggered: enemy.staggered });
   for (const action of shown.actions) {
     if (action.kind === "block") {
       enemy.block += action.value;
@@ -728,15 +784,11 @@ function endBattle(state: BattleState, result: "won" | "lost", events: GameEvent
   events.push({ type: "battleEnd", result });
   state.phase = "over";
   state.result = result;
-  state.nextLead = nextPlayerAfterLead(state);
 }
 
-function nextPlayerAfterLead(state: BattleState): string {
-  return state.seatOrder[(state.seatOrder.indexOf(state.lead) + 1) % state.seatOrder.length];
-}
-
-// Party block resets, the board goes to its owners' discard piles, the lead moves on one seat.
+// Party block resets, the board goes to its owners' discard piles.
 function endRound(state: BattleState, events: GameEvent[]): void {
+  state.enemy.staggered = false;
   state.party.block = 0;
   events.push({ type: "blockReset", side: "party" });
   for (const node of state.board.nodes) getPlayer(state, node.owner).discard.push(node.domino);
@@ -746,7 +798,6 @@ function endRound(state: BattleState, events: GameEvent[]): void {
     state.enemy.health += amount;
     if (amount > 0) events.push({ type: "passive", passive: "glutton", amount });
   }
-  state.lead = nextPlayerAfterLead(state);
   startRound(state, events);
 }
 
@@ -759,17 +810,18 @@ export function scaledIntent(state: Pick<BattleState, "config" | "players">, int
   return copy;
 }
 
-// The intent is chosen and shown, then everyone draws, then the lead takes the first turn.
+// The intent is chosen and shown, then everyone draws up to their hand size (round 1 too). Placements
+// are counted from the board, so the empty board gives every player theirs back; every Ready clears.
 function startRound(state: BattleState, events: GameEvent[]): void {
   state.round += 1;
-  state.board = { nodes: [], ends: [] };
-  state.passes = 0;
-  state.seat = state.lead;
+  // The counters run on for the whole battle, so an id from an earlier round never matches anything on the new board.
+  state.board = { nodes: [], ends: [], nextNode: state.board.nextNode, nextEnd: state.board.nextEnd };
   startPassives(state, events);
-  events.push({ type: "roundStart", round: state.round, lead: state.lead });
+  events.push({ type: "roundStart", round: state.round });
   events.push({ type: "intent", intent: scaledIntent(state, state.intent) });
   for (const p of state.players) {
-    draw(state, p, (state.round === 1 ? state.config.playerFirstDraw : state.config.playerDrawPerRound) + extraDraws(state, p.id), handLimitOf(state, p.id), events);
+    p.ready = false;
+    draw(state, p, p.placements + state.config.handExtra + handSizeBonus(state, p.id), events);
   }
 }
 
@@ -796,15 +848,14 @@ function lookAhead(state: Pick<BattleState, "charmDefs">): number {
   return Math.max(0, ...state.charmDefs.filter((c) => c.id === "spyglass").map((c) => c.numbers.rounds));
 }
 
-// Draw up to `count` dominoes, stopping at the hand limit. An empty deck is reshuffled from the discard pile.
-function draw(state: BattleState, p: PlayerState, count: number, limit: number, events: GameEvent[]): void {
+// Draw until the hand is `size` (it can end short when the deck and discard pile run out). An empty deck is reshuffled from the discard pile.
+function draw(state: BattleState, p: PlayerState, size: number, events: GameEvent[]): void {
   let drawn: string[] = [];
   const flush = () => {
     if (drawn.length > 0) events.push({ type: "draw", player: p.id, count: drawn.length, dominoes: drawn });
     drawn = [];
   };
-  for (let i = 0; i < count; i++) {
-    if (p.hand.length >= limit) break;
+  while (p.hand.length < size) {
     if (p.deck.length === 0) {
       if (p.discard.length > 0) {
         flush();

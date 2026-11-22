@@ -3,7 +3,8 @@
     "id": "ogre",
     "name": "Ogre",
     "tier": "basic",
-    "maxHealth": 170,
+    "maxHealth": 322,
+    "line": 101,
     "passives": [],
     "intents": [
       {
@@ -11,7 +12,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 3
+            "value": 7
           }
         ]
       },
@@ -20,7 +21,7 @@
         "actions": [
           {
             "kind": "block",
-            "value": 5
+            "value": 10
           }
         ]
       },
@@ -29,7 +30,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 8
+            "value": 20
           }
         ]
       }
@@ -47,7 +48,8 @@
     "id": "goblin",
     "name": "Placeholder Goblin",
     "tier": "basic",
-    "maxHealth": 104,
+    "maxHealth": 293,
+    "line": 95,
     "passives": [],
     "intents": [
       {
@@ -55,7 +57,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 3
+            "value": 13
           }
         ]
       },
@@ -64,7 +66,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 1,
+            "value": 4,
             "hits": 2
           }
         ]
@@ -74,7 +76,7 @@
         "actions": [
           {
             "kind": "block",
-            "value": 4
+            "value": 8
           }
         ]
       }
@@ -93,7 +95,8 @@
     "id": "slime",
     "name": "Placeholder Slime",
     "tier": "basic",
-    "maxHealth": 170,
+    "maxHealth": 322,
+    "line": 101,
     "passives": [],
     "intents": [
       {
@@ -101,7 +104,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 3
+            "value": 10
           }
         ]
       },
@@ -110,7 +113,7 @@
         "actions": [
           {
             "kind": "block",
-            "value": 6
+            "value": 12
           }
         ]
       },
@@ -119,7 +122,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 4
+            "value": 13
           }
         ]
       }
@@ -137,7 +140,8 @@
     "id": "wisp",
     "name": "Placeholder Wisp",
     "tier": "basic",
-    "maxHealth": 85,
+    "maxHealth": 276,
+    "line": 99,
     "passives": [],
     "intents": [
       {
@@ -145,7 +149,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 3,
+            "value": 9,
             "hits": 2
           }
         ]
@@ -155,7 +159,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 3
+            "value": 9
           }
         ]
       },
@@ -164,7 +168,7 @@
         "actions": [
           {
             "kind": "block",
-            "value": 4
+            "value": 8
           }
         ]
       }
@@ -183,7 +187,8 @@
     "id": "brute",
     "name": "Brute",
     "tier": "elite",
-    "maxHealth": 121,
+    "maxHealth": 444,
+    "line": 106,
     "passives": [],
     "intents": [
       {
@@ -191,7 +196,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 12
+            "value": 7
           }
         ]
       },
@@ -200,11 +205,11 @@
         "actions": [
           {
             "kind": "block",
-            "value": 7
+            "value": 10
           },
           {
             "kind": "attack",
-            "value": 5
+            "value": 3
           }
         ]
       },
@@ -213,7 +218,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 21
+            "value": 12
           }
         ]
       }
@@ -231,7 +236,8 @@
     "id": "warden",
     "name": "Placeholder Warden",
     "tier": "elite",
-    "maxHealth": 112,
+    "maxHealth": 432,
+    "line": 106,
     "passives": [],
     "intents": [
       {
@@ -239,7 +245,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 9,
+            "value": 5,
             "hits": 2
           }
         ]
@@ -249,7 +255,7 @@
         "actions": [
           {
             "kind": "block",
-            "value": 10
+            "value": 15
           }
         ]
       },
@@ -258,11 +264,11 @@
         "actions": [
           {
             "kind": "block",
-            "value": 5
+            "value": 8
           },
           {
             "kind": "attack",
-            "value": 14
+            "value": 8
           }
         ]
       }
@@ -280,14 +286,15 @@
     "id": "auditor",
     "name": "The Auditor",
     "tier": "boss",
-    "maxHealth": 100,
+    "maxHealth": 588,
+    "line": 113,
     "passives": [
       {
         "kind": "auditor",
         "name": "Auditor",
         "short": "Punishes repeat sparks",
         "text": "When a cap goes off with the same spark as the cap before it, the party takes damage.",
-        "damage": 6
+        "damage": 8
       }
     ],
     "intents": [
@@ -296,7 +303,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 8,
+            "value": 2,
             "hits": 2
           }
         ]
@@ -306,11 +313,11 @@
         "actions": [
           {
             "kind": "block",
-            "value": 8
+            "value": 12
           },
           {
             "kind": "attack",
-            "value": 8
+            "value": 2
           }
         ]
       },
@@ -319,7 +326,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 24
+            "value": 7
           }
         ]
       }
@@ -337,14 +344,15 @@
     "id": "glutton",
     "name": "The Glutton",
     "tier": "boss",
-    "maxHealth": 114,
+    "maxHealth": 625,
+    "line": 119,
     "passives": [
       {
         "kind": "glutton",
         "name": "Glutton",
         "short": "Heals each round",
         "text": "Heals at the end of every round.",
-        "heal": 3
+        "heal": 8
       }
     ],
     "intents": [
@@ -353,7 +361,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 10
+            "value": 4
           }
         ]
       },
@@ -362,7 +370,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 6,
+            "value": 2,
             "hits": 3
           }
         ]
@@ -372,11 +380,11 @@
         "actions": [
           {
             "kind": "block",
-            "value": 7
+            "value": 10
           },
           {
             "kind": "attack",
-            "value": 12
+            "value": 5
           }
         ]
       }
@@ -394,7 +402,8 @@
     "id": "bandit",
     "name": "Placeholder Bandit",
     "tier": "basic",
-    "maxHealth": 187,
+    "maxHealth": 339,
+    "line": 120,
     "passives": [],
     "intents": [
       {
@@ -402,7 +411,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 4
+            "value": 11
           }
         ]
       },
@@ -411,7 +420,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 7
+            "value": 19
           }
         ]
       },
@@ -420,7 +429,7 @@
         "actions": [
           {
             "kind": "block",
-            "value": 6
+            "value": 15
           }
         ]
       }
@@ -438,7 +447,8 @@
     "id": "golem",
     "name": "Placeholder Golem",
     "tier": "basic",
-    "maxHealth": 221,
+    "maxHealth": 403,
+    "line": 128,
     "passives": [],
     "intents": [
       {
@@ -446,7 +456,7 @@
         "actions": [
           {
             "kind": "block",
-            "value": 10
+            "value": 25
           }
         ]
       },
@@ -455,7 +465,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 6
+            "value": 16
           }
         ]
       }
@@ -473,7 +483,8 @@
     "id": "harpy",
     "name": "Placeholder Harpy",
     "tier": "basic",
-    "maxHealth": 153,
+    "maxHealth": 278,
+    "line": 111,
     "passives": [],
     "intents": [
       {
@@ -481,7 +492,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 3,
+            "value": 8,
             "hits": 3
           }
         ]
@@ -491,7 +502,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 6
+            "value": 16
           }
         ]
       }
@@ -508,7 +519,8 @@
     "id": "ravager",
     "name": "Placeholder Ravager",
     "tier": "elite",
-    "maxHealth": 190,
+    "maxHealth": 431,
+    "line": 141,
     "passives": [],
     "intents": [
       {
@@ -516,7 +528,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 7,
+            "value": 15,
             "hits": 2
           }
         ]
@@ -526,7 +538,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 25
+            "value": 54
           }
         ]
       },
@@ -535,11 +547,11 @@
         "actions": [
           {
             "kind": "block",
-            "value": 8
+            "value": 16
           },
           {
             "kind": "attack",
-            "value": 7
+            "value": 15
           }
         ]
       }
@@ -557,7 +569,8 @@
     "id": "sentinel",
     "name": "Placeholder Sentinel",
     "tier": "elite",
-    "maxHealth": 220,
+    "maxHealth": 500,
+    "line": 151,
     "passives": [],
     "intents": [
       {
@@ -565,7 +578,7 @@
         "actions": [
           {
             "kind": "block",
-            "value": 12
+            "value": 24
           }
         ]
       },
@@ -574,11 +587,11 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 14
+            "value": 30
           },
           {
             "kind": "block",
-            "value": 4
+            "value": 8
           }
         ]
       },
@@ -587,7 +600,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 10,
+            "value": 21,
             "hits": 2
           }
         ]
@@ -606,14 +619,15 @@
     "id": "hoarder",
     "name": "The Hoarder",
     "tier": "boss",
-    "maxHealth": 176,
+    "maxHealth": 571,
+    "line": 153,
     "passives": [
       {
         "kind": "hoarder",
         "name": "Hoarder",
         "short": "Blocks per domino",
         "text": "When the cascade starts, gains block for every domino on the board.",
-        "multiplier": 1
+        "multiplier": 3
       }
     ],
     "intents": [
@@ -622,7 +636,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 8,
+            "value": 15,
             "hits": 2
           }
         ]
@@ -632,11 +646,11 @@
         "actions": [
           {
             "kind": "block",
-            "value": 10
+            "value": 20
           },
           {
             "kind": "attack",
-            "value": 10
+            "value": 18
           }
         ]
       },
@@ -645,7 +659,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 20
+            "value": 37
           }
         ]
       }
@@ -663,14 +677,15 @@
     "id": "smolder",
     "name": "The Smolder",
     "tier": "boss",
-    "maxHealth": 192,
+    "maxHealth": 626,
+    "line": 162,
     "passives": [
       {
         "kind": "smolder",
         "name": "Smolder",
         "short": "Attacks grow each round",
         "text": "Its attacks grow every round.",
-        "growth": 2
+        "growth": 4
       }
     ],
     "intents": [
@@ -679,7 +694,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 8
+            "value": 15
           }
         ]
       },
@@ -688,7 +703,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 5,
+            "value": 9,
             "hits": 3
           }
         ]
@@ -698,11 +713,11 @@
         "actions": [
           {
             "kind": "block",
-            "value": 6
+            "value": 12
           },
           {
             "kind": "attack",
-            "value": 10
+            "value": 18
           }
         ]
       }
@@ -720,7 +735,8 @@
     "id": "wraith",
     "name": "Placeholder Wraith",
     "tier": "basic",
-    "maxHealth": 308,
+    "maxHealth": 702,
+    "line": 187,
     "passives": [],
     "intents": [
       {
@@ -728,7 +744,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 5
+            "value": 17
           }
         ]
       },
@@ -737,7 +753,7 @@
         "actions": [
           {
             "kind": "block",
-            "value": 7
+            "value": 21
           }
         ]
       },
@@ -746,7 +762,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 8
+            "value": 28
           }
         ]
       }
@@ -764,7 +780,8 @@
     "id": "colossus",
     "name": "Placeholder Colossus",
     "tier": "basic",
-    "maxHealth": 282,
+    "maxHealth": 641,
+    "line": 178,
     "passives": [],
     "intents": [
       {
@@ -772,7 +789,7 @@
         "actions": [
           {
             "kind": "block",
-            "value": 11
+            "value": 33
           }
         ]
       },
@@ -781,7 +798,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 8
+            "value": 28
           }
         ]
       },
@@ -790,11 +807,11 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 5
+            "value": 17
           },
           {
             "kind": "block",
-            "value": 5
+            "value": 15
           }
         ]
       }
@@ -812,7 +829,8 @@
     "id": "stormling",
     "name": "Placeholder Stormling",
     "tier": "basic",
-    "maxHealth": 260,
+    "maxHealth": 591,
+    "line": 168,
     "passives": [],
     "intents": [
       {
@@ -820,7 +838,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 3,
+            "value": 10,
             "hits": 3
           }
         ]
@@ -830,7 +848,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 6
+            "value": 21
           }
         ]
       },
@@ -839,7 +857,7 @@
         "actions": [
           {
             "kind": "block",
-            "value": 6
+            "value": 18
           }
         ]
       }
@@ -858,7 +876,8 @@
     "id": "tyrant",
     "name": "Placeholder Tyrant",
     "tier": "elite",
-    "maxHealth": 246,
+    "maxHealth": 826,
+    "line": 196,
     "passives": [],
     "intents": [
       {
@@ -866,7 +885,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 10,
+            "value": 28,
             "hits": 2
           }
         ]
@@ -876,11 +895,11 @@
         "actions": [
           {
             "kind": "block",
-            "value": 10
+            "value": 25
           },
           {
             "kind": "attack",
-            "value": 7
+            "value": 20
           }
         ]
       },
@@ -889,7 +908,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 24
+            "value": 68
           }
         ]
       }
@@ -907,7 +926,8 @@
     "id": "warlord",
     "name": "Placeholder Warlord",
     "tier": "elite",
-    "maxHealth": 342,
+    "maxHealth": 1156,
+    "line": 216,
     "passives": [],
     "intents": [
       {
@@ -915,7 +935,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 13
+            "value": 37
           }
         ]
       },
@@ -924,11 +944,11 @@
         "actions": [
           {
             "kind": "block",
-            "value": 8
+            "value": 20
           },
           {
             "kind": "attack",
-            "value": 5
+            "value": 14
           }
         ]
       },
@@ -937,7 +957,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 5,
+            "value": 14,
             "hits": 3
           }
         ]
@@ -947,7 +967,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 20
+            "value": 57
           }
         ]
       }
@@ -966,14 +986,15 @@
     "id": "long_night",
     "name": "The Long Night",
     "tier": "boss",
-    "maxHealth": 333,
+    "maxHealth": 1198,
+    "line": 235,
     "passives": [
       {
         "kind": "longNight",
         "name": "Long Night",
         "short": "Grows per cap set off",
         "text": "Its attack grows for every cap the party sets off.",
-        "growth": 1
+        "growth": 2
       }
     ],
     "intents": [
@@ -982,7 +1003,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 9
+            "value": 23
           }
         ]
       },
@@ -991,11 +1012,11 @@
         "actions": [
           {
             "kind": "block",
-            "value": 10
+            "value": 25
           },
           {
             "kind": "attack",
-            "value": 8
+            "value": 20
           }
         ]
       },
@@ -1004,7 +1025,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 14,
+            "value": 35,
             "hits": 2
           }
         ]
@@ -1023,7 +1044,8 @@
     "id": "warden_of_locks",
     "name": "The Warden of Locks",
     "tier": "boss",
-    "maxHealth": 180,
+    "maxHealth": 378,
+    "line": 45,
     "passives": [
       {
         "kind": "warden",
@@ -1043,7 +1065,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 7,
+            "value": 18,
             "hits": 2
           }
         ]
@@ -1053,11 +1075,11 @@
         "actions": [
           {
             "kind": "block",
-            "value": 11
+            "value": 28
           },
           {
             "kind": "attack",
-            "value": 8
+            "value": 20
           }
         ]
       },
@@ -1066,7 +1088,7 @@
         "actions": [
           {
             "kind": "attack",
-            "value": 20
+            "value": 50
           }
         ]
       }

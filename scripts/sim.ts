@@ -1,38 +1,65 @@
-// npm run sim [battlesPerEnemy] [seed]
+// npm run sim [battlesPerEnemy] [seed] [--bot stock|planner|both] [--workers n] [--beam n]
 // Plays random and bot battles against each enemy in data/ with 2, 3 and 4 players (enemy health and
-// attack scale with party size). Prints, per enemy, random and bot side by
-// side, then how cascades went.
+// attack scale with party size). The bot is the stock bot, the planning bot, or (the default) both.
+// Prints, per enemy, the players side by side, then how cascades went.
 //
 // Columns:
 //   win      share of battles won
 //   rounds   average rounds per battle
-//   >1 opt   share of player turns with more than one distinct legal choice. A choice is a play
-//            (one domino on one end; the opener has no end), or pass. Pass is always legal, so
-//            this is the share of turns where something besides passing was possible.
-//   >1 play  share of player turns with more than one distinct play (domino x end), the closer
-//            comparison with the old "more than one option" figure (about 30% of answer decisions in #123)
-//   opts     average distinct legal choices per player turn (plays + pass)
-//   plays    average distinct plays (domino x end) per player turn
+//   >1 opt   share of seat turns with more than one distinct legal choice. A choice is a play
+//            (one domino on one end; the opener has no end), or Ready. Ready is always legal for a seat
+//            that is not Ready, so this is the share of turns where something besides Ready was possible.
+//   >1 play  share of seat turns with more than one distinct play (domino x end)
+//   opts     average distinct legal choices per seat turn (plays + Ready)
+//   plays    average distinct plays (domino x end) per seat turn
 //   board    average dominoes on the board per cascade
 //   junc     average junctions (branch points) per cascade
 //   caps     average caps per cascade
 //   fizz     average ends left uncapped (fizzled) per cascade
 //   dmg      average damage reaching the enemy's health per cascade (after its block)
+//   combo    average combo total per cascade: every hit before enemy block
+//   lost     party health lost per battle (of the party's max health)
+//   hit      what the enemy's hits were worth per battle before block: the health lost by a party that blocked nothing
+//   line     share of cascades whose combo total reached the enemy's line (the enemy is staggered)
 //
-// After each table: the spread of damage per cascade (0 / 1-5 / 6-10 / 11+), damage caps against block
-// caps that went off, and how cascades started (every end capped / everyone passed).
+// After each table: the spread of damage per cascade (0 / 1-5 / 6-10 / 11+) and damage caps against block
+// caps that went off; then the spread of damage as a share of the enemy's health at the start of the fight.
+// At the end: dominoes per cascade by party size.
+// The same arguments give the same output.
 
 import { enemies, playRandomBattle } from "./randomPlay";
 import type { BattleStats, Player } from "./randomPlay";
+import { inWorker, runJobs, serve } from "./parallel";
+import { parseSimArgs } from "./simArgs";
 
-declare const process: { argv: string[] }; // avoids adding @types/node
-const battles = Number(process.argv[2] ?? 200);
-const baseSeed = Number(process.argv[3] ?? 1);
 const maxSteps = 100000;
+const SHARE_LIMITS = [0.1, 0.25, 0.5, 0.75]; // cascade damage as a share of enemy health: under 10%, 10-25%, 25-50%, 50-75%, 75% and over
+const SHARE_LABELS = ["<10%", "10-25%", "25-50%", "50-75%", "75%+"];
+
+interface Job {
+  enemy: string;
+  partySize: number;
+  player: Player;
+  seed: number;
+  count: number;
+  beam: number;
+}
+
+// The battles of a job. The final state stays behind: the parent has no use for it.
+function work(job: Job): Omit<BattleStats, "final">[] {
+  const out: Omit<BattleStats, "final">[] = [];
+  for (let i = 0; i < job.count; i++) {
+    const { final, ...stats } = playRandomBattle(job.enemy, job.seed + i, maxSteps, job.player, job.partySize, job.beam);
+    out.push(stats);
+  }
+  return out;
+}
 
 interface Totals {
   wins: number;
   rounds: number;
+  healthLost: number;
+  incoming: number;
   turns: number;
   withChoice: number;
   withPlays: number;
@@ -44,19 +71,23 @@ interface Totals {
   caps: number;
   fizzled: number;
   damage: number;
+  combo: number;
+  lines: number; // cascades that reached the line
   buckets: number[]; // cascades dealing 0, 1-5, 6-10, 11+ damage
+  shares: number[]; // cascades dealing SHARE_LABELS of the enemy's health
   damageCaps: number;
   blockCaps: number;
-  ended: Record<string, number>;
 }
 const empty = (): Totals => ({
-  wins: 0, rounds: 0, turns: 0, withChoice: 0, withPlays: 0, choices: 0, playOptions: 0, cascades: 0, nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0,
-  buckets: [0, 0, 0, 0], damageCaps: 0, blockCaps: 0, ended: { capped: 0, passes: 0 },
+  wins: 0, rounds: 0, healthLost: 0, incoming: 0, turns: 0, withChoice: 0, withPlays: 0, choices: 0, playOptions: 0, cascades: 0, nodes: 0, junctions: 0, caps: 0, fizzled: 0, damage: 0, combo: 0, lines: 0,
+  buckets: [0, 0, 0, 0], shares: [0, 0, 0, 0, 0], damageCaps: 0, blockCaps: 0,
 });
 
-function add(t: Totals, r: BattleStats): void {
+function add(t: Totals, r: Omit<BattleStats, "final">): void {
   if (r.result === "won") t.wins += 1;
   t.rounds += r.rounds;
+  t.healthLost += r.healthLost;
+  t.incoming += r.incoming;
   t.turns += r.turns;
   t.withChoice += r.turnsWithChoice;
   t.withPlays += r.turnsWithPlays;
@@ -69,10 +100,13 @@ function add(t: Totals, r: BattleStats): void {
     t.caps += c.caps;
     t.fizzled += c.fizzled;
     t.damage += c.damage;
+    t.combo += c.combo;
+    if (c.lineReached) t.lines += 1;
     t.buckets[c.damage === 0 ? 0 : c.damage <= 5 ? 1 : c.damage <= 10 ? 2 : 3] += 1;
+    const share = c.damage / r.enemyHealth;
+    t.shares[SHARE_LIMITS.filter((limit) => share >= limit).length] += 1;
     t.damageCaps += c.damageCaps;
     t.blockCaps += c.blockCaps;
-    t.ended[c.ended] += 1;
   }
 }
 
@@ -83,74 +117,109 @@ function cells(t: Totals): string[] {
   return [
     pct(t.wins, battles), num(t.rounds, battles, 1), pct(t.withChoice, t.turns), pct(t.withPlays, t.turns), num(t.choices, t.turns), num(t.playOptions, t.turns),
     num(t.nodes, t.cascades), num(t.junctions, t.cascades), num(t.caps, t.cascades), num(t.fizzled, t.cascades), num(t.damage, t.cascades, 1),
+    num(t.combo, t.cascades, 1), pct(t.lines, t.cascades), num(t.healthLost, battles, 1), num(t.incoming, battles, 1),
   ];
 }
 
-const header = ["win", "rounds", ">1 opt", ">1 play", "opts", "plays", "board", "junc", "caps", "fizz", "dmg"];
+const header = ["win", "rounds", ">1 opt", ">1 play", "opts", "plays", "board", "junc", "caps", "fizz", "dmg", "combo", "line", "lost", "hit"];
 const widths = header.map((h) => Math.max(h.length, 7));
 const row = (label: string, who: string, values: string[]) =>
-  label.padEnd(24) + who.padEnd(7) + values.map((v, i) => v.padStart(widths[i] + 1)).join("");
-const players: Player[] = ["random", "bot"];
+  label.padEnd(24) + who.padEnd(8) + values.map((v, i) => v.padStart(widths[i] + 1)).join("");
 
-// Totals are over battles, so the win rate of a group divides by its battle count.
-function group(label: string, t: Record<Player, Totals>, count: number): void {
-  for (const player of players) {
-    const c = cells(t[player]);
-    c[0] = pct(t[player].wins, count * battles);
-    c[1] = num(t[player].rounds, count * battles, 1);
-    console.log(row(player === "random" ? label : "", player, c));
-  }
-}
+let battles = 0; // battles per enemy, set in main (cells() divides by it)
 
-function behaviour(label: string, t: Record<Player, Totals>): void {
-  for (const player of players) {
-    const x = t[player];
-    const b = x.buckets.map((n) => pct(n, x.cascades).padStart(6));
-    const e = [x.ended.capped, x.ended.passes].map((n) => pct(n, x.cascades).padStart(6));
-    console.log(
-      (player === "random" ? label : "").padEnd(10) + player.padEnd(8) + b.join(" ") + " |" + String(x.damageCaps).padStart(8) + String(x.blockCaps).padStart(8) + " |" + e.join(" "),
-    );
-  }
-}
+async function main(): Promise<void> {
+  const args = parseSimArgs();
+  battles = Number(args.positional[0] ?? 200);
+  const baseSeed = Number(args.positional[1] ?? 1);
+  const players: Player[] = ["random", ...args.bots];
 
-console.log(`${battles} battles per enemy and party size, base seed ${baseSeed}`);
-console.log("opts/plays count distinct legal choices per player turn; see the column notes at the top of scripts/sim.ts.");
-console.log("'>1 opt' counts pass as a choice; '>1 play' counts only plays (domino x end).");
-console.log("Board, junc, caps, fizz and dmg are per cascade, averaged over all cascades of the battles.");
+  type Per = Record<string, Totals>; // by player
+  const fresh = (): Per => Object.fromEntries(players.map((p) => [p, empty()]));
 
-for (const partySize of [2, 3, 4]) {
-  console.log("");
-  console.log(`===== ${partySize} PLAYERS =====`);
-  console.log("".padEnd(31) + header.map((h, i) => h.padStart(widths[i] + 1)).join(""));
-  const byTier = new Map<string, Record<Player, Totals>>();
-  const all: Record<Player, Totals> = { random: empty(), bot: empty() };
-  for (const enemy of enemies) {
-    const tier = byTier.get(enemy.tier) ?? { random: empty(), bot: empty() };
-    byTier.set(enemy.tier, tier);
-    const per: Record<Player, Totals> = { random: empty(), bot: empty() };
-    for (const player of players) {
-      for (let i = 0; i < battles; i++) {
-        const r = playRandomBattle(enemy.id, baseSeed + i, maxSteps, player, partySize);
-        add(per[player], r);
-        add(tier[player], r);
-        add(all[player], r);
+  // Totals are over battles, so the win rate of a group divides by its battle count.
+  const group = (label: string, t: Per, count: number): void => {
+    players.forEach((player, i) => {
+      const c = cells(t[player]);
+      c[0] = pct(t[player].wins, count * battles);
+      c[1] = num(t[player].rounds, count * battles, 1);
+      c[13] = num(t[player].healthLost, count * battles, 1);
+      c[14] = num(t[player].incoming, count * battles, 1);
+      console.log(row(i === 0 ? label : "", player, c));
+    });
+  };
+
+  const behaviour = (label: string, t: Per): void => {
+    players.forEach((player, i) => {
+      const x = t[player];
+      const b = x.buckets.map((n) => pct(n, x.cascades).padStart(6));
+      console.log((i === 0 ? label : "").padEnd(10) + player.padEnd(8) + b.join(" ") + " |" + String(x.damageCaps).padStart(8) + String(x.blockCaps).padStart(8));
+    });
+  };
+
+  const shares = (label: string, t: Per): void => {
+    players.forEach((player, i) => {
+      const x = t[player];
+      console.log((i === 0 ? label : "").padEnd(10) + player.padEnd(8) + x.shares.map((n) => pct(n, x.cascades).padStart(8)).join(" "));
+    });
+  };
+
+  const sizes = [2, 3, 4];
+  const perSize = new Map<number, Per>();
+  const jobs: Job[] = [];
+  for (const partySize of sizes) for (const enemy of enemies) for (const player of players) jobs.push({ enemy: enemy.id, partySize, player, seed: baseSeed, count: battles, beam: args.beam });
+  const done = await runJobs(jobs, args.workers, work);
+
+  console.log(`${battles} battles per enemy and party size, base seed ${baseSeed}, planner beam ${args.beam}`);
+  console.log("opts/plays count distinct legal choices per seat turn; see the column notes at the top of scripts/sim.ts.");
+  console.log("'>1 opt' counts Ready as a choice; '>1 play' counts only plays (domino x end).");
+  console.log("Board, junc, caps, fizz, dmg and combo are per cascade, averaged over all cascades of the battles; line is the share of cascades that reached the enemy's line.");
+
+  for (const partySize of sizes) {
+    console.log("");
+    console.log(`===== ${partySize} PLAYERS =====`);
+    console.log("".padEnd(32) + header.map((h, i) => h.padStart(widths[i] + 1)).join(""));
+    const byTier = new Map<string, Per>();
+    const all = fresh();
+    for (const enemy of enemies) {
+      const tier = byTier.get(enemy.tier) ?? fresh();
+      byTier.set(enemy.tier, tier);
+      const per = fresh();
+      for (const player of players) {
+        done[jobs.findIndex((j) => j.partySize === partySize && j.enemy === enemy.id && j.player === player)].forEach((r) => {
+          add(per[player], r);
+          add(tier[player], r);
+          add(all[player], r);
+        });
       }
+      players.forEach((player, i) => console.log(row(i === 0 ? `${enemy.id} (${enemy.tier})` : "", player, cells(per[player]))));
     }
-    console.log(row(`${enemy.id} (${enemy.tier})`, "random", cells(per.random)));
-    console.log(row("", "bot", cells(per.bot)));
+    console.log("");
+    console.log("BY TIER");
+    for (const [tier, t] of byTier) group(tier, t, enemies.filter((e) => e.tier === tier).length);
+    console.log("");
+    console.log("ALL ENEMIES");
+    group("all", all, enemies.length);
+
+    console.log("");
+    console.log(`HOW CASCADES WENT (${partySize} players): share of cascades by damage dealt | caps that went off`);
+    console.log("".padEnd(18) + ["0", "1-5", "6-10", "11+"].map((h) => h.padStart(6)).join(" ") + " |" + "dmg caps".padStart(8) + "blk caps".padStart(8));
+    for (const [tier, t] of byTier) behaviour(tier, t);
+    behaviour("all", all);
+
+    console.log("");
+    console.log(`CASCADES BY SHARE OF ENEMY HEALTH (${partySize} players): damage dealt as a share of the enemy's health at the start of the fight`);
+    console.log("".padEnd(18) + SHARE_LABELS.map((h) => h.padStart(8)).join(" "));
+    for (const [tier, t] of byTier) shares(tier, t);
+    shares("all", all);
+    perSize.set(partySize, all);
   }
-  console.log("");
-  console.log("BY TIER");
-  for (const [tier, t] of byTier) group(tier, t, enemies.filter((e) => e.tier === tier).length);
-  console.log("");
-  console.log("ALL ENEMIES");
-  group("all", all, enemies.length);
 
   console.log("");
-  console.log(`HOW CASCADES WENT (${partySize} players): share of cascades by damage dealt | caps that went off | how the cascade started`);
-  console.log(
-    "".padEnd(18) + ["0", "1-5", "6-10", "11+"].map((h) => h.padStart(6)).join(" ") + " |" + "dmg caps".padStart(8) + "blk caps".padStart(8) + " |" + ["capped", "passes"].map((h) => h.padStart(6)).join(" "),
-  );
-  for (const [tier, t] of byTier) behaviour(tier, t);
-  behaviour("all", all);
+  console.log("DOMINOES PER CASCADE BY PARTY SIZE (all enemies; the design aims for about the same at every size)");
+  console.log("".padEnd(10) + sizes.map((n) => `${n} players`.padStart(11)).join(""));
+  for (const player of players) console.log(player.padEnd(10) + sizes.map((n) => num(perSize.get(n)![player].nodes, perSize.get(n)![player].cascades).padStart(11)).join(""));
 }
+
+if (inWorker) serve(work);
+else await main();

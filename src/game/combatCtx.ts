@@ -4,7 +4,7 @@ import type { DominoState } from "./dominoDrawing";
 import type { PingTarget } from "../net/protocol";
 import type { Tooltip } from "./tooltip";
 
-// What the combat layout files (enemyUnit.ts, turnRail.ts, combatHud.ts) need from the scene: drawing
+// What the combat layout files (enemyUnit.ts, seatTabs.ts, combatHud.ts) need from the scene: drawing
 // helpers that put things in the scene's redrawn layer and register them with the animator. The scene
 // supplies it; these files hold layout only, no rules.
 
@@ -27,6 +27,8 @@ export interface CombatCtx {
   // Marks where a seat's deck is, so its draw animation flies from there: `text` shows the count.
   deckSpot(layer: Layer, seat: string, x: number, y: number, text: Phaser.GameObjects.Text): void;
   openDeck(seat: string): void;
+  // The cascade reached the line and the slam has not yet staggered the enemy: the intent card still shows the full attack.
+  staggerHeld(): boolean;
 }
 
 // A text object's size, shrunk so it is at most `maxW` wide.

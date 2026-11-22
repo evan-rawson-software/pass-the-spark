@@ -62,6 +62,10 @@
     "dimAlpha": 0.55,
     "shadow": { "dx": 4, "dy": 8, "alpha": 0.25, "raisedAlpha": 0.35 }
   },
+  "combat": {
+    "comment": "Combat screen settings, read by src/game/CombatScene.ts. showDamageTotal (V5, default false): the damage total stays hidden until the cascade fires. When true the left column shows the old 'If it fires now' tally (a damage tile and a block tile, and a line on what that does to both sides).",
+    "showDamageTotal": false
+  },
   "buildup": {
     "comment": "Cascade build-up (#191). pitch.maxSteps: the pitch stops rising after this many cascade steps. glow: strength of the lit dominoes' glow, from litMin (first lit) to litMax (all lit). camera: boards with more than minNodes dominoes ease out (to zoomOut, or what fits the board mat, never below minZoom) and push in on a new biggest cap of at least push.minCap (push.reducedZoom with reduced flashing; no push with screen shake off); the camera never cuts off health, block or the intent card (keep: sizes of the boxes it protects and of an open end). The running counter and callouts it used to hold are now comboHype. Times are ms at 1x.",
     "pitch": { "maxSteps": 10 },
@@ -88,11 +92,11 @@
     "seatGlow": { "sizeFactor": 1.5, "ms": 520, "alpha": 0.9, "capFactor": 2.4, "capMs": 700, "reducedAlpha": 0.3, "reducedMs": 800 }
   },
   "comboHype": {
-    "comment": "Cascade hype (#234, H1-H9), read by src/game/comboHype.ts. Px on the 1920x1080 table, times in ms at 1x (all go through scaleTime). Arrays are indexed by tier 0..4. tiers: the running damage as a share of the enemy's health when the cascade starts; a threshold reached moves the number up one tier (highest wins when a hit crosses several). The number sits in the board area (combatLayout.board), centred across it and yFraction down it, and is shrunk to maxWidthFraction of the area's width. gap: the pause after each cap fires is start - step * caps, never below min (a depth step waits stepFraction of it). tierJump, lethal, slam and fanfare are the big moments; the slam's charge, flight, impact and fanfare together take about 2 s at the top tier. skip.factor scales the slam's times when a skipped cascade plays its short slam.",
+    "comment": "Cascade hype (#234, H1-H9), read by src/game/comboHype.ts. Px on the 1920x1080 table, times in ms at 1x (all go through scaleTime). Arrays are indexed by tier 0..4. tiers: the combo total as a share of the enemy's line (B12); each threshold reached moves the number up one tier (highest wins when a hit crosses several), and reaching the line itself is the last tier (words[4], the combo:line cue). The number catches fire at the line; lethal is a bigger moment on top. smallHit: what an amplifier or junction hit does next to a cap's (spark size, arrival ring and punch as a share of a cap's). line: the meter under the number (scale: its full width is this many times the line; widthFraction of the board area; dy below the number's centre; holdMs: how long the table waits on a line reached by the last hit, before the slam). The number sits in the board area (combatLayout.board), centred across it and yFraction down it, and is shrunk to maxWidthFraction of the area's width. gap: the pause after each hit is start - step * hits so far, never below min (a depth step waits stepFraction of it). tierJump, lethal, slam and fanfare are the big moments; the slam's charge, flight, impact and fanfare together take about 2 s at the top tier. skip.factor scales the slam's times when a skipped cascade plays its short slam.",
     "tiers": {
-      "thresholds": [0.1, 0.25, 0.5, 0.75],
+      "thresholds": [0.25, 0.5, 0.75],
       "colours": ["#ffffff", "#ffe14d", "#ff9a3d", "#ff4d4d", "#b46bff"],
-      "words": ["", "Nice!", "Blazing!", "Inferno!", "Overload!"]
+      "words": ["", "Nice!", "Blazing!", "Inferno!", "STAGGERED!"]
     },
     "layout": { "yFraction": 0.46, "maxWidthFraction": 0.8 },
     "number": {
@@ -105,7 +109,13 @@
     "flight": { "ms": 360, "curve": 110, "size": 40, "trailEveryPx": 16, "trailMs": 280, "trailSize": 30, "arrival": { "ringSize": 150, "ringMs": 360, "sparkSize": 130 } },
     "capBurst": { "size": 110, "ms": 340 },
     "microFreezeMs": [0, 20, 30, 45, 60],
-    "gap": { "startMs": 520, "stepMs": 40, "minMs": 110, "stepFraction": 0.5 },
+    "gap": { "startMs": 420, "stepMs": 45, "minMs": 90, "stepFraction": 0.5 },
+    "smallHit": { "sparkFactor": 0.55, "arrivalFactor": 0.55, "punchFactor": 0.5 },
+    "line": {
+      "scale": 1.3, "widthFraction": 0.42, "h": 18, "dy": 262, "r": 9, "trackColour": "#101010", "trackAlpha": 0.75, "edgeColour": "#f4ecdc", "edgeWidth": 3,
+      "markerColour": "#ffd23f", "markerW": 6, "markerOver": 12, "crossedColour": "#ff8a2a", "labelText": "line", "labelSize": 28, "labelDy": 34, "labelColour": "#ffe9b0",
+      "fillMs": 220, "buildAlpha": 0.85, "fadeMs": 300, "holdMs": 450, "ringSize": 320, "burstSize": 260, "fxMs": 520
+    },
     "tierJump": {
       "calloutSize": 76, "calloutDy": 50, "calloutMs": 1000, "calloutFrom": 0.4, "calloutTo": 1.15, "calloutPopMs": 240,
       "ringSize": [0, 500, 600, 720, 840], "burstSize": [0, 380, 460, 540, 640], "fxMs": 520,
@@ -160,15 +170,12 @@
     "buttonW": 80, "buttonH": 40, "itemH": 44, "gap": 8, "fontSize": 22, "depth": 650
   },
   "setOffPreview": {
-    "comment": "Set-off preview on the health bars (#222), read by src/game/setOffPreview.ts. Px on the 1920x1080 table. The ghost is the part of a bar the set-off would take; it pulses between alphaLow and alphaHigh every pulseMs (steady at alphaHigh under reduced flashing). The bars and shields it draws on come from the column (combatLayout, through the scene's refs) and the Pass button from combatLayout.actions.pass. Label offsets are from the bar's right edge, the shield or the safe mark. Skull and crack numbers are fractions of the skull radius or the shield size.",
+    "comment": "Set-off preview on the party's bar and shield (#222; the enemy's side was removed for 0.2, B8), read by src/game/setOffPreview.ts. Px on the 1920x1080 table. The ghost is the part of a bar the set-off would take; it pulses between alphaLow and alphaHigh every pulseMs (steady at alphaHigh under reduced flashing). The bars and shields it draws on come from the column (combatLayout, through the scene's refs) Label offsets are from the bar's right edge, the shield or the safe mark.",
     "ghost": { "colour": "#ffffff", "alphaLow": 0.35, "alphaHigh": 0.85, "pulseMs": 700, "minWidth": 2 },
     "text": { "strokeThickness": 5, "strokeColour": "#101010" },
     "loss": { "colour": "#ff9a94", "fontSize": 24, "dx": 0, "dy": -26, "originX": 1 },
-    "gain": { "colour": "#8fd0ff", "fontSize": 22, "enemyShieldDx": 0, "enemyShieldDy": -34, "partyDy": -20 },
-    "safe": { "colour": "#8fe3a8", "tickColour": "#10301c", "fontSize": 20, "iconDx": 96, "textDx": 114, "dy": -18, "half": 10, "top": 11, "shoulder": 2, "tip": 12, "tickWidth": 3 },
-    "skull": { "size": 17, "colour": "#f4ecd8", "dx": 0.6, "outline": 4, "outlineColour": "#101010", "outlineAlpha": 0.85, "head": 0.8, "headDy": -0.15, "jawHalf": 0.4, "jawTop": 0.35, "jawH": 0.5, "eyeDx": 0.3, "eyeR": 0.22 },
-    "crack": { "colour": "#10203a", "width": 3, "points": [[-0.1, -0.5], [0.12, -0.1], [-0.12, 0.15], [0.05, 0.55]] },
-    "setOffGlow": { "colour": "#ffe14d", "alphaLow": 0.25, "alphaHigh": 0.9, "pulseMs": 600, "width": 7, "pad": 5 }
+    "gain": { "colour": "#8fd0ff", "fontSize": 22, "partyDy": -20 },
+    "safe": { "colour": "#8fe3a8", "tickColour": "#10301c", "fontSize": 20, "iconDx": 96, "textDx": 114, "dy": -18, "half": 10, "top": 11, "shoulder": 2, "tip": 12, "tickWidth": 3 }
   },
   "enemyReactions": {
     "comment": "Enemy reactions (#190), read by src/game/enemyReactions.ts. Times are ms at 1x (scaled by playback speed), distances px on the 1920x1080 table. A hit of at least staggerMin damage staggers instead of flinching. The ghost bar waits delayMs after the last hit, then drains to the real value at perPointMs per point (between minMs and maxMs), so a run of hits shares one drain. Shield cracks show at each crack fraction of the block worn down.",
@@ -177,6 +184,7 @@
     "ghost": { "colour": "#ffffff", "alpha": 0.55, "delayMs": 600, "perPointMs": 14, "minMs": 350, "maxMs": 1800 },
     "shield": { "cracks": [0.25, 0.5, 0.75], "shatterShards": 7, "shatterSize": 30, "shatterMs": 520, "shatterSpread": 70 },
     "intent": { "pulseMs": 380, "holdMs": 300, "scale": 1.12 },
+    "reel": { "dx": 46, "dy": -26, "ms": 200, "rotation": 0.11, "wobbles": 4, "tint": "#8fd0ff", "tintAlpha": 0.75, "tintMs": 700 },
     "lunge": { "dy": 40, "scale": 1.1, "ms": 170, "returnMs": 260 },
     "impact": { "shakeMs": 260, "shakeIntensity": 0.006, "flashMs": 320, "flashAlpha": 0.35, "blockFirstMs": 350 },
     "raise": { "ms": 420, "holdMs": 380, "rise": 60, "size": 150 },
@@ -203,14 +211,15 @@
     "ring": { "width": 4, "dash": 7, "gap": 6, "legalColour": "#ffe14d", "legalWidth": 6, "fillAlpha": 0.12, "backing": "#0d2a20", "badgeR": 14, "badgeFill": "#ffd54a", "badgeDx": 26, "badgeDy": -24, "badgeText": "#2a2200", "minHit": 44, "pulseMs": 700, "pulseAlpha": 0.55 },
     "lock": { "scale": 0.8, "dx": 14, "dy": 12 },
     "live": { "good": "#2f9e44", "bad": "#d6453d", "fill": "#fffbea", "stroke": "#22201c", "strokeWidth": 3, "mainSize": 34, "subSize": 18, "subColour": "#5c5648", "padX": 16, "padY": 6, "gap": 10, "dimAlpha": 0.75 },
+    "capNumber": { "w": 44, "h": 30, "size": 20, "minSize": 12, "stroke": "#22201c", "strokeWidth": 2.5, "text": "#22201c", "dx": 36 },
     "opener": { "w": 170, "h": 84, "colour": "#ffe14d", "textSize": 24 }
   },
   "handRow": {
-    "comment": "Your hand as a straight row (#253), read by src/game/handRow.ts; the seat-tab hands (combatLayout.tabs.hand) follow the same rule. No fan, tilt or overlap: dominoes sit gap px apart (between their real outlines), centred in area (right of the left column, left of the Pass button, under the board). scale: a hand domino's normal size; a hand too wide for the area shrinks evenly, never below minScale (about 80% of scale); past that it wraps into two rows, split by width as evenly as possible, rowGap px apart, at the size that fits both rows (the top row stays clear of the board: lower the board's bottom edge, combatLayout.board, if the area needs more height). The hovered domino grows to hoverScale and lifts by lift (tweenMs), drawn over its neighbours, which do not move; it never rises above the top of area, so a top-row domino lifts less (or grows downward) instead of covering the board. drag: the faint dashed place left by a dragged domino (the domino itself fades to holderAlpha). enter: a new draw slides in from the left edge of area (slideMs for an old domino finding its new place, enterMs for the new one, staggerMs between new ones).",
+    "comment": "Your hand as a straight row (#253), read by src/game/handRow.ts; the seat-tab hands (combatLayout.tabs.hand) follow the same rule. No fan, tilt or overlap: dominoes sit gap px apart (between their real outlines), centred in area (right of the left column, left of the Ready button, under the board). scale: a hand domino's normal size; a hand too wide for the area shrinks evenly, never below minScale (about 80% of scale); past that it wraps into two rows, split by width as evenly as possible, rowGap px apart, at the size that fits both rows (the top row stays clear of the board: lower the board's bottom edge, combatLayout.board, if the area needs more height). The hovered domino grows to hoverScale and lifts by lift (tweenMs), drawn over its neighbours, which do not move; it never rises above the top of area, so a top-row domino lifts less (or grows downward) instead of covering the board. drag: the faint dashed place left by a dragged domino (the domino itself fades to holderAlpha). enter: a new draw slides in from the left edge of area (slideMs for an old domino finding its new place, enterMs for the new one, staggerMs between new ones).",
     "scale": 0.7,
     "minScale": 0.56,
     "gap": 14,
-    "rowGap": 10,
+    "rowGap": 18,
     "hoverScale": 0.95,
     "lift": 32,
     "tweenMs": 120,
@@ -219,7 +228,7 @@
     "area": { "x": 500, "y": 860, "w": 1075, "h": 208 }
   },
   "combatLayout": {
-    "comment": "Combat screen layout (#228, #231 Spotlight; the board rectangle is the fuse board's area and the cascade counter's strip is its top, #229; the hand's place is handRow.area), read by CombatScene.ts, columnLayout.ts, enemyUnit.ts, setOffTally.ts, turnRail.ts and combatHud.ts. Px on the 1920x1080 table; boxes are x, y top-left with w, h. Colours are #rrggbb. The column is stacked top to bottom from its content: the portrait card shrinks first (between card.minH and card.maxH) when the stack runs short, then the gaps between sections shrink (never below column.minGap; they grow to column.maxGap when there is room). Bars, shields, the enemy's body and the set-off preview all follow from the column: nothing else repeats their places. The seat tabs run across the top right of the column; the board is below them, the hand and actions at the bottom.",
+    "comment": "Combat screen layout (#228, #231 Spotlight; the board rectangle is the fuse board's area and the cascade counter's strip is its top, #229; the hand's place is handRow.area), read by CombatScene.ts, columnLayout.ts, enemyUnit.ts, setOffTally.ts, seatTabs.ts and combatHud.ts. Px on the 1920x1080 table; boxes are x, y top-left with w, h. Colours are #rrggbb. The column is stacked top to bottom from its content: the portrait card shrinks first (between card.minH and card.maxH) when the stack runs short, then the gaps between sections shrink (never below column.minGap; they grow to column.maxGap when there is room). Bars, shields, the enemy's body and the set-off preview all follow from the column: nothing else repeats their places. The seat tabs (no turn order in 0.2: name, placement pips, Ready mark) run across the top right of the column; the board is below them, the hand and the Ready button (Fire in single player) at the bottom. takeBack: the control on your own dominoes (size, offset from the domino's top-left corner, how long it lingers, the room round the hand row where a dragged board domino counts as dropped on it). handFrame: the frame round a hand that is not your own seat's. note: a refusal by your hand (texts: what the host says, and what to show instead).",
     "background": {
       "dim": { "colour": "#0a0f0c", "alpha": 0.62 },
       "blur": { "scale": 0.25, "px": 3 },
@@ -235,9 +244,9 @@
       "chip": { "h": 38, "gap": 6, "size": 18, "fill": "#2b2140", "stroke": "#e9d9a8", "textColour": "#f3ead6", "iconR": 15 },
       "bar": { "h": 32, "fontSize": 22, "left": 84 },
       "shield": { "x": 22, "s": 34 },
-      "intent": { "h": 114, "r": 12, "fill": "#3a1414", "stroke": "#ff6a5f", "strokeWidth": 2, "labelY": 24, "rowY": 74 },
+      "intent": { "h": 148, "r": 12, "fill": "#3a1414", "stroke": "#ff6a5f", "strokeWidth": 2, "labelY": 24, "rowY": 74, "line": { "y": 126, "size": 22, "colour": "#ffd9a0", "text": "Line" } },
       "label": { "size": 15, "spacing": 3, "colour": "#ffb3aa" },
-      "action": { "icon": 1.1, "numberSize": 56, "hitsSize": 32, "hitsColour": "#ffb3aa", "gap": 10, "pad": 22 },
+      "action": { "icon": 1.1, "numberSize": 56, "hitsSize": 32, "hitsColour": "#ffb3aa", "gap": 10, "pad": 22, "struckSize": 40, "struckColour": "#9a8f8c", "arrow": "\u2192", "arrowSize": 40, "arrowColour": "#ffd23f", "halvedColour": "#ffd23f" },
       "later": { "h": 40, "size": 15, "scale": 0.4, "colour": "#9fd1b8" }
     },
     "tally": {
@@ -246,6 +255,7 @@
       "damage": { "fill": "#f2564a", "edge": "#a8322c", "label": "DAMAGE", "sub": "blocked" },
       "block": { "fill": "#1e88f0", "edge": "#1560b0", "label": "BLOCK" },
       "lethal": { "label": "LETHAL", "glow": "#ffe14d", "alphaLow": 0.3, "alphaHigh": 1, "pulseMs": 600, "width": 6, "pad": 3 },
+      "blockTile": { "label": "BLOCK IF IT FIRES", "h": 104 },
       "line": { "gap": 10, "h": 26, "size": 17, "colour": "#cdd2d8", "lossColour": "#ff6a5f", "safeColour": "#8fe3a8", "noCaps": "No caps yet", "safe": "party is safe" }
     },
     "party": {
@@ -260,26 +270,37 @@
       "menu": { "dx": -36 }
     },
     "tabs": {
-      "x": 510, "y": 26, "w": 1380, "h": 166, "gap": 34, "r": 16, "padX": 16,
-      "arrow": { "size": 22, "colour": "#7a7488" },
-      "tab": { "fill": "#1d1a22", "stroke": "#4a4358", "strokeWidth": 2, "turnFill": "#2a2418", "turnStroke": "#ffd54a", "turnStrokeWidth": 3, "nextStroke": "#8fe3a5", "nextStrokeWidth": 3 },
+      "x": 510, "y": 26, "w": 1380, "h": 166, "gap": 14, "r": 16, "padX": 16,
+      "tab": { "fill": "#1d1a22", "stroke": "#4a4358", "strokeWidth": 2, "frameWidth": 4, "readyFill": "#16281d" },
       "dot": { "dx": 8, "r": 8 },
       "name": { "dx": 26, "y": 26, "size": 26, "colour": "#f3ead6", "maxW": 150 },
-      "tags": { "y": 26, "h": 24, "size": 14, "gap": 6, "padX": 10, "lead": { "fill": "#3a3744", "text": "#c9c4d4" }, "you": { "fill": "#ffd54a", "text": "#2a2200" }, "next": { "fill": "#8fe3a5", "text": "#0c2a16" }, "away": { "fill": "#3a3744", "text": "#9aa3b2" }, "pass": { "fill": "#ff9a94", "text": "#2a0c0a" } },
+      "tags": { "y": 26, "h": 24, "size": 14, "gap": 6, "padX": 10, "you": { "fill": "#ffd54a", "text": "#2a2200" }, "ready": { "fill": "#3fae5a", "text": "#06200f" }, "waiting": { "fill": "#3a3744", "text": "#ffd0a0" }, "away": { "fill": "#3a3744", "text": "#9aa3b2" } },
+      "pips": { "y": 82, "r": 7, "gap": 6, "emptyAlpha": 0.3, "label": 16, "labelColour": "#b8c4b4" },
       "counts": { "y": 56, "size": 16, "colour": "#b8c4b4", "hoverColour": "#ffe14d" },
-      "hand": { "top": 74, "bottom": 30, "scale": 0.33, "minScale": 0.264, "gap": 6, "rowGap": 3 },
+      "hand": { "top": 100, "bottom": 14, "scale": 0.33, "minScale": 0.264, "gap": 6, "rowGap": 3 },
       "charm": { "size": 26, "step": 32, "fill": "#2b2140" },
       "you": { "text": "Your hand is below", "size": 18, "colour": "#cdd2d8" },
-      "caption": { "dy": 16, "size": 16, "colour": "#8fe3a5", "text": "Lit: playable after your", "passText": "Nothing to play after your" },
-      "next": { "glow": "#ffe36b", "glowWidth": 14, "glowAlpha": 0.55, "dimAlpha": 0.45 },
       "zoom": { "scale": 0.9, "gapY": 14 }
     },
     "board": { "x": 500, "y": 204, "w": 1400, "h": 652 },
     "actions": {
-      "pass": { "x": 1595, "y": 944, "w": 295, "h": 100, "fill": "#ffd54a", "stroke": "#22201c", "strokeWidth": 3, "size": 40, "colour": "#22201c", "text": "Pass", "fireText": "Pass and fire", "fireSize": 34 }
+      "ready": { "x": 1595, "y": 944, "w": 295, "h": 100, "fill": "#ffd54a", "readyFill": "#3fae5a", "disabledAlpha": 0.45, "stroke": "#22201c", "strokeWidth": 3, "size": 40, "colour": "#22201c", "text": "Ready", "readyText": "Ready", "undoText": "Not ready", "fireText": "Fire" },
+      "count": { "y": 918, "size": 24, "colour": "#cfe9dc", "text": "of", "tail": "ready" }
     },
-    "pause": { "x": 1130, "buttonX": 1500, "y": 392 },
-    "waiting": { "text": "Waiting for the host", "x": 1040, "y": 866, "size": 24, "colour": "#cfe9dc" },
+    "takeBack": { "size": 34, "dx": -6, "dy": 4, "fill": "#fffbea", "stroke": "#22201c", "strokeWidth": 3, "colour": "#22201c", "text": "↩", "textSize": 26, "hideMs": 160, "dragHandPad": 30 },
+    "handFrame": { "width": 4, "pad": 10, "padTop": 26, "label": { "size": 22, "dy": -44 } },
+    "note": {
+      "dy": -70, "size": 26, "colour": "#ff9a94", "ms": 3000,
+      "texts": {
+        "illegal end": "That end was just taken",
+        "illegal domino": "That domino can't go there now",
+        "no placements left": "No placements left",
+        "can't take that node back": "That one can't be taken back now",
+        "a Ready player can't place or take back": "You are Ready: press Ready again to change the board",
+        "already Ready": "You are already Ready",
+        "not Ready": "You are not Ready"
+      }
+    },
     "skipHint": { "x": 1200, "y": 836 }
   },
   "wizardLook": {

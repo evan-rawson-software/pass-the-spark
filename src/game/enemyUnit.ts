@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { halvedIntent } from "../engine/battle";
 import type { BattleView } from "../engine/view";
 import type { Intent, Passive } from "../engine/types";
 import { drawEffectIcon, drawSparkGlyph } from "./dominoDrawing";
@@ -132,8 +133,9 @@ function intentLabel(intent: Intent): string {
 }
 
 // One intent's actions in a row (an icon, the number, ×N for several hits), centred on the container's
-// origin, shrunk to fit `maxW`.
-function intentRow(scene: Phaser.Scene, intent: Intent, base: number, maxW: number): Phaser.GameObjects.Container {
+// origin, shrunk to fit `maxW`. `was` is the same intent before the stagger halved it: each attack it
+// changed shows the old number struck through, then an arrow, then the new one ("20 → 10").
+function intentRow(scene: Phaser.Scene, intent: Intent, base: number, maxW: number, was?: Intent): Phaser.GameObjects.Container {
   const A = D.action;
   const row = scene.add.container(0, 0);
   const inner = scene.add.container(0, 0);
@@ -145,7 +147,18 @@ function intentRow(scene: Phaser.Scene, intent: Intent, base: number, maxW: numb
     drawEffectIcon(g, a.kind === "attack" ? "damage" : "block");
     inner.add(g);
     x += 52 * A.icon + A.gap;
-    const num = scene.add.text(x, 0, String(a.value), { fontFamily: FONT, fontSize: `${A.numberSize}px`, color: "#ffffff", fontStyle: "bold" }).setOrigin(0, 0.5);
+    const before = was?.actions[i];
+    if (before && before.kind === "attack" && a.kind === "attack" && before.value !== a.value) {
+      const old = scene.add.text(x, 0, String(before.value), { fontFamily: FONT, fontSize: `${A.struckSize}px`, color: A.struckColour, fontStyle: "bold" }).setOrigin(0, 0.5);
+      const strike = scene.add.graphics();
+      strike.lineStyle(5, hexColour(A.struckColour), 1);
+      strike.lineBetween(x - 4, 0, x + old.width + 4, 0);
+      const arrow = scene.add.text(x + old.width + A.gap, 0, A.arrow, { fontFamily: FONT, fontSize: `${A.arrowSize}px`, color: A.arrowColour, fontStyle: "bold" }).setOrigin(0, 0.5);
+      inner.add([old, strike, arrow]);
+      x += old.width + A.gap + arrow.width + A.gap;
+    }
+    const halved = before !== undefined && before.kind === "attack" && a.kind === "attack" && before.value !== a.value;
+    const num = scene.add.text(x, 0, String(a.value), { fontFamily: FONT, fontSize: `${A.numberSize}px`, color: halved ? A.halvedColour : "#ffffff", fontStyle: "bold" }).setOrigin(0, 0.5);
     inner.add(num);
     x += num.width;
     if (a.kind === "attack" && (a.hits ?? 1) > 1) {
@@ -167,10 +180,13 @@ function intentPanel(ctx: CombatCtx, layer: Layer, view: BattleView, col: Column
   g.fillRoundedRect(col.x, y, col.w, h, B.r);
   g.lineStyle(B.strokeWidth, hexColour(B.stroke), 1);
   g.strokeRoundedRect(col.x, y, col.w, h, B.r);
-  const row = intentRow(ctx.scene, view.intent, 1, col.w - 2 * D.action.pad).setPosition(col.x + col.w / 2, y + B.rowY);
+  // Staggered (the cascade reached the line): once the slam is in, the attack shows halved beside the full one.
+  const staggered = view.enemy.staggered && !ctx.staggerHeld();
+  const row = intentRow(ctx.scene, staggered ? halvedIntent(view.intent) : view.intent, 1, col.w - 2 * D.action.pad, staggered ? view.intent : undefined).setPosition(col.x + col.w / 2, y + B.rowY);
   layer.add(row);
   const L = D.label;
   ctx.label(layer, col.x + col.w / 2, y + B.labelY, intentLabel(view.intent), L.size, L.colour, 0.5, true).setLetterSpacing(L.spacing);
+  ctx.label(layer, col.x + col.w / 2, y + B.line.y, `${B.line.text} ${view.enemy.line}`, B.line.size, B.line.colour, 0.5, true);
   ctx.refs().intent = { x: col.x, y, w: col.w, h };
 }
 

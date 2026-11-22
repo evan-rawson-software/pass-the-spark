@@ -1,5 +1,7 @@
 # Decisions
 
+> **0.2 (2026-11-21):** this is the 0.1 record. For 0.2, `docs/v0.2/design.md` and `docs/v0.2/decisions.md` win where they differ, and 0.1's rulings count only as recommendations.
+
 Confirmed rulings. These override the build brief where they differ. Newest last.
 
 **Terminology:** "single player" means one person controlling all 3-4 party seats on one screen. The brief and older issues called this "hot-seat". Online play is the multiplayer mode.

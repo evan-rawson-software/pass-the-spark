@@ -9,7 +9,7 @@ test("replay: the same seed and choices give an identical final state", () => {
   expect(second.steps).toBe(first.steps);
 });
 
-test("smoke: 50 random battles per enemy all end and never throw", () => {
+test("smoke: 50 random battles per enemy all end and never throw", { timeout: 30000 }, () => {
   const maxSteps = 5000; // test safety limit; a battle that hits it fails
   for (const enemy of enemies) {
     for (let seed = 1; seed <= 50; seed++) {

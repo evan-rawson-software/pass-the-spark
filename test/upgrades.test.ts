@@ -23,7 +23,7 @@ test("upgrading both sides of a Strike copy changes only that copy, and a third 
   const right = applyRunChoice(restSite(left), "a", { type: "upgrade", domino: `${copy}+L`, side: "right" }).run;
 
   const upgraded = right.dominoes.find((d) => d.id === `${copy}+L+R`)!;
-  expect(upgraded).toMatchObject({ name: "Ember Strike+", intake: ["Ember", "Tide"], output: [], effect: { kind: "damage", base: 11 } });
+  expect(upgraded).toMatchObject({ name: "Ember Strike+", intake: ["Ember", "Tide"], output: [], effect: { kind: "damage", base: 12 } });
   expect(right.decks.a).toEqual(first.decks.a.map((id) => (id === copy ? `${copy}+L+R` : id)));
   expect(right.dominoes.find((d) => d.id === other)).toEqual(first.dominoes.find((d) => d.id === other)); // the other Strike is untouched
 

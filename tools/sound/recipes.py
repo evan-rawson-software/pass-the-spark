@@ -397,13 +397,45 @@ def _():
     return reverb(lp(mix(*notes), 3000), 2.0, 0.32), "A slow sine arpeggio, C4 G4 C5 E5, each note ringing on, low-passed, long reverb"
 
 
+# ======================================================================================
+# 0.2: the line and the stagger (#277)
+# ======================================================================================
+
+def fire_tail(start, length, seed, gain=0):
+    """A fire whoosh: noise opening up through a rising low-pass, with a few crackles."""
+    roar = voice(NOISE, p_base_freq=0.3, p_freq_ramp=0.06, p_env_attack=sustain(0.08), p_env_sustain=sustain(length * 0.3),
+                 p_env_decay=sustain(length * 0.6), p_lpf_freq=0.25, p_lpf_ramp=0.1, p_hpf_freq=0.05, seed=seed)
+    crackle = [(click(0.03, 0.3, seed=seed + 1 + i, base=0.6 + 0.05 * i), start + 0.07 + i * length / 6, -8 - 2 * (i % 3)) for i in range(5)]
+    return [(roar, start, gain)] + crackle
+
+
+@recipe("combo:line", "pick")
+def _():
+    run = [(voice(SQ, NOTE(step(i), C6), p_duty=0.3, p_env_sustain=0.03, p_env_punch=0.4, p_env_decay=0.12), i * 0.035, -4) for i in range(5)]
+    t = 5 * 0.035
+    chord = [(lead(NOTE(s, C6), 0.45, wave=SQ, vib=0.12), t, -4) for s in (0, 4, 7)] + [(lead(NOTE(12, C6), 0.45, wave=SAW), t, -9)]
+    return reverb(comp(shelf(mix(*run, *chord, *fire_tail(t, 0.7, seed=70, gain=-6), *sparkles(t + 0.05, 0.5, 6, seed=71, quiet=12)), 4000, 2), -18, 3), 1.0, 0.24), \
+        "Jackpot: a quick 5-note square run up from C6 into a held C major chord (C6 E6 G6, a saw C7 on top) with vibrato, a fire whoosh with crackles, a few sparkles, reverb"
+
+
+@recipe("enemy:stagger", "pick")
+def _():
+    a = voice(SQ, NOTE(0, C4) / 4, p_freq_ramp=-0.04, p_duty=0.5, p_vib_strength=0.3, p_vib_speed=0.28,
+              p_env_sustain=sustain(0.25), p_env_decay=sustain(0.3), p_lpf_freq=0.35)
+    b = voice(SQ, NOTE(0, C4) / 4 * 1.03, p_freq_ramp=-0.05, p_duty=0.4, p_vib_strength=0.3, p_vib_speed=0.31,
+              p_env_sustain=sustain(0.25), p_env_decay=sustain(0.3), p_lpf_freq=0.3)
+    thud = voice(NOISE, p_base_freq=0.18, p_env_sustain=0.02, p_env_punch=0.6, p_env_decay=0.22, p_lpf_freq=0.45, seed=78)
+    return reverb(comp(mix((thud, 0, 0), (a, 0.02, -2), (b, 0.02, -4)), -18, 3), 0.45, 0.15), \
+        "Dazed: a dull thud, then two low-passed squares on C2, slightly out of tune with each other, wobbling and sagging, room"
+
+
 # How the picker groups the cues.
 GROUPS = {
     "Placing": ["clack", "hum"],
     "The cascade": ["tick", "junction", "effect:damage", "effect:block", "effect:amplify", "effect:echo", "effect:spectrum",
                     "effect:charm", "fizzle", "lightning", "shake", "slowMotion", "whoosh", "combo:hit", "combo:block",
-                    "combo:tier1", "combo:tier2", "combo:tier3", "combo:tier4", "combo:lethal"],
-    "Enemy reactions": ["lunge", "impact", "enemyHit", "enemyBigHit", "enemyShield", "blockBreak", "heal", "enemyDeath", "bossDeath"],
+                    "combo:tier1", "combo:tier2", "combo:tier3", "combo:tier4", "combo:line", "combo:lethal"],
+    "Enemy reactions": ["lunge", "impact", "enemyHit", "enemyBigHit", "enemy:stagger", "enemyShield", "blockBreak", "heal", "enemyDeath", "bossDeath"],
     "The finale": ["combo:charge", "combo:slam", "combo:slamLethal", "combo:fanfare0", "combo:fanfare1", "combo:fanfare2",
                    "combo:fanfare3", "combo:fanfare4", "combo:fanfareLethal", "combo:coin"],
     "Menus and the run": ["click", "voteRoll", "coins", "buy", "rest"],

@@ -35,23 +35,43 @@ Things automated tests don't cover. Run through what you can at a playtest and n
 - [ ] Host reloads on the map, on a reward screen and in the Trader.
 
 ## Combat
-The board is a tree: the opener is the root, every domino adds branches, and caps end them.
+Everyone builds at the same time on a budget of placements; the cascade goes off when every player is Ready (docs/v0.2/design.md).
 - [ ] The opener goes in the opener slot; after that a domino can only go on an open end whose spark it accepts. Open ends show their spark and the charge arriving there.
-- [ ] Hover or pick a domino: legal ends light up and the preview (charge, and for a cap its value and how many times it goes off) matches what happens in the cascade.
-- [ ] Pass skips your turn this round. When everyone passes in a row, or every end is capped, the cascade goes off by itself. There is no manual set off: the pass that completes the round reads "Pass and fire".
+- [ ] Hover or pick a domino: legal ends light up and each shows that domino's own value there (the charge an amplifier or junction passes on, or a cap's value). No total is ever shown while building.
+- [ ] Every domino on the board shows its own number: the charge on each fuse, and each placed cap's value on the cap. Take one back or place another and the numbers follow.
 - [ ] A junction splits the path into two ends (three with Hall of Mirrors); a junction is refused when it would take the board over the open-end limit.
-- [ ] "If it fires now" (damage, block, coins) follows the board as you build and matches what the cascade then does.
+- [ ] The left column shows "Block if it fires" (the party's block) and the party's health ghost from the intent; the enemy's health bar shows no damage ghost, no skull and no damage total. With `combat.showDamageTotal` set to true in data/presentation.json the old "If it fires now" tally comes back.
+- [ ] The intent card shows the enemy's line under its intent ("Line 120").
 - [ ] Ends left without a cap fizzle: they dim and sputter, and their charge does nothing.
-- [ ] The enemy's intent shows above the board and plays out after the cascade, against the block the party just gained; later intents show under it (two ahead with Spyglass).
+- [ ] The enemy's intent plays out after the cascade, against the block the party just gained; later intents show under it (two ahead with Spyglass).
 - [ ] Block: the party's block from caps protects against the intent that follows and resets at round end; the enemy's block absorbs the next cascade's damage and then resets.
 - [ ] Win in the middle of a cascade: it stops the moment the enemy is at 0 health and the battle ends.
+
+### The new round
+- [ ] Round start: every hand draws up to its hand size (placements + 2: 8 at 2 players, 5 at 4), round 1 too, with the draw animation. A hand of 8, and with Deep Pockets 10, stays a straight row and never overlaps.
+- [ ] Seat tabs: no turn order, no arrows, no LEAD, NEXT or "YOU · NOW" tags and no turn highlight. Each tab shows the name and colour, a pip for each placement that fills as the seat places, a Ready mark, deck and discard, and the hand as small dominoes. Your own tab says YOU.
+- [ ] Your hand is live at any time while you have placements and are not Ready; with no placements left, or while Ready, it is dimmed and can't be dragged.
+- [ ] Take back: your own domino with nothing hanging from it shows a take-back control on hover, and dragging it onto your hand row takes it back; it slides to your hand and the pip empties. A teammate's domino has no control. A junction is offered only when both of its outputs are empty. The opener too, when nothing hangs from it.
+- [ ] Ready: the button reads "Ready", turns green and reads "Not ready" on hover, and "2 of 4 ready" sits beside it. While you are Ready you can't place or take back. A teammate placing or taking back doesn't change your Ready. The cascade goes off when the last player is Ready, and also on an empty board (only the enemy acts). The button is dimmed while a domino is being dragged.
+- [ ] Single player (2, 3 and 4 seats): a click on a seat tab brings that seat's hand to the front, framed in its colour, and placements count against that seat; there is no Pass; one "Fire" button makes every seat Ready and the cascade goes off.
+- [ ] Online, two tabs: both players place at once and each sees the other's domino drop onto the board and the pips fill; both drag onto the same end: the loser's ghost snaps back, their domino is still in their hand, and a short note shows by their hand (only theirs).
+- [ ] Online: toggle Ready on and off; the count follows; the cascade goes off on the last Ready.
+- [ ] Online, a player's tab closes: their tab shows "Waiting for [name]"; after 60 seconds it reads "Ready (away)", the cascade goes off if everyone else is Ready, and the host can click that tab to place, take back and toggle Ready for them. At the next round their seat is Ready again (until they return).
+- [ ] The board camera fits a tree of 12 or more dominoes (Hall of Mirrors, the open-end limit of 4). The skip and playback-speed controls still work.
 
 ### Cascade spectacle
 - [ ] Building: the tree glows brighter and warmer as dominoes and charge pile up, a low hum rises with each play, and the "if it fires now" numbers tick up instead of jumping.
 - [ ] A small tree (3 to 4 dominoes) gives a short, clean cascade: charge runs out from the opener step by step, caps pop their numbers, then a quick tally and the enemy's turn.
 - [ ] A large tree with junctions: each junction splits the glow into both branches at once, amplifiers flare (bigger for bigger changes), Echo and Spectrum have their own flare, and the branches fire together.
 - [ ] Big caps shake the screen; only the very biggest add lightning between dominoes and a brief slow motion. Damage numbers stack up above the enemy's health.
-- [ ] The tally shows the cascade's total damage, block and coins before the enemy acts.
+- [ ] Every domino's hit counts: an amplifier or junction sends a small spark into the combo number (it rolls up and punches, a quieter ping climbs the scale), caps send big ones, and the hit count under the number counts every hit ("11 HITS"). Nothing shows the damage total before the cascade starts.
+- [ ] The line meter: shown empty under the board during the build, with a "line N" marker at about three quarters of its width. During the cascade it fills with the combo total and stops at the end if the total passes about 1.3 times the line.
+- [ ] The number's colour and size step up at 25%, 50% and 75% of the line. Reaching the line sets it on fire with "STAGGERED!", the line cue and a burst on the marker, also when the last hit does it (before the slam).
+- [ ] After the slam, a staggered enemy reels (wobble, cool tint, its own sound) and its intent card shows the attack struck through with the halved value beside it ("20 → 10"); its lunge and the party's hit use the halved value. A cascade under the line: no fire, no reel, the full attack.
+- [ ] A lethal cascade: "LETHAL!" and its bigger moment, and no stagger reel.
+- [ ] Skipping jumps to the final number, the meter state and the stagger result. Reduced flashing and screen shake off tone the line crossing down as they do the tier effects.
+- [ ] A 12-domino cascade takes under about 6 seconds to the slam at 1x, and 20 or more hits stay readable at 4x.
+- [ ] The combo counter shows the cascade's damage and block as it goes off (the total is hidden until then), before the enemy acts.
 - [ ] At 4x playback a large cascade finishes in a few seconds; at 0.5x it is still readable.
 - [ ] Online: every screen plays the same cascade, and a slow screen never holds the others up.
 
@@ -74,7 +94,7 @@ Check once in single player and once online with 4 players.
 - [ ] Combat with 4 players: the charm list in the right column overlaps nothing.
 - [ ] Many charms on one player: the icons don't squeeze into each other.
 - [ ] A charm firing in combat bursts its icon. Lens and Bulwark values match the tooltip and are part of the cap's value, so every extra trigger repeats them.
-- [ ] Deep Pockets raises the hand limit; Early Riser draws one more at round start.
+- [ ] Deep Pockets raises your hand size by 2 and Early Riser by 1 (neither adds placements); the hand refills at round start.
 - [ ] Keystone: each of your amplifiers adds +1 charge after its own change. Overcharge, Resonance and Prism change Double, Echo and Spectrum as their tooltips say.
 - [ ] Spark Starter: your opener adds +1 charge to the branch.
 - [ ] First Echo: only the first cap to go off each round goes off twice. Lightning Rod doubles caps set off by Storm or Void, and stacks with First Echo.
