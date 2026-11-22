@@ -5,7 +5,7 @@ import { reducedFlashing, shakeEnabled } from "./comfort";
 import { fxObject } from "./fx";
 import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { scaleTime } from "./playbackSpeed";
-import { hexColour, reactionData as R } from "./presentation";
+import { hexColour, reactionData as R, spellData } from "./presentation";
 import { playSound } from "./sound";
 
 // The enemy's reactions (#190), all driven by the damage, block, passive and enemyAction events
@@ -125,6 +125,14 @@ export class EnemyReactions {
       { yoyo: true, repeat: wobble ? R.stagger.wobbles : 0, ease: "Quad.easeOut", onComplete: () => this.rest() },
     );
     this.glow(hexColour(stagger ? R.stagger.flashColour : R.flinch.flashColour), stagger ? 0.7 : R.flinch.flashAlpha, this.spot.size * 1.2, k.ms * 2.5);
+  }
+
+  // A spell lands (#265): a small flinch, no sound (the combo number's own ping plays) and no flash.
+  flinch(): void {
+    if (this.dead) return;
+    const k = R.flinch;
+    const f = spellData.flinchFactor;
+    this.move({ x: k.dx * f, y: k.dy * f, rot: 0 }, k.ms, { yoyo: true, ease: "Quad.easeOut", onComplete: () => this.rest() });
   }
 
   // The stagger (#276): after the slam the enemy reels, a wobble and a cool tint, with its own cue.
