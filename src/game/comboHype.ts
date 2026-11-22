@@ -92,6 +92,7 @@ export interface HypeHost {
   partyBlock(): void; // the block lands on the party's block chip
   skipping(): boolean; // the scene is fast-forwarding (a skipped cascade)
   stagger(): void; // the slam is in: the enemy reels, and its intent card shows the halved attack
+  circle: { tier(tier: number): void; beam(): void; rest(now: boolean): void }; // the arcane circle follows the combo's tier (#264)
 }
 
 // A cap's spark on its way: the amounts of its damage or block events join it as they arrive.
@@ -288,12 +289,14 @@ export class ComboHype {
   // The player skipped: sparks in the air land now, and from here the numbers jump (no flights, no
   // build-up effects); the slam then plays short.
   skip(): void {
+    this.host.circle.rest(true); // a skipped cascade leaves the circle at rest
     this.quick = true;
     for (const hit of [...this.flights]) hit.cancel?.();
   }
 
   // Everything away at once (a new round, the scene going).
   clear(): void {
+    this.host.circle.rest(true);
     this.token++;
     this.on = false;
     this.begun = false;
@@ -488,6 +491,7 @@ export class ComboHype {
       }
       this.setNumber("damage", before !== this.tier);
       if (!this.quick) {
+        if (this.tier > before) this.host.circle.tier(this.tier);
         playSound(small ? "combo:hitSmall" : "combo:hit", this.hits.damage);
         if (this.tier > before && !crosses) this.tierJump(this.tier, false); // a hit that reaches the line goes straight to STAGGERED!
       }
@@ -618,6 +622,7 @@ export class ComboHype {
     this.ignite();
     this.meterTo();
     if (this.quick) return;
+    this.host.circle.tier(4);
     this.justCrossed = true;
     this.tierJump(4, this.lethal);
     if (!this.lethal) this.markerBurst();
@@ -631,6 +636,7 @@ export class ComboHype {
     const at = this.centre();
     this.ignite();
     if (this.quick) return;
+    this.host.circle.beam();
     playSound("combo:lethal");
     this.callout(F.word, F.colour, F.size, -(F.dy + D.number.sizes[this.tier] * D.number.hits.dyFactor + D.number.hits.size)); // below the hit count, so the words never reach the seat tabs
     this.ring(at, hexColour(F.colour), F.ringSize, D.tierJump.fxMs);
@@ -808,6 +814,11 @@ export class ComboHype {
   // `quick`: a skipped cascade, a short version at the final numbers.
   async finish(killed: boolean, quick: boolean): Promise<void> {
     if (!this.on) return;
+    await this.slam(killed, quick);
+    this.host.circle.rest(false); // the circle settles back to tier 0
+  }
+
+  private async slam(killed: boolean, quick: boolean): Promise<void> {
     this.on = false;
     const token = this.token;
     if (quick) this.skip();

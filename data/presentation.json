@@ -112,7 +112,7 @@
     "gap": { "startMs": 420, "stepMs": 45, "minMs": 90, "stepFraction": 0.5 },
     "smallHit": { "sparkFactor": 0.55, "arrivalFactor": 0.55, "punchFactor": 0.5 },
     "line": {
-      "scale": 1.3, "widthFraction": 0.42, "h": 18, "dy": 262, "r": 9, "trackColour": "#101010", "trackAlpha": 0.75, "edgeColour": "#f4ecdc", "edgeWidth": 3,
+      "scale": 1.3, "widthFraction": 0.42, "h": 18, "dy": -280, "r": 9, "trackColour": "#101010", "trackAlpha": 0.75, "edgeColour": "#f4ecdc", "edgeWidth": 3,
       "markerColour": "#ffd23f", "markerW": 6, "markerOver": 12, "crossedColour": "#ff8a2a", "labelText": "line", "labelSize": 28, "labelDy": 34, "labelColour": "#ffe9b0",
       "fillMs": 220, "buildAlpha": 0.85, "fadeMs": 300, "holdMs": 450, "ringSize": 320, "burstSize": 260, "fxMs": 520
     },
@@ -196,9 +196,9 @@
     }
   },
   "fuseBoard": {
-    "comment": "Fuse board (#229), read by src/game/fuseBoard.ts. Lengths are px at the board scale (scale, a share of full size) and the whole tree shrinks together (never below minScale) only when it outgrows its area. The owner stripe stays down to detailScale. gap: run between a domino's edge and the next one; rowPitch: distance between branches; ringRadius: the open-end ghost ring; padLeft: space left of the opener inside the area so its socket ring is not clipped; openerCharge: the charge an opener starts with (the engine's start charge, which no view exposes), only to colour a live number red or green on the opener slot; junctionGapX: where a junction's middle output (Hall of Mirrors) leaves, in domino units. fuse: dark under-stroke and spark-colour stroke widths, bend (share of the run used as the curve's handle), the cascade's burnt part (burnWidth, burnAlpha, burnMs at 1x). badge: the charge pill at a fuse's midpoint; nudge lists the places along the fuse (0..1) tried in order until it clears every tile, ring and other badge by clearance. ring: dashed open end, its gold charge badge, the legal highlight (pulse is skipped with reduced flashing); lock: the padlock on a locked end. live: the result bubble beside an end while a hand domino is hovered or dragged (good = at or above its base, bad = below it); dimAlpha for ends it is not aimed at. opener: the empty first slot.",
+    "comment": "Fuse board (#229), read by src/game/fuseBoard.ts. Lengths are px at the board scale (scale, a share of full size) and the whole tree shrinks together (never below minScale; 0.2 keeps the biggest tree, 12 dominoes, inside the arcane circle, #264) only when it outgrows its area. The owner stripe stays down to detailScale. gap: run between a domino's edge and the next one; rowPitch: distance between branches; ringRadius: the open-end ghost ring; padLeft: space left of the opener inside the area so its socket ring is not clipped; openerCharge: the charge an opener starts with (the engine's start charge, which no view exposes), only to colour a live number red or green on the opener slot; junctionGapX: where a junction's middle output (Hall of Mirrors) leaves, in domino units. fuse: dark under-stroke and spark-colour stroke widths, bend (share of the run used as the curve's handle), the cascade's burnt part (burnWidth, burnAlpha, burnMs at 1x). badge: the charge pill at a fuse's midpoint; nudge lists the places along the fuse (0..1) tried in order until it clears every tile, ring and other badge by clearance. ring: dashed open end, its gold charge badge, the legal highlight (pulse is skipped with reduced flashing); lock: the padlock on a locked end. live: the result bubble beside an end while a hand domino is hovered or dragged (good = at or above its base, bad = below it); dimAlpha for ends it is not aimed at. opener: the empty first slot.",
     "scale": 0.6,
-    "minScale": 0.3,
+    "minScale": 0.2,
     "detailScale": 0.4,
     "gap": 62,
     "rowPitch": 90,
@@ -272,8 +272,8 @@
     "tabs": {
       "x": 510, "y": 26, "w": 1380, "h": 166, "gap": 14, "r": 16, "padX": 16,
       "tab": { "fill": "#1d1a22", "stroke": "#4a4358", "strokeWidth": 2, "frameWidth": 4, "readyFill": "#16281d" },
-      "dot": { "dx": 8, "r": 8 },
-      "name": { "dx": 26, "y": 26, "size": 26, "colour": "#f3ead6", "maxW": 150 },
+      "portrait": { "dx": 24 },
+      "name": { "dx": 56, "y": 26, "size": 26, "colour": "#f3ead6", "maxW": 150 },
       "tags": { "y": 26, "h": 24, "size": 14, "gap": 6, "padX": 10, "you": { "fill": "#ffd54a", "text": "#2a2200" }, "ready": { "fill": "#3fae5a", "text": "#06200f" }, "waiting": { "fill": "#3a3744", "text": "#ffd0a0" }, "away": { "fill": "#3a3744", "text": "#9aa3b2" } },
       "pips": { "y": 82, "r": 7, "gap": 6, "emptyAlpha": 0.3, "label": 16, "labelColour": "#b8c4b4" },
       "counts": { "y": 56, "size": 16, "colour": "#b8c4b4", "hoverColour": "#ffe14d" },
@@ -311,5 +311,17 @@
     "tiles": { "scale": 1.5, "w": 128, "h": 140, "pitch": 140, "left": -150, "hatY": -15, "robeY": 175, "labelOffsetY": -95 },
     "lobbyList": { "wizardScale": 1.25, "pitch": 100, "hostTop": 330, "joinTop": 290, "textX": 200, "editX": 1000 },
     "startSeats": { "pitch": 380, "top": 380, "w": 340, "h": 460, "wizardScale": 3, "editY": 400 }
+  },
+  "battleWizards": {
+    "comment": "The wizards and the arcane circle in battle (#264), read by src/game/arcaneCircle.ts, battleWizards.ts and seatTabs.ts. Px on the 1920x1080 table. circle: where the circle sheet's centre stands (x, y; the sheet is drawn at the art scale, data/wizard-art.json), inner: the box the domino tree is fitted into (the fuse board's area; it keeps clear of the wizards on the rim), fadeMs: a tier fading into the next at 1x (through scaleTime), restMs: settling back to tier 0 after a cascade, beamFadeMs: the lethal beam fading in. reduced (reduced flashing): from tier minTier up the circle and the beam are drawn at alpha and their frames last at least minFrameMs, so nothing flickers. spots: the rim spots by party size, in seat order, each as a share of the circle's radius from its centre (x right, y down; the radius is wizard-art.json circle.radius). Wizards at x > 0 face left. wizard: the shadow under the feet (w, h px, layers nested ellipses, alpha each), awayAlpha for an away seat, idleOffsetMs the idle loop's start by seat so they do not bob in step. marker: the YOU arrow over your own wizard (gap above the head, size, bob px and ms, outline). portrait: the seat tab's head and hat (crop is the idle frame's box in art px, scale screen px per art px, size the backing circle's radius).",
+    "circle": { "x": 1200, "y": 530, "inner": { "x": 790, "y": 296, "w": 820, "h": 240 }, "fadeMs": 350, "restMs": 600, "beamFadeMs": 250, "reduced": { "minTier": 3, "alpha": 0.55, "minFrameMs": 160 } },
+    "spots": {
+      "2": [{ "x": -1, "y": 0 }, { "x": 1, "y": 0 }],
+      "3": [{ "x": -1, "y": 0 }, { "x": 1, "y": 0 }, { "x": 0, "y": 1 }],
+      "4": [{ "x": -1, "y": 0 }, { "x": 1, "y": 0 }, { "x": -0.55, "y": 0.84 }, { "x": 0.55, "y": 0.84 }]
+    },
+    "wizard": { "shadow": { "w": 104, "h": 26, "layers": 3, "alpha": 0.14, "dy": -2 }, "awayAlpha": 0.4, "idleOffsetMs": [0, 480, 240, 720] },
+    "marker": { "gap": 14, "size": 22, "bob": 6, "bobMs": 700, "outline": "#101010", "outlineWidth": 4 },
+    "portrait": { "crop": { "x": 6, "y": 0, "w": 36, "h": 32 }, "scale": 1, "r": 22, "backAlpha": 0.35, "ringWidth": 3 }
   }
 }

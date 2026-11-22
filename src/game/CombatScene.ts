@@ -29,6 +29,7 @@ import { scaleTime } from "./playbackSpeed";
 import { SpeedControl } from "./speedControl";
 import { Animator, SKIP_SPEED, animTime, newRefs, paintBar } from "./animations";
 import type { Pos } from "./animations";
+import { BattleWizards } from "./battleWizards";
 import { FuseBoard, boardArea, capTotals, chargesInto, liveNumber } from "./fuseBoard";
 import { HandRow, handArea } from "./handRow";
 import { SetOffPreviewUi } from "./setOffPreview";
@@ -98,6 +99,7 @@ export class CombatScene extends Phaser.Scene {
   private queue: Update[] = []; // online: updates not played back yet
   private draining = false;
   private layer?: Layer;
+  private wizards!: BattleWizards;
   private locked = false; // true while events play back: no input
   private selected: string | null = null; // a clicked hand domino, waiting for an open end
   private board?: FuseBoard; // the fuse board as drawn (fuseBoard.ts)
@@ -171,7 +173,8 @@ export class CombatScene extends Phaser.Scene {
     this.ctx = this.makeCtx();
     this.tabs = new SeatTabs(this.ctx);
     this.anim = new Animator(this);
-    this.anim.buildup.frame = () => boardArea(); // the camera frames the tree to the board's area (data)
+    this.wizards = new BattleWizards(this); // above the circle (the animator made it), under the redrawn layer
+    this.anim.buildup.frame = () => ({ ...combatLayoutData.board }); // the camera frames the tree to the board mat (data); the tree itself is fitted inside the circle (boardArea)
     this.anim.redraw = () => this.redraw(); // the slam redraws the table with the real numbers
     this.locked = false;
     this.selected = null;
@@ -398,6 +401,8 @@ export class CombatScene extends Phaser.Scene {
     this.layer = layer;
     const now = this.view;
     const view = this.shown?.view ?? now;
+    this.anim.syncCircle(view);
+    this.wizards.sync({ seatOrder: view.seatOrder, you: this.online ? this.online.seat : this.frontSeat(), isAway: (seat) => this.online !== null && this.isAway(seat) });
     this.anim.refs = newRefs();
     this.anim.refs.layer = layer;
     this.pingBoxes = new Map();

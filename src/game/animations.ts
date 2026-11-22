@@ -3,6 +3,7 @@ import type { GameEvent } from "../engine/events";
 import type { BattleView } from "../engine/view";
 import { scaleTime } from "./playbackSpeed";
 import { reducedFlashing } from "./comfort";
+import { ArcaneCircle } from "./arcaneCircle";
 import { Buildup } from "./buildup";
 import { playSound, setSoundHushed } from "./sound";
 import { ComboHype } from "./comboHype";
@@ -147,6 +148,8 @@ export class Animator {
   private lastShown?: BattleView; // the table as the last event left it, for the slam
   redraw: () => void = () => {}; // the scene's redraw from the shown table (set by the scene)
   skipping = false; // the player skipped the cascade: slow motion is off and the fast-forward stays on
+  circle: ArcaneCircle; // the arcane circle under the tree, climbing with the combo's tier (#264)
+  private circleRound = -1; // the round the circle's resting variant was picked for
   buildup: Buildup; // pitch, glow and camera (#191)
   hype: ComboHype; // the combo number, tiers, slam and fanfare (#234)
   reactions: EnemyReactions; // the enemy's hit, death and attack reactions (#190)
@@ -167,17 +170,27 @@ export class Animator {
     scene.tweens.timeScale = 1; // a restarted scene never inherits slow motion or a skip
     scene.time.timeScale = 1;
     this.buildup = new Buildup(scene);
+    this.circle = new ArcaneCircle(scene);
     this.hype = new ComboHype(scene, {
       refs: () => this.refs,
       aim: () => this.reactions.where(),
       skipping: () => this.skipping,
       impact: (t) => this.slamImpact(t),
       partyBlock: () => this.landBlock(),
+      circle: { tier: (t) => this.circle.setTier(t), beam: () => this.circle.showBeam(), rest: (now) => this.circle.rest(now) },
       stagger: () => {
         this.redraw(); // the intent card now shows the halved attack
         this.reactions.reel();
       },
     });
+  }
+
+  // The circle's variant for the rest of a round, picked from the enemy and the round (the set-off picks
+  // the cascade's own, from the highest node id too). Called on every redraw; it acts once per round.
+  syncCircle(view: BattleView): void {
+    if (view.round === this.circleRound) return;
+    this.circleRound = view.round;
+    this.circle.pick(view.enemy.id, view.round);
   }
 
   // What the table still holds back until the slam, added to the shown value (comboHype.ts).
@@ -336,6 +349,7 @@ export class Animator {
         this.resetHeat();
         this.inCascade = true;
         this.hype.begin({ ...after.enemy, line: shown.enemy.line });
+        this.circle.pick(shown.enemy.id, shown.round, Math.max(-1, ...shown.board.nodes.map((n) => n.id)));
         this.buildup.begin(refs, shown.board.nodes.length);
         // The whole tree swells with the charge it holds before it goes.
         const glow = boardGlow(shown.board.nodes.length, 0);
