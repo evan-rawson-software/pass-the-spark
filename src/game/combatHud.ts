@@ -21,6 +21,12 @@ const VIGNETTE = "combat-vignette";
 // The strip's top edge: where the table ends.
 export const stripTop = S.y;
 
+// The strip's layout data and its plate, shared with the map screen's strip (#307).
+export const stripLayout = S;
+export function drawStripPlate(g: Phaser.GameObjects.Graphics, edge?: string): void {
+  drawPlate(g, S.plate.x, S.y, S.plate.w, S.plate.h, edge);
+}
+
 // The table picture, sharp (it is drawn at x3 with nearest-neighbour filtering), then a soft dark edge over it.
 // With no picture, a code-drawn table.
 export function drawBackdrop(scene: Phaser.Scene): void {
@@ -68,7 +74,7 @@ export interface StripState {
 export function drawStrip(ctx: CombatCtx, layer: Layer, view: BattleView, s: StripState): void {
   const scene = ctx.scene;
   const g = ctx.gfx(layer);
-  drawPlate(g, S.plate.x, S.y, S.plate.w, S.plate.h, s.edge ?? undefined);
+  drawStripPlate(g, s.edge ?? undefined);
 
   // The party: label, health bar, block, and the round under them.
   const P = S.party;

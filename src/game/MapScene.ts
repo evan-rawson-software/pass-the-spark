@@ -8,32 +8,39 @@ import { content } from "./devBattle";
 import { scaleTime } from "./playbackSpeed";
 import { playRunEventSounds } from "./sound";
 import { playVoteRoll } from "./voteRoll";
-import { drawPartyHud, drawWaitingFor } from "./partyHud";
-import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
+import { drawPartyCharms } from "./charmUi";
+import { openDeckViewer, runDeckPlayers } from "./deckViewer";
+import { drawMapStrip } from "./mapStrip";
+import { setMenuButtonSpot } from "./menuButton";
+import { drawBackdrop } from "./combatHud";
+import { drawPlate } from "./kit";
+import { currentRun, isOnlineRun, myPending, openRunScreen, seatNames, setRun, submitRunChoice, watchRun } from "./runSession";
 import { bossTip } from "./bossInfo";
 import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
-import { coinLine } from "./coinIcon";
 import { Tooltip } from "./tooltip";
 import { seatColour } from "./seatColours";
-import { drawBackground, label } from "./ui";
+import { label } from "./ui";
 import { fontRole } from "./fonts";
+import wizardArt from "../../data/wizard-art.json";
+import enemyArt from "../../data/enemy-art.json";
 import { hexColour } from "./presentation";
 
-// The map screen (#51, #306). The whole act on one sheet of paper, floors left to right and the
-// boss at the right end. Roads are dotted trails; the road the party took is solid and the roads
+// The map screen (#51, #306, #307). The whole act on a scroll lying on the tavern table, floors left to right and the
+// boss standing at the right end. Roads are dotted trails; the road the party took is solid and the roads
 // it can take now are gold. Stops that can be picked now are larger, gold and pulse; stops the
 // party can no longer reach are faded (the engine's reachableStops says which); visited stops carry
 // a tick. Which stops are pickable, the tally and the weighted draw come from the run engine; this
 // screen only draws them and sends the vote.
 // In single player the screen asks once, sends that pick as every seat's vote and opens the chosen
-// stop straight away. Online (#49) every player votes at once on their own screen; the votes appear
-// on the map as the host reports them, and when the last one is in everyone sees the winner (and
+// stop straight away. Online (#49) every player votes at once on their own screen; each vote is a flag
+// in the voter's colour on the stop, shown as the host reports it, and when the last one is in everyone sees the winner (and
 // the draw odds).
 
 const M = presentation.map;
 const INK = hexColour(M.ink);
 const GOLD = hexColour(M.gold);
 const ART_PX = 24; // the stop icons are 24 art pixels across (#300)
+const U = presentation.kit.unit; // the grid the scroll, the flags and the kit are drawn on
 
 const LEGEND: RunNodeType[] = ["fight", "elite", "rest", "trader", "event"];
 
@@ -69,6 +76,17 @@ function nodeY(g: Geometry, floor: number, index: number): number {
   return M.centreY + (index - (g.rows[floor - 1] - 1) / 2) * g.gapY;
 }
 
+// A flag in whole grid pixels: a pole standing on (x, baseY) with a pennant at its top in `colour`, outlined in ink.
+function drawFlag(g: Phaser.GameObjects.Graphics, x: number, baseY: number, colour: number): void {
+  const F = M.flag;
+  const top = baseY - F.poleRows * U;
+  g.fillStyle(hexColour(F.outline), 1);
+  g.fillRect(x, top, U, F.poleRows * U);
+  g.fillRect(x + U, top, F.pennantW * U, F.pennantH * U);
+  g.fillStyle(colour, 1);
+  g.fillRect(x + 2 * U, top + U, (F.pennantW - 2) * U, (F.pennantH - 2) * U);
+}
+
 export class MapScene extends Phaser.Scene {
   private run!: RunState;
   private voteLayer!: Phaser.GameObjects.Container;
@@ -81,6 +99,8 @@ export class MapScene extends Phaser.Scene {
 
   create(): void {
     this.resolving = false;
+    setMenuButtonSpot(M.strip.menu); // the menu button sits in the bottom strip while this screen is up
+    this.events.once("shutdown", () => setMenuButtonSpot(null));
     this.build();
   }
 
@@ -92,25 +112,21 @@ export class MapScene extends Phaser.Scene {
     this.run = run;
     this.geo = geometry(run);
     const pending = myPending(run);
-    drawBackground(this, "map");
-    const p = M.paper;
-    const sheet = this.add.graphics();
-    sheet.fillStyle(hexColour(p.fill), 1);
-    sheet.fillRect(p.x, p.y, p.w, p.h);
-    sheet.lineStyle(p.edgeW, hexColour(p.edge), 1);
-    sheet.strokeRect(p.x, p.y, p.w, p.h);
-    drawPartyHud(this, run, M.ink);
+    drawBackdrop(this);
+    this.drawScroll();
+    // The party's charms stay along the top until the cards issue moves them into the strip.
+    drawPartyCharms(this, run.players, seatNames(), run.charms, (seat) => openDeckViewer(this, runDeckPlayers(run), seat));
     const online = isOnlineRun();
     label(this, M.titleX, M.titleY, `Act ${run.actIndex + 1} of ${run.content.run.acts.length}`, M.text.title, { color: M.ink });
     label(this, M.titleX, M.promptY, online ? "Vote for the next stop" : "Choose the next stop", M.text.prompt, { color: M.inkDim });
-    if (online && pending === null) drawWaitingFor(this, run, M.titleX, M.winnerY, 0, M.ink);
 
     const options = pending?.type === "vote" ? pending.options : [];
     const reach = this.reachable(run);
     this.drawRoads(run, options, reach);
     this.drawStops(run, options, reach, pending?.type === "vote" ? pending.player : null);
     this.drawBoss(run);
-    this.drawFooter(run);
+    this.drawLegend();
+    drawMapStrip(this, run);
     this.voteLayer = this.add.container(0, 0);
     this.drawVotes(run.votes);
     // A run update with the winner in it: show it, then go on (the votes before it just redraw the map).
@@ -128,6 +144,23 @@ export class MapScene extends Phaser.Scene {
       },
       busy: () => this.resolving,
     });
+  }
+
+  // The scroll lying on the table, at x3 like the rest of the pixel art. With no picture, a flat sheet on its drawable part.
+  private drawScroll(): void {
+    const S = M.scroll;
+    const key = `art/${S.art}`;
+    if (this.textures.exists(key)) {
+      this.add.image(S.x, S.y, key).setOrigin(0, 0).setScale(U);
+      return;
+    }
+    const [ax, ay, aw, ah] = wizardArt.scroll.mapArea;
+    const p = M.paper;
+    const sheet = this.add.graphics();
+    sheet.fillStyle(hexColour(p.fill), 1);
+    sheet.fillRect(S.x + ax * U, S.y + ay * U, aw * U, ah * U);
+    sheet.lineStyle(p.edgeW, hexColour(p.edge), 1);
+    sheet.strokeRect(S.x + ax * U, S.y + ay * U, aw * U, ah * U);
   }
 
   // The stops the party can still reach, from the engine. At the start of an act every floor 1 stop
@@ -231,7 +264,7 @@ export class MapScene extends Phaser.Scene {
         if (pick) {
           this.tweens.add({ targets: holder, scale: M.pulse.scale, duration: M.pulse.ms, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
           if (voter !== null) {
-            const hit = this.add.circle(x, y, r + 6, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
+            const hit = this.add.circle(x, y, r + M.hit.pad, hexColour(M.hit.colour), M.hit.alpha).setInteractive({ useHandCursor: true });
             hit.on("pointerup", () => this.castVote(voter, node.index));
           }
         }
@@ -261,10 +294,43 @@ export class MapScene extends Phaser.Scene {
     label(this, x, top - M.hereRise - 12, "You are here", M.text.small, { origin: 0.5, color: M.ink });
   }
 
-  // The boss stands at the end of the road from the start, with its name and its rule.
+  // The boss stands at the end of the road from the start, as its sprite with its name on a plate and its rule under
+  // it. The road ends at a gate disc with the boss icon, in front of it; "You are here" goes on it when the party stands there.
   private drawBoss(run: RunState): void {
     const geo = this.geo;
+    const B = M.boss;
     const boss = content.enemies.find((e) => e.id === run.map.bossId);
+    const tip = new Tooltip(this);
+    const lines = bossTip(boss, boss ? enemyStartingHealth(content.config, boss, run.players.length) : 0);
+    const targets: Phaser.GameObjects.GameObject[] = [];
+
+    // The sprite stands on the scroll with a soft shadow, facing the party.
+    const art = (enemyArt.enemies as Record<string, { w: number; h: number }>)[run.map.bossId];
+    const key = `art/enemies/${run.map.bossId}`;
+    if (art && this.textures.exists(key)) {
+      const sh = this.add.graphics();
+      for (let i = 0; i < B.shadow.layers; i++) {
+        sh.fillStyle(hexColour(B.shadow.colour), B.shadow.alpha / B.shadow.layers);
+        sh.fillEllipse(B.x, B.feetY, art.w * B.scale * B.shadow.w * (1 - i / (B.shadow.layers + 1)), B.shadow.h * (1 - i / (B.shadow.layers + 1)));
+      }
+      targets.push(this.add.image(B.x, B.feetY, key).setOrigin(0.5, 1).setScale(B.scale).setInteractive());
+    }
+
+    // Its name on a kit plate.
+    const name = label(this, B.x, 0, boss?.name ?? run.map.bossId, B.plateSize, { origin: 0.5, color: B.plateColour });
+    const plateW = Math.ceil(name.width / U) + 2 * B.platePadX;
+    const plateY = B.feetY + B.plateGap;
+    const plate = this.add.graphics();
+    drawPlate(plate, B.x - (plateW * U) / 2, plateY, plateW, B.plateHeight);
+    this.children.moveBelow(plate, name);
+    name.setY(Math.round(plateY + (B.plateHeight * U) / 2));
+    const rule = (boss?.passives ?? []).map((p) => `${p.name}: ${p.text ?? ""}`).join("\n") || "No passive";
+    const text = this.add
+      .text(B.x, plateY + B.plateHeight * U + M.bossRuleGap, rule, { ...fontRole(M.text.small), color: M.inkDim, wordWrap: { width: M.bossRuleWrap }, align: "center" })
+      .setOrigin(0.5, 0);
+    targets.push(name, text);
+
+    // The gate disc at the road's end.
     const r = M.bossR * geo.fit;
     const g = this.add.graphics();
     this.add.container(M.bossX, M.centreY, [g]);
@@ -274,20 +340,12 @@ export class MapScene extends Phaser.Scene {
     g.strokeCircle(0, 0, r);
     drawNodeIcon(g, "boss", 0, 0, (ART_PX * M.bossIconScale * geo.fit) / 2);
     if (run.position?.floor === geo.floors + 1) this.drawHere(M.bossX, M.centreY - r);
-    const name = label(this, M.bossX, M.bossNameY, boss?.name ?? run.map.bossId, M.text.small, { origin: 0.5, color: M.ink });
-    const rule = (boss?.passives ?? []).map((p) => `${p.name}: ${p.text ?? ""}`).join("\n") || "No passive";
-    const text = this.add
-      .text(M.bossX, M.centreY + r + M.bossRuleGap, rule, { ...fontRole(M.text.small), color: M.inkDim, wordWrap: { width: M.bossRuleWrap }, align: "center" })
-      .setOrigin(0.5, 0);
-    const tip = new Tooltip(this);
-    const lines = bossTip(boss, boss ? enemyStartingHealth(content.config, boss, run.players.length) : 0);
-    const hit = this.add.circle(M.bossX, M.centreY, r, 0, 0);
-    for (const target of [name, text, hit]) tip.attachLines(target, lines);
+    targets.push(this.add.circle(M.bossX, M.centreY, r + M.hit.pad, hexColour(M.hit.colour), M.hit.alpha));
+    for (const target of targets) tip.attachLines(target, lines);
   }
 
-  // One line along the bottom: what each stop type is, then the players and their coins.
-  private drawFooter(run: RunState): void {
-    const g = this.add.graphics();
+  // One line along the bottom of the scroll: what each stop type is.
+  private drawLegend(): void {
     const half = M.legendIcon / 2;
     let x = M.titleX;
     LEGEND.forEach((type) => {
@@ -301,20 +359,10 @@ export class MapScene extends Phaser.Scene {
       const t = label(this, x + M.legendIcon + 14, M.legendY, NODE_STYLE[type].name, M.text.small, { color: M.ink });
       x += M.legendIcon + 14 + t.width + M.legendGap;
     });
-    const online = isOnlineRun();
-    run.players.forEach((id, i) => {
-      const px = M.playersX + i * M.playersGap;
-      g.fillStyle(seatColour(run.players, id), 1);
-      g.fillCircle(px + 12, M.playersY, 12);
-      g.lineStyle(2, INK, 1);
-      g.strokeCircle(px + 12, M.playersY, 12);
-      const state = online && run.phase === "vote" ? (run.votes[id] === undefined ? " (voting)" : " (voted)") : "";
-      const name = label(this, px + 32, M.playersY, seatName(id) + state, M.text.small, { color: M.ink });
-      coinLine(this, px + 32 + name.width + 12, M.playersY, [run.coins[id] ?? 0], M.text.small, { color: M.ink, origin: 0 });
-    });
   }
 
-  // One marker per vote on the stop it was cast for, in the player's colour with their seat number.
+  // One flag per vote on the stop it was cast for, in the voter's colour, planted on the top of the stop; several
+  // stand side by side. They stay up while the winner is shown and the tie rolls.
   private drawVotes(votes: Record<string, number>): void {
     this.voteLayer.removeAll(true);
     const floor = (this.run.position?.floor ?? 0) + 1;
@@ -324,16 +372,15 @@ export class MapScene extends Phaser.Scene {
       const node = votes[id];
       if (node !== undefined) (byNode[node] ??= []).push(id);
     }
+    const g = this.add.graphics();
+    this.voteLayer.add(g);
+    const F = M.flag;
     for (const [node, ids] of Object.entries(byNode)) {
       const x = colX(this.geo, floor);
       const y = row ? nodeY(this.geo, floor, Number(node)) : M.centreY;
-      ids.forEach((id, k) => {
-        const mx = x + (k - (ids.length - 1) / 2) * (M.voteDot * 2 + 4);
-        const my = y + (M.pickR + 14 + M.voteDot) * this.geo.fit;
-        const dot = this.add.circle(mx, my, M.voteDot, seatColour(this.run.players, id)).setStrokeStyle(3, INK);
-        const text = this.add.text(mx, my, String(this.run.players.indexOf(id) + 1), { ...fontRole(M.text.small), color: M.ink }).setOrigin(0.5);
-        this.voteLayer.add([dot, text]);
-      });
+      const top = y - (row ? M.pickR : M.bossR) * this.geo.fit; // the stop's top edge
+      const width = ((ids.length - 1) * F.pitch + F.pennantW + 1) * U;
+      ids.forEach((id, k) => drawFlag(g, Math.round((x - width / 2) / U) * U + k * F.pitch * U, Math.round((top + F.sink * U) / U) * U, seatColour(this.run.players, id)));
     }
   }
 
@@ -372,7 +419,7 @@ export class MapScene extends Phaser.Scene {
       if (chosen.drawn) {
         const total = Object.values(chosen.counts).reduce((a, b) => a + b, 0);
         const odds = Math.round((100 * (chosen.counts[chosen.index] ?? 0)) / total);
-        label(this, M.winnerX, M.drawnY, `Drawn: ${nodeName}, ${odds}%`, M.text.prompt, { color: M.drawnInk });
+        label(this, M.drawnX, M.drawnY, `Drawn: ${nodeName}, ${odds}%`, M.text.prompt, { color: M.drawnInk });
       }
       this.time.delayedCall(scaleTime(1800), () => {
         openRunScreen(this);

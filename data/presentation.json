@@ -1,57 +1,176 @@
 {
   "_comment": "Cascade spectacle (#187), read by screen code only. A heat tier is on once the cascade has lit minNodes dominoes or a cap of at least minCap (its value per trigger, from the capFired event) has gone off; the last tier on sets the colour and how many sparks trail each flow. While building, the same tiers read the board's node count and the biggest charge on an open end. Tier colours are 0xRRGGBB strings.",
   "map": {
-    "_comment": "The map screen (#306, M1). Everything on one paper sheet, floors left to right, the boss at the right end. Positions are screen pixels at 1920x1080. Stop discs: radius `stopR`, or `pickR` when the stop can be picked now; the 24 art pixel icon is drawn at `iconScale` times its size (whole numbers keep the pixels sharp). Roads are dots every `dotGap` pixels along a gentle curve; the road taken is a solid line. The paper is flat until the scroll (#307).",
-    "paper": { "x": 30, "y": 30, "w": 1860, "h": 1020, "fill": "#e9dbb5", "edge": "#7a5a2e", "edgeW": 6 },
+    "_comment": "The map screen (#306 M1, #307 M2). The table picture, then the scroll lying on it (data/wizard-art.json `scroll` has its size and mapArea, the part you can draw on), then the map on the scroll. Positions are screen pixels at 1920x1080. Stop discs: radius `stopR`, or `pickR` when the stop can be picked now; the 24 art pixel icon is drawn at `iconScale` times its size (whole numbers keep the pixels sharp). Roads are dots every `dotGap` pixels along a gentle curve; the road taken is a solid line. The boss stands to the right of the road's end (`boss`). A vote is a flag (`flag`, in grid pixels of kit.unit). The bottom strip is the combat screen's (combatLayout.strip) with the players on it (`strip`). `paper` is only the stand-in for a missing scroll picture.",
+    "paper": {
+      "fill": "#e9dbb5",
+      "edge": "#7a5a2e",
+      "edgeW": 6
+    },
     "ink": "#3a2a1a",
     "inkDim": "#6e5a3c",
     "gold": "#d99a00",
     "goldFill": "#f6dc7a",
     "discFill": "#f8efd3",
     "goodInk": "#2f7a4a",
-    "firstX": 130,
-    "bossX": 1740,
-    "centreY": 560,
+    "firstX": 190,
+    "bossX": 1440,
+    "centreY": 490,
     "maxGapY": 150,
-    "spanY": 560,
+    "spanY": 380,
     "stopR": 32,
     "pickR": 42,
-    "bossR": 54,
+    "bossR": 40,
     "iconScale": 2,
     "pickIconScale": 3,
     "bossIconScale": 3,
     "discEdgeW": 4,
     "pickEdgeW": 6,
     "fadedAlpha": 0.35,
-    "pulse": { "scale": 1.1, "ms": 650 },
+    "hit": {
+      "pad": 6,
+      "colour": "#ffffff",
+      "alpha": 0.001
+    },
+    "pulse": {
+      "scale": 1.1,
+      "ms": 650
+    },
     "dotGap": 14,
     "dotSize": 4,
     "dotAlpha": 0.6,
     "goldDotSize": 7,
     "takenWidth": 6,
     "fadedRoadAlpha": 0.25,
-    "tick": { "size": 12, "offset": 0.75 },
+    "tick": {
+      "size": 12,
+      "offset": 0.75
+    },
     "hereRise": 22,
-    "titleX": 80,
-    "titleY": 90,
-    "promptY": 150,
-    "floorNumberY": 880,
-    "bossNameY": 340,
+    "titleX": 140,
+    "titleY": 150,
+    "promptY": 196,
+    "floorNumberY": 754,
     "bossRuleWrap": 230,
     "bossRuleGap": 16,
-    "legendY": 950,
+    "legendY": 795,
     "legendGap": 40,
     "legendIcon": 24,
-    "playersY": 1005,
-    "playersX": 80,
-    "playersGap": 330,
-    "winnerX": 80,
-    "winnerY": 205,
-    "drawnY": 245,
-    "voteDot": 15,
+    "winnerX": 700,
+    "winnerY": 150,
+    "drawnY": 196,
     "winnerRing": "#2f9a5a",
     "drawnInk": "#a8421c",
-    "text": { "title": 56, "prompt": 24, "small": 24 }
+    "text": {
+      "title": 56,
+      "prompt": 24,
+      "small": 24
+    },
+    "scroll": {
+      "art": "map/scroll",
+      "x": 3,
+      "y": 54
+    },
+    "drawnX": 700,
+    "boss": {
+      "scale": 2,
+      "x": 1640,
+      "feetY": 560,
+      "plateGap": 14,
+      "plateSize": 24,
+      "plateColour": "#ffffff",
+      "plateHeight": 14,
+      "platePadX": 4,
+      "shadow": {
+        "colour": "#000000",
+        "w": 0.8,
+        "h": 28,
+        "layers": 3,
+        "alpha": 0.25
+      }
+    },
+    "flag": {
+      "poleRows": 13,
+      "pennantW": 7,
+      "pennantH": 5,
+      "pitch": 9,
+      "sink": 2,
+      "outline": "#3a2a1a"
+    },
+    "strip": {
+      "plates": {
+        "x": 470,
+        "y": 906,
+        "w": 72,
+        "h": 36,
+        "gap": 9
+      },
+      "portrait": {
+        "dx": 36,
+        "dy": 54
+      },
+      "name": {
+        "dx": 74,
+        "dy": 26,
+        "size": 24,
+        "colour": "#ffffff",
+        "letters": 9,
+        "padRight": 12
+      },
+      "coins": {
+        "dy": 58,
+        "size": 24,
+        "colour": "#ffe9b0"
+      },
+      "tag": {
+        "dy": 88,
+        "size": 24,
+        "voted": {
+          "text": "voted",
+          "colour": "#7fe3a0"
+        },
+        "choosing": {
+          "text": "choosing",
+          "colour": "#cfe9dc"
+        }
+      },
+      "blessing": {
+        "x": 30,
+        "y": 1034,
+        "r": 14,
+        "gap": 22,
+        "size": 24,
+        "colour": "#ffe14d"
+      },
+      "menu": {
+        "x": 410,
+        "y": 1034
+      },
+      "right": {
+        "x": 1400,
+        "y": 914,
+        "rowH": 34,
+        "rowPad": 6,
+        "wrap": 480,
+        "size": 24,
+        "colour": "#cfe9dc",
+        "waitColour": "#ffe14d",
+        "playingColour": "#ffe14d",
+        "pauseColour": "#ffd0cc"
+      },
+      "button": {
+        "x": 1740,
+        "y": 1052
+      },
+      "text": {
+        "voted": "have voted",
+        "of": "of",
+        "waiting": "Waiting for",
+        "playing": "Playing for",
+        "reconnect": "to reconnect...",
+        "playFor": "Play for"
+      }
+    }
   },
   "tiers": [
     { "minNodes": 1, "minCap": 1, "color": "0xfff2c2" },
