@@ -5,6 +5,7 @@ import type { BattleView } from "../engine/view";
 import { combatData, combatLayoutData, hexColour } from "./presentation";
 import { enemies } from "./devBattle";
 import type { ColumnLayout } from "./columnLayout";
+import { fontRole } from "./fonts";
 
 // The "Block if it fires" tile in the left column (#231, B8): the block the party would gain. Every
 // number is from the engine (previewBuild, the same call that puts the ghost on the party's health
@@ -14,14 +15,13 @@ import type { ColumnLayout } from "./columnLayout";
 // Layout only.
 
 const D = combatLayoutData.tally;
-const FONT = "Arial, Helvetica, sans-serif";
 
 type Pulse = (o: Phaser.GameObjects.Graphics, low: number, high: number, ms: number) => void;
 
 // `p` null (a step is playing, or the battle is over) shows the tiles empty.
 export function drawTally(scene: Phaser.Scene, into: Phaser.GameObjects.Container, view: BattleView, p: SetOffPreview | null, b: BuildPreview | null, col: ColumnLayout, pulse: Pulse): void {
   const text = (x: number, y: number, str: string, size: number, colour: string, originX = 0.5, spacing = 0): Phaser.GameObjects.Text => {
-    const t = scene.add.text(x, y, str, { fontFamily: FONT, fontSize: `${size}px`, color: colour, fontStyle: "bold" }).setOrigin(originX, 0.5);
+    const t = scene.add.text(x, y, str, { ...fontRole(size), color: colour }).setOrigin(originX, 0.5);
     if (spacing) t.setLetterSpacing(spacing);
     into.add(t);
     return t;
@@ -82,7 +82,7 @@ export function drawTally(scene: Phaser.Scene, into: Phaser.GameObjects.Containe
   into.add(row);
   let x = 0;
   const part = (str: string, colour: string): void => {
-    const t = scene.add.text(x, 0, str, { fontFamily: FONT, fontSize: `${Ln.size}px`, color: colour, fontStyle: "bold" }).setOrigin(0, 0.5);
+    const t = scene.add.text(x, 0, str, { ...fontRole(Ln.size), color: colour }).setOrigin(0, 0.5);
     row.add(t);
     x += t.width;
   };

@@ -2,7 +2,8 @@ import Phaser from "phaser";
 import type { Client } from "../net/client";
 import { REFUSED_BUILD } from "../net/protocol";
 import { relay } from "./relay";
-import { button, FONT } from "./ui";
+import { button } from "./ui";
+import { fontRole } from "./fonts";
 
 // Client only: tells the player when the link to the host is lost, and offers the way out when the
 // host is gone for good. The client reconnects by itself (see net/client.ts).
@@ -14,7 +15,7 @@ export function watchLink(scene: Phaser.Scene, client: Client | null | undefined
     objects.length = 0;
     if (relay.link === "ok" && relay.refused === null) return;
     const text = (y: number, s: string, size: number) =>
-      scene.add.text(960, y, s, { fontFamily: FONT, fontSize: `${size}px`, color: "#ffd0cc", fontStyle: "bold", backgroundColor: "#0d2a20", padding: { x: 24, y: 10 } }).setOrigin(0.5).setDepth(2000);
+      scene.add.text(960, y, s, { ...fontRole(size), color: "#ffd0cc", backgroundColor: "#0d2a20", padding: { x: 24, y: 10 } }).setOrigin(0.5).setDepth(2000);
     if (relay.refused !== null) {
       // The host turned us away when we came back (for example, the page was updated meanwhile).
       objects.push(scene.add.rectangle(960, 540, 1920, 1080, 0x000000, 0.6).setDepth(1999).setInteractive());

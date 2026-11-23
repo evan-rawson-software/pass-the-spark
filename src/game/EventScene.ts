@@ -23,6 +23,7 @@ import { drawTollBridge } from "./tollBridgeArt";
 import { drawWell, drawWellStage, prizeText } from "./wishingWellUi";
 import { seatColour } from "./seatColours";
 import { button, drawBackground, label } from "./ui";
+import { fontRole } from "./fonts";
 
 // The event screen (#87), used by every event. Illustration (drawn in code, one per event) on the
 // left; title, story text and choices on the right. The story text comes from data/events.json and
@@ -163,7 +164,7 @@ export class EventScene extends Phaser.Scene {
     const data = eventData(run, event.id);
     this.drawIllustration(event.id);
     label(this, TEXT_X, 90, data.name, 56, { bold: true });
-    const text = this.add.text(TEXT_X, 150, data.text, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: "30px", color: "#cfe9dc", wordWrap: { width: 920 } });
+    const text = this.add.text(TEXT_X, 150, data.text, { ...fontRole(30), color: "#cfe9dc", wordWrap: { width: 920 } });
     if (event.kind === "vote") this.drawVote(run, event, 150 + text.height + 30);
     else if (event.kind === "personal") this.drawPersonal(run, event, 150 + text.height + 30);
     else if (event.giant) this.drawGiantTurn(run, event, data, 150 + text.height + 30);

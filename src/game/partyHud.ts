@@ -8,7 +8,8 @@ import { artImage } from "./art";
 import { drawBlessedGlow } from "./sparkShrineArt";
 import { drawSparkGlyph } from "./dominoDrawing";
 import { drawPartyCharms } from "./charmUi";
-import { FONT, button, label } from "./ui";
+import { button, label } from "./ui";
+import { fontRole, tabularDigits } from "./fonts";
 
 // Shared HUD for the run screens (#50): the party's health, top right, and a header that says
 // what the screen is and whose choice it is. The combat table draws the same bar itself
@@ -26,9 +27,7 @@ export function drawPartyHud(scene: Phaser.Scene, run: RunState): void {
     g.fillRoundedRect(x, 68, Math.max(17, 190 * f), 34, 17);
   }
   artImage(scene, "ui/health", x - 18, 85, 30, 30);
-  scene.add
-    .text(x + 95, 85, `${run.health} / ${run.maxHealth}`, { fontFamily: FONT, fontSize: "20px", color: "#ffffff", fontStyle: "bold" })
-    .setOrigin(0.5);
+  tabularDigits(scene.add.text(x + 95, 85, `${run.health} / ${run.maxHealth}`, { ...fontRole(20), color: "#ffffff" })).setOrigin(0.5);
   // The Spark Shrine's blessing, until the act's boss fight is over.
   if (run.blessing) {
     const bg = scene.add.graphics();
@@ -49,7 +48,7 @@ function drawPause(scene: Phaser.Scene): void {
   const paused = relay.paused;
   const online = onlineRun();
   if (!online || !paused || paused.waitingFor === null) return;
-  const style = { fontFamily: FONT, fontSize: "30px", color: "#ffd0cc", fontStyle: "bold", backgroundColor: "#0d2a20", padding: { x: 24, y: 10 } };
+  const style = { ...fontRole(30), color: "#ffd0cc", backgroundColor: "#0d2a20", padding: { x: 24, y: 10 } };
   scene.add.text(online.host && paused.playFor ? 700 : 960, 1048, `Waiting for ${paused.waitingFor} to reconnect...`, style).setOrigin(0.5).setDepth(900);
   const seat = paused.playFor;
   const host = online.host;

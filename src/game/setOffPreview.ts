@@ -3,6 +3,7 @@ import type { BattleView } from "../engine/view";
 import { hexColour, setOffPreviewData as D } from "./presentation";
 import { reducedFlashing } from "./comfort";
 import type { Refs } from "./animations";
+import { fontRole } from "./fonts";
 
 // The build preview drawn over the party's bar and shield (#222, B8): the block the whole board would
 // give and the health the party would still lose to the intent's full attack (the engine's previewBuild, which
@@ -35,7 +36,7 @@ export class SetOffPreviewUi {
     const g = s.add.graphics();
     into.add(g);
     const text = (x: number, y: number, str: string, colour: string, size: number, originX = 0.5) =>
-      into.add(s.add.text(x, y, str, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${size}px`, color: colour, fontStyle: "bold", strokeThickness: D.text.strokeThickness, stroke: D.text.strokeColour }).setOrigin(originX, 0.5));
+      into.add(s.add.text(x, y, str, { ...fontRole(size), color: colour, strokeThickness: D.text.strokeThickness, stroke: D.text.strokeColour }).setOrigin(originX, 0.5));
 
     // Party: block gained, health lost to what the intent still does after block (or safe).
     const sh = ps;

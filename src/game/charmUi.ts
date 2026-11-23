@@ -4,6 +4,7 @@ import type { Charm } from "../engine/types";
 import { artImage } from "./art";
 import { Tooltip } from "./tooltip";
 import { label } from "./ui";
+import { fontRole } from "./fonts";
 
 // Charm icons (#108): small code-drawn placeholders. Normal charms are round, rare ones are gold
 // diamonds; the colour comes from the charm's place in the data. No rules here: names, descriptions
@@ -52,7 +53,7 @@ export function charmIcon(scene: Phaser.Scene, charm: Charm, size: number): Phas
   }
   if (framed) g.destroy();
   const letter = scene.add
-    .text(0, 0, charm.name.charAt(0), { fontFamily: "Arial, Helvetica, sans-serif", fontSize: `${Math.round(size * 0.62)}px`, color: "#ffffff", fontStyle: "bold", stroke: "#1a1a1a", strokeThickness: Math.max(3, Math.round(size / 7)) })
+    .text(0, 0, charm.name.charAt(0), { ...fontRole(Math.round(size * 0.62)), color: "#ffffff", stroke: "#1a1a1a", strokeThickness: Math.max(3, Math.round(size / 7)) })
     .setOrigin(0.5);
   const c = scene.add.container(0, 0, [framed ?? g, letter]);
   c.setSize(size, size);
@@ -92,7 +93,7 @@ export function drawPartyCharms(scene: Phaser.Scene, seats: string[], names: Rec
   const colW = Math.min(200, 470 / Math.max(1, seats.length));
   seats.forEach((id, i) => {
     const x = left + i * colW;
-    const name = label(scene, x, 42, shorten(names[id] ?? id, Math.floor(colW / 11)), 20, { bold: true, color: "#9fd1b8" });
+    const name = label(scene, x, 42, shorten(names[id] ?? id, Math.floor(colW / 15)), 20, { bold: true, color: "#9fd1b8" });
     if (onName) name.setInteractive({ useHandCursor: true }).on("pointerdown", () => onName(id));
     drawCharmRow(scene, tooltip, charmsByIds(held[id] ?? []), x, 78, 26, colW - 12);
   });

@@ -1,12 +1,12 @@
 import Phaser from "phaser";
 import { artBackground } from "./art";
 import { playSound } from "./sound";
+import { fontRole, inputFont } from "./fonts";
 
 // Small helpers for the placeholder online screens (menu, lobby, join).
 
-export const FONT = "Arial, Helvetica, sans-serif";
-export const INPUT_STYLE =
-  "width:300px;height:44px;font:28px Arial,Helvetica,sans-serif;padding:0 12px;box-sizing:border-box;border-radius:8px;border:2px solid #2f7a5b;background:#f4ecd8;color:#222";
+// Typed inputs are page elements, so they take the font through CSS.
+export const INPUT_STYLE = `width:560px;height:60px;font:${inputFont()};padding:0 12px;box-sizing:border-box;border-radius:8px;border:2px solid #2f7a5b;background:#f4ecd8;color:#222`;
 
 // `art` names backgrounds/<art>, drawn over the plain fill when it exists.
 export function drawBackground(scene: Phaser.Scene, art?: string): void {
@@ -25,8 +25,13 @@ export function label(
   opts: { bold?: boolean; color?: string; origin?: number } = {},
 ): Phaser.GameObjects.Text {
   return scene.add
-    .text(x, y, s, { fontFamily: FONT, fontSize: `${size}px`, color: opts.color ?? "#ffffff", fontStyle: opts.bold ? "bold" : "normal" })
+    .text(Math.round(x), Math.round(y), s, { ...fontRole(size), color: opts.color ?? "#ffffff" })
     .setOrigin(opts.origin ?? 0, 0.5);
+}
+
+// A player's name cut to `max` letters, with an ellipsis where it was shortened.
+export function shortName(name: string, max: number): string {
+  return name.length > max ? name.slice(0, max - 1) + "\u2026" : name;
 }
 
 export function button(

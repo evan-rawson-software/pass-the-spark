@@ -15,7 +15,8 @@ import { coinLine } from "./coinIcon";
 import { Tooltip } from "./tooltip";
 import { deckViewerState } from "./deckViewer";
 import { seatColour } from "./seatColours";
-import { drawBackground, FONT, label } from "./ui";
+import { drawBackground, label } from "./ui";
+import { fontRole } from "./fonts";
 
 // The map screen (#51). It draws the act the engine generated: floors bottom to top, the
 // connections, a code-drawn icon per stop type and the boss at the top. The party's position is
@@ -363,7 +364,7 @@ export class MapScene extends Phaser.Scene {
         const mx = x + (k - (ids.length - 1) / 2) * 34;
         const color = seatColour(this.run.players, id);
         const dot = this.add.circle(mx, y + NODE_R + 26, 15, color).setStrokeStyle(3, 0x0d2a20);
-        const text = this.add.text(mx, y + NODE_R + 26, String(this.run.players.indexOf(id) + 1), { fontFamily: FONT, fontSize: "18px", color: "#0d2a20", fontStyle: "bold" }).setOrigin(0.5);
+        const text = this.add.text(mx, y + NODE_R + 26, String(this.run.players.indexOf(id) + 1), { ...fontRole(18), color: "#0d2a20" }).setOrigin(0.5);
         this.voteLayer.add([dot, text]);
         this.cameras.main.ignore([dot, text]);
         for (const o of [dot, text]) o.cameraFilter &= ~this.mapCam.id;

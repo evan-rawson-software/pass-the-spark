@@ -10,6 +10,7 @@ import { enemies } from "./devBattle";
 import type { CombatCtx, Layer } from "./combatCtx";
 import { fitText } from "./combatCtx";
 import type { ColumnLayout } from "./columnLayout";
+import { fontRole } from "./fonts";
 
 // The enemy card at the top of the left column (#231, Spotlight; built in #228): the portrait in a
 // framed card with the tier chip, the name, passive chips (full text on hover), the health bar with
@@ -19,7 +20,6 @@ import type { ColumnLayout } from "./columnLayout";
 
 const D = combatLayoutData.enemy;
 const RED = 0xe0443e;
-const FONT = "Arial, Helvetica, sans-serif";
 
 export function drawEnemyUnit(ctx: CombatCtx, layer: Layer, view: BattleView, col: ColumnLayout): void {
   const e = view.enemy;
@@ -149,20 +149,20 @@ function intentRow(scene: Phaser.Scene, intent: Intent, base: number, maxW: numb
     x += 52 * A.icon + A.gap;
     const before = was?.actions[i];
     if (before && before.kind === "attack" && a.kind === "attack" && before.value !== a.value) {
-      const old = scene.add.text(x, 0, String(before.value), { fontFamily: FONT, fontSize: `${A.struckSize}px`, color: A.struckColour, fontStyle: "bold" }).setOrigin(0, 0.5);
+      const old = scene.add.text(x, 0, String(before.value), { ...fontRole(A.struckSize), color: A.struckColour }).setOrigin(0, 0.5);
       const strike = scene.add.graphics();
       strike.lineStyle(5, hexColour(A.struckColour), 1);
       strike.lineBetween(x - 4, 0, x + old.width + 4, 0);
-      const arrow = scene.add.text(x + old.width + A.gap, 0, A.arrow, { fontFamily: FONT, fontSize: `${A.arrowSize}px`, color: A.arrowColour, fontStyle: "bold" }).setOrigin(0, 0.5);
+      const arrow = scene.add.text(x + old.width + A.gap, 0, A.arrow, { ...fontRole(A.arrowSize), color: A.arrowColour }).setOrigin(0, 0.5);
       inner.add([old, strike, arrow]);
       x += old.width + A.gap + arrow.width + A.gap;
     }
     const halved = before !== undefined && before.kind === "attack" && a.kind === "attack" && before.value !== a.value;
-    const num = scene.add.text(x, 0, String(a.value), { fontFamily: FONT, fontSize: `${A.numberSize}px`, color: halved ? A.halvedColour : "#ffffff", fontStyle: "bold" }).setOrigin(0, 0.5);
+    const num = scene.add.text(x, 0, String(a.value), { ...fontRole(A.numberSize), color: halved ? A.halvedColour : "#ffffff" }).setOrigin(0, 0.5);
     inner.add(num);
     x += num.width;
     if (a.kind === "attack" && (a.hits ?? 1) > 1) {
-      const hits = scene.add.text(x + 6, 8, `×${a.hits}`, { fontFamily: FONT, fontSize: `${A.hitsSize}px`, color: A.hitsColour, fontStyle: "bold" }).setOrigin(0, 0.5);
+      const hits = scene.add.text(x + 6, 8, `×${a.hits}`, { ...fontRole(A.hitsSize), color: A.hitsColour }).setOrigin(0, 0.5);
       inner.add(hits);
       x += hits.width + 6;
     }
