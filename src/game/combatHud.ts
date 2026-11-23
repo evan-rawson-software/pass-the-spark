@@ -72,7 +72,7 @@ export function drawStrip(ctx: CombatCtx, layer: Layer, view: BattleView, s: Str
 
   // The party: label, health bar, block, and the round under them.
   const P = S.party;
-  ctx.label(layer, P.x, P.labelY, P.label, 24, P.labelColour, 0);
+  ctx.label(layer, P.x, P.labelY, P.label, P.labelSize, P.labelColour, 0);
   ctx.bar(layer, "party", P.x, P.barY, P.barW, "health", view.party.health, view.party.maxHealth);
   const barH = presentation.kit.bar.height * U;
   ctx.shield(layer, "party", P.x + P.barW * U + P.shield.dx, P.barY + barH / 2, P.shield.s, view.party.block);
@@ -84,8 +84,8 @@ export function drawStrip(ctx: CombatCtx, layer: Layer, view: BattleView, s: Str
   const L = S.pile;
   const pg = ctx.gfx(layer);
   drawPips(pg, L.x, L.pips.y, s.placements.left, s.placements.spent);
-  const pipsW = (s.placements.left + s.placements.spent) * 8 * U;
-  ctx.label(layer, L.x + pipsW + L.pips.labelGap, L.pips.y + 9, `${s.placements.left} ${L.pips.left}`, L.pips.size, L.pips.colour, 0);
+  const pipsW = (s.placements.left + s.placements.spent) * (presentation.kit.pips.size + presentation.kit.pips.gap) * U;
+  ctx.label(layer, L.x + pipsW + L.pips.labelGap, L.pips.y + L.pips.labelDy, `${s.placements.left} ${L.pips.left}`, L.pips.size, L.pips.colour, 0);
   const player = view.players.find((p) => p.id === s.seat);
   const deck = pile(ctx, layer, L.deck.y, L.deck.label, player?.deck.length ?? 0, s.openDeck);
   pile(ctx, layer, L.used.y, L.used.label, player?.discard.length ?? 0, s.openDeck);
@@ -99,7 +99,7 @@ export function drawStrip(ctx: CombatCtx, layer: Layer, view: BattleView, s: Str
   if (s.count) {
     const text = `${s.count.ready} ${Rd.of} ${s.count.total} ${Rd.tail}`;
     const t = ctx.label(layer, Rd.x, Rd.countY, text, Rd.countSize, Rd.countColour, 0.5);
-    if (s.ready) drawTick(ctx.gfx(layer), t.x + t.width + Rd.tick.dx, Rd.countY - 7);
+    if (s.ready) drawTick(ctx.gfx(layer), t.x + t.width + Rd.tick.dx, Rd.countY + Rd.tick.dy);
   }
 }
 

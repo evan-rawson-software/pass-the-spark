@@ -534,7 +534,7 @@ export class CombatScene extends Phaser.Scene {
     g.fillPoints(pts, true);
     g.strokePoints(pts, true);
     const shownAmount = amount + this.anim.owed(key as "party" | "enemy", "block");
-    const text = this.label(layer, x + s * 0.5 + 8, y, String(shownAmount), 54, "#dbe6f5", 0, true); // the "text" role
+    const text = this.label(layer, x + s * 0.5 + 8, y, String(shownAmount), presentation.text.roles.text.size, "#dbe6f5", 0, true); // the "text" role
     this.anim.refs.shields.set(key, { text, x, y, s });
     if (key === "enemy") this.anim.reactions.drawCracks(layer, x, y, s, shownAmount);
   }

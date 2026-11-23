@@ -242,7 +242,7 @@ function actionBubble(ctx: CombatCtx, layer: Layer, view: BattleView, stand: Sta
   const laterW = later.reduce((s, r) => s + r.getBounds().width + 24, 0) + (laterLabel ? laterLabel.width + 14 : 0);
   const contentW = Math.max(row.getBounds().width, label.width, laterW);
   const w = Math.max(Bd.minW, Math.min(Bd.maxW, Math.ceil((contentW + 2 * Bd.padX) / U) * U));
-  const labelH = 24;
+  const labelH = Bd.label.h;
   const h = Math.ceil((Bd.padTop + labelH + Bd.gap + Bd.rowH + (later.length > 0 ? Bd.later.h : 0) + Bd.padBottom) / U) * U;
   const tail = Bd.tailRows * U;
   const x = Math.round(Math.max(Bd.left, Math.min(D.rightMargin - w, stand.head.x - w / 2)));

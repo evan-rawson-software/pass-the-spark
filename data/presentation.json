@@ -229,7 +229,7 @@
     "comment": "Enemy reactions (#190), read by src/game/enemyReactions.ts. Times are ms at 1x (scaled by playback speed), distances px on the 1920x1080 table. A hit of at least staggerMin damage staggers instead of flinching. The ghost bar waits delayMs after the last hit, then drains to the real value at perPointMs per point (between minMs and maxMs), so a run of hits shares one drain. Shield cracks show at each crack fraction of the block worn down.",
     "flinch": { "dx": 14, "dy": -8, "ms": 90, "flashAlpha": 0.45, "flashColour": "#ffffff" },
     "stagger": { "staggerMin": 12, "dx": 34, "dy": -20, "ms": 160, "rotation": 0.07, "wobbles": 3, "flashColour": "#ff6a5f" },
-    "ghost": { "colour": "#ffffff", "alpha": 0.55, "delayMs": 600, "perPointMs": 14, "minMs": 350, "maxMs": 1800 },
+    "ghost": { "delayMs": 600, "perPointMs": 14, "minMs": 350, "maxMs": 1800 },
     "shield": { "cracks": [0.25, 0.5, 0.75], "shatterShards": 7, "shatterSize": 30, "shatterMs": 520, "shatterSpread": 70 },
     "intent": { "pulseMs": 380, "holdMs": 300, "scale": 1.12 },
     "reel": { "dx": 46, "dy": -26, "ms": 200, "rotation": 0.11, "wobbles": 4, "tint": "#8fd0ff", "tintAlpha": 0.75, "tintMs": 700 },
@@ -294,22 +294,22 @@
         "bar": { "w": 108, "kind": "health", "shield": { "s": 48, "dx": 30 } },
         "line": { "h": 30, "size": 24, "colour": "#ffe9b0", "text": "Line" }
       },
-      "bubble": { "maxW": 420, "minW": 150, "padX": 24, "padTop": 9, "padBottom": 12, "gap": 6, "tailRows": 4, "tailGap": 6, "edge": "#d6453d", "left": 1280, "belowBlock": 8, "label": { "size": 24, "colour": "#ffb3aa" }, "later": { "h": 40, "size": 24, "scale": 0.45, "colour": "#9fd1b8" }, "rowH": 66 },
+      "bubble": { "maxW": 420, "minW": 150, "padX": 24, "padTop": 9, "padBottom": 12, "gap": 6, "tailRows": 4, "tailGap": 6, "edge": "#d6453d", "left": 1280, "belowBlock": 8, "label": { "size": 24, "h": 24, "colour": "#ffb3aa" }, "later": { "h": 40, "size": 24, "scale": 0.45, "colour": "#9fd1b8" }, "rowH": 66 },
       "action": { "icon": 1.1, "numberSize": 56, "hitsSize": 32, "hitsColour": "#ffb3aa", "gap": 10, "pad": 22, "struckSize": 40, "struckColour": "#9a8f8c", "arrow": "\u2192", "arrowSize": 40, "arrowColour": "#ffd23f", "halvedColour": "#ffd23f" }
     },
     "strip": {
       "y": 888, "plate": { "x": -6, "w": 652, "h": 67 },
-      "party": { "x": 30, "labelY": 908, "label": "PARTY", "labelColour": "#9fd1b8", "barY": 930, "barW": 100, "shield": { "s": 50, "dx": 36 } },
+      "party": { "x": 30, "labelY": 908, "label": "PARTY", "labelSize": 24, "labelColour": "#9fd1b8", "barY": 930, "barW": 100, "shield": { "s": 50, "dx": 36 } },
       "round": { "x": 30, "y": 1032, "size": 54, "colour": "#f3ead6", "numberColour": "#ffd54a" },
       "speed": { "right": 340, "y": 1034 },
       "menu": { "x": 410, "y": 1034 },
       "pile": {
         "x": 500, "w": 62,
-        "pips": { "y": 906, "labelGap": 12, "size": 24, "colour": "#cfe9dc", "left": "left" },
+        "pips": { "y": 906, "labelGap": 12, "labelDy": 9, "size": 24, "colour": "#cfe9dc", "left": "left" },
         "deck": { "y": 944, "label": "DECK" }, "used": { "y": 1010, "label": "USED" },
         "plate": { "h": 18, "labelX": 10, "labelSize": 24, "labelColour": "#9fd1b8", "numberSize": 54, "numberColour": "#ffffff", "hover": "#ffe14d" }
       },
-      "ready": { "x": 1740, "y": 958, "w": 90, "countY": 1030, "countSize": 24, "countColour": "#cfe9dc", "text": "Ready", "fireText": "Fire", "undoText": "Not ready", "of": "of", "tail": "ready", "tick": { "dx": 6 } }
+      "ready": { "x": 1740, "y": 958, "w": 90, "countY": 1030, "countSize": 24, "countColour": "#cfe9dc", "text": "Ready", "fireText": "Fire", "undoText": "Not ready", "of": "of", "tail": "ready", "tick": { "dx": 6, "dy": -7 } }
     },
     "tabs": {
       "x": 24, "y": 12, "w": 1356, "h": 148, "gap": 14, "r": 16, "padX": 16,
