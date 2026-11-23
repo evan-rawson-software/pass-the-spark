@@ -7,7 +7,7 @@ import type { Tooltip } from "./tooltip";
 import type { BarKind } from "./kit";
 import type { Stand } from "./enemyUnit";
 
-// What the combat layout files (enemyUnit.ts, seatTabs.ts, combatHud.ts) need from the scene: drawing
+// What the combat layout files (enemyUnit.ts, racks.ts, wizardPlates.ts, combatHud.ts) need from the scene: drawing
 // helpers that put things in the scene's redrawn layer and register them with the animator. The scene
 // supplies it; these files hold layout only, no rules.
 
@@ -38,4 +38,11 @@ export interface CombatCtx {
 // A text object's size, shrunk so it is at most `maxW` wide.
 export function fitText(t: Phaser.GameObjects.Text, maxW: number): void {
   shrinkToRole(t, maxW);
+}
+
+// Sets the text to `full`, cut with an ellipsis so it is at most `maxW` wide (after shrinking through the roles).
+export function ellipsize(t: Phaser.GameObjects.Text, full: string, maxW: number): void {
+  t.setText(full);
+  fitText(t, maxW);
+  for (let n = full.length; t.width > maxW && n > 1; n--) t.setText(full.slice(0, n - 1) + "…");
 }
