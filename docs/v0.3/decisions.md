@@ -40,3 +40,10 @@ Planner defaults for the 0.3 specs. Say if any should change.
 - **T5 Art sources:** the paintings move to `tools/art/sources/` and stay in the repo. The converted sprites replace them in `public/art/`. The conversion is part of `npm run art`.
 - **T6 Sizes of pixel art:** converted art sits on the same grid as the wizards (3 screen pixels per art pixel at 1920×1080).
 - **T7 Interface kit:** bars, plates and buttons are drawn in code on that grid, from numbers in `data/presentation.json`. No image files.
+- **T8 The "at the line" number:** the enemy's bubble shows what each attack hit becomes if the line is reached. That number comes from the engine's view, worked out by the same code that applies the stagger. Adding it to the view is not a rules change.
+- **T9 Touch screens:** on the map, press and hold a stop to see its card and roads. A tap still votes.
+
+## 2026-11-23: Filed
+
+- **M16 "The combat stage"** is epic #298: #300 (art conversion and the scroll), #301 (font and kit), #302 (the stage and the bottom strip), #303 (racks and plates), #304 (the line and the still interface). The two wizard issues are filed after the designer picks the wizard option.
+- **M17 "The map"** is epic #299: #305 (engine: roads never cross), #306 (the whole act on one screen), #307 (the scroll, flags and the strip), #308 (cards).
