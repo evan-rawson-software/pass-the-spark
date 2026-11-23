@@ -58,7 +58,7 @@ function drawPlayers(scene: Phaser.Scene, run: RunState): void {
     const head = scene.add.container(0, 0);
     wizardPortrait(scene, head, lookOf(run.players, id), x + M.portrait.dx, L.y + M.portrait.dy);
     const name = text(scene, x + M.name.dx, L.y + M.name.dy, shortName(seatName(id), M.name.letters), M.name.size, M.name.colour);
-    fitText(name, L.w * U - M.name.dx - 12);
+    fitText(name, L.w * U - M.name.dx - M.name.padRight);
     coinLine(scene, x + M.name.dx, L.y + M.coins.dy, [run.coins[id] ?? 0], M.coins.size, { color: M.coins.colour });
     if (online) {
       const tag = run.votes[id] === undefined ? M.tag.choosing : M.tag.voted;
@@ -74,15 +74,17 @@ function drawVotesLine(scene: Phaser.Scene, run: RunState): void {
   if (!online) return;
   const R = M.right;
   const T = M.text;
-  let y = R.y - 12; // the first row's top
+  let y = R.y;
   const row = (s: string, colour: string): void => {
     const t = snap(scene.add.text(R.x, y, s, { ...fontRole(R.size), color: colour, wordWrap: { width: R.wrap } }).setOrigin(0, 0));
-    y += Math.max(R.rowH, t.height + 6);
+    y += Math.max(R.rowH, t.height + R.rowPad);
   };
   if (run.phase === "vote") {
     const voted = run.players.filter((id) => run.votes[id] !== undefined).length;
     row(`${voted} ${T.of} ${run.players.length} ${T.voted}`, R.colour);
-    const waiting = [...new Set(getPendingRunChoices(run).map((p) => seatName(p.player)))];
+    // An away player is named in the reconnect line instead.
+    const away = (relay.roster?.players ?? []).filter((p) => p.away).map((p) => p.seat);
+    const waiting = [...new Set(getPendingRunChoices(run).filter((p) => !away.includes(p.player)).map((p) => seatName(p.player)))];
     if (waiting.length > 0) row(`${T.waiting} ${waiting.join(", ")}`, R.waitColour);
   }
   const acting = actingSeat(run);

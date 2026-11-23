@@ -27,6 +27,11 @@
     "discEdgeW": 4,
     "pickEdgeW": 6,
     "fadedAlpha": 0.35,
+    "hit": {
+      "pad": 6,
+      "colour": "#ffffff",
+      "alpha": 0.001
+    },
     "pulse": {
       "scale": 1.1,
       "ms": 650
@@ -77,6 +82,7 @@
       "plateHeight": 14,
       "platePadX": 4,
       "shadow": {
+        "colour": "#000000",
         "w": 0.8,
         "h": 28,
         "layers": 3,
@@ -88,6 +94,7 @@
       "pennantW": 7,
       "pennantH": 5,
       "pitch": 9,
+      "sink": 2,
       "outline": "#3a2a1a"
     },
     "strip": {
@@ -107,7 +114,8 @@
         "dy": 26,
         "size": 24,
         "colour": "#ffffff",
-        "letters": 9
+        "letters": 9,
+        "padRight": 12
       },
       "coins": {
         "dy": 58,
@@ -140,8 +148,9 @@
       },
       "right": {
         "x": 1400,
-        "y": 926,
+        "y": 914,
         "rowH": 34,
+        "rowPad": 6,
         "wrap": 480,
         "size": 24,
         "colour": "#cfe9dc",

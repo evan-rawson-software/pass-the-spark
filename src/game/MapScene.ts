@@ -124,7 +124,7 @@ export class MapScene extends Phaser.Scene {
     const reach = this.reachable(run);
     this.drawRoads(run, options, reach);
     this.drawStops(run, options, reach, pending?.type === "vote" ? pending.player : null);
-    this.drawBoss(run, options, pending?.type === "vote" ? pending.player : null);
+    this.drawBoss(run);
     this.drawLegend();
     drawMapStrip(this, run);
     this.voteLayer = this.add.container(0, 0);
@@ -264,7 +264,7 @@ export class MapScene extends Phaser.Scene {
         if (pick) {
           this.tweens.add({ targets: holder, scale: M.pulse.scale, duration: M.pulse.ms, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
           if (voter !== null) {
-            const hit = this.add.circle(x, y, r + 6, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
+            const hit = this.add.circle(x, y, r + M.hit.pad, hexColour(M.hit.colour), M.hit.alpha).setInteractive({ useHandCursor: true });
             hit.on("pointerup", () => this.castVote(voter, node.index));
           }
         }
@@ -295,9 +295,8 @@ export class MapScene extends Phaser.Scene {
   }
 
   // The boss stands at the end of the road from the start, as its sprite with its name on a plate and its rule under
-  // it. The road ends at a gate disc with the boss icon, in front of it: after floor 10 that disc is the one stop to
-  // pick, and "You are here" goes on it when the party stands there.
-  private drawBoss(run: RunState, options: number[], voter: string | null): void {
+  // it. The road ends at a gate disc with the boss icon, in front of it; "You are here" goes on it when the party stands there.
+  private drawBoss(run: RunState): void {
     const geo = this.geo;
     const B = M.boss;
     const boss = content.enemies.find((e) => e.id === run.map.bossId);
@@ -311,7 +310,7 @@ export class MapScene extends Phaser.Scene {
     if (art && this.textures.exists(key)) {
       const sh = this.add.graphics();
       for (let i = 0; i < B.shadow.layers; i++) {
-        sh.fillStyle(0x000000, B.shadow.alpha / B.shadow.layers);
+        sh.fillStyle(hexColour(B.shadow.colour), B.shadow.alpha / B.shadow.layers);
         sh.fillEllipse(B.x, B.feetY, art.w * B.scale * B.shadow.w * (1 - i / (B.shadow.layers + 1)), B.shadow.h * (1 - i / (B.shadow.layers + 1)));
       }
       targets.push(this.add.image(B.x, B.feetY, key).setOrigin(0.5, 1).setScale(B.scale).setInteractive());
@@ -333,24 +332,15 @@ export class MapScene extends Phaser.Scene {
 
     // The gate disc at the road's end.
     const r = M.bossR * geo.fit;
-    const pick = run.position?.floor === geo.floors && options.includes(0);
     const g = this.add.graphics();
-    const holder = this.add.container(M.bossX, M.centreY, [g]);
-    g.fillStyle(hexColour(pick ? M.goldFill : M.discFill), 1);
+    this.add.container(M.bossX, M.centreY, [g]);
+    g.fillStyle(hexColour(M.discFill), 1);
     g.fillCircle(0, 0, r);
-    g.lineStyle(M.pickEdgeW, pick ? GOLD : INK, 1);
+    g.lineStyle(M.pickEdgeW, INK, 1);
     g.strokeCircle(0, 0, r);
     drawNodeIcon(g, "boss", 0, 0, (ART_PX * M.bossIconScale * geo.fit) / 2);
     if (run.position?.floor === geo.floors + 1) this.drawHere(M.bossX, M.centreY - r);
-    const hit = this.add.circle(M.bossX, M.centreY, r + 6, 0xffffff, 0.001);
-    targets.push(hit);
-    if (pick) {
-      this.tweens.add({ targets: holder, scale: M.pulse.scale, duration: M.pulse.ms, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-      if (voter !== null) {
-        hit.setInteractive({ useHandCursor: true });
-        hit.on("pointerup", () => this.castVote(voter, 0));
-      }
-    }
+    targets.push(this.add.circle(M.bossX, M.centreY, r + M.hit.pad, hexColour(M.hit.colour), M.hit.alpha));
     for (const target of targets) tip.attachLines(target, lines);
   }
 
@@ -390,7 +380,7 @@ export class MapScene extends Phaser.Scene {
       const y = row ? nodeY(this.geo, floor, Number(node)) : M.centreY;
       const top = y - (row ? M.pickR : M.bossR) * this.geo.fit; // the stop's top edge
       const width = ((ids.length - 1) * F.pitch + F.pennantW + 1) * U;
-      ids.forEach((id, k) => drawFlag(g, Math.round((x - width / 2) / U) * U + k * F.pitch * U, Math.round((top + 2 * U) / U) * U, seatColour(this.run.players, id)));
+      ids.forEach((id, k) => drawFlag(g, Math.round((x - width / 2) / U) * U + k * F.pitch * U, Math.round((top + F.sink * U) / U) * U, seatColour(this.run.players, id)));
     }
   }
 
