@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { artBackground } from "./art";
 import { playSound } from "./sound";
-import { fontRole, inputFont } from "./fonts";
+import { fontRole, inputFont, nameLetters, snap } from "./fonts";
 
 // Small helpers for the placeholder online screens (menu, lobby, join).
 
@@ -24,13 +24,14 @@ export function label(
   size: number,
   opts: { bold?: boolean; color?: string; origin?: number } = {},
 ): Phaser.GameObjects.Text {
-  return scene.add
+  const t = scene.add
     .text(Math.round(x), Math.round(y), s, { ...fontRole(size), color: opts.color ?? "#ffffff" })
     .setOrigin(opts.origin ?? 0, 0.5);
+  return snap(t);
 }
 
 // A player's name cut to `max` letters, with an ellipsis where it was shortened.
-export function shortName(name: string, max: number): string {
+export function shortName(name: string, max = nameLetters): string {
   return name.length > max ? name.slice(0, max - 1) + "\u2026" : name;
 }
 
@@ -43,7 +44,8 @@ export function button(
   opts: { size?: number; selected?: boolean; disabled?: boolean; origin?: number } = {},
 ): Phaser.GameObjects.Text {
   const t = label(scene, x, y, s, opts.size ?? 30, { bold: true, origin: opts.origin });
-  t.setPadding(20, 10).setBackgroundColor(opts.selected ? "#b8860b" : "#0d2a20");
+  t.setPadding(20, 10);
+  snap(t).setBackgroundColor(opts.selected ? "#b8860b" : "#0d2a20");
   if (opts.disabled) t.setAlpha(0.4);
   else t.setInteractive({ useHandCursor: true }).on("pointerdown", () => {
       playSound("click");

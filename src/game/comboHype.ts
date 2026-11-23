@@ -39,7 +39,7 @@ interface Data {
   };
   layout: { yFraction: number; maxWidthFraction: number };
   number: {
-    sizes: number[]; stroke: number; strokeColour: string;
+    sizes: number[]; step: number; stroke: number; strokeColour: string;
     hits: { size: number; colour: string; dyFactor: number; dy: number };
     block: { sizeFactor: number; minSize: number; colour: string; gap: number; shieldColour: string; shieldEdge: string };
     halo: { colour: string; layers: number; padX: number; heightFactor: number };
@@ -441,7 +441,7 @@ export class ComboHype {
   }
 
   private blockSize(): number {
-    return Math.max(D.number.block.minSize, Math.round(D.number.sizes[this.tier] * D.number.block.sizeFactor));
+    return Math.max(D.number.block.minSize, Math.round((D.number.sizes[this.tier] * D.number.block.sizeFactor) / D.number.step) * D.number.step);
   }
 
   // Places the parts: the damage number in the middle (or left, with block beside it), the hit count

@@ -5,7 +5,7 @@ import type { Look } from "../net/look";
 import { wizardLookData as D } from "./presentation";
 import { button } from "./ui";
 import { colourNumber, Wizard } from "./wizard";
-import { fontRole } from "./fonts";
+import { fontRole, snap } from "./fonts";
 
 // The wardrobe (#262): one panel for choosing a look, used by the online lobby and the single player
 // start screen. A big preview of your wizard idling, 8 colour swatches (a colour someone else has is
@@ -69,7 +69,7 @@ export class Wardrobe {
     const panel = this.scene.add.rectangle(0, 0, D.wardrobe.w, D.wardrobe.h, 0x14382b).setStrokeStyle(4, 0x2f7a5b);
     root.add([backdrop, panel]);
     const text = (x: number, y: number, s: string, size: number, color = "#ffffff", bold = false, origin = 0) =>
-      root.add(this.scene.add.text(x, y, s, { ...fontRole(size), color }).setOrigin(origin, 0.5));
+      root.add(snap(this.scene.add.text(x, y, s, { ...fontRole(size), color }).setOrigin(origin, 0.5)));
 
     text(D.wardrobe.title.x, D.wardrobe.title.y, "Your wizard", D.wardrobe.title.size, "#ffffff", true);
 

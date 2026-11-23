@@ -7,7 +7,7 @@ import { menuButtonSpot, onMenuButtonMove } from "./menuButton";
 import { resetProfile } from "./profile";
 import { leaveRun, onlineRun } from "./runSession";
 import { SOUND_FILES, getSoundSettings, phaserSoundOut, setSoundOut, setSoundSettings, soundKey } from "./sound";
-import { fontRole } from "./fonts";
+import { fontRole, snap } from "./fonts";
 
 // The game menu (#170, replacing the Sound button of #137). Always on top of every screen (it starts
 // with the game and never stops): loads the sound files, draws the menu button in the top-right
@@ -86,7 +86,7 @@ export class GameMenuScene extends Phaser.Scene {
     const items: Phaser.GameObjects.GameObject[] = [];
     let y = PY + 20;
     const text = (x: number, ty: number, s: string, size: number, color = "#ffffff", bold = false, originX = 0): void => {
-      items.push(this.add.text(x, ty, s, { ...fontRole(size), color }).setOrigin(originX, 0.5));
+      items.push(snap(this.add.text(x, ty, s, { ...fontRole(size), color }).setOrigin(originX, 0.5)));
     };
     const button = (cx: number, cy: number, s: string, onClick: () => void, opts: { fill?: string; width?: number } = {}): void => {
       const t = this.add

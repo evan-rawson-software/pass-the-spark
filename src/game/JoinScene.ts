@@ -198,7 +198,7 @@ export class JoinScene extends Phaser.Scene {
       const y = L.joinTop + i * L.pitch;
       this.keep(label(this, 100, y, `${i + 1}.`, 36));
       this.keep(listWizard(this, 170, y + 40, p.look, L.wizardScale, i));
-      this.keep(label(this, L.textX, y, `${shortName(p.name, 16)}  (level ${p.level})${you ? "  (you)" : ""}${p.away ? "  (away)" : ""}`, 36, { color: cssColour(lookColour(p.look)) }));
+      this.keep(label(this, L.textX, y, `${shortName(p.name)}  (level ${p.level})${you ? "  (you)" : ""}${p.away ? "  (away)" : ""}`, 36, { color: cssColour(lookColour(p.look)) }));
       if (you) this.keep(button(this, L.editX, y, "Edit", () => this.openWardrobe(), { size: 26 }));
     });
     this.syncWardrobe();

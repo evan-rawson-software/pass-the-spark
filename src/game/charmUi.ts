@@ -4,7 +4,7 @@ import type { Charm } from "../engine/types";
 import { artImage } from "./art";
 import { Tooltip } from "./tooltip";
 import { label } from "./ui";
-import { fontRole } from "./fonts";
+import { charmNameLetterWidth, fontRole } from "./fonts";
 
 // Charm icons (#108): small code-drawn placeholders. Normal charms are round, rare ones are gold
 // diamonds; the colour comes from the charm's place in the data. No rules here: names, descriptions
@@ -93,7 +93,7 @@ export function drawPartyCharms(scene: Phaser.Scene, seats: string[], names: Rec
   const colW = Math.min(200, 470 / Math.max(1, seats.length));
   seats.forEach((id, i) => {
     const x = left + i * colW;
-    const name = label(scene, x, 42, shorten(names[id] ?? id, Math.floor(colW / 15)), 20, { bold: true, color: "#9fd1b8" });
+    const name = label(scene, x, 42, shorten(names[id] ?? id, Math.floor(colW / charmNameLetterWidth)), 20, { bold: true, color: "#9fd1b8" });
     if (onName) name.setInteractive({ useHandCursor: true }).on("pointerdown", () => onName(id));
     drawCharmRow(scene, tooltip, charmsByIds(held[id] ?? []), x, 78, 26, colW - 12);
   });

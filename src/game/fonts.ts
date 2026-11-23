@@ -39,15 +39,17 @@ export function inputFont(): string {
   return `${T.inputSize}px ${stack(ROLES.text.family)}`;
 }
 
-// Loads every font file and adds it to the page. Resolves when all are ready (or have failed:
-// a missing file falls back and the game still starts). Call before the first scene draws.
+// Loads every font file and adds it to the page. Resolves when all are ready, have failed or have
+// taken longer than the timeout (a missing or stalled file falls back and the game still starts).
+// Call before the first scene draws.
 export async function loadFonts(): Promise<void> {
   const base = import.meta.env.BASE_URL;
   await Promise.all(
     T.fonts.map(async (f) => {
       try {
         const face = new FontFace(f.family, `url(${base}${f.file})`);
-        document.fonts.add(await face.load());
+        const timeout = new Promise<never>((_, no) => setTimeout(() => no(new Error("font timeout")), T.loadTimeoutMs));
+        document.fonts.add(await Promise.race([face.load(), timeout]));
       } catch {
         // fall back to the plain font
       }
@@ -55,25 +57,52 @@ export async function loadFonts(): Promise<void> {
   );
 }
 
+// Data for the name and charm strip limits.
+export const nameLetters: number = T.nameLetters;
+export const charmNameLetterWidth: number = T.charmNameLetterWidth;
+
+// Shrinks `t` through the role sizes below its current size until it is at most `maxW` wide
+// (it stops at the smallest role).
+export function shrinkToRole(t: Phaser.GameObjects.Text, maxW: number): void {
+  const names = (Object.keys(ROLES) as Role[]).sort((a, b) => ROLES[b].size - ROLES[a].size);
+  const cur = parseInt(String(t.style.fontSize), 10);
+  for (const name of names) {
+    if (t.width <= maxW) return;
+    if (ROLES[name].size >= cur) continue;
+    t.setFontFamily(stack(ROLES[name].family));
+    t.setFontSize(ROLES[name].size);
+  }
+}
+
+// Puts the text's top left on a whole pixel (centred text with an odd width would sit on a half).
+// Call after the position, origin and final text are set.
+export function snap<O extends Phaser.GameObjects.Text>(t: O): O {
+  t.x = Math.round(t.x - t.originX * t.width) + t.originX * t.width;
+  t.y = Math.round(t.y - t.originY * t.height) + t.originY * t.height;
+  return t;
+}
+
 // Counting numbers must not shift sideways as digits change. Jersey's digits are different
 // widths ("1" is narrow), so this makes a Text object lay out every digit in a cell as wide as
 // the font's widest digit, at whatever size the text currently has. Other characters keep
 // their own width. Call once after creating the Text; setText, setFontSize etc. keep working.
+// It replaces three methods on the Text's own canvas context, and puts them back when the Text is
+// destroyed (Phaser reuses canvases, so a patch left behind would reach other Texts).
 export function tabularDigits(text: Phaser.GameObjects.Text): Phaser.GameObjects.Text {
   const ctx = text.context;
   const measure = ctx.measureText.bind(ctx);
   const fill = ctx.fillText.bind(ctx);
   const stroke = ctx.strokeText.bind(ctx);
+  const isDigit = (ch: string): boolean => ch >= "0" && ch <= "9";
   const cell = (): number => {
     let w = 0;
     for (let d = 0; d < 10; d++) w = Math.max(w, measure(String(d)).width);
     return w;
   };
-  const advance = (ch: string, c: number): number => (ch >= "0" && ch <= "9" ? c : measure(ch).width);
   const width = (s: string): number => {
     const c = cell();
     let w = 0;
-    for (const ch of s) w += advance(ch, c);
+    for (const ch of s) w += isDigit(ch) ? c : measure(ch).width;
     return w;
   };
   const draw = (paint: (s: string, x: number, y: number) => void) => (s: string, x: number, y: number): void => {
@@ -81,19 +110,25 @@ export function tabularDigits(text: Phaser.GameObjects.Text): Phaser.GameObjects
     const c = cell();
     let at = x;
     for (const ch of s) {
-      const a = advance(ch, c);
-      const dx = ch >= "0" && ch <= "9" ? (c - measure(ch).width) / 2 : 0; // a digit sits centred in its cell
-      paint(ch, Math.round(at + dx), y);
-      at += a;
+      const w = measure(ch).width;
+      paint(ch, Math.round(at + (isDigit(ch) ? (c - w) / 2 : 0)), y); // a digit sits centred in its cell
+      at += isDigit(ch) ? c : w;
     }
   };
   ctx.measureText = (s: string): TextMetrics => {
     const m = measure(s);
     if (!/\d/.test(s)) return m;
-    return { width: width(s), actualBoundingBoxAscent: m.actualBoundingBoxAscent, actualBoundingBoxDescent: m.actualBoundingBoxDescent, actualBoundingBoxLeft: 0, actualBoundingBoxRight: width(s), fontBoundingBoxAscent: m.fontBoundingBoxAscent, fontBoundingBoxDescent: m.fontBoundingBoxDescent } as TextMetrics;
+    const w = width(s);
+    return { width: w, actualBoundingBoxAscent: m.actualBoundingBoxAscent, actualBoundingBoxDescent: m.actualBoundingBoxDescent, actualBoundingBoxLeft: 0, actualBoundingBoxRight: w, fontBoundingBoxAscent: m.fontBoundingBoxAscent, fontBoundingBoxDescent: m.fontBoundingBoxDescent } as TextMetrics;
   };
   ctx.fillText = draw(fill);
   ctx.strokeText = draw(stroke);
+  text.once("destroy", () => {
+    // The own properties go; the canvas's own methods show again.
+    delete (ctx as { measureText?: unknown }).measureText;
+    delete (ctx as { fillText?: unknown }).fillText;
+    delete (ctx as { strokeText?: unknown }).strokeText;
+  });
   text.updateText();
   return text;
 }

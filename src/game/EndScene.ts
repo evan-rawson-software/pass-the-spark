@@ -5,7 +5,7 @@ import { rememberSettings } from "./devBattle";
 import type { GameSettings } from "./devBattle";
 import { watchLink } from "./linkBanner";
 import { relay } from "./relay";
-import { fontRole } from "./fonts";
+import { fontRole, snap } from "./fonts";
 
 // Placeholder end screen (#27). Shows the result handed over by the combat
 // table and offers the two ways on. Replaced in milestone 4.
@@ -70,7 +70,7 @@ export class EndScene extends Phaser.Scene {
   }
 
   private line(y: number, s: string, size: number, color = "#ffffff"): void {
-    this.add.text(960, y, s, { ...fontRole(size), color }).setOrigin(0.5);
+    snap(this.add.text(960, y, s, { ...fontRole(size), color }).setOrigin(0.5));
   }
 
   private button(x: number, y: number, s: string, onClick: () => void): void {

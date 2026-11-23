@@ -213,7 +213,7 @@ export class HostLobbyScene extends Phaser.Scene {
       const you = p.seat === this.mySeat;
       keep(label(this, 100, y, `${i + 1}.`, 36));
       keep(listWizard(this, 170, y + 40, p.look, L.wizardScale, i));
-      keep(label(this, L.textX, y, `${shortName(p.name, 16)}  (level ${p.level})${you ? "  (you, host)" : ""}${p.away ? "  (away)" : ""}`, 36, { color: cssColour(lookColour(p.look)) }));
+      keep(label(this, L.textX, y, `${shortName(p.name)}  (level ${p.level})${you ? "  (you, host)" : ""}${p.away ? "  (away)" : ""}`, 36, { color: cssColour(lookColour(p.look)) }));
       keep(button(this, 760, y, "Up", () => host.moveSeat(p.seat, -1), { size: 26, disabled: i === 0 }));
       keep(button(this, 860, y, "Down", () => host.moveSeat(p.seat, 1), { size: 26, disabled: i === lobby.players.length - 1 }));
       if (you) keep(button(this, L.editX, y, "Edit", () => this.openWardrobe(), { size: 26 }));

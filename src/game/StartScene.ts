@@ -7,7 +7,7 @@ import { wizardLookData as D } from "./presentation";
 import { openRunScreen, startSingleRun } from "./runSession";
 import { cssColour, listWizard, Wardrobe } from "./wardrobe";
 import { lookColour } from "./wizard";
-import { fontRole } from "./fonts";
+import { fontRole, snap } from "./fonts";
 import { INPUT_STYLE } from "./ui";
 
 // Single-player setup (#50): seats and a seed, then a run starts. Each seat shows its wizard with an
@@ -61,9 +61,7 @@ export class StartScene extends Phaser.Scene {
   }
 
   private text(x: number, y: number, s: string, size: number, bold = false): Phaser.GameObjects.Text {
-    return this.add
-      .text(x, y, s, { ...fontRole(size), color: "#ffffff" })
-      .setOrigin(0, 0.5);
+    return snap(this.add.text(x, y, s, { ...fontRole(size), color: "#ffffff" }).setOrigin(0, 0.5));
   }
 
   private button(x: number, y: number, s: string, onClick: () => void, size = 30): Phaser.GameObjects.Text {

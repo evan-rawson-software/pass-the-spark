@@ -5,7 +5,7 @@ import type { BattleView } from "../engine/view";
 import { combatData, combatLayoutData, hexColour } from "./presentation";
 import { enemies } from "./devBattle";
 import type { ColumnLayout } from "./columnLayout";
-import { fontRole } from "./fonts";
+import { fontRole, shrinkToRole } from "./fonts";
 
 // The "Block if it fires" tile in the left column (#231, B8): the block the party would gain. Every
 // number is from the engine (previewBuild, the same call that puts the ghost on the party's health
@@ -47,7 +47,7 @@ export function drawTally(scene: Phaser.Scene, into: Phaser.GameObjects.Containe
     g.fillStyle(hexColour(style.fill), 1);
     g.fillRoundedRect(x, top, w, th - T.edge, T.r);
     const n = text(x + w / 2, top + (all ? T.numberY : th / 2 - T.edge / 2), value, T.numberSize, T.numberColour);
-    if (n.width > w - 2 * T.numberPad) n.setFontSize(Math.floor((T.numberSize * (w - 2 * T.numberPad)) / n.width));
+    shrinkToRole(n, w - 2 * T.numberPad);
     if (!all) return;
     text(x + w / 2, top + T.labelY, label, T.labelSize, T.labelColour, 0.5, T.labelSpacing);
     if (sub) text(x + w / 2, top + T.subY, sub, T.subSize, T.labelColour);

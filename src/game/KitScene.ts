@@ -19,7 +19,7 @@ export class KitScene extends Phaser.Scene {
       this.add.text(x, y, s, { ...fontRole(24), color: "#9fd1b8" });
     };
 
-    note(60, 30, "Text roles (one font pixel = 3 screen pixels). Sample: 0123456789 Spark … ×");
+    note(60, 30, "Text roles. Screen pixels per font pixel: label 3, text 2, title 2, huge 4. Sample: 0123456789 Spark \u2026 \u00d7");
     const roles = Object.keys(presentation.text.roles) as Role[];
     let y = 70;
     for (const r of roles) {
@@ -31,6 +31,14 @@ export class KitScene extends Phaser.Scene {
     let n = 0;
     this.time.addEvent({ delay: 400, loop: true, callback: () => count.setText(String((n = (n * 7 + 111) % 1000))) });
     note(1500, 200, "counting number (tabular digits)");
+    // A tabular Text that is destroyed must leave later Texts alone: this plain "111" is always as wide as it should be.
+    tabularDigits(this.add.text(0, 0, "111", { ...roleStyle("title") })).destroy();
+    const plain = this.add.text(1500, 235, "111", { ...roleStyle("title"), color: "#ffffff" });
+    note(1580, 245, `plain "111": ${Math.round(plain.width)} wide, no leak`);
+    // A bar changed in place, hit by hit.
+    const live = drawBar(this, 1500, 300, 60, { kind: "line", value: 0, max: 100, number: "0 / 100" });
+    let hit = 0;
+    this.time.addEvent({ delay: 500, loop: true, callback: () => live.setBar({ value: (hit = (hit + 15) % 115), pale: Math.min(100, hit + 25), number: `${hit} / 100` }) });
 
     const top = Math.round(y + 30);
     note(60, top, "Plates: plain, with an edge colour");
@@ -54,7 +62,9 @@ export class KitScene extends Phaser.Scene {
 
     const row = top + 600;
     note(60, row - 40, "Buttons: raised, pressed (hold the pointer on the first), disabled");
-    kitButton(this, 260, row + 40, "Fire", () => undefined);
+    const clicks = this.add.text(260, row + 90, "clicks: 0", { ...fontRole(24), color: "#9fd1b8" }).setOrigin(0.5, 0);
+    let n2 = 0;
+    kitButton(this, 260, row + 40, "Fire", () => clicks.setText(`clicks: ${++n2}`));
     const pressed = kitButton(this, 560, row + 40, "Pressed", () => undefined);
     pressed.setButtonState("pressed");
     kitButton(this, 860, row + 40, "Disabled", () => undefined, { disabled: true });

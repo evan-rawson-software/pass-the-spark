@@ -47,7 +47,7 @@ import type { ColumnLayout } from "./columnLayout";
 import { drawTally } from "./setOffTally";
 import { setMenuButtonSpot } from "./menuButton";
 import type { ShownTable } from "./shownView";
-import { fontRole, tabularDigits } from "./fonts";
+import { fontRole, snap, tabularDigits } from "./fonts";
 
 // The combat table. Draws everything from getView (and getPlayerChoices for which dominoes can be
 // placed or taken back, getOpenEnds for the charge on each open end, previewPlay and previewSetOff for
@@ -509,6 +509,7 @@ export class CombatScene extends Phaser.Scene {
     const t = this.add
       .text(x, y, text, { ...fontRole(size), color })
       .setOrigin(originX, 0.5);
+    snap(t);
     layer.add(t);
     return t;
   }
