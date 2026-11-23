@@ -21,6 +21,8 @@ GEM = ["#ffffff", "#bff8ff", "#5fd8f0", "#2a8fc0", "#173f66"]
 BOOT = ["#8a6a5a", "#6a4a3e", "#4e3430", "#3a2426", "#22161c"]
 CLOTH = ["#fffaf0", "#f2e6cf", "#d9c6a5", "#a8916f", "#5a4a3a"]  # cream: sashes and patches
 ACCENTS = {"eye": "#2a1b2e", "cheek": "#ff9a9a"}
+# The Watcher (#309): its bold outline, the darkness under the hood, the eyes and the glove.
+WATCHER = {"outline": "#160f1c", "void": "#07050b", "eye": "#eefaff", "eye_glow": "#8fd3ff", "glove": "#2c2230", "glove_lit": "#4a3c4e"}
 ARCANE = ["#f1e6ff", "#c3a4ff", "#8f68e8", "#5a3d9e", "#352460"]  # the circle at rest; GOLD and white as it blazes
 WHITE = "#ffffff"
 
@@ -56,7 +58,7 @@ MIN_DELTA_E = 20  # CIE76 distance between any two seat colours, or a seat colou
 MIN_CONTRAST = 4.5  # the middle shade against the panel, as text
 
 PALETTE = ({hexrgb(c) for ramp in (KEY, SKIN, BEARD, WOOD, GOLD, GEM, BOOT, CLOTH, ARCANE, *SPARK_RAMPS.values()) for c in ramp}
-           | {hexrgb(c) for c in (*ACCENTS.values(), WHITE)})
+           | {hexrgb(c) for c in (*ACCENTS.values(), *WATCHER.values(), WHITE)})
 
 
 def _lab(c):
