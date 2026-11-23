@@ -1,72 +1,96 @@
 import Phaser from "phaser";
+import presentation from "../../data/presentation.json";
 import { enemyStartingHealth } from "../engine/battle";
+import { reachableStops } from "../engine/map";
 import { applyRunChoice } from "../engine/run";
 import type { RunEvent, RunNodeType, RunState } from "../engine/run";
 import { content } from "./devBattle";
 import { scaleTime } from "./playbackSpeed";
 import { playRunEventSounds } from "./sound";
 import { playVoteRoll } from "./voteRoll";
-import { drawPartyHud, drawRunHeader, drawWaitingFor } from "./partyHud";
+import { drawPartyHud, drawWaitingFor } from "./partyHud";
 import { currentRun, isOnlineRun, myPending, openRunScreen, seatName, setRun, submitRunChoice, watchRun } from "./runSession";
 import { bossTip } from "./bossInfo";
-import { drawPassiveIcon } from "./passiveIcon";
 import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { coinLine } from "./coinIcon";
 import { Tooltip } from "./tooltip";
-import { deckViewerState } from "./deckViewer";
 import { seatColour } from "./seatColours";
 import { drawBackground, label } from "./ui";
 import { fontRole } from "./fonts";
+import { hexColour } from "./presentation";
 
-// The map screen (#51). It draws the act the engine generated: floors bottom to top, the
-// connections, a code-drawn icon per stop type and the boss at the top. The party's position is
-// marked, and the stops the engine says can be voted for are lit. In single player the screen asks once,
-// sends that pick as every seat's vote and opens the chosen stop straight away. Which stops are lit, the tally and the weighted draw all come from
-// the run engine; this screen only draws them and sends the vote.
-// Online (#49) every player votes at once on their own screen; the votes appear on the map as the
-// host reports them, and when the last one is in everyone sees the winner (and the draw odds).
+// The map screen (#51, #306). The whole act on one sheet of paper, floors left to right and the
+// boss at the right end. Roads are dotted trails; the road the party took is solid and the roads
+// it can take now are gold. Stops that can be picked now are larger, gold and pulse; stops the
+// party can no longer reach are faded (the engine's reachableStops says which); visited stops carry
+// a tick. Which stops are pickable, the tally and the weighted draw come from the run engine; this
+// screen only draws them and sends the vote.
+// In single player the screen asks once, sends that pick as every seat's vote and opens the chosen
+// stop straight away. Online (#49) every player votes at once on their own screen; the votes appear
+// on the map as the host reports them, and when the last one is in everyone sees the winner (and
+// the draw odds).
 
-const CENTER_X = 1020;
-const NODE_GAP = 250;
-const FLOOR_STEP = 190; // the act is laid out on a canvas taller than the screen and scrolls (#149)
-const WORLD_PAD = 130; // canvas above the boss and below floor 1
-const BOSS_Y = WORLD_PAD;
-const NODE_R = 44;
-// The part of the screen the map scrolls in: right of the side panel, under the heading, party
-// display and charms, above the bottom status line. Everything else stays put.
-const VIEW = { x: 470, y: 185, w: 1430, h: 835 };
-const BAR_X = 1906;
-const DRAG_SLOP = 8; // pixels a press may move and still count as a click
-const WHEEL_STEP = 0.8;
-const GOLD = 0xffe14d;
-const HIDDEN_COLOR = 0x5a6670; // a stop whose type isn't known yet
+const M = presentation.map;
+const INK = hexColour(M.ink);
+const GOLD = hexColour(M.gold);
+const ART_PX = 24; // the stop icons are 24 art pixels across (#300)
 
 const LEGEND: RunNodeType[] = ["fight", "elite", "rest", "trader", "event"];
 
-function hex(color: number): string {
-  return `#${color.toString(16).padStart(6, "0")}`;
+interface Stop {
+  floor: number;
+  index: number;
 }
 
-function nodeX(width: number, index: number): number {
-  return CENTER_X + (index - (width - 1) / 2) * NODE_GAP;
+// The stops the party has stood on in this act, in order. The engine keeps only the current stop,
+// so the screen notes each one as the map comes up (it is shown at every stop). A party that
+// joins mid-act sees the road from where it joined.
+let trail: Stop[] = [];
+
+function noteStop(run: RunState): void {
+  const pos = run.position;
+  if (pos === null) {
+    trail = [];
+    return;
+  }
+  const last = trail[trail.length - 1];
+  if (last && last.floor === pos.floor && last.index === pos.index) return;
+  if (last && last.floor >= pos.floor) trail = [];
+  trail.push({ floor: pos.floor, index: pos.index });
 }
 
-// World y of a floor: floor 1 at the bottom of the canvas, the boss at the top.
-function floorY(floor: number, floors: number): number {
-  return BOSS_Y + (floors - floor + 1) * FLOOR_STEP;
+const key = (floor: number, index: number): string => `${floor}:${index}`;
+
+interface Geometry {
+  step: number; // between neighbouring floors
+  gapY: number; // between stops of a floor
+  fit: number; // sizes shrink with this when floors are packed tighter than they are today
+  floors: number;
+  rows: number[]; // stops per floor
+}
+
+function geometry(run: RunState): Geometry {
+  const rows = run.map.floors.map((row) => row.length);
+  const floors = rows.length;
+  const step = (M.bossX - M.firstX) / floors;
+  const widest = Math.max(1, ...rows);
+  return { step, gapY: Math.min(M.maxGapY, M.spanY / Math.max(1, widest - 1)), fit: Math.min(1, step / (2 * M.pickR + 20)), floors, rows };
+}
+
+function colX(g: Geometry, floor: number): number {
+  return floor > g.floors ? M.bossX : M.firstX + (floor - 1) * g.step;
+}
+
+function nodeY(g: Geometry, floor: number, index: number): number {
+  if (floor > g.floors) return M.centreY;
+  return M.centreY + (index - (g.rows[floor - 1] - 1) / 2) * g.gapY;
 }
 
 export class MapScene extends Phaser.Scene {
   private run!: RunState;
   private voteLayer!: Phaser.GameObjects.Container;
   private resolving = false;
-  private world!: Phaser.GameObjects.Container; // the scrolling map
-  private mapCam!: Phaser.Cameras.Scene2D.Camera;
-  private bgCam!: Phaser.Cameras.Scene2D.Camera;
-  private bar!: Phaser.GameObjects.Graphics;
-  private scrollY = 0;
-  private press: { y: number; scroll: number } | null = null;
-  private dragged = false;
+  private geo!: Geometry;
 
   constructor() {
     super("map");
@@ -74,86 +98,7 @@ export class MapScene extends Phaser.Scene {
 
   create(): void {
     this.resolving = false;
-    this.press = null;
-    this.dragged = false;
-    // The map is drawn by its own camera, which shows only the map area and scrolls.
-    this.bgCam = this.cameras.add(0, 0, 1920, 1080);
-    this.mapCam = this.cameras.add(VIEW.x, VIEW.y, VIEW.w, VIEW.h);
-    // Whitelist: the map camera draws only what put() moves into the scrolling world. Everything
-    // else added to the scene, now or later (overlays, tooltips, banners), is hidden from it.
-    // Draw order: background, then the map, then everything else (so overlays such as the deck
-    // viewer cover the map). The background has its own camera for that.
-    const cams = this.cameras.cameras;
-    cams.splice(cams.indexOf(this.cameras.main), 1);
-    cams.push(this.cameras.main);
-    // Flagging the object itself (not Camera.ignore, which flags a container's children only) also
-    // keeps an interactive container from being hit-tested by the map camera.
-    this.events.off(Phaser.Scenes.Events.ADDED_TO_SCENE, this.hideFromWorldCams);
-    this.events.on(Phaser.Scenes.Events.ADDED_TO_SCENE, this.hideFromWorldCams);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.ADDED_TO_SCENE, this.hideFromWorldCams));
-    this.scrollY = this.openingScroll(currentRun());
-    this.input.on("wheel", (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
-      if (this.inView(p)) this.scrollTo(this.scrollY + dy * WHEEL_STEP);
-    });
-    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      this.dragged = false;
-      this.press = this.inView(p) ? { y: p.y, scroll: this.scrollY } : null;
-    });
-    this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
-      if (this.press === null || !p.isDown) return;
-      if (Math.abs(p.y - this.press.y) > DRAG_SLOP) this.dragged = true;
-      if (this.dragged) this.scrollTo(this.press.scroll - (p.y - this.press.y));
-    });
-    this.input.on("pointerup", () => (this.press = null));
-    this.input.on("pointerupoutside", () => (this.press = null));
     this.build();
-  }
-
-  private hideFromWorldCams = (obj: Phaser.GameObjects.GameObject): void => {
-    obj.cameraFilter |= this.mapCam.id | this.bgCam.id;
-  };
-
-  private inView(p: Phaser.Input.Pointer): boolean {
-    return !deckViewerState.open && p.x >= VIEW.x && p.x <= VIEW.x + VIEW.w && p.y >= VIEW.y && p.y <= VIEW.y + VIEW.h;
-  }
-
-  private worldHeight(run: RunState): number {
-    return floorY(1, run.map.floors.length) + WORLD_PAD;
-  }
-
-  // Where the map opens: the party's stop (or the start of the act) at the bottom of the view, so the
-  // stops it can vote for are in view above it.
-  private openingScroll(run: RunState): number {
-    const n = run.map.floors.length;
-    const bottom = floorY(Math.max(1, run.position?.floor ?? 1), n) + 110;
-    return Math.max(0, Math.min(this.worldHeight(run) - VIEW.h, bottom - VIEW.h));
-  }
-
-  private scrollTo(y: number): void {
-    this.scrollY = Math.max(0, Math.min(this.worldHeight(this.run) - VIEW.h, y));
-    this.mapCam.setScroll(VIEW.x, this.scrollY);
-    this.drawScrollBar();
-  }
-
-  // A slim bar right of the map area showing where the view is on the whole canvas.
-  private drawScrollBar(): void {
-    const total = this.worldHeight(this.run);
-    this.bar.clear();
-    this.bar.fillStyle(0x0d2a20, 0.8);
-    this.bar.fillRoundedRect(BAR_X, VIEW.y, 8, VIEW.h, 4);
-    this.bar.fillStyle(0x9fd1b8, 1);
-    this.bar.fillRoundedRect(BAR_X, VIEW.y + (this.scrollY / total) * VIEW.h, 8, (VIEW.h / total) * VIEW.h, 4);
-  }
-
-  // Moves map objects into the scrolling world: only the map camera draws them.
-  private put(objects: Phaser.GameObjects.GameObject[]): void {
-    this.world.add(objects);
-    const show = (o: Phaser.GameObjects.GameObject): void => {
-      this.cameras.main.ignore(o);
-      o.cameraFilter &= ~this.mapCam.id;
-      if (o instanceof Phaser.GameObjects.Container) o.list.forEach(show); // art inside a stop's holder
-    };
-    objects.forEach(show);
   }
 
   // Draws the screen. Online it runs again, in place, whenever the host reports a new vote or status:
@@ -162,35 +107,30 @@ export class MapScene extends Phaser.Scene {
   private build(): void {
     const run = currentRun();
     this.run = run;
+    this.geo = geometry(run);
+    noteStop(run);
     const pending = myPending(run);
     drawBackground(this, "map");
-    for (const o of this.children.list) {
-      o.cameraFilter &= ~this.bgCam.id; // the background is drawn by the background camera only
-      this.cameras.main.ignore(o);
-    }
-    this.world = this.add.container(0, 0);
-    this.world.cameraFilter &= ~this.mapCam.id;
-    drawPartyHud(this, run);
-    const next = (run.position?.floor ?? 0) + 1;
-    const toBoss = next > run.map.floors.length;
+    const p = M.paper;
+    const sheet = this.add.graphics();
+    sheet.fillStyle(hexColour(p.fill), 1);
+    sheet.fillRect(p.x, p.y, p.w, p.h);
+    sheet.lineStyle(p.edgeW, hexColour(p.edge), 1);
+    sheet.strokeRect(p.x, p.y, p.w, p.h);
+    drawPartyHud(this, run, M.ink);
     const online = isOnlineRun();
-    drawRunHeader(this, `Act ${run.actIndex + 1} of ${run.content.run.acts.length}`, null, "Vote for the next stop.");
-    if (!online) label(this, 60, 140, "Choose the next stop.", 26, { color: "#cfe9dc" });
-    if (online && pending === null) drawWaitingFor(this, run, 60, 200);
+    label(this, M.titleX, M.titleY, `Act ${run.actIndex + 1} of ${run.content.run.acts.length}`, M.text.title, { color: M.ink });
+    label(this, M.titleX, M.promptY, online ? "Vote for the next stop" : "Choose the next stop", M.text.prompt, { color: M.inkDim });
+    if (online && pending === null) drawWaitingFor(this, run, M.titleX, M.winnerY, 0);
 
     const options = pending?.type === "vote" ? pending.options : [];
-    const mapStart = this.children.list.length;
-    this.drawEdges(run, options);
-    this.drawNodes(run, options, pending?.type === "vote" ? pending.player : null);
-    this.put(this.children.list.slice(mapStart));
-    this.drawBoss(run, toBoss);
-    this.drawSidePanel(run);
+    const reach = this.reachable(run);
+    this.drawRoads(run, options, reach);
+    this.drawStops(run, options, reach, pending?.type === "vote" ? pending.player : null);
+    this.drawBoss(run);
+    this.drawFooter(run);
     this.voteLayer = this.add.container(0, 0);
-    this.put([this.voteLayer]);
     this.drawVotes(run.votes);
-    this.bar = this.add.graphics();
-    this.drawScrollBar();
-    this.mapCam.setScroll(VIEW.x, this.scrollY);
     // A run update with the winner in it: show it, then go on (the votes before it just redraw the map).
     watchRun(this, "map", {
       redraw: () => {
@@ -208,142 +148,187 @@ export class MapScene extends Phaser.Scene {
     });
   }
 
-  // Every connection, dim; the ones the party can take from where it stands, bright and thick.
-  private drawEdges(run: RunState, options: number[]): void {
-    const floors = run.map.floors;
-    const dim = this.add.graphics();
-    dim.lineStyle(3, 0x6fb08f, 0.45);
-    floors.forEach((row, f) => {
-      row.forEach((node) => {
-        const x = nodeX(row.length, node.index);
-        const y = floorY(f + 1, floors.length);
-        const targets = f + 1 < floors.length ? node.next.map((j) => ({ x: nodeX(floors[f + 1].length, j), y: floorY(f + 2, floors.length) })) : [{ x: CENTER_X, y: BOSS_Y }];
-        for (const t of targets) dim.lineBetween(x, y, t.x, t.y);
-      });
-    });
-    const lit = this.add.graphics();
-    lit.lineStyle(7, GOLD, 0.9);
+  // The stops the party can still reach, from the engine. At the start of an act every floor 1 stop
+  // is reachable (and what they lead to).
+  private reachable(run: RunState): Set<string> {
+    const set = new Set<string>();
     const pos = run.position;
-    if (pos === null) return;
-    const from = { x: pos.floor > floors.length ? CENTER_X : nodeX(floors[pos.floor - 1].length, pos.index), y: pos.floor > floors.length ? BOSS_Y : floorY(pos.floor, floors.length) };
-    for (const j of options) {
-      const to = pos.floor >= floors.length ? { x: CENTER_X, y: BOSS_Y } : { x: nodeX(floors[pos.floor].length, j), y: floorY(pos.floor + 1, floors.length) };
-      lit.lineBetween(from.x, from.y, to.x, to.y);
-    }
-  }
-
-  private drawNodes(run: RunState, options: number[], voter: string | null): void {
-    const floors = run.map.floors;
-    const doneFloor = run.position?.floor ?? 0;
-    floors.forEach((row, f) => {
-      const floor = f + 1;
-      label(this, 560, floorY(floor, floors.length), String(floor), 26, { origin: 0.5, color: "#9fd1b8" });
-      row.forEach((node) => {
-        const x = nodeX(row.length, node.index);
-        const y = floorY(floor, floors.length);
-        const here = run.position?.floor === floor && run.position.index === node.index;
-        const isLit = floor === doneFloor + 1 && options.includes(node.index);
-        const g = this.add.graphics();
-        const holder = this.add.container(0, 0, [g]); // the stop's art, if any, joins its disc here
-        if (isLit) {
-          g.lineStyle(8, GOLD, 1);
-          g.strokeCircle(x, y, NODE_R + 8);
-        }
-        // After a turn back at the Toll Bridge the floor's stops are unknown: all draw as "?".
-        const shown: RunNodeType = run.hiddenFloor === floor ? "event" : node.type;
-        g.fillStyle(run.hiddenFloor === floor ? HIDDEN_COLOR : NODE_STYLE[shown].color, 1);
-        g.fillCircle(x, y, NODE_R);
-        g.lineStyle(3, 0xf4ecd8, 1);
-        g.strokeCircle(x, y, NODE_R);
-        drawNodeIcon(g, shown, x, y, NODE_R, run.hiddenFloor === floor);
-        if (here) this.drawPartyMarker(x, y);
-        // Stops that are neither next nor the current one fade back.
-        if (!isLit && !here) holder.setAlpha(floor <= doneFloor ? 0.35 : 0.65);
-        if (isLit && voter !== null) {
-          const hit = this.add.circle(x, y, NODE_R + 8, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
-          // A click that moved the map (a drag) is not a vote.
-          hit.on("pointerup", (p: Phaser.Input.Pointer) => {
-            if (this.press !== null && !this.dragged && this.inView(p)) this.castVote(voter, node.index);
-          });
-          this.tweens.add({ targets: holder, alpha: 0.7, duration: 600, yoyo: true, repeat: -1 });
-        }
+    if (pos === null) {
+      run.map.floors[0].forEach((n) => {
+        set.add(key(1, n.index));
+        for (const s of reachableStops(run.map, 1, n.index)) set.add(key(s.floor, s.index));
       });
-    });
-  }
-
-  // A flag over the stop the party stands on.
-  private drawPartyMarker(x: number, y: number): void {
-    const g = this.add.graphics();
-    g.lineStyle(5, 0x7dffb0, 1);
-    g.strokeCircle(x, y, NODE_R + 8);
-    g.fillStyle(0x7dffb0, 1);
-    g.fillTriangle(x - 14, y - NODE_R - 14, x + 14, y - NODE_R - 14, x, y - NODE_R + 2);
-    label(this, x + NODE_R + 14, y, "You are here", 20, { bold: true, color: "#7dffb0" });
-  }
-
-  // The boss sits at the top from the start, with its name and passive.
-  private drawBoss(run: RunState, lit: boolean): void {
-    const bossStart = this.children.list.length;
-    const boss = content.enemies.find((e) => e.id === run.map.bossId);
-    const g = this.add.graphics();
-    const r = NODE_R + 12;
-    if (lit) {
-      g.lineStyle(8, GOLD, 1);
-      g.strokeCircle(CENTER_X, BOSS_Y, r + 8);
+    } else if (pos.floor <= run.map.floors.length) {
+      for (const s of reachableStops(run.map, pos.floor, pos.index)) set.add(key(s.floor, s.index));
     }
-    g.fillStyle(NODE_STYLE.boss.color, 1);
-    g.fillCircle(CENTER_X, BOSS_Y, r);
-    g.lineStyle(4, 0xf4ecd8, 1);
-    g.strokeCircle(CENTER_X, BOSS_Y, r);
-    drawNodeIcon(g, "boss", CENTER_X, BOSS_Y, r);
-    if (run.position?.floor === run.map.floors.length + 1) this.drawPartyMarker(CENTER_X, BOSS_Y);
-    // Left of the boss, right-aligned: the party's charm strip runs along the top to its right.
-    const name: Phaser.GameObjects.Text = label(this, CENTER_X - r - 20, 36, boss?.name ?? run.map.bossId, 30, { bold: true, origin: 1 });
-    // The passive shows as icons beside the name; its text is in the tooltip.
-    const icons: Phaser.GameObjects.GameObject[] = [];
-    const hits: Phaser.GameObjects.Arc[] = [];
-    const iconX = CENTER_X - r - 20 - name.width - 40;
-    (boss?.passives ?? []).forEach((p, i) => {
-      const gi = this.add.graphics();
-      drawPassiveIcon(this, gi, p, iconX - i * 60, 36, 0.7);
-      icons.push(gi);
-      hits.push(this.add.circle(iconX - i * 60, 36, 24, 0, 0));
+    return set;
+  }
+
+  // A stop the party has passed without visiting, or can no longer reach, is faded.
+  private isFaded(run: RunState, reach: Set<string>, floor: number, index: number): boolean {
+    const pos = run.position;
+    if (floor > run.map.floors.length) return false; // the boss
+    if (pos !== null && floor <= pos.floor) return !trail.some((s) => s.floor === floor && s.index === index);
+    return !reach.has(key(floor, index));
+  }
+
+  private dots(g: Phaser.GameObjects.Graphics, pts: Phaser.Math.Vector2[], size: number, colour: number, alpha: number): void {
+    g.fillStyle(colour, alpha);
+    let carried = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const seg = Phaser.Math.Distance.BetweenPoints(pts[i - 1], pts[i]);
+      let at = M.dotGap - carried;
+      while (at <= seg) {
+        const t = at / seg;
+        g.fillRect(Math.round(pts[i - 1].x + (pts[i].x - pts[i - 1].x) * t - size / 2), Math.round(pts[i - 1].y + (pts[i].y - pts[i - 1].y) * t - size / 2), size, size);
+        at += M.dotGap;
+      }
+      carried = seg - (at - M.dotGap);
+    }
+  }
+
+  // Every road, dotted; the one taken, solid; the ones the party can take from where it stands, gold.
+  // All roads between two floors bend the same way, so roads that do not cross in the data do not
+  // cross on screen.
+  private drawRoads(run: RunState, options: number[], reach: Set<string>): void {
+    const g = this.add.graphics();
+    const geo = this.geo;
+    const pos = run.position;
+    run.map.floors.forEach((row, f) => {
+      const floor = f + 1;
+      for (const node of row) {
+        const x0 = colX(geo, floor);
+        const y0 = nodeY(geo, floor, node.index);
+        const targets = floor < geo.floors ? node.next : [0];
+        for (const j of targets) {
+          const x1 = colX(geo, floor + 1);
+          const y1 = nodeY(geo, floor + 1, j);
+          const curve = new Phaser.Curves.CubicBezier(new Phaser.Math.Vector2(x0, y0), new Phaser.Math.Vector2(x0 + (x1 - x0) / 2, y0), new Phaser.Math.Vector2(x0 + (x1 - x0) / 2, y1), new Phaser.Math.Vector2(x1, y1));
+          const pts = curve.getPoints(24);
+          const taken = trail.some((s, i) => s.floor === floor && s.index === node.index && trail[i + 1]?.floor === floor + 1 && trail[i + 1].index === j);
+          const gold = pos !== null && pos.floor === floor && pos.index === node.index && options.includes(j);
+          const faded = this.isFaded(run, reach, floor, node.index) || this.isFaded(run, reach, floor + 1, j);
+          if (gold) this.dots(g, pts, M.goldDotSize, GOLD, 1);
+          else if (taken) {
+            g.lineStyle(M.takenWidth, INK, 1);
+            g.strokePoints(pts);
+          } else this.dots(g, pts, M.dotSize, INK, faded ? M.fadedRoadAlpha : M.dotAlpha);
+        }
+      }
     });
+  }
+
+  private drawStops(run: RunState, options: number[], reach: Set<string>, voter: string | null): void {
+    const geo = this.geo;
+    const doneFloor = run.position?.floor ?? 0;
+    for (let floor = 1; floor <= geo.floors; floor++) {
+      label(this, colX(geo, floor), M.floorNumberY, String(floor), M.text.small, { origin: 0.5, color: M.inkDim });
+    }
+    run.map.floors.forEach((row, f) => {
+      const floor = f + 1;
+      for (const node of row) {
+        const x = colX(geo, floor);
+        const y = nodeY(geo, floor, node.index);
+        const here = run.position?.floor === floor && run.position.index === node.index;
+        const visited = trail.some((s) => s.floor === floor && s.index === node.index);
+        const pick = floor === doneFloor + 1 && options.includes(node.index);
+        const hidden = run.hiddenFloor === floor;
+        const r = (pick ? M.pickR : M.stopR) * geo.fit;
+        // After a turn back at the Toll Bridge the floor's stops are unknown: all draw as "?".
+        const shown: RunNodeType = hidden ? "event" : node.type;
+        const g = this.add.graphics();
+        const holder = this.add.container(x, y, [g]); // the stop's art joins its disc here
+        g.fillStyle(hexColour(pick ? M.goldFill : M.discFill), 1);
+        g.fillCircle(0, 0, r);
+        g.lineStyle(pick ? M.pickEdgeW : M.discEdgeW, pick ? GOLD : INK, 1);
+        g.strokeCircle(0, 0, r);
+        drawNodeIcon(g, shown, 0, 0, (ART_PX * (pick ? M.pickIconScale : M.iconScale) * geo.fit) / 2, hidden);
+        if (this.isFaded(run, reach, floor, node.index)) holder.setAlpha(M.fadedAlpha);
+        if (visited) this.drawTick(x + r * M.tick.offset, y - r * M.tick.offset);
+        if (here) this.drawHere(x, y - r);
+        if (pick) {
+          this.tweens.add({ targets: holder, scale: M.pulse.scale, duration: M.pulse.ms, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+          if (voter !== null) {
+            const hit = this.add.circle(x, y, r + 6, 0xffffff, 0.001).setInteractive({ useHandCursor: true });
+            hit.on("pointerup", () => this.castVote(voter, node.index));
+          }
+        }
+      }
+    });
+  }
+
+  // A small tick in a green badge on a visited stop.
+  private drawTick(x: number, y: number): void {
+    const s = M.tick.size;
+    const g = this.add.graphics();
+    g.fillStyle(hexColour(M.goodInk), 1);
+    g.fillCircle(x, y, s);
+    g.lineStyle(3, hexColour(M.discFill), 1);
+    g.beginPath();
+    g.moveTo(x - s * 0.5, y);
+    g.lineTo(x - s * 0.1, y + s * 0.45);
+    g.lineTo(x + s * 0.55, y - s * 0.4);
+    g.strokePath();
+  }
+
+  // The "You are here" mark: an arrow and the words, above the stop the party is on.
+  private drawHere(x: number, top: number): void {
+    const g = this.add.graphics();
+    g.fillStyle(INK, 1);
+    g.fillTriangle(x - 10, top - 18, x + 10, top - 18, x, top - 4);
+    label(this, x, top - M.hereRise - 12, "You are here", M.text.small, { origin: 0.5, color: M.ink });
+  }
+
+  // The boss stands at the end of the road from the start, with its name and its rule.
+  private drawBoss(run: RunState): void {
+    const geo = this.geo;
+    const boss = content.enemies.find((e) => e.id === run.map.bossId);
+    const r = M.bossR * geo.fit;
+    const g = this.add.graphics();
+    this.add.container(M.bossX, M.centreY, [g]);
+    g.fillStyle(hexColour(M.discFill), 1);
+    g.fillCircle(0, 0, r);
+    g.lineStyle(M.pickEdgeW, INK, 1);
+    g.strokeCircle(0, 0, r);
+    drawNodeIcon(g, "boss", 0, 0, (ART_PX * M.bossIconScale * geo.fit) / 2);
+    if (run.position?.floor === geo.floors + 1) this.drawHere(M.bossX, M.centreY - r);
+    const name = label(this, M.bossX, M.bossNameY, boss?.name ?? run.map.bossId, M.text.small, { origin: 0.5, color: M.ink });
+    const rule = (boss?.passives ?? []).map((p) => `${p.name}: ${p.text ?? ""}`).join("\n") || "No passive";
+    const text = this.add
+      .text(M.bossX, M.centreY + r + M.bossRuleGap, rule, { ...fontRole(M.text.small), color: M.inkDim, wordWrap: { width: M.bossRuleWrap }, align: "center" })
+      .setOrigin(0.5, 0);
     const tip = new Tooltip(this);
     const lines = bossTip(boss, boss ? enemyStartingHealth(content.config, boss, run.players.length) : 0);
-    const hit = this.add.circle(CENTER_X, BOSS_Y, r, 0, 0);
-    // The boss itself scrolls with the map; its name and passive icons stay in the heading.
-    const fixed = new Set<Phaser.GameObjects.GameObject>([name, ...icons, ...hits]);
-    this.put(this.children.list.slice(bossStart).filter((o) => !fixed.has(o)));
-    for (const target of [name, hit, ...hits]) {
-      target.setDepth(10); // above the vote targets, so the whole boss hovers
-      tip.attachLines(target, lines);
-    }
+    const hit = this.add.circle(M.bossX, M.centreY, r, 0, 0);
+    for (const target of [name, text, hit]) tip.attachLines(target, lines);
   }
 
-  // Coins per player (with their marker colour), what each marker means, and a legend of stop types.
-  private drawSidePanel(run: RunState): void {
-    label(this, 60, 340, "Players", 28, { bold: true, color: "#9fd1b8" });
+  // One line along the bottom: what each stop type is, then the players and their coins.
+  private drawFooter(run: RunState): void {
     const g = this.add.graphics();
-    run.players.forEach((id, i) => {
-      const y = 390 + i * 56;
-      g.fillStyle(seatColour(run.players, id), 1);
-      g.fillCircle(80, y, 14);
-      g.lineStyle(2, 0x0d2a20, 1);
-      g.strokeCircle(80, y, 14);
-      label(this, 110, y, seatName(id), 28);
-      coinLine(this, 400, y, [run.coins[id] ?? 0], 26, { color: "#ffe14d", origin: 1 });
-      if (isOnlineRun() && run.phase === "vote") label(this, 110, y + 24, run.votes[id] === undefined ? "voting" : "voted", 18, { color: run.votes[id] === undefined ? "#cfe9dc" : "#8fe3a8" });
+    const half = M.legendIcon / 2;
+    let x = M.titleX;
+    LEGEND.forEach((type) => {
+      const holder = this.add.container(x + half, M.legendY, [this.add.graphics()]);
+      const lg = holder.list[0] as Phaser.GameObjects.Graphics;
+      lg.fillStyle(hexColour(M.discFill), 1);
+      lg.fillCircle(0, 0, half + 4);
+      lg.lineStyle(2, INK, 1);
+      lg.strokeCircle(0, 0, half + 4);
+      drawNodeIcon(lg, type, 0, 0, half);
+      const t = label(this, x + M.legendIcon + 14, M.legendY, NODE_STYLE[type].name, M.text.small, { color: M.ink });
+      x += M.legendIcon + 14 + t.width + M.legendGap;
     });
-    label(this, 60, 610, "Stops", 28, { bold: true, color: "#9fd1b8" });
-    LEGEND.forEach((type, i) => {
-      const y = 660 + i * 50;
-      g.fillStyle(NODE_STYLE[type].color, 1);
-      g.fillCircle(80, y, 20);
-      g.lineStyle(2, 0xf4ecd8, 1);
-      g.strokeCircle(80, y, 20);
-      drawNodeIcon(g, type, 80, y, 20);
-      label(this, 115, y, NODE_STYLE[type].name, 26);
+    const online = isOnlineRun();
+    run.players.forEach((id, i) => {
+      const px = M.playersX + i * M.playersGap;
+      g.fillStyle(seatColour(run.players, id), 1);
+      g.fillCircle(px + 12, M.playersY, 12);
+      g.lineStyle(2, INK, 1);
+      g.strokeCircle(px + 12, M.playersY, 12);
+      const state = online && run.phase === "vote" ? (run.votes[id] === undefined ? " (voting)" : " (voted)") : "";
+      const name = label(this, px + 32, M.playersY, seatName(id) + state, M.text.small, { color: M.ink });
+      coinLine(this, px + 32 + name.width + 12, M.playersY, [run.coins[id] ?? 0], M.text.small, { color: M.ink, origin: 0 });
     });
   }
 
@@ -358,16 +343,14 @@ export class MapScene extends Phaser.Scene {
       if (node !== undefined) (byNode[node] ??= []).push(id);
     }
     for (const [node, ids] of Object.entries(byNode)) {
-      const x = row ? nodeX(row.length, Number(node)) : CENTER_X;
-      const y = row ? floorY(floor, this.run.map.floors.length) : BOSS_Y;
+      const x = colX(this.geo, floor);
+      const y = row ? nodeY(this.geo, floor, Number(node)) : M.centreY;
       ids.forEach((id, k) => {
-        const mx = x + (k - (ids.length - 1) / 2) * 34;
-        const color = seatColour(this.run.players, id);
-        const dot = this.add.circle(mx, y + NODE_R + 26, 15, color).setStrokeStyle(3, 0x0d2a20);
-        const text = this.add.text(mx, y + NODE_R + 26, String(this.run.players.indexOf(id) + 1), { ...fontRole(18), color: "#0d2a20" }).setOrigin(0.5);
+        const mx = x + (k - (ids.length - 1) / 2) * (M.voteDot * 2 + 4);
+        const my = y + (M.pickR + 14 + M.voteDot) * this.geo.fit;
+        const dot = this.add.circle(mx, my, M.voteDot, seatColour(this.run.players, id)).setStrokeStyle(3, INK);
+        const text = this.add.text(mx, my, String(this.run.players.indexOf(id) + 1), { ...fontRole(M.text.small), color: M.ink }).setOrigin(0.5);
         this.voteLayer.add([dot, text]);
-        this.cameras.main.ignore([dot, text]);
-        for (const o of [dot, text]) o.cameraFilter &= ~this.mapCam.id;
       });
     }
   }
@@ -396,19 +379,18 @@ export class MapScene extends Phaser.Scene {
     this.resolving = true;
     this.drawVotes(chosen.votes);
     const row = this.run.map.floors[chosen.floor - 1];
-    const x = row ? nodeX(row.length, chosen.index) : CENTER_X;
-    const y = row ? floorY(chosen.floor, this.run.map.floors.length) : BOSS_Y;
+    const x = colX(this.geo, chosen.floor);
+    const y = row ? nodeY(this.geo, chosen.floor, chosen.index) : M.centreY;
     const reveal = (): void => {
       const ring = this.add.graphics();
-      ring.lineStyle(10, 0x7dffb0, 1);
-      ring.strokeCircle(x, y, NODE_R + 14);
-      this.put([ring]);
+      ring.lineStyle(10, hexColour(M.winnerRing), 1);
+      ring.strokeCircle(x, y, (M.pickR + 14) * this.geo.fit);
       const nodeName = NODE_STYLE[chosen.nodeType].name;
-      label(this, 60, 245, `Winner: ${nodeName}`, 30, { bold: true, color: "#7dffb0" });
+      label(this, M.winnerX, M.winnerY, `Winner: ${nodeName}`, M.text.prompt, { color: M.goodInk });
       if (chosen.drawn) {
         const total = Object.values(chosen.counts).reduce((a, b) => a + b, 0);
         const odds = Math.round((100 * (chosen.counts[chosen.index] ?? 0)) / total);
-        label(this, 60, 285, `Drawn: ${nodeName}, ${odds}%`, 30, { bold: true, color: "#ff9d7a" });
+        label(this, M.winnerX, M.drawnY, `Drawn: ${nodeName}, ${odds}%`, M.text.prompt, { color: M.drawnInk });
       }
       this.time.delayedCall(scaleTime(1800), () => {
         openRunScreen(this);
@@ -416,7 +398,8 @@ export class MapScene extends Phaser.Scene {
     };
     if (!chosen.drawn || !row) return reveal();
     // A drawn vote rolls over the voted stops first, then lands on the winner.
-    const spots = Object.keys(chosen.counts).map((k) => ({ option: Number(k), x: nodeX(row.length, Number(k)), y, w: 2 * NODE_R + 28, h: 2 * NODE_R + 28 }));
-    playVoteRoll(this, spots, chosen.counts, chosen.index, reveal, (ring) => this.put([ring]));
+    const size = (M.pickR * 2 + 28) * this.geo.fit;
+    const spots = Object.keys(chosen.counts).map((k) => ({ option: Number(k), x, y: nodeY(this.geo, chosen.floor, Number(k)), w: size, h: size }));
+    playVoteRoll(this, spots, chosen.counts, chosen.index, reveal);
   }
 }
