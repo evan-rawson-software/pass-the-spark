@@ -8,8 +8,7 @@ import { Wizard, WIZARD_FRAME, WIZARD_SCALE, lookColour, wizardTexture } from ".
 
 // The wizards in battle (#264): one per seat, standing on a spot of the arcane circle's rim, in their
 // idle loop with a soft shadow under the feet. The spots are fixed per party size (Z7, data), filled in
-// seat order, so every screen shows the same layout. Those on the right half face left, towards the
-// circle. A small arrow marks your own wizard, and an away player's wizard is dimmed (Z11). The idle
+// seat order, so every screen shows the same layout: the left arc of the circle, every wizard facing right, towards the enemy. A small arrow marks your own wizard, and an away player's wizard is dimmed (Z11). The idle
 // loops start at different frames so they do not bob in step. The wizards are made once, on the first
 // view, and sit under the redrawn layer (they are in the same world as the tree, so they move with the
 // camera). Places are in data/presentation.json (battleWizards). Also here: a seat's portrait for its tab.
@@ -89,10 +88,10 @@ export class BattleWizards {
   }
 
   // Where a seat's wizard stands (the middle of its feet), by party size and seat order.
-  static spot(size: number, index: number): { x: number; y: number; mirror: boolean } {
+  static spot(size: number, index: number): { x: number; y: number } {
     const list = D.spots[String(Math.min(4, Math.max(2, size))) as "2" | "3" | "4"];
     const p = list[Math.min(index, list.length - 1)];
-    return { x: CIRCLE.x + p.x * RADIUS[0] * WIZARD_SCALE, y: CIRCLE.y + p.y * RADIUS[1] * WIZARD_SCALE, mirror: p.x > 0 };
+    return { x: CIRCLE.x + p.x * RADIUS[0] * WIZARD_SCALE, y: CIRCLE.y + p.y * RADIUS[1] * WIZARD_SCALE };
   }
 
   private build(seats: string[]): void {
@@ -112,7 +111,7 @@ export class BattleWizards {
         shadow.push(this.scene.add.ellipse(spot.x, spot.y + Sh.dy, Sh.w * f, Sh.h * f, 0x000000, Sh.alpha));
       }
       const look = lookOf(seats, seat);
-      const wizard = new Wizard(this.scene, spot.x, spot.y, look, { mirror: spot.mirror });
+      const wizard = new Wizard(this.scene, spot.x, spot.y, look);
       wizard.play("idle", undefined, D.wizard.idleOffsetMs[i % D.wizard.idleOffsetMs.length]);
       this.standing.set(seat, { look, wizard, shadow });
     }

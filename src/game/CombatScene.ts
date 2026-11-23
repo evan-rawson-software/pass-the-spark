@@ -1,6 +1,6 @@
 import Phaser from "phaser";
-import { getOpenEnds, getPlayerChoices, previewBuild, previewFollowUps, previewPlay, previewSetOff, step } from "../engine/battle";
-import type { BattleState, Choice, PlayerChoices, SetOffPreview } from "../engine/battle";
+import { getOpenEnds, getPlayerChoices, previewBuild, previewFollowUps, previewPlay, step } from "../engine/battle";
+import type { BattleState, Choice, PlayerChoices } from "../engine/battle";
 import { getView } from "../engine/view";
 import type { BattleView, OpenEndView } from "../engine/view";
 import type { Domino } from "../engine/types";
@@ -37,17 +37,18 @@ import { boardGlow } from "./spectacle";
 import { litGlowStrength } from "./buildup";
 import { applyEvent, startShown } from "./shownView";
 import { isDrawEvent, playDraws } from "./drawAnimation";
-import { combatData, combatLayoutData, fuseBoardData, handRowData, hexColour } from "./presentation";
+import { combatLayoutData, fuseBoardData, handRowData, hexColour } from "./presentation";
 import type { CombatCtx } from "./combatCtx";
 import { drawEnemyUnit } from "./enemyUnit";
 import { SeatTabs } from "./seatTabs";
-import { drawActions, drawBackdrop, drawColumnPanel, drawFooter, drawPartyBar } from "./combatHud";
-import { columnLayout, footerSpots } from "./columnLayout";
-import type { ColumnLayout } from "./columnLayout";
-import { drawTally } from "./setOffTally";
+import { drawBackdrop, drawHandTab, drawStrip, stripTop } from "./combatHud";
+import { drawBar } from "./kit";
+import type { BarKind } from "./kit";
+import type { BarRef } from "./animations";
 import { setMenuButtonSpot } from "./menuButton";
 import type { ShownTable } from "./shownView";
-import { fontRole, snap, tabularDigits } from "./fonts";
+import { fontRole, snap } from "./fonts";
+import presentation from "../../data/presentation.json";
 
 // The combat table. Draws everything from getView (and getPlayerChoices for which dominoes can be
 // placed or taken back, getOpenEnds for the charge on each open end, previewPlay and previewSetOff for
@@ -55,6 +56,9 @@ import { fontRole, snap, tabularDigits } from "./fonts";
 // Everyone builds at the same time (0.2): your hand is always live while you have placements and are
 // not Ready. Clicking (or dragging) submits only choices getPlayerChoices offers, then the step's events
 // play back in order (see playback below), animated by animations.ts. Tooltips come from tooltip.ts.
+//
+// The stage (#302): the enemy stands on the table to the right of the arcane circle, the party on the circle's
+// left arc and the tree inside the circle. The bottom strip holds the party's health, your hand and piles, and Ready.
 //
 // Run mode (#50): started with { run: true }, the battle is the current run's. Choices go to
 // applyRunChoice, and when the battle is over the run's phase says which screen opens next.
@@ -87,7 +91,8 @@ interface Box { x: number; y: number; w: number; h: number } // centred on x, y
 
 // Table regions (1920x1080), from data/presentation.json (combatLayout).
 // The board's area (boardArea) and the hand's place (handArea) are rectangles in data, not placed from other parts here.
-const ACTIONS = combatLayoutData.actions;
+const STRIP = combatLayoutData.strip;
+const UNIT = presentation.kit.unit;
 const TAKE_BACK = combatLayoutData.takeBack;
 const NOTE = combatLayoutData.note;
 
@@ -133,7 +138,6 @@ export class CombatScene extends Phaser.Scene {
   private skipping = false; // this player skipped it: the rest of the step is applied at once
   private speed!: SpeedControl;
   private tabs!: SeatTabs; // the seat tabs (seatTabs.ts)
-  private col!: ColumnLayout; // where the left column's parts are this redraw (the tally draws into it)
   private ctx!: CombatCtx; // what enemyUnit.ts, seatTabs.ts and combatHud.ts draw with
   private hoverId: string | null = null; // the playable hand domino under the pointer (its legal ends light up)
   private skipHint?: Phaser.GameObjects.Text;
@@ -167,7 +171,6 @@ export class CombatScene extends Phaser.Scene {
     this.hoverId = null;
     this.shown = null;
     this.hoverPlay = null;
-    this.previewUi?.clear();
     this.previewUi = new SetOffPreviewUi(this);
     this.drawTable();
     this.ctx = this.makeCtx();
@@ -187,15 +190,15 @@ export class CombatScene extends Phaser.Scene {
     this.input.on("pointerdown", (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
       if (over.length === 0 && !this.speed.isOpen()) this.skipCascade(); // a click that only closes the speed list is not a skip
     });
-    this.speed = new SpeedControl(this, footerSpots().speed); // made after the skip handler, so that one sees the list still open; follows the menu setting itself
+    this.speed = new SpeedControl(this, STRIP.speed); // made after the skip handler, so that one sees the list still open; follows the menu setting itself
     this.input.keyboard?.on("keydown-SPACE", () => this.skipCascade());
     this.inCascade = false;
     this.skipping = false;
     this.skipHint = this.add.text(combatLayoutData.skipHint.x, combatLayoutData.skipHint.y, "Click to skip", { ...fontRole(24), color: "#cfe9dc", stroke: "#101010", strokeThickness: 4 }).setOrigin(0.5).setDepth(700).setVisible(false);
     setSoundHushed(false);
     this.tooltip = new Tooltip(this);
-    this.tooltip.avoid = { x: ACTIONS.ready.x, y: ACTIONS.ready.y - 20, w: ACTIONS.ready.w, h: ACTIONS.ready.h + 20 }; // Ready
-    setMenuButtonSpot(footerSpots().menu); // the menu button sits in the column's footer while this screen is up
+    this.tooltip.avoid = { x: handArea().x - 20, y: stripTop, w: 1920 - (handArea().x - 20), h: 1080 - stripTop }; // the hand and Ready, in the strip
+    setMenuButtonSpot(STRIP.menu); // the menu button sits in the bottom strip while this screen is up
     this.pings = new PingMarks(this);
     this.front = this.online?.seat ?? "";
     this.note = undefined;
@@ -413,9 +416,7 @@ export class CombatScene extends Phaser.Scene {
     if (this.selected !== null && !pending?.plays.some((o) => o.domino === this.selected)) this.selected = null;
 
     const ctx = this.ctx;
-    const col = columnLayout(view);
-    this.col = col;
-    drawColumnPanel(ctx, layer);
+    this.drawStripFor(layer, view, front);
     this.tabs.draw(layer, view, {
       front,
       you: this.online ? this.online.seat : front,
@@ -424,13 +425,10 @@ export class CombatScene extends Phaser.Scene {
       isAway: (seat) => this.online !== null && this.isAway(seat),
       nameOf: (seat) => this.nameOf(seat, true, 8),
     });
-    drawEnemyUnit(ctx, layer, view, col);
+    drawEnemyUnit(ctx, layer, view);
     this.anim.hype.showLine(view.enemy.line); // the line meter under the cascade number, empty until the set-off
-    drawPartyBar(ctx, layer, view, col);
-    drawFooter(ctx, layer, view.round);
     this.drawBoard(layer, view, front, pending);
     this.drawActiveHand(layer, view, front, pending);
-    this.drawActionButtons(layer, view, front);
     this.pings.place(this.pingBoxes);
     this.previewLayer = this.add.container(0, 0);
     layer.add(this.previewLayer);
@@ -456,51 +454,7 @@ export class CombatScene extends Phaser.Scene {
   // ---- table (drawn once) ----
 
   private drawTable(): void {
-    // With a background image (added first, so behind everything) the frame, felt and pool of light
-    // give way to it.
-    const hasArt = this.blurredBackground();
-    const g = this.add.graphics();
-    if (!hasArt) {
-      g.fillStyle(0x2e2016, 1);
-      g.fillRect(0, 0, 1920, 1080);
-      g.fillStyle(0x4a3322, 1);
-      g.fillRoundedRect(8, 8, 1904, 1064, 150);
-      g.fillStyle(0x1e5a42, 1);
-      g.fillRoundedRect(28, 28, 1864, 1024, 130);
-      g.lineStyle(4, 0x2f7a5b, 1);
-      g.strokeRoundedRect(44, 44, 1832, 992, 116);
-      // A soft pool of light and the board mat: felt markings, not boxes.
-      g.fillStyle(0x246b4f, 0.55);
-      g.fillEllipse(960, 560, 1500, 700);
-    }
-    drawBackdrop(this); // dims the table and darkens the edges: the middle is the brightest (L4)
-  }
-
-  // The table picture, blurred once into a small canvas and stretched over the screen, so the lit board
-  // and the column stand out. (A live blur filter was far too slow; the canvas filter is skipped where
-  // the browser lacks it, and the small size alone still softens the picture.) False when there is no
-  // picture, and the caller keeps its code-drawn table.
-  private blurredBackground(): boolean {
-    const B = combatLayoutData.background.blur;
-    const key = "art/backgrounds/combat";
-    if (!this.textures.exists(key)) return false;
-    const tex = this.textures.exists("combat-bg-blur") ? null : this.textures.createCanvas("combat-bg-blur", Math.round(1920 * B.scale), Math.round(1080 * B.scale));
-    if (tex) {
-      const src = this.textures.get(key).getSourceImage() as CanvasImageSource & { width: number; height: number };
-      const c = tex.context;
-      const f = Math.max(tex.width / src.width, tex.height / src.height); // cover the canvas
-      const w = src.width * f;
-      const h = src.height * f;
-      try {
-        c.filter = `blur(${B.px}px)`;
-      } catch {
-        // no canvas filter here
-      }
-      c.drawImage(src, (tex.width - w) / 2, (tex.height - h) / 2, w, h);
-      tex.refresh();
-    }
-    this.add.image(960, 540, "combat-bg-blur").setDisplaySize(1920, 1080);
-    return true;
+    drawBackdrop(this); // the table picture, sharp, with a soft dark edge
   }
 
   // ---- small helpers ----
@@ -563,10 +517,11 @@ export class CombatScene extends Phaser.Scene {
     return out;
   }
 
-  private bar(layer: Layer, key: string, x: number, y: number, w: number, h: number, value: number, max: number, color: number, fontSize?: number): void {
-    const g = this.gfx(layer);
-    const text = tabularDigits(this.label(layer, x + w / 2, y + h / 2, "", fontSize ?? Math.round(h * 0.6), "#ffffff", 0.5, true));
-    const ref = { g, text, x, y, w, h, max, color };
+  // A kit bar (w in grid pixels), registered so the animations can repaint it hit by hit.
+  private bar(layer: Layer, key: string, x: number, y: number, w: number, kind: BarKind, value: number, max: number): void {
+    const bar = drawBar(this, x, y, w, { kind, value, max });
+    layer.add(bar);
+    const ref: BarRef = { bar, x: Math.round(x / UNIT) * UNIT, y: Math.round(y / UNIT) * UNIT, w: w * UNIT, h: presentation.kit.bar.height * UNIT, max };
     this.anim.refs.bars.set(key, ref);
     paintBar(ref, value + this.anim.owed(key as "party" | "enemy", "health"), this.anim.reactions.ghostOf(key as "party" | "enemy")); // what the cascade still holds back counts until the slam
   }
@@ -579,7 +534,7 @@ export class CombatScene extends Phaser.Scene {
     g.fillPoints(pts, true);
     g.strokePoints(pts, true);
     const shownAmount = amount + this.anim.owed(key as "party" | "enemy", "block");
-    const text = this.label(layer, x + s * 0.5 + 8, y, String(shownAmount), Math.round(s * 0.7), "#dbe6f5", 0, true);
+    const text = this.label(layer, x + s * 0.5 + 8, y, String(shownAmount), presentation.text.roles.text.size, "#dbe6f5", 0, true); // the "text" role
     this.anim.refs.shields.set(key, { text, x, y, s });
     if (key === "enemy") this.anim.reactions.drawCracks(layer, x, y, s, shownAmount);
   }
@@ -597,7 +552,7 @@ export class CombatScene extends Phaser.Scene {
       gfx: (l) => this.gfx(l),
       bar: (...a) => this.bar(...a),
       shield: (...a) => this.shield(...a),
-      drawBody: (l, id, tier, spot) => this.anim.reactions.drawBody(l, id, tier, spot),
+      drawBody: (l, id, tier, stand) => this.anim.reactions.drawBody(l, id, tier, stand),
       domino: (...a) => this.domino(...a),
       slots: (seat) => this.slotsOf(seat),
       nameOf: (seat, forPlate, max) => this.nameOf(seat, forPlate, max),
@@ -614,25 +569,21 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- set-off preview (#222) ----
 
-  // The preview on the party's bar and shield, and the block tile, from the engine's previewBuild on the current
-  // board, or on the board after the hovered play (it never depends on a lethal hit or the line). With
-  // combat.showDamageTotal the old tally also reads previewSetOff. Hidden while a step plays back; the real bars take over.
+  // The preview on the party's bar and block, from the engine's previewBuild on the current board, or on the
+  // board after the hovered play (it never depends on a lethal hit or the line). Hidden while a step plays
+  // back; the real bars take over.
   private refreshPreview(): void {
     this.refreshLive();
     const into = this.previewLayer;
     if (!into?.active) return;
     const view = this.view;
-    const tally = (p: SetOffPreview | null, b: { block: number; partyDamage: number } | null): void => drawTally(this, into, view, p, b, this.col, (o, low, high, ms) => this.previewUi.pulse(o, low, high, ms));
     if (this.locked || this.waiting || this.shown || view.phase === "over") {
       this.previewUi.draw(into, view, null, this.anim.refs);
-      tally(null, null);
       return;
     }
     const hover = this.hoverPlay;
     const b = (hover ? previewBuild(view, hover) : null) ?? previewBuild(view);
-    const p = combatData.showDamageTotal ? (hover ? previewSetOff(view, hover) : null) ?? previewSetOff(view) : null;
     this.previewUi.draw(into, view, b, this.anim.refs);
-    tally(p, b);
   }
 
   // A hand domino hovered, picked or dragged over a legal end: preview the board with it there.
@@ -869,15 +820,10 @@ export class CombatScene extends Phaser.Scene {
     this.handRow = handRow;
     handRow.draw({ hand: p.hand, dominoes: view.dominoes, playable: live ? playable : null, owner: seatColour(view.seatOrder, p.id) });
     const refs = this.anim.refs;
-    // New draws come in from the left edge of the row's area (the animator flies them from your deck's spot).
-    const entry = handRow.entryPoint();
-    const stack = refs.decks.get(p.id);
-    if (stack) { stack.x = entry.x; stack.y = entry.y; }
     if (p.hand.length === 0) {
       const a = handArea();
       this.label(layer, a.x + a.w / 2, a.y + a.h / 2, "No dominoes in hand", 28, "#7fb59b", 0.5);
     }
-    if (p.id !== this.online?.seat && view.seatOrder.length > 1) this.handFrame(layer, view, p.id);
     const slots = this.slotsOf(p.id);
     for (const it of handRow.items) {
       const pos = { x: it.slot.x, y: it.slot.y, k: it.slot.k };
@@ -895,27 +841,27 @@ export class CombatScene extends Phaser.Scene {
     if (this.drag?.ghost && this.drag.node === undefined) handRow.setDragged(handRow.items.find((i) => i.id === this.drag!.id)?.key ?? null);
   }
 
-  // A seat's hand that is not your own seat's (single player; the host playing for an away seat): framed in
-  // its colour, with whose hand it is.
-  private handFrame(layer: Layer, view: BattleView, seat: string): void {
-    const F = combatLayoutData.handFrame;
-    const a = handArea();
-    const g = this.gfx(layer);
-    g.lineStyle(F.width, seatColour(view.seatOrder, seat), 1);
-    g.strokeRoundedRect(a.x - F.pad, a.y - F.padTop, a.w + 2 * F.pad, Math.min(a.h + F.padTop + F.pad, 1076 - (a.y - F.padTop)), 18); // the playable dominoes of the top row stand a little above it
-    this.label(layer, a.x - F.pad + 14, a.y + F.label.dy, `${this.online ? "Playing for " : ""}${this.nameOf(seat, true, 14)}${this.online ? "" : "'s hand"}`, F.label.size, "#f3ead6", 0, true);
-  }
-
-  // The action bottom right (L7): Ready (Fire in single player), with how many seats are Ready online.
-  private drawActionButtons(layer: Layer, view: BattleView, front: string): void {
+  // The bottom strip: the party's health and block, your placements, deck and used piles, and Ready (Fire in
+  // single player) with how many seats are Ready online. A hand that is not your own seat's has a tab with its
+  // name over the strip, and the strip's edge in that seat's colour.
+  private drawStripFor(layer: Layer, view: BattleView, front: string): void {
     const me = view.players.find((p) => p.id === front);
-    drawActions(this.ctx, layer, {
+    const other = front !== this.online?.seat && view.seatOrder.length > 1;
+    const colour = seatColour(view.seatOrder, front);
+    const used = view.board.nodes.filter((n) => n.owner === front).length;
+    const total = me?.placements ?? 0;
+    drawStrip(this.ctx, layer, view, {
+      seat: front,
+      edge: other ? "#" + colour.toString(16).padStart(6, "0") : null,
+      placements: { left: Math.max(0, total - used), spent: Math.min(used, total) },
       fire: !this.online,
       ready: this.online !== null && me?.ready === true,
       enabled: view.phase !== "over" && !this.locked && !this.waiting && !this.drag?.ghost,
       count: this.online ? { ready: view.players.filter((p) => p.ready).length, total: view.players.length } : null,
       onPress: () => this.pressReady(),
+      openDeck: () => this.ctx.openDeck(front),
     });
+    if (other) drawHandTab(this.ctx, layer, `${this.online ? "Playing for " : ""}${this.nameOf(front, true, 14)}${this.online ? "" : "'s hand"}`, colour);
   }
 
   // Online: toggle your Ready (the host's Ready for the seat in front, when it plays for an away seat). Single player:

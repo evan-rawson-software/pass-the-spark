@@ -1,11 +1,11 @@
 import Phaser from "phaser";
 import type { Refs } from "./animations";
-import { artImage } from "./art";
 import { reducedFlashing, shakeEnabled } from "./comfort";
 import { fxObject } from "./fx";
 import { drawNodeIcon, NODE_STYLE } from "./nodeIcon";
 import { scaleTime } from "./playbackSpeed";
-import { hexColour, reactionData as R, spellData } from "./presentation";
+import { combatLayoutData, hexColour, reactionData as R, spellData } from "./presentation";
+import type { Stand } from "./enemyUnit";
 import { playSound } from "./sound";
 
 // The enemy's reactions (#190), all driven by the damage, block, passive and enemyAction events
@@ -51,25 +51,33 @@ export class EnemyReactions {
 
   // ---- the enemy's body ----
 
-  // Draws the portrait (or a code-drawn stand-in) centred on `spot` in the table's layer, in the pose it
-  // is in now. Every effect on the enemy aims at the spot of the latest draw (the card in the column).
-  drawBody(layer: Phaser.GameObjects.Container, id: string, tier: string, spot: { x: number; y: number; size: number }): void {
+  // Draws the enemy's sprite standing on the table (or a code-drawn stand-in), in the pose it is in
+  // now, over its shadow. `stand` is where it is (enemyUnit.ts): the sprite's centre and size, and its
+  // feet. Every effect on the enemy aims at the centre of the latest draw.
+  drawBody(layer: Phaser.GameObjects.Container, id: string, tier: string, stand: Stand): void {
     this.boss = tier === "boss";
     this.body = undefined;
-    this.spot = spot;
+    this.spot = { x: stand.x, y: stand.y, size: Math.max(stand.w, stand.h) };
     if (this.dead) return;
-    const B = spot;
-    const c = this.scene.add.container(B.x, B.y);
+    const sh = combatLayoutData.enemy.shadow;
+    for (let l = 0; l < sh.layers; l++) {
+      const f = 1 - l / sh.layers; // nested ellipses, the widest faintest: a soft edge
+      layer.add(this.scene.add.ellipse(stand.feet.x, stand.feet.y + sh.dy, stand.w * sh.w * f, sh.h * f, 0x000000, sh.alpha));
+    }
+    const c = this.scene.add.container(stand.x, stand.y);
     layer.add(c);
-    if (!artImage(this.scene, `enemies/${id}`, 0, 0, B.size, B.size, c)) {
+    const key = `art/enemies/${id}`;
+    if (this.scene.textures.exists(key)) {
+      c.add(this.scene.add.image(0, 0, key).setDisplaySize(stand.w, stand.h));
+    } else {
       const stop = tier === "basic" ? "fight" : (tier as "elite" | "boss");
       const g = this.scene.add.graphics();
       c.add(g);
       g.fillStyle(NODE_STYLE[stop].color, 0.35);
-      g.fillCircle(0, 0, B.size * 0.42);
+      g.fillCircle(0, 0, this.spot.size * 0.42);
       g.lineStyle(4, NODE_STYLE[stop].color, 0.8);
-      g.strokeCircle(0, 0, B.size * 0.42);
-      drawNodeIcon(g, stop, 0, 0, B.size * 0.3);
+      g.strokeCircle(0, 0, this.spot.size * 0.42);
+      drawNodeIcon(g, stop, 0, 0, this.spot.size * 0.3);
     }
     this.body = c;
     this.apply();
@@ -86,7 +94,7 @@ export class EnemyReactions {
     return { x: this.spot.x + this.pose.x, y: this.spot.y + this.pose.y };
   }
 
-  // Where the enemy is on the table now (its card's portrait), for the combo number's slam (#234).
+  // Where the enemy is on the table now (the middle of its sprite), for the spells and the combo number's slam.
   where(): { x: number; y: number } {
     return this.centre();
   }
@@ -278,7 +286,7 @@ export class EnemyReactions {
 
   // ---- the enemy acts ----
 
-  // Its intent card pulses once, just before it acts.
+  // Its action bubble pulses once, just before it acts.
   async pulseIntent(box: { x: number; y: number; w: number; h: number }): Promise<void> {
     const soft = reducedFlashing();
     const c = this.scene.add.container(box.x + box.w / 2, box.y + box.h / 2).setDepth(DEPTH);
@@ -294,7 +302,7 @@ export class EnemyReactions {
   lunge(): Promise<void> {
     playSound("lunge");
     return new Promise((resolve) => {
-      this.move({ x: 0, y: R.lunge.dy, scale: R.lunge.scale, rot: 0 }, R.lunge.ms, {
+      this.move({ x: R.lunge.dx, y: R.lunge.dy, scale: R.lunge.scale, rot: 0 }, R.lunge.ms, {
         ease: "Cubic.easeIn",
         onComplete: () => {
           this.move({ x: 0, y: 0, scale: 1 }, R.lunge.returnMs, { ease: "Quad.easeOut" });

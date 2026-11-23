@@ -115,10 +115,6 @@
     "dimAlpha": 0.55,
     "shadow": { "dx": 4, "dy": 8, "alpha": 0.25, "raisedAlpha": 0.35 }
   },
-  "combat": {
-    "comment": "Combat screen settings, read by src/game/CombatScene.ts. showDamageTotal (V5, default false): the damage total stays hidden until the cascade fires. When true the left column shows the old 'If it fires now' tally (a damage tile and a block tile, and a line on what that does to both sides).",
-    "showDamageTotal": false
-  },
   "buildup": {
     "comment": "Cascade build-up (#191). pitch.maxSteps: the pitch stops rising after this many cascade steps. glow: strength of the lit dominoes' glow, from litMin (first lit) to litMax (all lit). camera: boards with more than minNodes dominoes ease out (to zoomOut, or what fits the board mat, never below minZoom) and push in on a new biggest cap of at least push.minCap (push.reducedZoom with reduced flashing; no push with screen shake off); the camera never cuts off health, block or the intent card (keep: sizes of the boxes it protects and of an open end). The running counter and callouts it used to hold are now comboHype. Times are ms at 1x.",
     "pitch": { "maxSteps": 10 },
@@ -219,12 +215,11 @@
     }
   },
   "speedControl": {
-    "comment": "Combat playback speed button and its list (#220), read by src/game/speedControl.ts. Px on the 1920x1080 table. Where the button sits comes from combatLayout.footer (#231); the list opens upward, gap above it, and opens downward instead if it would leave the screen.",
-    "buttonW": 80, "buttonH": 40, "itemH": 44, "gap": 8, "fontSize": 22, "depth": 650
+    "comment": "Combat playback speed button and its list (#220), read by src/game/speedControl.ts. Px on the 1920x1080 table. Where the button sits comes from combatLayout.strip.speed (#302); the list opens upward, gap above it, and opens downward instead if it would leave the screen.",
+    "buttonW": 78, "buttonH": 42, "itemH": 45, "gap": 8, "fontSize": 22, "depth": 650
   },
   "setOffPreview": {
-    "comment": "Set-off preview on the party's bar and shield (#222; the enemy's side was removed for 0.2, B8), read by src/game/setOffPreview.ts. Px on the 1920x1080 table. The ghost is the part of a bar the set-off would take; it pulses between alphaLow and alphaHigh every pulseMs (steady at alphaHigh under reduced flashing). The bars and shields it draws on come from the column (combatLayout, through the scene's refs) Label offsets are from the bar's right edge, the shield or the safe mark.",
-    "ghost": { "colour": "#ffffff", "alphaLow": 0.35, "alphaHigh": 0.85, "pulseMs": 700, "minWidth": 2 },
+    "comment": "Set-off preview on the party's bar and shield (#222; the enemy's side was removed for 0.2, B8), read by src/game/setOffPreview.ts. Px on the 1920x1080 table. The part of the party's health bar the set-off would take is the kit bar's pale part (no data). The bar and shield it draws on come from the bottom strip (combatLayout.strip, through the scene's refs). loss: the number over the bar's right end (dx from its right edge, dy from its top); gain: the block number over the shield; safe: the mark and word over the bar's left end (iconDx and textDx from the bar's left edge, dy from its top).",
     "text": { "strokeThickness": 5, "strokeColour": "#101010" },
     "loss": { "colour": "#ff9a94", "fontSize": 24, "dx": 0, "dy": -26, "originX": 1 },
     "gain": { "colour": "#8fd0ff", "fontSize": 22, "partyDy": -20 },
@@ -234,11 +229,11 @@
     "comment": "Enemy reactions (#190), read by src/game/enemyReactions.ts. Times are ms at 1x (scaled by playback speed), distances px on the 1920x1080 table. A hit of at least staggerMin damage staggers instead of flinching. The ghost bar waits delayMs after the last hit, then drains to the real value at perPointMs per point (between minMs and maxMs), so a run of hits shares one drain. Shield cracks show at each crack fraction of the block worn down.",
     "flinch": { "dx": 14, "dy": -8, "ms": 90, "flashAlpha": 0.45, "flashColour": "#ffffff" },
     "stagger": { "staggerMin": 12, "dx": 34, "dy": -20, "ms": 160, "rotation": 0.07, "wobbles": 3, "flashColour": "#ff6a5f" },
-    "ghost": { "colour": "#ffffff", "alpha": 0.55, "delayMs": 600, "perPointMs": 14, "minMs": 350, "maxMs": 1800 },
+    "ghost": { "delayMs": 600, "perPointMs": 14, "minMs": 350, "maxMs": 1800 },
     "shield": { "cracks": [0.25, 0.5, 0.75], "shatterShards": 7, "shatterSize": 30, "shatterMs": 520, "shatterSpread": 70 },
     "intent": { "pulseMs": 380, "holdMs": 300, "scale": 1.12 },
     "reel": { "dx": 46, "dy": -26, "ms": 200, "rotation": 0.11, "wobbles": 4, "tint": "#8fd0ff", "tintAlpha": 0.75, "tintMs": 700 },
-    "lunge": { "dy": 40, "scale": 1.1, "ms": 170, "returnMs": 260 },
+    "lunge": { "dx": -140, "dy": 0, "scale": 1.1, "ms": 170, "returnMs": 260 },
     "impact": { "shakeMs": 260, "shakeIntensity": 0.006, "flashMs": 320, "flashAlpha": 0.35, "blockFirstMs": 350 },
     "raise": { "ms": 420, "holdMs": 380, "rise": 60, "size": 150 },
     "heal": { "ms": 700, "colour": "#5be37d", "size": 420 },
@@ -268,7 +263,7 @@
     "opener": { "w": 170, "h": 84, "colour": "#ffe14d", "textSize": 24 }
   },
   "handRow": {
-    "comment": "Your hand as a straight row (#253), read by src/game/handRow.ts; the seat-tab hands (combatLayout.tabs.hand) follow the same rule. No fan, tilt or overlap: dominoes sit gap px apart (between their real outlines), centred in area (right of the left column, left of the Ready button, under the board). scale: a hand domino's normal size; a hand too wide for the area shrinks evenly, never below minScale (about 80% of scale); past that it wraps into two rows, split by width as evenly as possible, rowGap px apart, at the size that fits both rows (the top row stays clear of the board: lower the board's bottom edge, combatLayout.board, if the area needs more height). The hovered domino grows to hoverScale and lifts by lift (tweenMs), drawn over its neighbours, which do not move; it never rises above the top of area, so a top-row domino lifts less (or grows downward) instead of covering the board. drag: the faint dashed place left by a dragged domino (the domino itself fades to holderAlpha). enter: a new draw slides in from the left edge of area (slideMs for an old domino finding its new place, enterMs for the new one, staggerMs between new ones).",
+    "comment": "Your hand as a straight row (#253), read by src/game/handRow.ts; the seat-tab hands (combatLayout.tabs.hand) follow the same rule. No fan, tilt or overlap: dominoes sit gap px apart (between their real outlines), centred in area (the middle of the bottom strip, combatLayout.strip). scale: a hand domino's normal size; a hand too wide for the area shrinks evenly, never below minScale (about 80% of scale); past that it wraps into two rows, split by width as evenly as possible, rowGap px apart, at the size that fits both rows (the top row stays clear of the board: lower the board's bottom edge, combatLayout.board, if the area needs more height). The hovered domino grows to hoverScale and lifts by lift (tweenMs), drawn over its neighbours, which do not move; it never rises above the top of area, so a top-row domino lifts less (or grows downward) instead of covering the board. drag: the faint dashed place left by a dragged domino (the domino itself fades to holderAlpha). enter: a new draw slides in from the left edge of area (slideMs for an old domino finding its new place, enterMs for the new one, staggerMs between new ones).",
     "scale": 0.7,
     "minScale": 0.56,
     "gap": 14,
@@ -278,71 +273,61 @@
     "tweenMs": 120,
     "drag": { "alpha": 0.28, "holderAlpha": 0.25, "colour": "#ffe14d", "width": 3, "dash": 9, "space": 7 },
     "enter": { "slideMs": 250, "enterMs": 350, "staggerMs": 60 },
-    "area": { "x": 500, "y": 860, "w": 1075, "h": 208 }
+    "area": { "x": 720, "y": 898, "w": 840, "h": 176 }
   },
   "combatLayout": {
-    "comment": "Combat screen layout (#228, #231 Spotlight; the board rectangle is the fuse board's area and the cascade counter's strip is its top, #229; the hand's place is handRow.area), read by CombatScene.ts, columnLayout.ts, enemyUnit.ts, setOffTally.ts, seatTabs.ts and combatHud.ts. Px on the 1920x1080 table; boxes are x, y top-left with w, h. Colours are #rrggbb. The column is stacked top to bottom from its content: the portrait card shrinks first (between card.minH and card.maxH) when the stack runs short, then the gaps between sections shrink (never below column.minGap; they grow to column.maxGap when there is room). Bars, shields, the enemy's body and the set-off preview all follow from the column: nothing else repeats their places. The seat tabs (no turn order in 0.2: name, placement pips, Ready mark) run across the top right of the column; the board is below them, the hand and the Ready button (Fire in single player) at the bottom. takeBack: the control on your own dominoes (size, offset from the domino's top-left corner, how long it lingers, the room round the hand row where a dragged board domino counts as dropped on it). handFrame: the frame round a hand that is not your own seat's. note: a refusal by your hand (texts: what the host says, and what to show instead).",
+    "comment": "Combat screen layout (#302, one stage), read by CombatScene.ts, enemyUnit.ts, combatHud.ts, seatTabs.ts and handRow.ts. Px on the 1920x1080 table; a box is x, y top-left with w, h; sizes that say grid are kit grid pixels (kit.unit screen pixels each). background: the converted table picture shown sharp at x3, and the soft dark edge over it. The arcane circle, the wizards on its left arc and the tree area are in battleWizards. enemy: the sprite stands with its feet at feet (moved left if its right edge would pass rightMargin), shown at scale screen pixels per art pixel, over a shadow (w is a share of the sprite width). block: the enemy block, top right (a kit plate: tier tag, name, passive and round chips that wrap, the health bar with the enemy block beside it, and the line as a number until the line bar comes). bubble: the action bubble over the head point (kept left of rightMargin, never above the block). action: one intent action in the bubble. strip: the bottom strip, a kit plate across the screen: party (health bar and block, round), speed and menu (where their buttons sit), pile (placements left, deck and used piles), hand (the hand row place), ready (the Ready button and how many are ready). tabs: the seat tabs, left of the enemy block until the racks replace them. board: the box the cascade camera frames and the combo number sits in. takeBack: the control on your own dominoes (size, offset from the domino top-left corner, how long it lingers, the room round the hand row where a dragged board domino counts as dropped on it). handFrame: the tab above the strip that names a hand that is not your own seat. note: a refusal by your hand (texts: what the host says, and what to show instead).",
     "background": {
-      "dim": { "colour": "#0a0f0c", "alpha": 0.62 },
-      "blur": { "scale": 0.25, "px": 3 },
-      "light": { "x": 1200, "y": 540, "w": 1500, "h": 760, "colour": "#ffc27a", "alpha": 0.2 },
-      "vignette": { "cx": 0.5, "cy": 0.55, "radius": 0.7, "clearUntil": 0.55, "edgeAlpha": 0.5 }
+      "art": "backgrounds/combat",
+      "vignette": { "cx": 0.5, "cy": 0.5, "radius": 0.75, "clearUntil": 0.6, "edgeAlpha": 0.4 }
     },
-    "column": { "x": 30, "y": 30, "w": 448, "h": 1020, "r": 24, "padX": 25, "padTop": 25, "padBottom": 22, "minGap": 8, "maxGap": 34, "fill": "#1d1a22", "fillAlpha": 0.94, "stroke": "#4a4358", "strokeWidth": 2 },
     "enemy": {
-      "card": { "maxH": 280, "minH": 100, "r": 16, "fill": "#2a0d14", "glow": "#7a2230", "stroke": "#5a3040", "strokeWidth": 2, "artPad": 4, "artDy": 6 },
-      "tier": { "x": 12, "y": 12, "h": 26, "size": 14, "spacing": 2, "padX": 12, "fill": "#14101a", "stroke": "#e9d9a8", "colour": "#f3ead6" },
-      "name": { "h": 54, "size": 44, "colour": "#ffffff" },
-      "innerGap": 8,
-      "chip": { "h": 38, "gap": 6, "size": 18, "fill": "#2b2140", "stroke": "#e9d9a8", "textColour": "#f3ead6", "iconR": 15 },
-      "bar": { "h": 32, "fontSize": 22, "left": 84 },
-      "shield": { "x": 22, "s": 34 },
-      "intent": { "h": 148, "r": 12, "fill": "#3a1414", "stroke": "#ff6a5f", "strokeWidth": 2, "labelY": 24, "rowY": 74, "line": { "y": 126, "size": 22, "colour": "#ffd9a0", "text": "Line" } },
-      "label": { "size": 15, "spacing": 3, "colour": "#ffb3aa" },
-      "action": { "icon": 1.1, "numberSize": 56, "hitsSize": 32, "hitsColour": "#ffb3aa", "gap": 10, "pad": 22, "struckSize": 40, "struckColour": "#9a8f8c", "arrow": "\u2192", "arrowSize": 40, "arrowColour": "#ffd23f", "halvedColour": "#ffd23f" },
-      "later": { "h": 40, "size": 15, "scale": 0.4, "colour": "#9fd1b8" }
+      "feet": { "x": 1690, "y": 850 },
+      "scale": 3,
+      "rightMargin": 1910,
+      "shadow": { "w": 0.8, "h": 42, "layers": 3, "alpha": 0.2, "dy": -2 },
+      "block": {
+        "x": 1400, "y": 12, "w": 170, "padX": 18, "padTop": 12, "padBottom": 12, "gap": 6,
+        "tier": { "h": 11, "padX": 6, "colours": { "basic": "#2f7a5b", "elite": "#e0b341", "boss": "#d6453d" }, "text": "#ffffff", "textRole": 24 },
+        "name": { "h": 54, "size": 56, "colour": "#ffffff", "gap": 12 },
+        "chip": { "h": 12, "gapX": 6, "padX": 9, "size": 24, "colour": "#f3ead6", "iconR": 15, "edge": "#e9d9a8" },
+        "bar": { "w": 108, "kind": "health", "shield": { "s": 48, "dx": 30 } },
+        "line": { "h": 30, "size": 24, "colour": "#ffe9b0", "text": "Line" }
+      },
+      "bubble": { "maxW": 420, "minW": 150, "padX": 24, "padTop": 9, "padBottom": 12, "gap": 6, "tailRows": 4, "tailGap": 6, "edge": "#d6453d", "left": 1280, "belowBlock": 8, "label": { "size": 24, "h": 24, "colour": "#ffb3aa" }, "later": { "h": 40, "size": 24, "scale": 0.45, "colour": "#9fd1b8" }, "rowH": 66 },
+      "action": { "icon": 1.1, "numberSize": 56, "hitsSize": 32, "hitsColour": "#ffb3aa", "gap": 10, "pad": 22, "struckSize": 40, "struckColour": "#9a8f8c", "arrow": "\u2192", "arrowSize": 40, "arrowColour": "#ffd23f", "halvedColour": "#ffd23f" }
     },
-    "tally": {
-      "label": { "h": 26, "text": "IF IT FIRES NOW", "size": 15, "spacing": 3, "colour": "#ffd54a" },
-      "tile": { "h": 140, "r": 16, "gap": 14, "edge": 7, "numberY": 62, "numberSize": 76, "labelY": 108, "labelSize": 15, "labelSpacing": 3, "subY": 128, "subSize": 15, "numberColour": "#ffffff", "labelColour": "#ffe3df", "dash": "–", "numberPad": 18 },
-      "damage": { "fill": "#f2564a", "edge": "#a8322c", "label": "DAMAGE", "sub": "blocked" },
-      "block": { "fill": "#1e88f0", "edge": "#1560b0", "label": "BLOCK" },
-      "lethal": { "label": "LETHAL", "glow": "#ffe14d", "alphaLow": 0.3, "alphaHigh": 1, "pulseMs": 600, "width": 6, "pad": 3 },
-      "blockTile": { "label": "BLOCK IF IT FIRES", "h": 104 },
-      "line": { "gap": 10, "h": 26, "size": 17, "colour": "#cdd2d8", "lossColour": "#ff6a5f", "safeColour": "#8fe3a8", "noCaps": "No caps yet", "safe": "party is safe" }
-    },
-    "party": {
-      "label": { "h": 26, "text": "PARTY", "size": 15, "spacing": 3, "colour": "#9fd1b8" },
-      "bar": { "w": 300, "h": 30, "fontSize": 22 },
-      "shield": { "dx": 28, "s": 34 }
-    },
-    "footer": {
-      "h": 60, "r": 14, "fill": "#14111a", "stroke": "#4a4358", "strokeWidth": 2,
-      "round": { "dx": 18, "size": 24, "colour": "#f3ead6", "numberColour": "#ffd54a" },
-      "speed": { "rightDx": -92 },
-      "menu": { "dx": -36 }
+    "strip": {
+      "y": 888, "plate": { "x": -6, "w": 652, "h": 67 },
+      "party": { "x": 30, "labelY": 908, "label": "PARTY", "labelSize": 24, "labelColour": "#9fd1b8", "barY": 930, "barW": 100, "shield": { "s": 50, "dx": 36 } },
+      "round": { "x": 30, "y": 1032, "size": 54, "colour": "#f3ead6", "numberColour": "#ffd54a" },
+      "speed": { "right": 340, "y": 1034 },
+      "menu": { "x": 410, "y": 1034 },
+      "pile": {
+        "x": 500, "w": 62,
+        "pips": { "y": 906, "labelGap": 12, "labelDy": 9, "size": 24, "colour": "#cfe9dc", "left": "left" },
+        "deck": { "y": 944, "label": "DECK" }, "used": { "y": 1010, "label": "USED" },
+        "plate": { "h": 18, "labelX": 10, "labelSize": 24, "labelColour": "#9fd1b8", "numberSize": 54, "numberColour": "#ffffff", "hover": "#ffe14d" }
+      },
+      "ready": { "x": 1740, "y": 958, "w": 90, "countY": 1030, "countSize": 24, "countColour": "#cfe9dc", "text": "Ready", "fireText": "Fire", "undoText": "Not ready", "of": "of", "tail": "ready", "tick": { "dx": 6, "dy": -7 } }
     },
     "tabs": {
-      "x": 510, "y": 26, "w": 1380, "h": 166, "gap": 14, "r": 16, "padX": 16,
+      "x": 24, "y": 12, "w": 1356, "h": 148, "gap": 14, "r": 16, "padX": 16,
       "tab": { "fill": "#1d1a22", "stroke": "#4a4358", "strokeWidth": 2, "frameWidth": 4, "readyFill": "#16281d" },
       "portrait": { "dx": 24 },
       "name": { "dx": 56, "y": 26, "size": 26, "colour": "#f3ead6", "maxW": 150 },
       "tags": { "y": 26, "h": 24, "size": 14, "gap": 6, "padX": 10, "you": { "fill": "#ffd54a", "text": "#2a2200" }, "ready": { "fill": "#3fae5a", "text": "#06200f" }, "waiting": { "fill": "#3a3744", "text": "#ffd0a0" }, "away": { "fill": "#3a3744", "text": "#9aa3b2" } },
       "pips": { "y": 82, "r": 7, "gap": 6, "emptyAlpha": 0.3, "label": 16, "labelColour": "#b8c4b4" },
       "counts": { "y": 56, "size": 16, "colour": "#b8c4b4", "hoverColour": "#ffe14d" },
-      "hand": { "top": 100, "bottom": 14, "scale": 0.33, "minScale": 0.264, "gap": 6, "rowGap": 3 },
+      "hand": { "top": 96, "bottom": 8, "scale": 0.33, "minScale": 0.264, "gap": 6, "rowGap": 3 },
       "charm": { "size": 26, "step": 32, "fill": "#2b2140" },
       "you": { "text": "Your hand is below", "size": 18, "colour": "#cdd2d8" },
       "zoom": { "scale": 0.9, "gapY": 14 }
     },
-    "board": { "x": 500, "y": 204, "w": 1400, "h": 652 },
-    "actions": {
-      "ready": { "x": 1595, "y": 944, "w": 295, "h": 100, "fill": "#ffd54a", "readyFill": "#3fae5a", "disabledAlpha": 0.45, "stroke": "#22201c", "strokeWidth": 3, "size": 40, "colour": "#22201c", "text": "Ready", "readyText": "Ready", "undoText": "Not ready", "fireText": "Fire" },
-      "count": { "y": 918, "size": 24, "colour": "#cfe9dc", "text": "of", "tail": "ready" }
-    },
+    "board": { "x": 660, "y": 300, "w": 660, "h": 320 },
     "takeBack": { "size": 34, "dx": -6, "dy": 4, "fill": "#fffbea", "stroke": "#22201c", "strokeWidth": 3, "colour": "#22201c", "text": "↩", "textSize": 26, "hideMs": 160, "dragHandPad": 30 },
     "followUp": { "comment": "The follow-up highlight (#295), read by handRow.ts, seatTabs.ts and CombatScene.ts: while a hand domino is hovered, picked or dragged, the dominoes (in the seat tabs and in your own hand) that could be placed on its open ends light up with a ring in glow (width px on screen: handWidth in your hand, tabWidth in the tabs; halo is the soft outer ring's alpha), and the rest fade to dimAlpha. Legality only (B8): no totals. Your own hand also lifts the hovered domino and dims unplayable ones; the ring is the extra mark there.", "glow": "#6fe3ff", "handWidth": 6, "tabWidth": 3, "halo": 0.35, "pad": 4, "dimAlpha": 0.35 },
-    "handFrame": { "width": 4, "pad": 10, "padTop": 26, "label": { "size": 22, "dy": -44 } },
+    "handFrame": { "h": 11, "padX": 6, "size": 24, "dy": -30, "textDy": -3, "colour": "#f3ead6", "x": 720 },
     "note": {
       "dy": -70, "size": 26, "colour": "#ff9a94", "ms": 3000,
       "texts": {
@@ -355,7 +340,7 @@
         "not Ready": "You are not Ready"
       }
     },
-    "skipHint": { "x": 1200, "y": 836 }
+    "skipHint": { "x": 1000, "y": 850 }
   },
   "wizardLook": {
     "comment": "Choosing a wizard's look (#262), read by src/game/wardrobe.ts, the lobby lists and the single player start screen. Px on the 1920x1080 screen. wardrobe: the panel centred on the screen; everything inside is relative to its centre. preview: the big wizard (scale = screen px per art px, feet at x, y). swatches: the colour circles (size, pitch, row y, left x) and how many letters of a taker's name fit under one. tiles: the hat and robe choices, each on a small wizard (scale, tile size, pitch, left x, each row's centre y). lobbyList: rows of the online lobby (wizard scale, pitch, where the first row sits on the host and join screens, where the Edit button sits). startSeats: the single player seat cards (pitch between cards, top, size, wizard scale).",
@@ -376,12 +361,12 @@
     "final": { "scales": [0.7, 0.8, 0.95, 1.1, 1.25], "lethalScale": 1.5, "tints": ["#b9d8ff", "#ffe14d", "#ff9a3d", "#ff4d4d", "#b46bff"], "lethalTint": "#ffd23f", "reducedAlpha": 0.6 }
   },
   "battleWizards": {
-    "comment": "The wizards and the arcane circle in battle (#264), read by src/game/arcaneCircle.ts, battleWizards.ts and seatTabs.ts. Px on the 1920x1080 table. circle: where the circle sheet's centre stands (x, y; the sheet is drawn at the art scale, data/wizard-art.json), inner: the box the domino tree is fitted into (the fuse board's area; it keeps clear of the wizards on the rim), fadeMs: a tier fading into the next at 1x (through scaleTime), restMs: settling back to tier 0 after a cascade, beamFadeMs: the lethal beam fading in. reduced (reduced flashing): from tier minTier up the circle and the beam are drawn at alpha and their frames last at least minFrameMs, so nothing flickers. spots: the rim spots by party size, in seat order, each as a share of the circle's radius from its centre (x right, y down; the radius is wizard-art.json circle.radius). Wizards at x > 0 face left. wizard: the shadow under the feet (w, h px, layers nested ellipses, alpha each), awayAlpha for an away seat, idleOffsetMs the idle loop's start by seat so they do not bob in step. marker: the YOU arrow over your own wizard (gap above the head, size, bob px and ms, outline). portrait: the seat tab's head and hat (crop is the idle frame's box in art px, scale screen px per art px, size the backing circle's radius).",
-    "circle": { "x": 1200, "y": 530, "inner": { "x": 790, "y": 296, "w": 820, "h": 240 }, "fadeMs": 350, "restMs": 600, "beamFadeMs": 250, "reduced": { "minTier": 3, "alpha": 0.55, "minFrameMs": 160 } },
+    "comment": "The wizards and the arcane circle in battle (#264), read by src/game/arcaneCircle.ts, battleWizards.ts and seatTabs.ts. Px on the 1920x1080 table. circle: where the circle sheet's centre stands (x, y; the sheet is drawn at the art scale, data/wizard-art.json), inner: the box the domino tree is fitted into (the fuse board's area; it keeps clear of the wizards on the rim), fadeMs: a tier fading into the next at 1x (through scaleTime), restMs: settling back to tier 0 after a cascade, beamFadeMs: the lethal beam fading in. reduced (reduced flashing): from tier minTier up the circle and the beam are drawn at alpha and their frames last at least minFrameMs, so nothing flickers. spots: the rim spots by party size, in seat order, each as a share of the circle's radius from its centre (x right, y down; the radius is wizard-art.json circle.radius). Every wizard faces right, towards the enemy (the top spot is a little lower than the mockup so its head clears the seat tabs). wizard: the shadow under the feet (w, h px, layers nested ellipses, alpha each), awayAlpha for an away seat, idleOffsetMs the idle loop's start by seat so they do not bob in step. marker: the YOU arrow over your own wizard (gap above the head, size, bob px and ms, outline). portrait: the seat tab's head and hat (crop is the idle frame's box in art px, scale screen px per art px, size the backing circle's radius).",
+    "circle": { "x": 900, "y": 540, "inner": { "x": 690, "y": 350, "w": 640, "h": 246 }, "fadeMs": 350, "restMs": 600, "beamFadeMs": 250, "reduced": { "minTier": 3, "alpha": 0.55, "minFrameMs": 160 } },
     "spots": {
-      "2": [{ "x": -1, "y": 0 }, { "x": 1, "y": 0 }],
-      "3": [{ "x": -1, "y": 0 }, { "x": 1, "y": 0 }, { "x": 0, "y": 1 }],
-      "4": [{ "x": -1, "y": 0 }, { "x": 1, "y": 0 }, { "x": -0.55, "y": 0.84 }, { "x": 0.55, "y": 0.84 }]
+      "2": [{ "x": -1, "y": 0 }, { "x": -0.45, "y": 0.9 }],
+      "3": [{ "x": -1, "y": 0 }, { "x": -0.62, "y": -0.72 }, { "x": -0.45, "y": 0.9 }],
+      "4": [{ "x": -1, "y": 0 }, { "x": -0.62, "y": -0.72 }, { "x": -0.62, "y": 0.84 }, { "x": 0.03, "y": 1 }]
     },
     "wizard": { "shadow": { "w": 104, "h": 26, "layers": 3, "alpha": 0.14, "dy": -2 }, "awayAlpha": 0.4, "idleOffsetMs": [0, 480, 240, 720] },
     "marker": { "gap": 14, "size": 22, "bob": 6, "bobMs": 700, "outline": "#101010", "outlineWidth": 4 },

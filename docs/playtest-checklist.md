@@ -40,7 +40,7 @@ Everyone builds at the same time on a budget of placements; the cascade goes off
 - [ ] Hover or pick a domino: legal ends light up and each shows that domino's own value there (the charge an amplifier or junction passes on, or a cap's value). No total is ever shown while building.
 - [ ] Every domino on the board shows its own number: the charge on each fuse, and each placed cap's value on the cap. Take one back or place another and the numbers follow.
 - [ ] A junction splits the path into two ends (three with Hall of Mirrors); a junction is refused when it would take the board over the open-end limit.
-- [ ] The left column shows "Block if it fires" (the party's block) and the party's health ghost from the intent; the enemy's health bar shows no damage ghost, no skull and no damage total. With `combat.showDamageTotal` set to true in data/presentation.json the old "If it fires now" tally comes back.
+- [ ] The bottom strip shows the party's health bar with "if it fires" on it (the pale part of the bar, the loss, or "safe") and the block it would gain; the enemy's health bar shows no damage ghost, no skull and no damage total.
 - [ ] The intent card shows the enemy's line under its intent ("Line 120").
 - [ ] Ends left without a cap fizzle: they dim and sputter, and their charge does nothing.
 - [ ] The enemy's intent plays out after the cascade, against the block the party just gained; later intents show under it (two ahead with Spyglass).

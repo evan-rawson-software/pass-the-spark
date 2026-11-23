@@ -4,6 +4,8 @@ import type { Refs } from "./animations";
 import type { DominoState } from "./dominoDrawing";
 import type { PingTarget } from "../net/protocol";
 import type { Tooltip } from "./tooltip";
+import type { BarKind } from "./kit";
+import type { Stand } from "./enemyUnit";
 
 // What the combat layout files (enemyUnit.ts, seatTabs.ts, combatHud.ts) need from the scene: drawing
 // helpers that put things in the scene's redrawn layer and register them with the animator. The scene
@@ -17,9 +19,10 @@ export interface CombatCtx {
   refs: () => Refs;
   label(layer: Layer, x: number, y: number, text: string, size: number, color?: string, originX?: number, bold?: boolean): Phaser.GameObjects.Text;
   gfx(layer: Layer): Phaser.GameObjects.Graphics;
-  bar(layer: Layer, key: string, x: number, y: number, w: number, h: number, value: number, max: number, color: number, fontSize?: number): void;
+  // A kit health or block bar (w in grid pixels), registered under `key` so the animations can repaint it.
+  bar(layer: Layer, key: string, x: number, y: number, w: number, kind: BarKind, value: number, max: number): void;
   shield(layer: Layer, key: string, x: number, y: number, s: number, amount: number): void;
-  drawBody(layer: Layer, id: string, tier: string, spot: { x: number; y: number; size: number }): void;
+  drawBody(layer: Layer, id: string, tier: string, stand: Stand): void;
   // A domino drawn at scale k with its pings; `tip` false leaves off the text tooltip.
   domino(layer: Layer, id: string, k: number, state: DominoState, x: number, y: number, onClick?: () => void, ping?: PingTarget, owner?: string, tip?: boolean): Phaser.GameObjects.Container;
   slots(seat: string): { c: Phaser.GameObjects.Container; pos: { x: number; y: number; k: number } }[];
