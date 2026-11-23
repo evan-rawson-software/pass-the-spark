@@ -129,14 +129,20 @@ def convert_enemy(enemy_id, tier, opts):
 
 
 def feet_and_head(im):
-    """Feet: the middle of the bottom row's opaque pixels. Head: the middle of the top row's."""
+    """Feet: the bottom row, centred on what touches the ground (the bottom POINT_ROWS rows). Head: the top
+    row, centred the same way on the top POINT_ROWS rows."""
     w, h = im.size
     a = im.getchannel("A").load()
-    row = lambda y: [x for x in range(w) if a[x, y]]
-    rows = [y for y in range(h) if row(y)]
+    rows = [y for y in range(h) if any(a[x, y] for x in range(w))]
     top, bottom = rows[0], rows[-1]
-    mid = lambda xs: (xs[0] + xs[-1]) // 2
-    return [mid(row(bottom)), bottom], [mid(row(top)), top]
+
+    def mid(y0, y1):
+        xs = [x for y in range(y0, y1 + 1) for x in range(w) if a[x, y]]
+        return (min(xs) + max(xs)) // 2
+    return [mid(bottom - POINT_ROWS + 1, bottom), bottom], [mid(top, top + POINT_ROWS - 1), top]
+
+
+POINT_ROWS = 6
 
 
 def convert_enemies():
