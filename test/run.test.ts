@@ -203,7 +203,7 @@ test("Lost Courier: the domino goes to the player chosen, and a split vote resol
 });
 
 test("Sleeping Giant: grabs pay coins and raise the chance in turn until it wakes, and the damage can end the run", () => {
-  const start = atEvent(2, "sleeping_giant");
+  const start = atEvent(1, "sleeping_giant");
   const n = start.content.events.find((e) => e.id === "sleeping_giant")!.numbers;
   expect(start.event!.giant).toMatchObject({ turn: "a", wakePercent: n.wakeStartPercent });
   expect(getPendingRunChoices(start).map((p) => p.player)).toEqual(["a"]); // only the player whose turn it is

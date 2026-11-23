@@ -1,7 +1,7 @@
 // Map generation for one act. Deterministic from the RNG state. The rules
 // (floor counts, weights, limits) all come from the act's data in data/run.json.
 
-import { nextFloat, nextInt, shuffle } from "./rng";
+import { nextFloat, nextInt } from "./rng";
 import type { Rolled } from "./rng";
 import type { ActData, MapRules, NodeType } from "./types";
 
@@ -25,9 +25,41 @@ function pickInRange(state: number, range: { min: number; max: number }): Rolled
   return { value: range.min + r.value, state: r.state };
 }
 
+// One layer of roads between a floor of `width` stops and a floor of `nextWidth` stops, built as a
+// walk from the first stop pair to the last: each step moves to the next stop on one floor, the
+// other, or both. The roads walked are the layer, so they cannot cross, every stop on both
+// floors has a road, and no stop has more than `maxOut` roads out.
+function rollRoads(state: number, width: number, nextWidth: number, maxOut: number): Rolled<number[][]> {
+  let s = state;
+  const roads: number[][] = [];
+  for (let i = 0; i < width; i++) roads.push([]);
+  // Can the walk still reach the last pair from stop i -> j, having used `out` roads out of i?
+  const canFinish = (i: number, j: number, out: number): boolean => {
+    if (i === width - 1 && j === nextWidth - 1) return true;
+    if (i + 1 < width && canFinish(i + 1, j, 1)) return true;
+    if (j + 1 < nextWidth && out < maxOut && canFinish(i, j + 1, out + 1)) return true;
+    return i + 1 < width && j + 1 < nextWidth && canFinish(i + 1, j + 1, 1);
+  };
+  let i = 0;
+  let j = 0;
+  roads[0].push(0);
+  while (i < width - 1 || j < nextWidth - 1) {
+    const out = roads[i].length;
+    const steps: number[][] = [];
+    if (i + 1 < width && canFinish(i + 1, j, 1)) steps.push([1, 0]);
+    if (j + 1 < nextWidth && out < maxOut && canFinish(i, j + 1, out + 1)) steps.push([0, 1]);
+    if (i + 1 < width && j + 1 < nextWidth && canFinish(i + 1, j + 1, 1)) steps.push([1, 1]);
+    const pick = nextInt(s, steps.length);
+    s = pick.state;
+    i += steps[pick.value][0];
+    j += steps[pick.value][1];
+    roads[i].push(j);
+  }
+  return { value: roads, state: s };
+}
+
 // Nodes on each floor, and which nodes of the next floor each connects to.
-// Returns null when the layout can't give every node an incoming path.
-function rollLayout(state: number, rules: MapRules): Rolled<number[][][] | null> {
+function rollLayout(state: number, rules: MapRules): Rolled<number[][][]> {
   let s = state;
   const widths: number[] = [];
   for (let f = 0; f < rules.floors; f++) {
@@ -37,34 +69,28 @@ function rollLayout(state: number, rules: MapRules): Rolled<number[][][] | null>
   }
   const next: number[][][] = []; // next[f][i] = targets on floor f+1
   for (let f = 0; f < rules.floors; f++) {
-    const floorNext: number[][] = [];
-    for (let i = 0; i < widths[f]; i++) floorNext.push([]);
     if (f + 1 < rules.floors) {
-      const nextWidth = widths[f + 1];
-      for (let i = 0; i < widths[f]; i++) {
-        const c = pickInRange(s, rules.nextPerNode);
-        s = c.state;
-        const order = shuffle(s, Array.from({ length: nextWidth }, (_, k) => k));
-        s = order.state;
-        floorNext[i] = order.value.slice(0, Math.min(c.value, nextWidth));
-      }
-      // Every node on the next floor needs a way in.
-      for (let j = 0; j < nextWidth; j++) {
-        if (floorNext.some((targets) => targets.includes(j))) continue;
-        const open: number[] = [];
-        floorNext.forEach((targets, i) => {
-          if (targets.length < rules.nextPerNode.max) open.push(i);
-        });
-        if (open.length === 0) return { value: null, state: s };
-        const pick = nextInt(s, open.length);
-        s = pick.state;
-        floorNext[open[pick.value]].push(j);
-      }
-      floorNext.forEach((targets) => targets.sort((a, b) => a - b));
+      const roads = rollRoads(s, widths[f], widths[f + 1], rules.nextPerNode.max);
+      s = roads.state;
+      next.push(roads.value);
+    } else {
+      next.push(Array.from({ length: widths[f] }, () => []));
     }
-    next.push(floorNext);
   }
   return { value: next, state: s };
+}
+
+// Every stop on a later floor that can be reached from this one by following roads.
+export function reachableStops(map: ActMap, floor: number, index: number): MapNode[] {
+  let here = new Set<number>([index]);
+  const found: MapNode[] = [];
+  for (let f = floor; f < map.floors.length; f++) {
+    const there = new Set<number>();
+    for (const i of here) for (const j of map.floors[f - 1][i].next) there.add(j);
+    for (const j of [...there].sort((a, b) => a - b)) found.push(map.floors[f][j]);
+    here = there;
+  }
+  return found;
 }
 
 function pickType(state: number, floor: number, rules: MapRules): Rolled<NodeType> {
@@ -115,20 +141,27 @@ export function generateActMap(act: ActData, state: number): Rolled<ActMap> {
   for (let attempt = 0; attempt < rules.maxAttempts; attempt++) {
     const layout = rollLayout(s, rules);
     s = layout.state;
-    if (layout.value === null) continue;
     const floors: MapNode[][] = [];
     for (let f = 0; f < rules.floors; f++) {
       const row: MapNode[] = [];
       for (let i = 0; i < layout.value[f].length; i++) {
         const t = pickType(s, f + 1, rules);
         s = t.state;
-        row.push({ floor: f + 1, index: i, type: t.value, next: layout.value[f][i] });
+        row.push({
+          floor: f + 1,
+          index: i,
+          type: t.value,
+          next: layout.value[f][i],
+        });
       }
       floors.push(row);
     }
     if (!fitsRules(floors, rules)) continue;
     const boss = nextInt(s, act.bossPool.length);
-    return { value: { actId: act.id, floors, bossId: act.bossPool[boss.value] }, state: boss.state };
+    return {
+      value: { actId: act.id, floors, bossId: act.bossPool[boss.value] },
+      state: boss.state,
+    };
   }
   throw new Error(`data/run.json: ${act.id}: no map fit the rules in ${rules.maxAttempts} attempts`);
 }
