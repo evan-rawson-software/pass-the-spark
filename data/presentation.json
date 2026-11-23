@@ -335,7 +335,7 @@
     "portrait": { "crop": { "x": 6, "y": 0, "w": 36, "h": 32 }, "scale": 1, "r": 22, "backAlpha": 0.35, "ringWidth": 3 }
   },
   "text": {
-    "_comment": "Text roles (#301, S6, T6). Each is a pixel font at a size on its pixel grid at 1920x1080 (screen pixels per font pixel: label 3, text 2, title 2, huge 4). A size no role has gets the nearest role (ties go to the smaller). The fonts are loaded from public/fonts/ before the first scene draws. Dominoes keep their own font (S7).",
+    "_comment": "Text roles (#301, S6, T6). Each is a pixel font at a size on its pixel grid at 1920x1080 (screen pixels per font pixel: label 3, text 2, title 3, huge 6). A size no role has gets the nearest role (ties go to the smaller). The fonts are loaded from public/fonts/ before the first scene draws. Dominoes keep their own font (S7).",
     "fonts": [
       { "family": "Jersey 10", "file": "fonts/jersey-10.woff2" },
       { "family": "Jersey 15", "file": "fonts/jersey-15.woff2" },

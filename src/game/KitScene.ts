@@ -19,7 +19,7 @@ export class KitScene extends Phaser.Scene {
       this.add.text(x, y, s, { ...fontRole(24), color: "#9fd1b8" });
     };
 
-    note(60, 30, "Text roles. Screen pixels per font pixel: label 3, text 2, title 2, huge 4. Sample: 0123456789 Spark \u2026 \u00d7");
+    note(60, 30, "Text roles. Screen pixels per font pixel: label 3, text 2, title 3, huge 6. Sample: 0123456789 Spark \u2026 \u00d7");
     const roles = Object.keys(presentation.text.roles) as Role[];
     let y = 70;
     for (const r of roles) {
