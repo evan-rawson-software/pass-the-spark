@@ -62,3 +62,8 @@ From the C3 scratch sims on `v0.2` after #272: the planning bot against normal e
   - **Gale: Tailwind**, the party's first domino on a Gale end each round is free.
   - **Storm, Void and Rot** wait for the reward dominoes that bring those sparks.
 - **C9 The yardstick's search:** the planning bot's narrow search (3 trees kept per step) leaves it about 15–20% below a wider one (12 trees), at 3 players a combo of 83 against 100. #274 keeps the current bot for its tuning loop, reports a wide-search check beside it, and aims at the wide-search numbers if the two differ by more than one round per fight.
+
+## 2026-11-23: Closing 0.2 (D1–D2)
+
+- **D1 M15 is not built in 0.2.** 0.2 closes with M14 (shipped as PR #292) and M12 (wizards and spells, merged on `main`). Epic #278 is closed as not planned. C5–C9 stay as direction for whichever version takes up rules-changing content; they are recommendations, not commitments.
+- **D2 0.3's goal** is a better map screen and combat screen. It is planned from scratch in `docs/v0.3/`; 0.2's rulings count only as recommendations there, as 0.1's did for 0.2.

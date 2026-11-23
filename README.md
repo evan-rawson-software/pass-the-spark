@@ -24,10 +24,11 @@ behaviour is pinned down by test cases that the Godot version must also pass.
 9. **Branching cascade:** the combat redesign in `docs/design-branching-cascade.md`. Done.
 10. **Cascade feel:** more effects, animations and sounds in combat, so a chain going off feels amazing. Done.
 11. **Playtest fixes:** starter and reward numbers, no manual set off, every sound remade, and the hand as a straight row. Done.
-12. **Wizards and spells:** pixel-art wizards you customize, an arcane circle and spells for caps. The art and the lobby wardrobe are done; wizards and spells in battle wait for M14's combat screen.
-13. **Godot port:** engine and screens rebuilt in Godot, Steam lobbies. On hold until 0.2 has been playtested.
-14. **0.2: The new round (current):** everyone builds at the same time on a budget, every domino hits, and each enemy has a line to beat.
-15. **0.2: Rules-changing content:** enemy traits, spark traits and wizard schools. Specified after the M14 playtest.
+12. **Wizards and spells:** pixel-art wizards you customize, an arcane circle and spells for caps. Done.
+13. **Godot port:** engine and screens rebuilt in Godot, Steam lobbies. On hold.
+14. **0.2: The new round:** everyone builds at the same time on a budget, every domino hits, and each enemy has a line to beat. Done; shipped as 0.2.
+15. **Rules-changing content:** enemy traits, spark traits and wizard schools. Not built in 0.2; its sim results (C5–C9) stay as direction for a later version.
+16. **0.3 (current, being planned):** a better map screen and combat screen.
 
 Each milestone's issues are in the GitHub milestone with the same "M" number in its title.
 
