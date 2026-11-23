@@ -47,6 +47,7 @@ import type { ColumnLayout } from "./columnLayout";
 import { drawTally } from "./setOffTally";
 import { setMenuButtonSpot } from "./menuButton";
 import type { ShownTable } from "./shownView";
+import { fontRole, snap, tabularDigits } from "./fonts";
 
 // The combat table. Draws everything from getView (and getPlayerChoices for which dominoes can be
 // placed or taken back, getOpenEnds for the charge on each open end, previewPlay and previewSetOff for
@@ -83,7 +84,6 @@ type Update = Extract<HostMessage, { type: "update" }>;
 type Layer = Phaser.GameObjects.Container;
 interface Box { x: number; y: number; w: number; h: number } // centred on x, y
 
-const FONT = "Arial, Helvetica, sans-serif";
 
 // Table regions (1920x1080), from data/presentation.json (combatLayout).
 // The board's area (boardArea) and the hand's place (handArea) are rectangles in data, not placed from other parts here.
@@ -191,7 +191,7 @@ export class CombatScene extends Phaser.Scene {
     this.input.keyboard?.on("keydown-SPACE", () => this.skipCascade());
     this.inCascade = false;
     this.skipping = false;
-    this.skipHint = this.add.text(combatLayoutData.skipHint.x, combatLayoutData.skipHint.y, "Click to skip", { fontFamily: FONT, fontSize: "24px", color: "#cfe9dc", stroke: "#101010", strokeThickness: 4 }).setOrigin(0.5).setDepth(700).setVisible(false);
+    this.skipHint = this.add.text(combatLayoutData.skipHint.x, combatLayoutData.skipHint.y, "Click to skip", { ...fontRole(24), color: "#cfe9dc", stroke: "#101010", strokeThickness: 4 }).setOrigin(0.5).setDepth(700).setVisible(false);
     setSoundHushed(false);
     this.tooltip = new Tooltip(this);
     this.tooltip.avoid = { x: ACTIONS.ready.x, y: ACTIONS.ready.y - 20, w: ACTIONS.ready.w, h: ACTIONS.ready.h + 20 }; // Ready
@@ -369,7 +369,7 @@ export class CombatScene extends Phaser.Scene {
     this.note?.destroy();
     const a = handArea();
     const t = this.add
-      .text(a.x + a.w / 2, a.y + NOTE.dy, known ?? text, { fontFamily: FONT, fontSize: `${NOTE.size}px`, color: NOTE.colour, stroke: "#101010", strokeThickness: 5 })
+      .text(a.x + a.w / 2, a.y + NOTE.dy, known ?? text, { ...fontRole(NOTE.size), color: NOTE.colour, stroke: "#101010", strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(600);
     this.note = t;
@@ -507,8 +507,9 @@ export class CombatScene extends Phaser.Scene {
 
   private label(layer: Layer, x: number, y: number, text: string, size: number, color = "#ffffff", originX = 0, bold = false): Phaser.GameObjects.Text {
     const t = this.add
-      .text(x, y, text, { fontFamily: FONT, fontSize: `${size}px`, color, fontStyle: bold ? "bold" : "normal" })
+      .text(x, y, text, { ...fontRole(size), color })
       .setOrigin(originX, 0.5);
+    snap(t);
     layer.add(t);
     return t;
   }
@@ -564,7 +565,7 @@ export class CombatScene extends Phaser.Scene {
 
   private bar(layer: Layer, key: string, x: number, y: number, w: number, h: number, value: number, max: number, color: number, fontSize?: number): void {
     const g = this.gfx(layer);
-    const text = this.label(layer, x + w / 2, y + h / 2, "", fontSize ?? Math.round(h * 0.6), "#ffffff", 0.5, true);
+    const text = tabularDigits(this.label(layer, x + w / 2, y + h / 2, "", fontSize ?? Math.round(h * 0.6), "#ffffff", 0.5, true));
     const ref = { g, text, x, y, w, h, max, color };
     this.anim.refs.bars.set(key, ref);
     paintBar(ref, value + this.anim.owed(key as "party" | "enemy", "health"), this.anim.reactions.ghostOf(key as "party" | "enemy")); // what the cascade still holds back counts until the slam
@@ -772,7 +773,7 @@ export class CombatScene extends Phaser.Scene {
     g.fillCircle(0, 0, T.size / 2);
     g.lineStyle(T.strokeWidth, hexColour(T.stroke), 1);
     g.strokeCircle(0, 0, T.size / 2);
-    const t = this.add.text(0, -1, T.text, { fontFamily: FONT, fontSize: `${T.textSize}px`, color: T.colour, fontStyle: "bold" }).setOrigin(0.5);
+    const t = this.add.text(0, -1, T.text, { ...fontRole(T.textSize), color: T.colour }).setOrigin(0.5);
     btn.add([g, t]);
     btn.setSize(T.size, T.size).setInteractive({ useHandCursor: true });
     layer.add(btn);

@@ -5,6 +5,7 @@ import { rememberSettings } from "./devBattle";
 import type { GameSettings } from "./devBattle";
 import { watchLink } from "./linkBanner";
 import { relay } from "./relay";
+import { fontRole, snap } from "./fonts";
 
 // Placeholder end screen (#27). Shows the result handed over by the combat
 // table and offers the two ways on. Replaced in milestone 4.
@@ -19,7 +20,6 @@ export interface EndData {
   online?: { host?: Host; client?: Client; roomCode: string; names: Record<string, string> };
 }
 
-const FONT = "Arial, Helvetica, sans-serif";
 
 export class EndScene extends Phaser.Scene {
   constructor() {
@@ -70,12 +70,12 @@ export class EndScene extends Phaser.Scene {
   }
 
   private line(y: number, s: string, size: number, color = "#ffffff"): void {
-    this.add.text(960, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, fontStyle: "bold" }).setOrigin(0.5);
+    snap(this.add.text(960, y, s, { ...fontRole(size), color }).setOrigin(0.5));
   }
 
   private button(x: number, y: number, s: string, onClick: () => void): void {
     this.add
-      .text(x, y, s, { fontFamily: FONT, fontSize: "44px", color: "#ffffff", fontStyle: "bold" })
+      .text(x, y, s, { ...fontRole(44), color: "#ffffff" })
       .setOrigin(0.5)
       .setPadding(30, 16)
       .setBackgroundColor("#0d2a20")

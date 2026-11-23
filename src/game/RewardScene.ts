@@ -10,6 +10,7 @@ import { charmWithTip, charmsByIds } from "./charmUi";
 import { Tooltip } from "./tooltip";
 import { coinLine, coinParts, hasCoins } from "./coinIcon";
 import { button, drawBackground, label } from "./ui";
+import { fontRole } from "./fonts";
 
 // Victory and domino choice screen (#52). Draws the run's reward state and sends picks to the
 // run as "reward" choices; offers, rarities, coins and what counts as a legal pick all come
@@ -119,7 +120,7 @@ export class RewardScene extends Phaser.Scene {
             label(this, x + size / 2 + 16, cyc - 14, ch.name, 28, { bold: true });
             const parts = coinParts(ch.description);
             if (hasCoins(parts)) coinLine(this, x + size / 2 + 16, cyc + 22, parts, 20, { color: "#cfe9dc" }); // data text with "N coins": icon and number
-            else this.add.text(x + size / 2 + 16, cyc + 6, ch.description, { fontFamily: "Arial, Helvetica, sans-serif", fontSize: "20px", color: "#cfe9dc", wordWrap: { width: 290 } });
+            else this.add.text(x + size / 2 + 16, cyc + 6, ch.description, { ...fontRole(20), color: "#cfe9dc", wordWrap: { width: 290 } });
           } else {
             label(this, x + size / 2 + 8, cyc, ch.name, 18, { color: "#cfe9dc" });
           }

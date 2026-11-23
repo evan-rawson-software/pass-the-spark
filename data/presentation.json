@@ -100,9 +100,9 @@
     },
     "layout": { "yFraction": 0.46, "maxWidthFraction": 0.8 },
     "number": {
-      "sizes": [110, 140, 175, 210, 250], "stroke": 12, "strokeColour": "#101010",
+      "sizes": [112, 168, 168, 224, 224], "step": 56, "stroke": 12, "strokeColour": "#101010",
       "hits": { "size": 44, "colour": "#ffffff", "dyFactor": 0.66, "dy": 14 },
-      "block": { "sizeFactor": 0.5, "minSize": 60, "colour": "#7fb8ff", "gap": 90, "shieldColour": "#4a6fa5", "shieldEdge": "#dbe6f5" },
+      "block": { "sizeFactor": 0.5, "minSize": 56, "colour": "#7fb8ff", "gap": 90, "shieldColour": "#4a6fa5", "shieldEdge": "#dbe6f5" },
       "halo": { "colour": "#000000", "layers": 2, "padX": 300, "heightFactor": 1.9 },
       "rollMs": 260, "punch": { "scale": 1.28, "reducedScale": 1.1, "ms": 260 }, "growMs": 420
     },
@@ -333,5 +333,61 @@
     "wizard": { "shadow": { "w": 104, "h": 26, "layers": 3, "alpha": 0.14, "dy": -2 }, "awayAlpha": 0.4, "idleOffsetMs": [0, 480, 240, 720] },
     "marker": { "gap": 14, "size": 22, "bob": 6, "bobMs": 700, "outline": "#101010", "outlineWidth": 4 },
     "portrait": { "crop": { "x": 6, "y": 0, "w": 36, "h": 32 }, "scale": 1, "r": 22, "backAlpha": 0.35, "ringWidth": 3 }
+  },
+  "text": {
+    "_comment": "Text roles (#301, S6, T6). Each is a pixel font at a size on its pixel grid at 1920x1080 (screen pixels per font pixel: label 3, text 2, title 3, huge 6). A size no role has gets the nearest role (ties go to the smaller). The fonts are loaded from public/fonts/ before the first scene draws. Dominoes keep their own font (S7).",
+    "fonts": [
+      { "family": "Jersey 10", "file": "fonts/jersey-10.woff2" },
+      { "family": "Jersey 15", "file": "fonts/jersey-15.woff2" },
+      { "family": "Tiny5", "file": "fonts/tiny5.woff2" }
+    ],
+    "fallback": "monospace",
+    "roles": {
+      "label": { "family": "Tiny5", "size": 24 },
+      "text": { "family": "Jersey 15", "size": 54 },
+      "title": { "family": "Jersey 10", "size": 56 },
+      "huge": { "family": "Jersey 10", "size": 112 }
+    },
+    "inputSize": 54,
+    "nameLetters": 16,
+    "charmNameLetterWidth": 15,
+    "loadTimeoutMs": 3000
+  },
+  "kit": {
+    "_comment": "Interface kit (#301, T7), read by src/game/kit.ts. Sizes are in grid pixels: one grid pixel is `unit` screen pixels (3, the wizards' grid, T6). Colours are #rrggbb.",
+    "unit": 3,
+    "plate": { "fill": "#0d2a20", "edge": "#2f7a5b", "outline": "#06130e", "cut": 2 },
+    "bar": {
+      "height": 18,
+      "track": "#12231c",
+      "outline": "#06130e",
+      "kinds": {
+        "health": { "fill": "#d6453d", "top": "#f2958c", "bottom": "#8f2a25" },
+        "block": { "fill": "#4a90d9", "top": "#9cc8f2", "bottom": "#2c5c93" },
+        "line": { "fill": "#f0c030", "top": "#fff0a0", "bottom": "#a07a10" }
+      },
+      "pale": "#f4ecd8",
+      "numberRole": "text",
+      "numberColour": "#ffffff",
+      "numberOutline": "#06130e",
+      "numberOutlineWidth": 6
+    },
+    "button": {
+      "height": 18,
+      "padX": 6,
+      "cut": 2,
+      "outline": "#06130e",
+      "textRole": "title",
+      "press": 1,
+      "raised": { "face": "#2f7a5b", "light": "#58b08a", "shade": "#1b4d38", "text": "#ffffff" },
+      "pressed": { "face": "#24634a", "light": "#24634a", "shade": "#24634a", "text": "#ffffff" },
+      "disabled": { "face": "#1b3a2e", "light": "#1b3a2e", "shade": "#142b22", "text": "#6f8f7f" }
+    },
+    "pips": { "size": 6, "gap": 2, "left": "#ffe14d", "leftLight": "#fff6b0", "spent": "#12372a", "spentEdge": "#2f7a5b", "outline": "#06130e" },
+    "tick": {
+      "colour": "#7fe3a0",
+      "outline": "#06130e",
+      "rows": [".....X", "....XX", "X..XX.", "XXXX..", ".XX..."]
+    }
   }
 }

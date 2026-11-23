@@ -7,13 +7,13 @@ import { menuButtonSpot, onMenuButtonMove } from "./menuButton";
 import { resetProfile } from "./profile";
 import { leaveRun, onlineRun } from "./runSession";
 import { SOUND_FILES, getSoundSettings, phaserSoundOut, setSoundOut, setSoundSettings, soundKey } from "./sound";
+import { fontRole, snap } from "./fonts";
 
 // The game menu (#170, replacing the Sound button of #137). Always on top of every screen (it starts
 // with the game and never stops): loads the sound files, draws the menu button in the top-right
 // corner and the panel it opens (also opened and closed with Escape). Opening it pauses nothing:
 // the screens underneath keep running and keep taking clicks outside the panel.
 
-const FONT = "Arial, Helvetica, sans-serif";
 const BASE = `${import.meta.env.BASE_URL}audio/`;
 const BTN = { size: 52 }; // the button's size; where it sits is in menuButton.ts (the top-right corner unless a screen moves it)
 const PX = 1440; // the panel
@@ -86,11 +86,11 @@ export class GameMenuScene extends Phaser.Scene {
     const items: Phaser.GameObjects.GameObject[] = [];
     let y = PY + 20;
     const text = (x: number, ty: number, s: string, size: number, color = "#ffffff", bold = false, originX = 0): void => {
-      items.push(this.add.text(x, ty, s, { fontFamily: FONT, fontSize: `${size}px`, color, fontStyle: bold ? "bold" : "normal" }).setOrigin(originX, 0.5));
+      items.push(snap(this.add.text(x, ty, s, { ...fontRole(size), color }).setOrigin(originX, 0.5)));
     };
     const button = (cx: number, cy: number, s: string, onClick: () => void, opts: { fill?: string; width?: number } = {}): void => {
       const t = this.add
-        .text(cx, cy, s, { fontFamily: FONT, fontSize: "24px", fontStyle: "bold", color: "#ffffff", backgroundColor: opts.fill ?? "#1e5a42", padding: { x: 16, y: 6 }, align: "center", ...(opts.width ? { fixedWidth: opts.width } : {}) })
+        .text(cx, cy, s, { ...fontRole(24), color: "#ffffff", backgroundColor: opts.fill ?? "#1e5a42", padding: { x: 16, y: 6 }, align: "center", ...(opts.width ? { fixedWidth: opts.width } : {}) })
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true });
       t.on("pointerdown", onClick);
@@ -106,7 +106,7 @@ export class GameMenuScene extends Phaser.Scene {
       text(PX + PW / 2, y + 10, reset ? "Erase all experience and unlocks?" : "Leave to the title screen?", 26, "#ffffff", true, 0.5);
       y += 60;
       if (!reset) {
-        const t = this.add.text(PX + 24, y, this.leaveWarning(), { fontFamily: FONT, fontSize: "22px", color: "#ffd0cc", wordWrap: { width: PW - 48 } });
+        const t = this.add.text(PX + 24, y, this.leaveWarning(), { ...fontRole(22), color: "#ffd0cc", wordWrap: { width: PW - 48 } });
         items.push(t);
         y += t.height + 24;
       }
@@ -184,7 +184,7 @@ export class GameMenuScene extends Phaser.Scene {
   }
 
   private slider(items: Phaser.GameObjects.GameObject[], name: string, y: number, field: "master" | "effects"): void {
-    items.push(this.add.text(PX + 20, y, name, { fontFamily: FONT, fontSize: "24px", color: "#ffffff" }).setOrigin(0, 0.5));
+    items.push(this.add.text(PX + 20, y, name, { ...fontRole(24), color: "#ffffff" }).setOrigin(0, 0.5));
     const g = this.add.graphics();
     const draw = (): void => {
       const s = getSoundSettings();

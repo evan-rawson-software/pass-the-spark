@@ -10,6 +10,7 @@ import { reducedFlashing } from "./comfort";
 import { scaleTime } from "./playbackSpeed";
 import { battleWizardsData, dominoLook, fuseBoardData as D, hexColour } from "./presentation";
 import { SPARK_STYLE } from "./sparks";
+import { fontRole } from "./fonts";
 
 // The fuse board (#229, taking over #218's screen part): small dominoes joined by fuses, a charge
 // badge on each fuse and a dashed ghost ring on each open end. Layout and drawing only: every number
@@ -19,7 +20,6 @@ import { SPARK_STYLE } from "./sparks";
 // The tree is laid out at the board scale (opener on the left, growing right, fanning at junctions)
 // and only shrinks, as a whole, when it outgrows its area.
 
-const FONT = "Arial, Helvetica, sans-serif";
 const L = dominoLook;
 const U = L.unit;
 
@@ -340,14 +340,14 @@ function badge(scene: Phaser.Scene, layer: Layer, x: number, y: number, f: numbe
   g.fillRoundedRect(x - w / 2, y - h / 2, w, h, h / 2);
   g.lineStyle(b.strokeWidth * Math.max(f, 0.6), hexColour(b.stroke), 1);
   g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, h / 2);
-  const t = scene.add.text(x, y, text, { fontFamily: FONT, fontSize: `${Math.max(b.minSize, Math.round(b.size * f))}px`, fontStyle: "bold", color: b.text }).setOrigin(0.5);
+  const t = scene.add.text(x, y, text, { ...fontRole(Math.max(b.minSize, Math.round(b.size * f))), color: b.text }).setOrigin(0.5);
   layer.add([g, t]);
 }
 
 // A cap's own number: a pill in its effect's colour.
 function capNumber(scene: Phaser.Scene, layer: Layer, x: number, y: number, f: number, text: string, fill: string): void {
   const b = D.capNumber;
-  const t = scene.add.text(x, y, text, { fontFamily: FONT, fontSize: `${Math.max(b.minSize, Math.round(b.size * f))}px`, fontStyle: "bold", color: b.text }).setOrigin(0.5);
+  const t = scene.add.text(x, y, text, { ...fontRole(Math.max(b.minSize, Math.round(b.size * f))), color: b.text }).setOrigin(0.5);
   const w = Math.max(b.w * f, t.width + 12 * f), h = b.h * f;
   const g = scene.add.graphics();
   g.fillStyle(hexColour(fill), 1);
@@ -499,7 +499,7 @@ export class FuseBoard {
       g.fillCircle(bx, by, br);
       g.lineStyle(2, hexColour(D.badge.stroke), 1);
       g.strokeCircle(bx, by, br);
-      const t = this.scene.add.text(bx, by, String(charge), { fontFamily: FONT, fontSize: `${Math.round(br * 1.25)}px`, fontStyle: "bold", color: D.ring.badgeText }).setOrigin(0.5);
+      const t = this.scene.add.text(bx, by, String(charge), { ...fontRole(Math.round(br * 1.25)), color: D.ring.badgeText }).setOrigin(0.5);
       c.add([g, t]);
     }
     const locked = input.locked === spark;
@@ -559,7 +559,7 @@ export class FuseBoard {
     this.root.add(g);
     this.opener = { x, y, g };
     this.paintOpener(false);
-    const t = this.scene.add.text(x, y, "OPENER", { fontFamily: FONT, fontSize: `${O.textSize}px`, fontStyle: "bold", color: O.colour }).setOrigin(0.5).setAlpha(0.8);
+    const t = this.scene.add.text(x, y, "OPENER", { ...fontRole(O.textSize), color: O.colour }).setOrigin(0.5).setAlpha(0.8);
     this.root.add(t);
     const hit = this.scene.add.container(x, y).setSize(O.w, O.h);
     this.root.add(hit);
@@ -721,8 +721,8 @@ export class FuseBoard {
     if (!at) return;
     if (end !== "opener" && this.rings.get(end)?.locked) return;
     const K = D.live;
-    const big = this.scene.add.text(0, 0, live.main, { fontFamily: FONT, fontSize: `${K.mainSize}px`, fontStyle: "bold", color: live.good ? K.good : K.bad }).setOrigin(0.5);
-    const small = live.sub === null ? null : this.scene.add.text(0, 0, live.sub, { fontFamily: FONT, fontSize: `${K.subSize}px`, color: K.subColour }).setOrigin(0.5);
+    const big = this.scene.add.text(0, 0, live.main, { ...fontRole(K.mainSize), color: live.good ? K.good : K.bad }).setOrigin(0.5);
+    const small = live.sub === null ? null : this.scene.add.text(0, 0, live.sub, { ...fontRole(K.subSize), color: K.subColour }).setOrigin(0.5);
     const w = Math.max(big.width, small?.width ?? 0) + K.padX * 2;
     const h = big.height + (small ? small.height - 4 : 0) + K.padY * 2;
     let x = at.x + at.hw + K.gap;

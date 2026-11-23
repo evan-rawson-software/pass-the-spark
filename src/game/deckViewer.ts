@@ -7,7 +7,8 @@ import { SPARK_ORDER, SPARK_STYLE } from "./sparks";
 import { Tooltip } from "./tooltip";
 import { charmsByIds, drawCharmRow } from "./charmUi";
 import { actingSeat, currentRun, myPending, sceneFor, seatName } from "./runSession";
-import { FONT, button, drawBackground } from "./ui";
+import { button, drawBackground } from "./ui";
+import { fontRole } from "./fonts";
 
 // The deck viewer (#55): a read-only overlay that shows any player's dominoes grouped by intake
 // spark. Self-contained: a screen opens it with openDeckViewer(scene, players) and it draws on
@@ -187,7 +188,7 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
     const c = scene.add.container(0, 0);
     chrome = c;
     root.add(c);
-    c.add(scene.add.text(LEFT, PANEL.y + 40, "Decks", { fontFamily: FONT, fontSize: "48px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0, 0.5));
+    c.add(scene.add.text(LEFT, PANEL.y + 40, "Decks", { ...fontRole(48), color: "#ffffff" }).setOrigin(0, 0.5));
     c.add(button(scene, PANEL.x + PANEL.w - 40, PANEL.y + 40, "Close", close, { size: 30, origin: 1 }));
     let x = LEFT;
     players.forEach((p, i) => {
@@ -218,9 +219,9 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
       summary += `   |   draw pile ${n("draw")}   hand ${n("hand")}   discard ${n("discard")}`;
     }
     if (pick) {
-      c.add(scene.add.text(LEFT, PANEL.y + 185, pick.prompt, { fontFamily: FONT, fontSize: "28px", color: "#ffe14d", fontStyle: "bold" }).setOrigin(0, 0.5));
+      c.add(scene.add.text(LEFT, PANEL.y + 185, pick.prompt, { ...fontRole(28), color: "#ffe14d" }).setOrigin(0, 0.5));
       c.add(button(scene, PANEL.x + PANEL.w - 40, PANEL.y + 120, "Confirm", confirm, { size: 30, origin: 1, disabled: picked.length !== pick.count }));
-      reason = scene.add.text(LEFT + 300, PANEL.y + 120, "", { fontFamily: FONT, fontSize: "28px", color: "#ffb4a2", fontStyle: "bold" }).setOrigin(0, 0.5);
+      reason = scene.add.text(LEFT + 300, PANEL.y + 120, "", { ...fontRole(28), color: "#ffb4a2" }).setOrigin(0, 0.5);
       c.add(reason);
       const shown = picked.length === pick.count ? pick.preview?.(picked) : null;
       if (shown) {
@@ -232,11 +233,11 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
         });
         const after = drawDomino(scene, shown.after, "large", "normal").setScale(0.45).setPosition(PANEL.x + PANEL.w - 220, PANEL.y + 190);
         tooltip.attach(after, shown.after);
-        c.add([after, scene.add.text(PANEL.x + PANEL.w - 390, PANEL.y + 190, ">", { fontFamily: FONT, fontSize: "36px", color: "#ffe14d", fontStyle: "bold" }).setOrigin(0.5)]);
+        c.add([after, scene.add.text(PANEL.x + PANEL.w - 390, PANEL.y + 190, ">", { ...fontRole(36), color: "#ffe14d" }).setOrigin(0.5)]);
       }
       return;
     }
-    c.add(scene.add.text(LEFT, PANEL.y + 185, summary, { fontFamily: FONT, fontSize: "28px", color: "#cfe9dc" }).setOrigin(0, 0.5));
+    c.add(scene.add.text(LEFT, PANEL.y + 185, summary, { ...fontRole(28), color: "#cfe9dc" }).setOrigin(0, 0.5));
   }
 
   // Only whole rows inside the viewport are drawn, so nothing hidden stays hoverable.
@@ -263,7 +264,7 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
         const color = g.intake === "any" ? "#ffffff" : "#" + SPARK_STYLE[g.intake[0]].color.toString(16).padStart(6, "0");
         b.add(
           scene.add
-            .text(tx, y + 24, `${name}  (${g.cards.length})`, { fontFamily: FONT, fontSize: "32px", color, fontStyle: "bold", stroke: "#0d2a20", strokeThickness: 4 })
+            .text(tx, y + 24, `${name}  (${g.cards.length})`, { ...fontRole(32), color, stroke: "#0d2a20", strokeThickness: 4 })
             .setOrigin(0, 0.5),
         );
       }
@@ -294,11 +295,11 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
           b.add(g);
           if (pick?.count === 2) {
             b.add(scene.add.circle(cx - DW / 2 + 4, top + 4, 17, 0xffe14d).setStrokeStyle(3, 0x2a2a2a));
-            b.add(scene.add.text(cx - DW / 2 + 4, top + 4, String(order + 1), { fontFamily: FONT, fontSize: "24px", color: "#2a2a2a", fontStyle: "bold" }).setOrigin(0.5));
+            b.add(scene.add.text(cx - DW / 2 + 4, top + 4, String(order + 1), { ...fontRole(24), color: "#2a2a2a" }).setOrigin(0.5));
           }
         }
         if (card.zone) {
-          b.add(scene.add.text(cx, top + DH + 10, ZONE_LABEL[card.zone], { fontFamily: FONT, fontSize: "20px", color: "#9fd1b8" }).setOrigin(0.5, 0));
+          b.add(scene.add.text(cx, top + DH + 10, ZONE_LABEL[card.zone], { ...fontRole(20), color: "#9fd1b8" }).setOrigin(0.5, 0));
         }
       });
       y += Math.ceil(g.cards.length / PER_ROW) * ROW_H;
@@ -306,7 +307,7 @@ export function openDeckViewer(scene: Phaser.Scene, players: DeckViewPlayer[], s
     if (maxScroll() > 0) {
       b.add(
         scene.add
-          .text(PANEL.x + PANEL.w - 40, PANEL.y + 185, scroll < maxScroll() ? "scroll for more" : "end of deck", { fontFamily: FONT, fontSize: "22px", color: "#9fd1b8" })
+          .text(PANEL.x + PANEL.w - 40, PANEL.y + 185, scroll < maxScroll() ? "scroll for more" : "end of deck", { ...fontRole(22), color: "#9fd1b8" })
           .setOrigin(1, 0.5),
       );
     }

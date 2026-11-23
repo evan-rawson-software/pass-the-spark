@@ -11,7 +11,8 @@ import { drawDomino } from "./dominoDrawing";
 import { coinButton, coinLine } from "./coinIcon";
 import type { CoinPart } from "./coinIcon";
 import { Tooltip } from "./tooltip";
-import { FONT, button, label } from "./ui";
+import { button, label } from "./ui";
+import { fontRole } from "./fonts";
 
 // The screens for the Wishing Well (#91). EventScene calls drawWellStage for a player who has
 // already turned a domino over. Which domino came up, which prize each spark gives, what can be
@@ -143,7 +144,7 @@ function openUpgradeChooser(scene: Phaser.Scene, run: RunState, player: string, 
       const a = drawDomino(scene, after, "large", "normal").setScale(0.8).setPosition(PANEL.x + 900, PANEL.y + 720);
       tooltip.attach(b, before);
       tooltip.attach(a, after);
-      c.add([b, a, scene.add.text(PANEL.x + 650, PANEL.y + 720, ">", { fontFamily: FONT, fontSize: "56px", color: GOLD, fontStyle: "bold" }).setOrigin(0.5)]);
+      c.add([b, a, scene.add.text(PANEL.x + 650, PANEL.y + 720, ">", { ...fontRole(56), color: GOLD }).setOrigin(0.5)]);
     }
     c.add(button(scene, PANEL.x + PANEL.w - 40, PANEL.y + 800, "Confirm", () => { const s = selected; close(); if (s) send({ dominoes: [id], side: s.side, spark: s.spark }); }, { size: 34, origin: 1, disabled: selected === null }));
     c.add(button(scene, PANEL.x + PANEL.w - 220, PANEL.y + 800, "Cancel", close, { size: 34, origin: 1 }));

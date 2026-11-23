@@ -13,7 +13,7 @@ import { relay } from "./relay";
 import { loadProfile, onlineLook, saveLook } from "./profile";
 import { wizardLookData as D } from "./presentation";
 import { openRunScreen, startOnlineRun } from "./runSession";
-import { button, drawBackground, label, saveName, savedName, textInput } from "./ui";
+import { button, drawBackground, label, saveName, savedName, shortName, textInput } from "./ui";
 import { cssColour, listWizard, takenByOthers, Wardrobe } from "./wardrobe";
 import { lookColour } from "./wizard";
 
@@ -198,7 +198,7 @@ export class JoinScene extends Phaser.Scene {
       const y = L.joinTop + i * L.pitch;
       this.keep(label(this, 100, y, `${i + 1}.`, 36));
       this.keep(listWizard(this, 170, y + 40, p.look, L.wizardScale, i));
-      this.keep(label(this, L.textX, y, `${p.name}  (level ${p.level})${you ? "  (you)" : ""}${p.away ? "  (away)" : ""}`, 36, { color: cssColour(lookColour(p.look)) }));
+      this.keep(label(this, L.textX, y, `${shortName(p.name)}  (level ${p.level})${you ? "  (you)" : ""}${p.away ? "  (away)" : ""}`, 36, { color: cssColour(lookColour(p.look)) }));
       if (you) this.keep(button(this, L.editX, y, "Edit", () => this.openWardrobe(), { size: 26 }));
     });
     this.syncWardrobe();

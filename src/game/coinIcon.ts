@@ -1,7 +1,8 @@
 import Phaser from "phaser";
 import { artImage } from "./art";
-import { FONT, button } from "./ui";
+import { button } from "./ui";
 import { playSound } from "./sound";
+import { fontRole } from "./fonts";
 
 // The one place that draws a coin amount: a gold coin icon followed by the number, never the word
 // "coins". The generated ui/coin art is used when it exists, otherwise a code-drawn gold coin.
@@ -58,7 +59,7 @@ export function coinLine(scene: Phaser.Scene, x: number, y: number, parts: CoinP
   let cx = 0;
   const text = (s: string): void => {
     const t = scene.add
-      .text(cx, 0, s, { fontFamily: FONT, fontSize: `${size}px`, color: opts.color ?? "#ffffff", fontStyle: opts.bold ? "bold" : "normal" })
+      .text(cx, 0, s, { ...fontRole(size), color: opts.color ?? "#ffffff" })
       .setOrigin(0, 0.5);
     box.add(t);
     cx += t.width;

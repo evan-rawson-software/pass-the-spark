@@ -1,12 +1,12 @@
 import Phaser from "phaser";
 import type { PingTarget } from "../net/protocol";
+import { fontRole } from "./fonts";
 
 // Pings (#136): hold on a visible domino to point at it for the whole party. Not game state: the
 // host checks and relays the message, and the ring below is drawn on every screen from it.
 
 export const HOLD_MS = 500;
 export const PING_SHOW_MS = 3000;
-const FONT = "Arial, Helvetica, sans-serif";
 
 // Which drawn domino a target names; the combat screen files its dominoes under the same keys.
 export function pingKey(t: PingTarget): string {
@@ -90,7 +90,7 @@ export class PingMarks {
       g.strokeRoundedRect(c.x - w / 2, c.y - h / 2, w, h, 12);
       const label = this.scene.add
         .text(c.x, Math.max(16, c.y - h / 2 - 14), mark.name, {
-          fontFamily: FONT, fontSize: "24px", color: "#2a2200", fontStyle: "bold", backgroundColor: "#ffe14d", padding: { x: 8, y: 2 },
+          ...fontRole(24), color: "#2a2200", backgroundColor: "#ffe14d", padding: { x: 8, y: 2 },
         })
         .setOrigin(0.5);
       this.layer.add([g, label]);

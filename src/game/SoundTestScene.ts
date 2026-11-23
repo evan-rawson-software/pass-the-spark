@@ -1,3 +1,4 @@
+import { fontRole } from "./fonts";
 import Phaser from "phaser";
 import { SOUND_CUES, playSound, stopSound } from "./sound";
 
@@ -9,10 +10,10 @@ export class SoundTestScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.add.text(40, 30, "Sound audition page (click a cue)", { fontSize: "36px", color: "#ffffff" });
+    this.add.text(40, 30, "Sound audition page (click a cue)", { ...fontRole(36), color: "#ffffff" });
     const btn = (x: number, y: number, label: string, fn: () => void, w = 340): void => {
       const t = this.add
-        .text(x, y, label, { fontSize: "22px", color: "#ffffff", backgroundColor: "#2f6d52", padding: { x: 10, y: 6 }, fixedWidth: w })
+        .text(x, y, label, { ...fontRole(22), color: "#ffffff", backgroundColor: "#2f6d52", padding: { x: 10, y: 6 }, fixedWidth: w })
         .setInteractive({ useHandCursor: true });
       t.on("pointerdown", fn);
     };

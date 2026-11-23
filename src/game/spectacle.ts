@@ -4,6 +4,7 @@ import { artImage } from "./art";
 import { reducedFlashing, shakeEnabled } from "./comfort";
 import { scaleTime } from "./playbackSpeed";
 import { playSound } from "./sound";
+import { fontRole } from "./fonts";
 
 // The drawing half of the cascade spectacle (#187): heat tiers, charge flowing along the branches,
 // the per-effect animations, shake, lightning and slow motion. Purely visual and driven
@@ -12,7 +13,6 @@ import { playSound } from "./sound";
 // no rules in here. The fx textures (white with alpha) are tinted through the art helper, with a
 // code-drawn fallback when there is no art.
 
-const FONT = "Arial, Helvetica, sans-serif";
 const DEPTH = 95;
 export const GOLD = 0xffe14d;
 
@@ -107,7 +107,7 @@ function ring(scene: Phaser.Scene, at: Point, color: number, r: number, to: numb
 
 export function floatText(scene: Phaser.Scene, x: number, y: number, text: string, color: string, size = 44, ms = 1000): void {
   const t = scene.add
-    .text(x, y, text, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: "bold", color, stroke: "#101010", strokeThickness: 6 })
+    .text(x, y, text, { ...fontRole(size), color, stroke: "#101010", strokeThickness: 6 })
     .setOrigin(0.5)
     .setDepth(100);
   scene.tweens.add({ targets: t, y: y - 70, alpha: 0, duration: scaleTime(ms), ease: "Cubic.easeOut", onComplete: done(t) });

@@ -7,7 +7,8 @@ import type { Domino } from "../engine/types";
 import { deckViewerState, openDeckViewer, runDeckPlayers } from "./deckViewer";
 import { drawDomino } from "./dominoDrawing";
 import { Tooltip } from "./tooltip";
-import { FONT, button, label } from "./ui";
+import { button, label } from "./ui";
+import { fontRole } from "./fonts";
 
 // The screens for the three events that change dominoes (#90): the Tinker's Bench, the Mirror Pond
 // and the Twin Forge. EventScene calls startDeckAction when a player picks one of their options.
@@ -112,7 +113,7 @@ function openRepaint(scene: Phaser.Scene, run: RunState, player: string, id: str
       const a = drawDomino(scene, after, "large", "normal").setScale(0.8).setPosition(PANEL.x + 900, PANEL.y + 720);
       tooltip.attach(b, before[0]);
       tooltip.attach(a, after);
-      c.add([b, a, scene.add.text(PANEL.x + 650, PANEL.y + 720, ">", { fontFamily: FONT, fontSize: "56px", color: "#ffe14d", fontStyle: "bold" }).setOrigin(0.5)]);
+      c.add([b, a, scene.add.text(PANEL.x + 650, PANEL.y + 720, ">", { ...fontRole(56), color: "#ffe14d" }).setOrigin(0.5)]);
     }
     c.add(button(scene, PANEL.x + PANEL.w - 40, PANEL.y + 800, "Confirm", () => { const s = selected; close(); if (s) submit({ dominoes: [id], half: s.half, slot: s.slot, spark: s.spark }); }, { size: 34, origin: 1, disabled: selected === null }));
     c.add(button(scene, PANEL.x + PANEL.w - 220, PANEL.y + 800, "Cancel", close, { size: 34, origin: 1 }));

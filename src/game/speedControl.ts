@@ -1,12 +1,12 @@
 import Phaser from "phaser";
 import { SPEEDS, getPlaybackSpeed, onPlaybackSpeedChange, setPlaybackSpeed } from "./playbackSpeed";
 import { speedControlData as D } from "./presentation";
+import { fontRole } from "./fonts";
 
 // The combat playback speed control (#220): one small button showing the speed, which opens a list
 // of speeds above it. It lives outside the scene's redrawn layer so the list stays open across
 // redraws, and it follows the setting itself (the menu can change it). No rules here.
 
-const FONT = "Arial, Helvetica, sans-serif";
 const GOLD = 0xffe14d;
 
 export class SpeedControl {
@@ -57,7 +57,7 @@ export class SpeedControl {
     const left = this.at.right - D.buttonW;
     const top = this.at.y - D.buttonH / 2;
     const text = (x: number, y: number, t: string, color: string) =>
-      s.add.text(x, y, t, { fontFamily: FONT, fontSize: `${D.fontSize}px`, color, fontStyle: "bold" }).setOrigin(0.5);
+      s.add.text(x, y, t, { ...fontRole(D.fontSize), color }).setOrigin(0.5);
 
     // Zones are the interactive objects: a click on them is not "click on empty table" (the skip).
     const g = s.add.graphics();
@@ -66,7 +66,7 @@ export class SpeedControl {
     g.lineStyle(2, GOLD, this.open ? 1 : 0.5);
     g.strokeRoundedRect(left, top, D.buttonW, D.buttonH, D.buttonH / 2);
     this.box.add([g, text(left + D.buttonW / 2, this.at.y, `▶ ${cur}×`, "#ffffff")]);
-    const hint = s.add.text(left + D.buttonW / 2, top - 6, "Playback speed", { fontFamily: FONT, fontSize: "18px", color: "#cfe9dc", backgroundColor: "#101010", padding: { x: 8, y: 4 } }).setOrigin(0.5, 1).setVisible(false);
+    const hint = s.add.text(left + D.buttonW / 2, top - 6, "Playback speed", { ...fontRole(18), color: "#cfe9dc", backgroundColor: "#101010", padding: { x: 8, y: 4 } }).setOrigin(0.5, 1).setVisible(false);
     const z = s.add.zone(left + D.buttonW / 2, this.at.y, D.buttonW, D.buttonH).setInteractive({ useHandCursor: true });
     z.on("pointerover", () => !this.open && hint.setVisible(true));
     z.on("pointerout", () => hint.setVisible(false));

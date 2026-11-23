@@ -7,7 +7,8 @@ import type { OnlineRun } from "./runSession";
 import { drawPartyHud } from "./partyHud";
 import { lastAward, loadProfile } from "./profile";
 import { drawXpBar } from "./xpBar";
-import { button, drawBackground, FONT, label } from "./ui";
+import { button, drawBackground, label } from "./ui";
+import { fontRole } from "./fonts";
 
 // The end of a run (#50): victory or defeat, the floor reached, the seed, and the way back.
 // The experience it earned (#132) is listed, the bar fills, and each new unlock gets a card; online
@@ -94,7 +95,7 @@ export class RunEndScene extends Phaser.Scene {
         g.lineStyle(4, 0xffe14d, 1).strokeRoundedRect(x - 280, 770, 560, 185, 14);
         label(this, x, 800, "New unlock", 26, { origin: 0.5, color: "#ffe14d" });
         label(this, x, 842, u.name, 40, { origin: 0.5, bold: true });
-        this.add.text(x, 895, u.description, { fontFamily: FONT, fontSize: "24px", color: "#ffffff", align: "center", wordWrap: { width: 520 } }).setOrigin(0.5, 0.5);
+        this.add.text(x, 895, u.description, { ...fontRole(24), color: "#ffffff", align: "center", wordWrap: { width: 520 } }).setOrigin(0.5, 0.5);
       });
     });
   }

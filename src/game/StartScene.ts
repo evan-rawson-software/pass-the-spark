@@ -7,13 +7,12 @@ import { wizardLookData as D } from "./presentation";
 import { openRunScreen, startSingleRun } from "./runSession";
 import { cssColour, listWizard, Wardrobe } from "./wardrobe";
 import { lookColour } from "./wizard";
+import { fontRole, snap } from "./fonts";
+import { INPUT_STYLE } from "./ui";
 
 // Single-player setup (#50): seats and a seed, then a run starts. Each seat shows its wizard with an
 // Edit button that opens the wardrobe (Z10); the looks are remembered per seat on this device (A5).
 
-const FONT = "Arial, Helvetica, sans-serif";
-const INPUT_STYLE =
-  "width:300px;height:44px;font:28px Arial,Helvetica,sans-serif;padding:0 12px;box-sizing:border-box;border-radius:8px;border:2px solid #2f7a5b;background:#f4ecd8;color:#222";
 const MAX_SEATS = 4;
 
 export class StartScene extends Phaser.Scene {
@@ -62,9 +61,7 @@ export class StartScene extends Phaser.Scene {
   }
 
   private text(x: number, y: number, s: string, size: number, bold = false): Phaser.GameObjects.Text {
-    return this.add
-      .text(x, y, s, { fontFamily: FONT, fontSize: `${size}px`, color: "#ffffff", fontStyle: bold ? "bold" : "normal" })
-      .setOrigin(0, 0.5);
+    return snap(this.add.text(x, y, s, { ...fontRole(size), color: "#ffffff" }).setOrigin(0, 0.5));
   }
 
   private button(x: number, y: number, s: string, onClick: () => void, size = 30): Phaser.GameObjects.Text {
@@ -98,7 +95,7 @@ export class StartScene extends Phaser.Scene {
       const look = this.looks[i];
       const card = this.add.rectangle(x, S.top + S.h / 2, S.w, S.h, 0x14382b).setStrokeStyle(4, lookColour(look));
       const title = this.add
-        .text(x, S.top + 40, `Player ${i + 1}`, { fontFamily: FONT, fontSize: "36px", color: cssColour(lookColour(look)), fontStyle: "bold" })
+        .text(x, S.top + 40, `Player ${i + 1}`, { ...fontRole(36), color: cssColour(lookColour(look)) })
         .setOrigin(0.5);
       const wizard = listWizard(this, x, S.top + 320, look, S.wizardScale, i);
       const edit = this.button(x, S.top + S.editY, "Edit", () => this.edit(i), 32);

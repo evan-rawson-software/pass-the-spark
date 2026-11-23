@@ -16,6 +16,8 @@ import { MenuScene } from "./MenuScene";
 import { HostLobbyScene } from "./HostLobbyScene";
 import { JoinScene } from "./JoinScene";
 import { DominoTestScene } from "./DominoTestScene";
+import { KitScene } from "./KitScene";
+import { loadFonts } from "./fonts";
 import { BoardPreviewScene } from "./BoardPreviewScene";
 import { SoundTestScene } from "./SoundTestScene";
 import { TitleScene } from "./TitleScene";
@@ -27,7 +29,7 @@ import { ArtBootScene, readArtManifest } from "./art";
 // The menu is the default; a link with ?room=CODE opens the join screen, or, in the browser that
 // hosts that room, resumes it as host (#35; an unreadable save is dropped there and the page joins instead). Dev query params (see devBattle.ts) skip it and
 // open the combat table directly. ?scene=dominoes opens the domino drawing test
-// page, ?scene=board the fuse board and hand preview, ?scene=sounds the sound audition page and ?scene=title the title.
+// page, ?scene=board the fuse board and hand preview, ?scene=sounds the sound audition page and ?scene=title the title and ?scene=kit the font roles and interface kit.
 const query = new URLSearchParams(window.location.search);
 const which = query.get("scene");
 const first =
@@ -35,6 +37,7 @@ const first =
   : which === "board" ? BoardPreviewScene
   : which === "sounds" ? SoundTestScene
   : which === "title" ? TitleScene
+  : which === "kit" ? KitScene
   : hasDevParams(query) ? CombatScene
   : query.has("room") ? (isMyRoom(query.get("room")!) ? HostLobbyScene : JoinScene)
   : MenuScene;
@@ -47,7 +50,7 @@ function isMyRoom(code: string): boolean {
 }
 const scenes = [
   first,
-  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, ActStartScene, TraderScene, EventScene, RunEndScene, DeckScene, TitleScene, DominoTestScene, BoardPreviewScene, SoundTestScene].filter(
+  ...[MenuScene, StartScene, HostLobbyScene, JoinScene, CombatScene, EndScene, MapScene, RewardScene, RestScene, ActStartScene, TraderScene, EventScene, RunEndScene, DeckScene, TitleScene, DominoTestScene, BoardPreviewScene, SoundTestScene, KitScene].filter(
     (s) => s !== first,
   ),
 ];
@@ -59,8 +62,9 @@ window.addEventListener("pageshow", (e) => {
   if (e.persisted) window.location.reload();
 });
 
-// The art boot scene loads the listed art, then starts the first scene.
-void readArtManifest().then(() => new Phaser.Game({
+// The fonts load first, so no text is measured in a fallback font. The art boot scene then loads
+// the listed art and starts the first scene.
+void Promise.all([loadFonts(), readArtManifest()]).then(() => new Phaser.Game({
   type: Phaser.AUTO,
   parent: "game",
   width: 1920,

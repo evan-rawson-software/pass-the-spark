@@ -2,11 +2,11 @@ import Phaser from "phaser";
 import type { PlayPreview } from "../engine/battle";
 import type { Domino } from "../engine/types";
 import { coinLine, coinParts, hasCoins } from "./coinIcon";
+import { fontRole } from "./fonts";
 
 // Domino tooltips. No rules here: it formats the domino's static data and, for a
 // playable domino in the active hand, the numbers previewPlay returns.
 
-const FONT = "Arial, Helvetica, sans-serif";
 const WIDTH = 440;
 const PAD = 16;
 const SCREEN = { w: 1920, h: 1080 };
@@ -103,7 +103,7 @@ export class Tooltip {
     box.add(bg);
     let y = PAD;
     for (const line of lines) {
-      const size = line.style === "title" ? 28 : 22;
+      const size = line.style === "title" ? 48 : 24;
       const color = line.style === "head" ? "#ffe14d" : line.style === "dim" ? "#9fd1b8" : "#ffffff";
       const gap = line.style === "head" ? 10 : 0;
       const parts = coinParts(line.text);
@@ -115,10 +115,8 @@ export class Tooltip {
         continue;
       }
       const t = this.scene.add.text(PAD, y + gap, line.text, {
-        fontFamily: FONT,
-        fontSize: `${size}px`,
+        ...fontRole(size),
         color,
-        fontStyle: line.style === "title" || line.style === "head" ? "bold" : "normal",
         wordWrap: { width: WIDTH - PAD * 2 },
       });
       box.add(t);

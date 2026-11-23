@@ -12,7 +12,8 @@ import { relay } from "./relay";
 import { loadProfile, onlineLook, saveLook } from "./profile";
 import { wizardLookData as D } from "./presentation";
 import { openRunScreen, startOnlineRun } from "./runSession";
-import { button, drawBackground, INPUT_STYLE, label } from "./ui";
+import { button, drawBackground, INPUT_STYLE, label, shortName } from "./ui";
+import { fontRole } from "./fonts";
 import { cssColour, listWizard, takenByOthers, Wardrobe } from "./wardrobe";
 import { lookColour } from "./wizard";
 
@@ -179,7 +180,7 @@ export class HostLobbyScene extends Phaser.Scene {
     const link = `${window.location.origin}${window.location.pathname}?room=${this.roomCode}`;
     label(this, 100, 160, "Room code", 30);
     label(this, 380, 160, this.roomCode, 64, { bold: true });
-    const el = this.add.dom(1100, 160, "input", INPUT_STYLE + ";width:760px;font-size:22px");
+    const el = this.add.dom(1100, 160, "input", INPUT_STYLE + `;width:760px;font:${fontRole(24).fontSize} ${fontRole(24).fontFamily}`);
     this.linkInput = el;
     const input = el.node as HTMLInputElement;
     input.readOnly = true;
@@ -212,7 +213,7 @@ export class HostLobbyScene extends Phaser.Scene {
       const you = p.seat === this.mySeat;
       keep(label(this, 100, y, `${i + 1}.`, 36));
       keep(listWizard(this, 170, y + 40, p.look, L.wizardScale, i));
-      keep(label(this, L.textX, y, `${p.name}  (level ${p.level})${you ? "  (you, host)" : ""}${p.away ? "  (away)" : ""}`, 36, { color: cssColour(lookColour(p.look)) }));
+      keep(label(this, L.textX, y, `${shortName(p.name)}  (level ${p.level})${you ? "  (you, host)" : ""}${p.away ? "  (away)" : ""}`, 36, { color: cssColour(lookColour(p.look)) }));
       keep(button(this, 760, y, "Up", () => host.moveSeat(p.seat, -1), { size: 26, disabled: i === 0 }));
       keep(button(this, 860, y, "Down", () => host.moveSeat(p.seat, 1), { size: 26, disabled: i === lobby.players.length - 1 }));
       if (you) keep(button(this, L.editX, y, "Edit", () => this.openWardrobe(), { size: 26 }));

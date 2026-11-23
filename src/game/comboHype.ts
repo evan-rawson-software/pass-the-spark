@@ -9,6 +9,7 @@ import { scaleTime } from "./playbackSpeed";
 import { combatLayoutData, hexColour } from "./presentation";
 import { playSound, stopSound } from "./sound";
 import type { Spells } from "./spells";
+import { fontRole, tabularDigits } from "./fonts";
 
 // Cascade hype (#234, H1-H9; #276): one big combo number in the middle of the board area, fixed on screen
 // whatever the camera does. Every hit's spark (a cap's, or a smaller one from an amplifier or junction)
@@ -38,7 +39,7 @@ interface Data {
   };
   layout: { yFraction: number; maxWidthFraction: number };
   number: {
-    sizes: number[]; stroke: number; strokeColour: string;
+    sizes: number[]; step: number; stroke: number; strokeColour: string;
     hits: { size: number; colour: string; dyFactor: number; dy: number };
     block: { sizeFactor: number; minSize: number; colour: string; gap: number; shieldColour: string; shieldEdge: string };
     halo: { colour: string; layers: number; padX: number; heightFactor: number };
@@ -81,7 +82,6 @@ interface Data {
 }
 const D = presentation.comboHype as unknown as Data;
 
-const FONT = "Arial, Helvetica, sans-serif";
 const W = 1920;
 const H = 1080;
 const DEPTH = 130;
@@ -422,13 +422,13 @@ export class ComboHype {
     }
     const N = D.number;
     if (kind === "damage" && !this.dmgBox) {
-      this.dmgText = this.scene.add.text(0, 0, "0", this.style(N.sizes[this.tier], D.tiers.colours[this.tier])).setOrigin(0.5);
+      this.dmgText = tabularDigits(this.scene.add.text(0, 0, "0", this.style(N.sizes[this.tier], D.tiers.colours[this.tier]))).setOrigin(0.5);
       this.dmgBox = this.scene.add.container(0, 0, [this.dmgText]);
       this.hitsText = this.scene.add.text(0, 0, "", this.style(N.hits.size, N.hits.colour, 8)).setOrigin(0.5);
       this.group.add([this.dmgBox, this.hitsText]);
       if (this.fire) this.dress();
     } else if (kind === "block" && !this.blockBox) {
-      this.blockText = this.scene.add.text(0, 0, "0", this.style(this.blockSize(), N.block.colour)).setOrigin(0, 0.5);
+      this.blockText = tabularDigits(this.scene.add.text(0, 0, "0", this.style(this.blockSize(), N.block.colour))).setOrigin(0, 0.5);
       const shield = this.scene.add.graphics();
       this.blockBox = this.scene.add.container(0, 0, [shield, this.blockText]);
       this.group.add(this.blockBox);
@@ -437,11 +437,11 @@ export class ComboHype {
   }
 
   private style(size: number, colour: string, stroke = D.number.stroke): Phaser.Types.GameObjects.Text.TextStyle {
-    return { fontFamily: FONT, fontSize: `${size}px`, fontStyle: "bold", color: colour, stroke: D.number.strokeColour, strokeThickness: stroke };
+    return { ...fontRole(size), color: colour, stroke: D.number.strokeColour, strokeThickness: stroke };
   }
 
   private blockSize(): number {
-    return Math.max(D.number.block.minSize, Math.round(D.number.sizes[this.tier] * D.number.block.sizeFactor));
+    return Math.max(D.number.block.minSize, Math.round((D.number.sizes[this.tier] * D.number.block.sizeFactor) / D.number.step) * D.number.step);
   }
 
   // Places the parts: the damage number in the middle (or left, with block beside it), the hit count

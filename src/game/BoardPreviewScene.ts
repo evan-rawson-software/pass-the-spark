@@ -7,9 +7,9 @@ import { FuseBoard, boardArea, chargesInto, liveNumber } from "./fuseBoard";
 import { HandRow } from "./handRow";
 import { seatColour } from "./seatColours";
 import { fuseBoardData } from "./presentation";
+import { fontRole } from "./fonts";
 
 const content = loadContent();
-const FONT = "Arial, Helvetica, sans-serif";
 
 // Dev preview of the fuse board and the hand row (#253), with real engine states and views.
 // Open with ?scene=board. Options: tree=sample|big|one|empty, hand=<n dominoes, default 10>,
@@ -166,7 +166,7 @@ export class BoardPreviewScene extends Phaser.Scene {
       g.fillStyle(fill, 0.25);
       g.fillRoundedRect(x, y, w, h, 16);
       g.strokeRoundedRect(x, y, w, h, 16);
-      layer.add(this.add.text(x + w / 2, y + h / 2, label, { fontFamily: FONT, fontSize: "20px", color: "#b8c4b4" }).setOrigin(0.5).setAlpha(0.7));
+      layer.add(this.add.text(x + w / 2, y + h / 2, label, { ...fontRole(20), color: "#b8c4b4" }).setOrigin(0.5).setAlpha(0.7));
     };
     box(24, 24, 330, 1032, "left column");
     box(830, 318, 600, 34, "enemy bar");
@@ -175,6 +175,6 @@ export class BoardPreviewScene extends Phaser.Scene {
     g.lineStyle(2, 0xb8c4b4, 0.25);
     const a = boardArea();
     g.strokeRect(a.x, a.y, a.w, a.h);
-    layer.add(this.add.text(404, 376, "board area", { fontFamily: FONT, fontSize: "16px", color: "#b8c4b4" }).setAlpha(0.6));
+    layer.add(this.add.text(404, 376, "board area", { ...fontRole(16), color: "#b8c4b4" }).setAlpha(0.6));
   }
 }

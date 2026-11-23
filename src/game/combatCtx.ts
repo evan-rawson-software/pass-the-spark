@@ -1,3 +1,4 @@
+import { shrinkToRole } from "./fonts";
 import Phaser from "phaser";
 import type { Refs } from "./animations";
 import type { DominoState } from "./dominoDrawing";
@@ -33,5 +34,5 @@ export interface CombatCtx {
 
 // A text object's size, shrunk so it is at most `maxW` wide.
 export function fitText(t: Phaser.GameObjects.Text, maxW: number): void {
-  if (t.width > maxW) t.setFontSize(Math.max(8, Math.floor((parseInt(String(t.style.fontSize), 10) * maxW) / t.width)));
+  shrinkToRole(t, maxW);
 }
