@@ -1,36 +1,35 @@
 import Phaser from "phaser";
 import type { BattleView } from "../engine/view";
 import { hexColour, setOffPreviewData as D } from "./presentation";
-import { reducedFlashing } from "./comfort";
+import { paintBar } from "./animations";
 import type { Refs } from "./animations";
 import { fontRole } from "./fonts";
 
-// The build preview drawn over the party's bar and shield (#222, B8): the block the whole board would
-// give and the health the party would still lose to the intent's full attack (the engine's previewBuild, which
-// does not depend on the board being lethal or reaching the line). The enemy's side (its damage ghost, the block it
-// uses up, the lethal skull) is not shown: the damage total is hidden until the cascade fires. Every number
-// comes from the engine; this file only places ghosts, marks and labels. Rebuilt on each
-// update. The bars and shields it draws on are the ones the column drew (the scene's refs), so they can't
-// drift apart.
+// The "if it fires" preview on the party's bar and block in the bottom strip (#222, B8): the block the
+// whole board would give and the health the party would still lose to the intent's full attack (the
+// engine's previewBuild, which does not depend on the board being lethal or reaching the line). The loss
+// is the pale part of the party's health bar, with the number over its end; with nothing to lose "safe"
+// shows instead. The enemy's side is not shown: the damage total is hidden until the cascade fires.
+// Every number comes from the engine; this file only places marks and labels. Rebuilt on each update.
+// The bar and shield it draws on are the ones the strip drew (the scene's refs), so they can't drift apart.
 
 export type BuildPreview = { block: number; partyDamage: number };
 
 export class SetOffPreviewUi {
-  private tweens: Phaser.Tweens.Tween[] = [];
-
   constructor(private scene: Phaser.Scene) {}
 
-  clear(): void {
-    this.tweens.forEach((t) => t.stop());
-    this.tweens = [];
-  }
-
-  // Draws into `into` (emptied first). No preview (null) draws nothing.
+  // Draws into `into` (emptied first). No preview (null) draws nothing and takes the pale part off the bar.
   draw(into: Phaser.GameObjects.Container, view: BattleView, p: BuildPreview | null, refs: Refs): void {
-    this.clear();
     into.removeAll(true);
     const pb = refs.bars.get("party");
     const ps = refs.shields.get("party");
+    if (pb) {
+      const pale = p && p.partyDamage > 0 ? view.party.health - p.partyDamage : undefined;
+      if (pb.pale !== pale && pb.bar.active) {
+        pb.pale = pale;
+        paintBar(pb, pb.value ?? view.party.health);
+      }
+    }
     if (!p || !pb || !ps) return;
     const s = this.scene;
     const g = s.add.graphics();
@@ -39,31 +38,13 @@ export class SetOffPreviewUi {
       into.add(s.add.text(x, y, str, { ...fontRole(size), color: colour, strokeThickness: D.text.strokeThickness, stroke: D.text.strokeColour }).setOrigin(originX, 0.5));
 
     // Party: block gained, health lost to what the intent still does after block (or safe).
-    const sh = ps;
-    if (p.block > 0) text(sh.x, sh.y - sh.s * 0.5 + D.gain.partyDy, `+${p.block}`, D.gain.colour, D.gain.fontSize);
-    const b = pb;
+    if (p.block > 0) text(ps.x, ps.y - ps.s * 0.5 + D.gain.partyDy, `+${p.block}`, D.gain.colour, D.gain.fontSize);
     if (p.partyDamage > 0) {
-      const from = b.w * ((view.party.health - p.partyDamage) / view.party.maxHealth);
-      const to = b.w * (view.party.health / view.party.maxHealth);
-      this.ghost(into, b.x + from, b.y, Math.max(to - from, D.ghost.minWidth), b.h);
-      text(b.x + b.w + D.loss.dx, b.y + b.h / 2 + D.loss.dy, `−${p.partyDamage}`, D.loss.colour, D.loss.fontSize, D.loss.originX);
+      text(pb.x + pb.w + D.loss.dx, pb.y + D.loss.dy, `−${p.partyDamage}`, D.loss.colour, D.loss.fontSize, D.loss.originX);
     } else if (view.intent.actions.some((a) => a.kind === "attack")) {
-      this.safe(g, b.x + D.safe.iconDx, b.y + D.safe.dy);
-      text(b.x + D.safe.textDx, b.y + D.safe.dy, "safe", D.safe.colour, D.safe.fontSize, 0);
+      this.safe(g, pb.x + D.safe.iconDx, pb.y + D.safe.dy);
+      text(pb.x + D.safe.textDx, pb.y + D.safe.dy, "safe", D.safe.colour, D.safe.fontSize, 0);
     }
-  }
-
-  private ghost(into: Phaser.GameObjects.Container, x: number, y: number, w: number, h: number): void {
-    const r = this.scene.add.rectangle(x, y, w, h, hexColour(D.ghost.colour), 1).setOrigin(0, 0);
-    into.add(r);
-    this.pulse(r, D.ghost.alphaLow, D.ghost.alphaHigh, D.ghost.pulseMs);
-  }
-
-  // Pulses alpha; under reduced flashing the object just stays at the high alpha.
-  pulse(o: Phaser.GameObjects.Graphics | Phaser.GameObjects.Rectangle, low: number, high: number, ms: number): void {
-    o.setAlpha(high);
-    if (reducedFlashing()) return;
-    this.tweens.push(this.scene.tweens.add({ targets: o, alpha: low, duration: ms / 2, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }));
   }
 
   // A small shield with a tick.

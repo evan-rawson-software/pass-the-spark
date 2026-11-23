@@ -11,12 +11,13 @@ import { Buildup } from "./buildup";
 import { playSound, setSoundHushed } from "./sound";
 import { ComboHype } from "./comboHype";
 import { EnemyReactions } from "./enemyReactions";
-import { dominoLook, hexColour, reactionData } from "./presentation";
+import { dominoLook, reactionData } from "./presentation";
 import { drawDomino } from "./dominoDrawing";
 import { amplify, boardGlow, centre, charm, echo, floatText, flow, heatColor, heatTier, lightning, P, shake, split, spectrum, sputter } from "./spectacle";
 import { seatGlow } from "./projectiles";
 import { seatColour } from "./seatColours";
 import type { FuseBoard } from "./fuseBoard";
+import type { Bar } from "./kit";
 
 // The cascade playback, driven only by engine events and the numbers in them (#186, #187): charge
 // flows outward step by step, amplifiers flare, junctions split the glow, caps go off with their
@@ -38,12 +39,11 @@ type Container = Phaser.GameObjects.Container;
 type Text = Phaser.GameObjects.Text;
 
 export interface BarRef {
-  g: Phaser.GameObjects.Graphics;
-  text: Text;
-  x: number; y: number; w: number; h: number;
+  bar: Bar; // the kit bar, repainted in place
+  x: number; y: number; w: number; h: number; // where it is on screen
   max: number;
-  color: number;
   value?: number; // what it last showed (set by paintBar)
+  pale?: number; // the set-off preview's "about to lose" part (setOffPreview.ts)
 }
 
 // What the scene drew last, so animations can find their targets. The scene calls newRefs() at the
@@ -55,10 +55,10 @@ export interface Refs {
   slots: Map<number, Pos>; // open ends, by end id
   board?: FuseBoard; // the fuse board as drawn: fuses burn along it, its bounds frame the camera
   handSlots: Map<string, { c: Container; pos: Pos }[]>; // every player's hand, by seat and position (draw animation, #153)
-  decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck count in its tab: the text to update and where its draws fly in from (your own: the left edge of the hand row)
+  decks: Map<string, { c: Container; text: Text; x: number; y: number }>; // each seat's deck count (your own: the deck pile in the bottom strip; the others: their seat tab): the text to update and where its draws fly in from
   bars: Map<string, BarRef>; // "enemy" | "party"
   shields: Map<string, { text: Text; x: number; y: number; s: number }>; // the icon's centre and size
-  intent?: Box; // the enemy's intent card
+  intent?: Box; // the enemy's action bubble
   charms: Map<string, { x: number; y: number }>; // "seat:charm" -> the charm icon under its name plate (#108)
 }
 
@@ -66,25 +66,11 @@ export function newRefs(): Refs {
   return { hand: new Map(), nodes: new Map(), slots: new Map(), handSlots: new Map(), decks: new Map(), bars: new Map(), shields: new Map(), charms: new Map() };
 }
 
-// `ghost` is the lighter bar that drains after a hit (enemyReactions.ts): drawn behind the real one.
+// `ghost` is the lighter part that drains after a hit (enemyReactions.ts): the kit bar's pale part.
 export function paintBar(b: BarRef, value: number, ghost?: number): void {
   b.value = value;
-  const g = b.g;
-  g.clear();
-  g.fillStyle(0x0d2a20, 0.9);
-  g.fillRoundedRect(b.x, b.y, b.w, b.h, b.h / 2);
-  const f = Math.max(0, Math.min(1, value / b.max));
-  if (ghost !== undefined && ghost > value) {
-    g.fillStyle(hexColour(reactionData.ghost.colour), reactionData.ghost.alpha);
-    g.fillRoundedRect(b.x, b.y, Math.max(b.h, b.w * Math.min(1, ghost / b.max)), b.h, b.h / 2);
-  }
-  if (f > 0) {
-    g.fillStyle(b.color, 1);
-    g.fillRoundedRect(b.x, b.y, Math.max(b.h, b.w * f), b.h, b.h / 2);
-  }
-  g.lineStyle(3, 0x0d2a20, 1);
-  g.strokeRoundedRect(b.x, b.y, b.w, b.h, b.h / 2);
-  b.text.setText(`${Math.round(value)} / ${b.max}`);
+  const pale = ghost !== undefined && ghost > value ? ghost : b.pale;
+  b.bar.setBar({ value, pale, number: `${Math.max(0, Math.round(value))} / ${b.max}` });
 }
 
 // ---- small effects ----
@@ -183,7 +169,7 @@ export class Animator {
       speed: () => (this.skipping ? SKIP_SPEED : 1),
       repaint: (side) => {
         const b = this.refs.bars.get(side);
-        if (b && b.g.active) paintBar(b, b.value ?? b.max, this.reactions.ghostOf(side));
+        if (b && b.bar.active) paintBar(b, b.value ?? b.max, this.reactions.ghostOf(side));
       },
     });
     scene.tweens.timeScale = 1; // a restarted scene never inherits slow motion or a skip
@@ -608,7 +594,7 @@ export class Animator {
     const bar = this.refs.bars.get(side);
     if (bar) counter(this.scene, before[side].health, after[side].health, 400, healthDelay, (v) => {
       const cur = this.refs.bars.get(side);
-      if (cur && cur.g.active) paintBar(cur, v + this.hype.owed(side, "health"), this.reactions.ghostOf(side));
+      if (cur && cur.bar.active) paintBar(cur, v + this.hype.owed(side, "health"), this.reactions.ghostOf(side));
     });
     const sh = this.refs.shields.get(side);
     if (sh) counter(this.scene, before[side].block, after[side].block, 400, 0, (v) => {

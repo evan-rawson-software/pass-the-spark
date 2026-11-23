@@ -13,7 +13,7 @@ import { fitText } from "./combatCtx";
 // equal widths. There is no turn order in 0.2 (everyone builds at the same time). Each tab shows the
 // seat's colour and name, a YOU tag on your own, its placements for the round as pips that fill as it
 // places, a Ready mark (an away seat says "Waiting for [name]", then "Ready (away)"), charms, deck and
-// discard counts (click them to open the deck and discard views) and the hand as small dominoes, in a
+// discard counts (click them to open the deck and discard views; the seat in front has them in the bottom strip) and the hand as small dominoes, in a
 // row that never overlaps (see rowSlots; the tab whose hand is in front says "Your hand is below"). The
 // seat whose hand is in front has its tab framed in its colour. A click on a tab you may play from
 // (single player: any seat; online: your own, or an away seat the host has taken over) brings its hand
@@ -102,18 +102,21 @@ export class SeatTabs {
     // and charms (with their hovers) at the right.
     const C = D.counts;
     const cy = y + C.y;
-    const dl = ctx.label(layer, x + D.padX, cy, "deck ", C.size, C.colour, 0, false);
-    const dn = ctx.label(layer, dl.x + dl.width, cy, String(player.deck.length), C.size, C.colour, 0, false);
-    const dc = ctx.label(layer, dn.x + dn.width, cy, ` · discard ${player.discard.length}`, C.size, C.colour, 0, false);
-    const countsW = dc.x + dc.width - dl.x;
-    const counts = s.add.zone(dl.x + countsW / 2, cy, countsW + 8, C.size + 12).setInteractive({ useHandCursor: true });
-    const tint = (colour: string) => [dl, dn, dc].forEach((t) => t.setColor(colour));
-    counts.on("pointerover", () => tint(C.hoverColour));
-    counts.on("pointerout", () => tint(C.colour));
-    counts.on("pointerdown", () => ctx.openDeck(seat));
-    layer.add(counts);
-    // Draws fly in from the deck count (the hand in front comes in from the left edge of its row instead).
-    ctx.deckSpot(layer, seat, dl.x, cy, dn);
+    if (!framed) {
+      // The seat in front has its piles in the bottom strip instead.
+      const dl = ctx.label(layer, x + D.padX, cy, "deck ", C.size, C.colour, 0, false);
+      const dn = ctx.label(layer, dl.x + dl.width, cy, String(player.deck.length), C.size, C.colour, 0, false);
+      const dc = ctx.label(layer, dn.x + dn.width, cy, ` · discard ${player.discard.length}`, C.size, C.colour, 0, false);
+      const countsW = dc.x + dc.width - dl.x;
+      const counts = s.add.zone(dl.x + countsW / 2, cy, countsW + 8, C.size + 12).setInteractive({ useHandCursor: true });
+      const tint = (colour: string) => [dl, dn, dc].forEach((t) => t.setColor(colour));
+      counts.on("pointerover", () => tint(C.hoverColour));
+      counts.on("pointerout", () => tint(C.colour));
+      counts.on("pointerdown", () => ctx.openDeck(seat));
+      layer.add(counts);
+      // Draws fly in from the deck count.
+      ctx.deckSpot(layer, seat, dl.x, cy, dn);
+    }
     const K = D.charm;
     const charms = charmsByIds(player.charms);
     charms.forEach((ch, i) => {

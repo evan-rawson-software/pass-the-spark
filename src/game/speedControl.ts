@@ -2,12 +2,16 @@ import Phaser from "phaser";
 import { SPEEDS, getPlaybackSpeed, onPlaybackSpeedChange, setPlaybackSpeed } from "./playbackSpeed";
 import { speedControlData as D } from "./presentation";
 import { fontRole } from "./fonts";
+import { drawPlate } from "./kit";
+import presentation from "../../data/presentation.json";
 
 // The combat playback speed control (#220): one small button showing the speed, which opens a list
 // of speeds above it. It lives outside the scene's redrawn layer so the list stays open across
 // redraws, and it follows the setting itself (the menu can change it). No rules here.
 
 const GOLD = 0xffe14d;
+const GOLD_HEX = "#ffe14d";
+const U = presentation.kit.unit; // the kit plates are drawn on this grid; the button and list sizes in data are whole grid pixels
 
 export class SpeedControl {
   private box: Phaser.GameObjects.Container;
@@ -15,7 +19,7 @@ export class SpeedControl {
   private hit = false; // a click landed on the button or the list
   private stop: () => void;
 
-  // `at` is where the button sits: its right edge and its centre line (the column's footer).
+  // `at` is where the button sits: its right edge and its centre line (the bottom strip).
   constructor(private scene: Phaser.Scene, private at: { right: number; y: number }) {
     this.box = scene.add.container(0, 0).setDepth(D.depth);
     this.stop = onPlaybackSpeedChange(() => this.draw());
@@ -61,11 +65,8 @@ export class SpeedControl {
 
     // Zones are the interactive objects: a click on them is not "click on empty table" (the skip).
     const g = s.add.graphics();
-    g.fillStyle(0x0d2a20, 0.95);
-    g.fillRoundedRect(left, top, D.buttonW, D.buttonH, D.buttonH / 2);
-    g.lineStyle(2, GOLD, this.open ? 1 : 0.5);
-    g.strokeRoundedRect(left, top, D.buttonW, D.buttonH, D.buttonH / 2);
-    this.box.add([g, text(left + D.buttonW / 2, this.at.y, `▶ ${cur}×`, "#ffffff")]);
+    drawPlate(g, left, top, D.buttonW / U, D.buttonH / U, this.open ? GOLD_HEX : undefined);
+    this.box.add([g, text(left + D.buttonW / 2, this.at.y, `${cur}×`, "#ffffff")]);
     const hint = s.add.text(left + D.buttonW / 2, top - 6, "Playback speed", { ...fontRole(18), color: "#cfe9dc", backgroundColor: "#101010", padding: { x: 8, y: 4 } }).setOrigin(0.5, 1).setVisible(false);
     const z = s.add.zone(left + D.buttonW / 2, this.at.y, D.buttonW, D.buttonH).setInteractive({ useHandCursor: true });
     z.on("pointerover", () => !this.open && hint.setVisible(true));
@@ -83,10 +84,7 @@ export class SpeedControl {
     const up = top - D.gap - h;
     const listTop = up >= 0 ? up : top + D.buttonH + D.gap;
     const lg = s.add.graphics();
-    lg.fillStyle(0x0d2a20, 0.98);
-    lg.fillRoundedRect(left, listTop, D.buttonW, h, 14);
-    lg.lineStyle(2, GOLD, 0.8);
-    lg.strokeRoundedRect(left, listTop, D.buttonW, h, 14);
+    drawPlate(lg, left, listTop, D.buttonW / U, h / U, GOLD_HEX);
     this.box.add(lg);
     // Fastest at the top, so the list reads in the order it grows away from the button.
     [...SPEEDS].reverse().forEach((v, i) => {
@@ -95,7 +93,7 @@ export class SpeedControl {
       if (on) {
         const hl = s.add.graphics();
         hl.fillStyle(GOLD, 1);
-        hl.fillRoundedRect(left + 4, cy - D.itemH / 2 + 3, D.buttonW - 8, D.itemH - 6, 10);
+        hl.fillRect(left + 2 * U, cy - D.itemH / 2 + U, D.buttonW - 4 * U, D.itemH - 2 * U);
         this.box.add(hl);
       }
       this.box.add(text(left + D.buttonW / 2, cy, `${on ? "✓ " : ""}${v}×`, on ? "#2a2200" : "#ffffff"));
