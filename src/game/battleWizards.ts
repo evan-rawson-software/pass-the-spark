@@ -11,7 +11,7 @@ import { Wizard, WIZARD_FRAME, WIZARD_SCALE, lookColour, wizardTexture } from ".
 // seat order, so every screen shows the same layout: the left arc of the circle, every wizard facing right, towards the enemy. A small arrow marks your own wizard, and an away player's wizard is dimmed (Z11). The idle
 // loops start at different frames so they do not bob in step. The wizards are made once, on the first
 // view, and sit under the redrawn layer (they are in the same world as the tree, so they move with the
-// camera). Places are in data/presentation.json (battleWizards). Also here: a seat's portrait for its tab.
+// camera). Places are in data/presentation.json (battleWizards). Also here: a seat's portrait for its rack.
 
 const RADIUS = art.circle.radius; // art px: the rim's half width and half height
 const CIRCLE = D.circle;
@@ -139,7 +139,7 @@ export class BattleWizards {
   }
 }
 
-// A seat's head and hat from its idle frame, centred on (x, y), for its seat tab; added to `parent`.
+// A seat's head and hat from its idle frame, centred on (x, y), for its rack; added to `parent`.
 export function wizardPortrait(scene: Phaser.Scene, parent: Phaser.GameObjects.Container, look: Look, x: number, y: number): void {
   const P = D.portrait;
   const ramp = art.colours.find((c) => c.id === look.colour)?.ramp ?? art.colours[0].ramp;

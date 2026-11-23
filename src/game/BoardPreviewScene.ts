@@ -156,7 +156,7 @@ export class BoardPreviewScene extends Phaser.Scene {
     return state;
   }
 
-  // The rest of the combat screen's layout, as outlines: the seat tabs, the bars and the actions, so the board
+  // The rest of the combat screen's layout, as outlines: the racks, the bars and the actions, so the board
   // and hand can be judged against them. (#228 builds the real ones.)
   private guides(layer: Phaser.GameObjects.Container): void {
     const g = this.add.graphics();

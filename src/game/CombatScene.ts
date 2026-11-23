@@ -40,7 +40,8 @@ import { isDrawEvent, playDraws } from "./drawAnimation";
 import { combatLayoutData, fuseBoardData, handRowData, hexColour } from "./presentation";
 import type { CombatCtx } from "./combatCtx";
 import { drawEnemyUnit } from "./enemyUnit";
-import { SeatTabs } from "./seatTabs";
+import { Racks } from "./racks";
+import { drawWizardPlates } from "./wizardPlates";
 import { drawBackdrop, drawHandTab, drawStrip, stripTop } from "./combatHud";
 import { drawBar } from "./kit";
 import type { BarKind } from "./kit";
@@ -70,8 +71,8 @@ import presentation from "../../data/presentation.json";
 // events the host sends, on the host's machine too (the host's own player gets its messages by
 // the same path). Choices go to the host, which checks them; your hand stays locked until its
 // reply (an update, or an error) arrives. Teammates' placements arrive as updates and play back as they
-// come. Your own hand is in front; every seat, yours too, has a tab across the top. Single player: a click
-// on a tab brings that seat's hand to the front, and one Fire button makes every seat Ready.
+// come. Your own hand is in front; every other seat has a rack across the top and a plate under its wizard. Single player: a click
+// on a rack brings that seat's hand to the front, and one Fire button makes every seat Ready.
 
 // What the lobby hands over to start an online battle.
 export interface OnlineData {
@@ -121,7 +122,7 @@ export class CombatScene extends Phaser.Scene {
   private drag: { id: string; x: number; y: number; node?: number; ghost?: Phaser.GameObjects.Container } | null = null;
   private dragStarting = false; // the redraw that starts a board drag must not cancel it
   private dropHint?: Phaser.GameObjects.Graphics; // the hand row lit while a board domino is dragged over it
-  private front = ""; // the seat whose hand is in front (single player: any seat, by its tab; online: yours)
+  private front = ""; // the seat whose hand is in front (single player: any seat, by its rack; online: yours)
   private note?: Phaser.GameObjects.Text; // a refusal by your hand
   private dragMoved = false; // the last press turned into a drag: it is not a tap
   private settings!: GameSettings;
@@ -137,8 +138,8 @@ export class CombatScene extends Phaser.Scene {
   private inCascade = false; // a cascade is playing on this screen: a click or Space may skip it
   private skipping = false; // this player skipped it: the rest of the step is applied at once
   private speed!: SpeedControl;
-  private tabs!: SeatTabs; // the seat tabs (seatTabs.ts)
-  private ctx!: CombatCtx; // what enemyUnit.ts, seatTabs.ts and combatHud.ts draw with
+  private racks!: Racks; // the teammates' racks along the top (racks.ts)
+  private ctx!: CombatCtx; // what enemyUnit.ts, racks.ts, wizardPlates.ts and combatHud.ts draw with
   private hoverId: string | null = null; // the playable hand domino under the pointer (its legal ends light up)
   private skipHint?: Phaser.GameObjects.Text;
   private epoch = 0; // bumped when the scene is created or shut down, so a stale playback stops
@@ -174,7 +175,7 @@ export class CombatScene extends Phaser.Scene {
     this.previewUi = new SetOffPreviewUi(this);
     this.drawTable();
     this.ctx = this.makeCtx();
-    this.tabs = new SeatTabs(this.ctx);
+    this.racks = new Racks(this.ctx);
     this.anim = new Animator(this);
     this.wizards = new BattleWizards(this); // above the circle (the animator made it), under the redrawn layer
     this.anim.wizards = this.wizards; // they cast, flinch and celebrate with the cascade (#265)
@@ -334,13 +335,13 @@ export class CombatScene extends Phaser.Scene {
       this.showNote(m.message);
       if (!this.locked) this.redraw();
     } else if (m.type === "presence" || m.type === "playing-for") {
-      // relay has kept it; the tabs show who is away, and the host may now play from a seat it has taken over.
+      // relay has kept it; the racks and plates show who is away, and the host may now play from a seat it has taken over.
       if (!this.locked) this.redraw();
     }
     // "lobby" is kept in relay.lobby and acted on by the end screen.
   }
 
-  // A click on this seat's tab may bring its hand to the front: any seat in single player; online your own,
+  // A click on this seat's rack may bring its hand to the front: any seat in single player; online your own,
   // and (the host only) a seat that is away and that the host has taken over, once the wait has run out.
   private pickable(seat: string): boolean {
     const online = this.online;
@@ -417,14 +418,14 @@ export class CombatScene extends Phaser.Scene {
 
     const ctx = this.ctx;
     this.drawStripFor(layer, view, front);
-    this.tabs.draw(layer, view, {
+    this.racks.draw(layer, view, {
       front,
-      you: this.online ? this.online.seat : front,
       pickable: (seat) => this.pickable(seat),
       onPick: (seat) => this.pickSeat(seat),
       isAway: (seat) => this.online !== null && this.isAway(seat),
-      nameOf: (seat) => this.nameOf(seat, true, 8),
+      nameOf: (seat) => this.nameOf(seat, false),
     });
+    drawWizardPlates(ctx, layer, view, (seat) => this.nameOf(seat, false));
     drawEnemyUnit(ctx, layer, view);
     this.anim.hype.showLine(view.enemy.line); // the line meter under the cascade number, empty until the set-off
     this.drawBoard(layer, view, front, pending);
@@ -435,7 +436,7 @@ export class CombatScene extends Phaser.Scene {
     this.refreshPreview();
   }
 
-  // Single player (and the host, for a seat it has taken over): a click on a tab brings that seat's hand to the front.
+  // Single player (and the host, for a seat it has taken over): a click on a rack brings that seat's hand to the front.
   private pickSeat(seat: string): void {
     if (this.locked || this.waiting || this.view.phase === "over" || !this.pickable(seat) || seat === this.frontSeat()) return;
     this.front = seat;
@@ -772,7 +773,7 @@ export class CombatScene extends Phaser.Scene {
     board.clearHighlight();
     handRow.pick(this.selected === null ? null : handRow.items.find((i) => i.id === this.selected)?.key ?? null);
     handRow.hover(this.drag?.ghost ? null : this.hoverKey);
-    this.tabs.setFollowUp(null);
+    this.racks.setFollowUp(null);
     handRow.setFollowUp(null, null);
     const view = this.view;
     const front = this.frontSeat();
@@ -799,7 +800,7 @@ export class CombatScene extends Phaser.Scene {
   private showFollowUps(front: string, id: string, end: number | undefined): void {
     const result = previewFollowUps(this.view, { player: front, domino: id, end });
     if (!result) return;
-    this.tabs.setFollowUp(result);
+    this.racks.setFollowUp(result);
     const items = this.handRow?.items ?? [];
     const source = items.find((i) => i.id === id && i.key === this.hoverKey) ?? items.find((i) => i.id === id);
     this.handRow?.setFollowUp(new Set(result[front] ?? []), source?.key ?? null);
@@ -807,7 +808,7 @@ export class CombatScene extends Phaser.Scene {
 
   // ---- hands ----
 
-  // Your hand (a straight row, handRow.ts) along the bottom, placed from data. Your deck and discard open from your seat tab.
+  // Your hand (a straight row, handRow.ts) along the bottom, placed from data.
   // It is always live while you have placements and are not Ready; while Ready (or with none left) it is dimmed
   // and can't be dragged. Single player: the seat in front, framed in its colour.
   private drawActiveHand(layer: Layer, view: BattleView, active: string, pending: PlayerChoices | null): void {

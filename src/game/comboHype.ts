@@ -646,7 +646,7 @@ export class ComboHype {
     if (this.quick) return;
     this.host.circle.beam();
     playSound("combo:lethal");
-    this.callout(F.word, F.colour, F.size, -(F.dy + D.number.sizes[this.tier] * D.number.hits.dyFactor + D.number.hits.size)); // below the hit count, so the words never reach the seat tabs
+    this.callout(F.word, F.colour, F.size, -(F.dy + D.number.sizes[this.tier] * D.number.hits.dyFactor + D.number.hits.size)); // below the hit count, so the words never reach the racks
     this.ring(at, hexColour(F.colour), F.ringSize, D.tierJump.fxMs);
     this.puff("burst", at, F.burstSize, hexColour(F.colour), D.tierJump.fxMs);
     this.flash(hexColour(F.colour), F.flashAlpha, D.tierJump.flashMs);
