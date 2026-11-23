@@ -12,18 +12,20 @@ from palette import PALETTE, seat_problems
 
 ROOT = Path(__file__).resolve().parents[2]
 FOLDERS = ["public/art/wizards", "public/art/circle", "public/art/spells"]
+# Converted from the paintings (convert.py): only the opaque-or-clear rule applies, their colours come from the paintings.
+CONVERTED = ["public/art/enemies", "public/art/backgrounds", "public/art/map", "public/art/ui", "public/art/charms"]
 
 
 def problems():
     out = []
-    for folder in FOLDERS:
+    for folder in FOLDERS + CONVERTED:
         for path in sorted((ROOT / folder).glob("*.png")):
             im = Image.open(path).convert("RGBA")
             half, off = 0, set()
             for r, g, b, a in im.getdata():
                 if 0 < a < 255:
                     half += 1
-                elif a == 255 and (r, g, b) not in PALETTE:
+                elif a == 255 and folder in FOLDERS and (r, g, b) not in PALETTE:
                     off.add((r, g, b))
             name = path.relative_to(ROOT).as_posix()
             if half:

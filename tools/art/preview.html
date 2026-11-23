@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wizard Art Preview</title>
+<title>Art Preview</title>
 <style>
   :root { --bg: #110d16; --panel: #1b1524; --line: #3b2f49; --ink: #f3ead6; --muted: #b9aec6; --gold: #ffd54a; color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -44,6 +44,13 @@
   <div class="stage"><canvas id="spells"></canvas></div>
   <div class="stage"><canvas id="wards"></canvas></div>
   <div class="stage"><canvas id="final"></canvas></div>
+  <h1>Enemies</h1>
+  <p>All 22 enemies converted from the paintings (<code>data/enemy-art.json</code>), at game size (×3 at 1920×1080), each standing on its feet point on the converted combat background, in tier order. The small mark is its head point.</p>
+  <div class="bar"><span class="lab">Show</span><button id="enemyPoints">Points</button></div>
+  <div class="stage"><canvas id="enemies" style="width: 100%"></canvas></div>
+  <h1>Map scroll</h1>
+  <p>The parchment the map is drawn on, at ×3 on the table. The dashed box is <code>scroll.mapArea</code>.</p>
+  <div class="stage"><canvas id="scroll" style="width: 100%"></canvas></div>
 </main>
 <script type="module">
 const ROOT = new URL("../../", import.meta.url); // the base URL the game is served from
@@ -245,6 +252,45 @@ function drawSpells(now) {
     i * (w.frame.w + 8) * S, 0, w.frame.w * S, w.frame.h * S));
 }
 requestAnimationFrame(tick);
+
+// ---------- enemies and the scroll ----------
+const E = (await (await fetch(new URL("data/enemy-art.json", ROOT))).json()).enemies;
+const TIERS = Object.fromEntries((await (await fetch(new URL("data/enemies.json", ROOT))).json()).map((e) => [e.id, e.tier]));
+const table = await loadImage("backgrounds/combat.png");
+const ids = Object.keys(E).sort((a, b) => ["basic", "elite", "boss"].indexOf(TIERS[a]) - ["basic", "elite", "boss"].indexOf(TIERS[b]) || a.localeCompare(b));
+const enemyImages = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await loadImage(E[id].sheet)])));
+const enemiesC = document.getElementById("enemies");
+let enemyPoints = false;
+function drawEnemies() {
+  const PER_ROW = 5, ROW_H = 160, W = 640, H = 40 + ROW_H * Math.ceil(ids.length / PER_ROW);
+  enemiesC.width = W * S; enemiesC.height = H * S;
+  const x = enemiesC.getContext("2d");
+  x.imageSmoothingEnabled = false;
+  for (let y = 0; y < H; y += 360) x.drawImage(table, 0, y * S, W * S, 360 * S);
+  ids.forEach((id, i) => {
+    const e = E[id], fx = 70 + (i % PER_ROW) * 125, fy = 30 + ROW_H * (1 + Math.floor(i / PER_ROW));
+    const left = fx - e.feet[0], top = fy - e.feet[1];
+    x.drawImage(enemyImages[id], left * S, top * S, e.w * S, e.h * S);
+    if (enemyPoints) {
+      x.fillStyle = "#ffd54a"; x.fillRect((left + e.feet[0] - 1) * S, (top + e.feet[1]) * S, 3 * S, S);
+      x.fillStyle = "#7ae8fb"; x.fillRect((left + e.head[0] - 1) * S, (top + e.head[1] - 2) * S, 3 * S, S);
+    }
+  });
+}
+document.getElementById("enemyPoints").onclick = (ev) => { enemyPoints = !enemyPoints; ev.target.classList.toggle("on", enemyPoints); drawEnemies(); };
+drawEnemies();
+
+const scrollImg = await loadImage(D.scroll.sheet);
+const scrollC = document.getElementById("scroll");
+scrollC.width = 640 * S; scrollC.height = 360 * S;
+{
+  const x = scrollC.getContext("2d"), sx = (640 - D.scroll.w) / 2, sy = (360 - D.scroll.h) / 2, [ax, ay, aw, ah] = D.scroll.mapArea;
+  x.imageSmoothingEnabled = false;
+  x.drawImage(table, 0, 0, 640 * S, 360 * S);
+  x.drawImage(scrollImg, sx * S, sy * S, D.scroll.w * S, D.scroll.h * S);
+  x.setLineDash([12, 8]); x.strokeStyle = "#7a5530"; x.lineWidth = 2;
+  x.strokeRect((sx + ax) * S, (sy + ay) * S, aw * S, ah * S);
+}
 </script>
 </body>
 </html>
