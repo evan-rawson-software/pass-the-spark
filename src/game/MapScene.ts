@@ -37,26 +37,9 @@ const ART_PX = 24; // the stop icons are 24 art pixels across (#300)
 
 const LEGEND: RunNodeType[] = ["fight", "elite", "rest", "trader", "event"];
 
-interface Stop {
-  floor: number;
-  index: number;
-}
-
-// The stops the party has stood on in this act, in order. The engine keeps only the current stop,
-// so the screen notes each one as the map comes up (it is shown at every stop). A party that
-// joins mid-act sees the road from where it joined.
-let trail: Stop[] = [];
-
-function noteStop(run: RunState): void {
-  const pos = run.position;
-  if (pos === null) {
-    trail = [];
-    return;
-  }
-  const last = trail[trail.length - 1];
-  if (last && last.floor === pos.floor && last.index === pos.index) return;
-  if (last && last.floor >= pos.floor) trail = [];
-  trail.push({ floor: pos.floor, index: pos.index });
+// The engine's record of the stops the party has stood on this act (an older saved room has none).
+function visitedStop(run: RunState, floor: number, index: number): boolean {
+  return (run.path ?? []).some((s) => s.floor === floor && s.index === index);
 }
 
 const key = (floor: number, index: number): string => `${floor}:${index}`;
@@ -108,7 +91,6 @@ export class MapScene extends Phaser.Scene {
     const run = currentRun();
     this.run = run;
     this.geo = geometry(run);
-    noteStop(run);
     const pending = myPending(run);
     drawBackground(this, "map");
     const p = M.paper;
@@ -121,7 +103,7 @@ export class MapScene extends Phaser.Scene {
     const online = isOnlineRun();
     label(this, M.titleX, M.titleY, `Act ${run.actIndex + 1} of ${run.content.run.acts.length}`, M.text.title, { color: M.ink });
     label(this, M.titleX, M.promptY, online ? "Vote for the next stop" : "Choose the next stop", M.text.prompt, { color: M.inkDim });
-    if (online && pending === null) drawWaitingFor(this, run, M.titleX, M.winnerY, 0);
+    if (online && pending === null) drawWaitingFor(this, run, M.titleX, M.winnerY, 0, M.ink);
 
     const options = pending?.type === "vote" ? pending.options : [];
     const reach = this.reachable(run);
@@ -168,7 +150,7 @@ export class MapScene extends Phaser.Scene {
   private isFaded(run: RunState, reach: Set<string>, floor: number, index: number): boolean {
     const pos = run.position;
     if (floor > run.map.floors.length) return false; // the boss
-    if (pos !== null && floor <= pos.floor) return !trail.some((s) => s.floor === floor && s.index === index);
+    if (pos !== null && floor <= pos.floor) return !visitedStop(run, floor, index);
     return !reach.has(key(floor, index));
   }
 
@@ -205,7 +187,7 @@ export class MapScene extends Phaser.Scene {
           const y1 = nodeY(geo, floor + 1, j);
           const curve = new Phaser.Curves.CubicBezier(new Phaser.Math.Vector2(x0, y0), new Phaser.Math.Vector2(x0 + (x1 - x0) / 2, y0), new Phaser.Math.Vector2(x0 + (x1 - x0) / 2, y1), new Phaser.Math.Vector2(x1, y1));
           const pts = curve.getPoints(24);
-          const taken = trail.some((s, i) => s.floor === floor && s.index === node.index && trail[i + 1]?.floor === floor + 1 && trail[i + 1].index === j);
+          const taken = visitedStop(run, floor, node.index) && visitedStop(run, floor + 1, j);
           const gold = pos !== null && pos.floor === floor && pos.index === node.index && options.includes(j);
           const faded = this.isFaded(run, reach, floor, node.index) || this.isFaded(run, reach, floor + 1, j);
           if (gold) this.dots(g, pts, M.goldDotSize, GOLD, 1);
@@ -230,7 +212,7 @@ export class MapScene extends Phaser.Scene {
         const x = colX(geo, floor);
         const y = nodeY(geo, floor, node.index);
         const here = run.position?.floor === floor && run.position.index === node.index;
-        const visited = trail.some((s) => s.floor === floor && s.index === node.index);
+        const visited = visitedStop(run, floor, node.index);
         const pick = floor === doneFloor + 1 && options.includes(node.index);
         const hidden = run.hiddenFloor === floor;
         const r = (pick ? M.pickR : M.stopR) * geo.fit;

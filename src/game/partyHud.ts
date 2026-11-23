@@ -71,7 +71,7 @@ export function drawRunHeader(scene: Phaser.Scene, title: string, player: string
 }
 
 // Online: a line naming the players the run is still waiting on, for a player who has made their choices.
-export function drawWaitingFor(scene: Phaser.Scene, run: RunState, x: number, y: number, origin = 0): void {
+export function drawWaitingFor(scene: Phaser.Scene, run: RunState, x: number, y: number, origin = 0, ink?: string): void {
   const names = [...new Set(getPendingRunChoices(run).map((p) => seatName(p.player)))];
-  if (names.length > 0) label(scene, x, y, `Waiting for ${names.join(", ")}`, 30, { color: "#ffe14d", origin });
+  if (names.length > 0) label(scene, x, y, `Waiting for ${names.join(", ")}`, 30, { color: ink ?? "#ffe14d", origin });
 }
