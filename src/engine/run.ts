@@ -41,6 +41,7 @@ export interface RunState {
   actIndex: number;
   map: ActMap;
   position: RunPosition | null; // null before the first vote of an act
+  path: { floor: number; index: number }[]; // the stops the party has stood on this act, in order (a room saved by an older host has none: read it as empty)
   phase: "vote" | "battle" | "reward" | "rest" | "trader" | "event" | "act" | "over";
   votes: Record<string, number>; // player id -> voted node index on the next floor; visible to everyone
   health: number; // the party's health between battles
@@ -209,6 +210,7 @@ export function createRunWithEvents(setup: RunSetup): RunStepResult {
     actIndex: 0,
     map: map.value,
     position: null,
+    path: [],
     phase: "vote",
     votes: {},
     health: content.config.partyMaxHealth,
@@ -416,6 +418,7 @@ function chooseNode(run: RunState, index: number, counts: Record<number, number>
   const floor = (run.position?.floor ?? 0) + 1;
   const type: RunNodeType = floor > run.map.floors.length ? "boss" : run.map.floors[floor - 1][index].type;
   run.position = { floor, index, type };
+  run.path = [...(run.path ?? []), { floor, index }];
   run.hiddenFloor = null; // entering a stop of the hidden floor reveals it
   events.push({ type: "routeChosen", floor, index, nodeType: type, votes: { ...run.votes }, counts, drawn });
   run.votes = {};
@@ -667,6 +670,7 @@ function finishRewards(run: RunState, events: RunEvent[]): void {
     run.rng = map.state;
     run.map = map.value;
     run.position = null;
+    run.path = [];
     // The party heals once, before the first vote of the new act.
     const heal = Math.ceil(((run.maxHealth - run.health) * run.content.run.actStartHealPercent) / 100);
     run.health += heal;
