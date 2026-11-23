@@ -11,14 +11,14 @@ From the proposals page "0.3 Screen Proposals" (https://claude.ai/artifact/WqRUy
 - **S1 Scope:** 0.3 builds all seven: C1 "One stage", C2 "One look", C3 "The line is the enemy's guard", new wizards, M1 "The whole act, readable", M2 "A scroll on the table" and M3 "Know before you go". S7 and S16 change two of them.
 - **S2 The web build:** 0.3's screen work stays in the web build. M13 (Godot port) stays on hold. Positions and sizes stay in data files so they carry over.
 - **S3 Milestones:** M16 "The combat stage" (C1–C3 and the wizards) and M17 "The map" (M1–M3), on an integration branch `v0.3`, as 0.2 used `v0.2`.
-- **S4 Where the enemy stands:** on the table, to the right of the arcane circle. The party stands on the circle's left arc and the tree grows left to right toward the enemy. (See "Open" below.)
+- **S4 Where the enemy stands:** on the table, to the right of the arcane circle. The party stands on the circle's left arc and the tree grows left to right toward the enemy.
 - **S5 Enemy art:** the 22 enemy paintings are converted to pixel sprites by a script. One is redrawn by hand only if its conversion looks wrong.
 - **S6 The font:** a pixel font replaces Arial: the Jersey family (Jersey 10 and Jersey 15) and Tiny5. Both are under the SIL Open Font License 1.1, which allows shipping them with the game. They are font files in the repo, not a code dependency.
 - **S7 Dominoes keep their 0.2 look.** The pixel tiles with coloured ends were proposed and not taken. Domino drawing, the numbers on dominoes and the tree's smooth shrinking stay as they are.
 - **S8 The setting:** the tavern table is the setting for both screens. Battles happen on it, and the map is a scroll unrolled on it.
 - **S9 Open hands:** teammates' hands stay in view all the time, as slim racks along the top of the combat screen.
 - **S10 Hidden total:** the damage total stays hidden while building (V5 is kept). The line's bar is empty until the cascade.
-- **S11 The wizards' look:** the current sprites are replaced. The designer finds them too cartoony and does not want them drawn side-on. The new style is picked by the designer from candidates before any other wizard art is drawn. (See "Open" below.)
+- **S11 The wizards' look:** the current sprites are replaced. The designer finds them too cartoony and does not want them drawn side-on. The designer's reference is a hooded cloak seen from the front: flat tones, a bold dark outline, a shoulder mantle, a ragged hem, and darkness under the hood. The new wizards follow it. Which of three options (A "Hollow", nothing under the hood; B "Watcher", two eyes in the dark; C "Greybeard", eyes and a beard) is still open. The eight colours and the wardrobe stay; the five hats become five hood and hat shapes and the five robes become five cloaks.
 - **S12 Wizard reactions:** the wizards react to placing a domino, a teammate placing next to theirs, pressing Ready, waiting on others, the cascade reaching their domino, their cap going off, bracing for the enemy's hit, taking it, the stagger, the win, low party health, and walking on the map. If the art runs long, low health and waiting are cut first.
 - **S13 Roads never cross:** the engine's map maker changes so that no two roads cross. It is the one engine change in 0.3. Old seeds give new maps.
 - **S14 What a fight's card shows:** the enemies it can be ("Brute or Warden"). The engine keeps rolling the enemy when the fight starts.
@@ -27,15 +27,14 @@ From the proposals page "0.3 Screen Proposals" (https://claude.ai/artifact/WqRUy
 
 ### Open
 
-- **The view.** The designer wrote "I don't like this side profile view" and sent a reference the planner could not open. It is not yet clear whether this is about the wizard sprites only or also about the stage (S4). M16's stage issues are not filed until it is settled.
-- **The wizards' style (S11).** A first set of three options (turned toward the player) is on the proposals page. They are to be redone against the designer's reference.
+- **Which wizard option (S11).** A, B or C on the proposals page. The planner recommends B. M16's wizard issues are not filed until it is picked.
 
 ## 2026-11-23: How 0.3 is built (T1–T7)
 
 Planner defaults for the 0.3 specs. Say if any should change.
 
 - **T1 Integration branch:** 0.3 PRs target `v0.3`, made from the planner's branch (`main` plus the 0.3 docs). `main` and GitHub Pages keep 0.2 playable until the designer has playtested `v0.3`.
-- **T2 Order:** the shared parts come first (the font and the small interface kit, and the art conversion), because both screens use them. The map (M17) can be built while the combat stage waits on the open points above.
+- **T2 Order:** the shared parts come first (the font and the small interface kit, and the art conversion), because both screens use them. The map (M17) can be built alongside the combat stage.
 - **T3 Other screens:** the menu, lobby, reward, rest, trader and event screens get the new font through the shared text helpers. They are not redesigned in 0.3; a layout is touched only where text no longer fits.
 - **T4 What the map screen may work out:** which stops can be reached from a stop comes from an engine function. The screen draws it and does not walk the map itself.
 - **T5 Art sources:** the paintings move to `tools/art/sources/` and stay in the repo. The converted sprites replace them in `public/art/`. The conversion is part of `npm run art`.

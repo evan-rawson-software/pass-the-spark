@@ -1,6 +1,6 @@
 # Pass the Spark 0.3: design
 
-> **Status (2026-11-23):** the map design is approved. The combat stage is approved except for two open points (the view, and the wizards' style); see "Open" in `docs/v0.3/decisions.md`. This document is the source for how 0.3's two screens look and behave. 0.3 changes no battle rules: `docs/v0.2/design.md` stays the source for those. Rulings are in `docs/v0.3/decisions.md`. Exact positions and sizes live in data.
+> **Status (2026-11-23):** approved, except for one open point: which of the three wizard options (see "Open" in `docs/v0.3/decisions.md`). This document is the source for how 0.3's two screens look and behave. 0.3 changes no battle rules: `docs/v0.2/design.md` stays the source for those. Rulings are in `docs/v0.3/decisions.md`. Exact positions and sizes live in data.
 >
 > The proposals page with the mockups: https://claude.ai/artifact/WqRUyBFHVG2FbDzuterUkJ
 
@@ -39,7 +39,7 @@
 
 ### Wizards (S11, S12)
 
-- A new style, picked by the designer. Not side-on. Hats, robes, the 8 colours and the wardrobe stay.
+- A new style after the designer's reference: a hooded cloak seen from the front, with flat tones, a bold outline and darkness under the hood. The 8 colours and the wardrobe stay; hats become hood and hat shapes, robes become cloaks.
 - They react to what happens in the round (the list is S12).
 
 ## The map screen
