@@ -15,10 +15,9 @@ import { fontRole, tabularDigits } from "./fonts";
 // what the screen is and whose choice it is. The combat table draws the same bar itself
 // (animated) at the same place.
 
-// `ink` (the map screen, on paper) replaces the light text colours.
-export function drawPartyHud(scene: Phaser.Scene, run: RunState, ink?: string): void {
+export function drawPartyHud(scene: Phaser.Scene, run: RunState): void {
   const x = 1565;
-  label(scene, x, 48, "Party", 24, { bold: true, color: ink ?? "#9fd1b8" });
+  label(scene, x, 48, "Party", 24, { bold: true, color: "#9fd1b8" });
   const g = scene.add.graphics();
   g.fillStyle(0x0d2a20, 1);
   g.fillRoundedRect(x, 68, 190, 34, 17);
@@ -34,12 +33,12 @@ export function drawPartyHud(scene: Phaser.Scene, run: RunState, ink?: string): 
     const bg = scene.add.graphics();
     drawBlessedGlow(bg, run.blessing, x + 20, 132, 14);
     drawSparkGlyph(bg, run.blessing, x + 20, 132, 14);
-    label(scene, x + 52, 120, `Blessed ${run.blessing}`, 22, { bold: true, color: ink ?? "#ffe14d" });
+    label(scene, x + 52, 120, `Blessed ${run.blessing}`, 22, { bold: true, color: "#ffe14d" });
   }
   const acting = actingSeat(run);
-  if (acting !== null && acting !== onlineRun()?.seat) label(scene, x, 175, `Playing for ${seatName(acting)}`, 24, { bold: true, color: ink ?? "#ffe14d" });
+  if (acting !== null && acting !== onlineRun()?.seat) label(scene, x, 175, `Playing for ${seatName(acting)}`, 24, { bold: true, color: "#ffe14d" });
   // Everyone's charms, by their names (#108); clicking a name opens the deck viewer.
-  drawPartyCharms(scene, run.players, seatNames(), run.charms, (seat) => openDeckViewer(scene, runDeckPlayers(run), seat), ink); // a name opens that player's deck (#171)
+  drawPartyCharms(scene, run.players, seatNames(), run.charms, (seat) => openDeckViewer(scene, runDeckPlayers(run), seat)); // a name opens that player's deck (#171)
   drawPause(scene);
 }
 
@@ -71,7 +70,7 @@ export function drawRunHeader(scene: Phaser.Scene, title: string, player: string
 }
 
 // Online: a line naming the players the run is still waiting on, for a player who has made their choices.
-export function drawWaitingFor(scene: Phaser.Scene, run: RunState, x: number, y: number, origin = 0, ink?: string): void {
+export function drawWaitingFor(scene: Phaser.Scene, run: RunState, x: number, y: number, origin = 0): void {
   const names = [...new Set(getPendingRunChoices(run).map((p) => seatName(p.player)))];
-  if (names.length > 0) label(scene, x, y, `Waiting for ${names.join(", ")}`, 30, { color: ink ?? "#ffe14d", origin });
+  if (names.length > 0) label(scene, x, y, `Waiting for ${names.join(", ")}`, 30, { color: "#ffe14d", origin });
 }

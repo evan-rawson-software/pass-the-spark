@@ -86,14 +86,14 @@ function shorten(name: string, max: number): string {
 
 // Everyone's name and charm icons in a strip along the top, left of the party bar.
 // `names` maps seat -> display name; `held` maps seat -> charm ids. Returns what it drew.
-export function drawPartyCharms(scene: Phaser.Scene, seats: string[], names: Record<string, string>, held: Record<string, string[]>, onName?: (seat: string) => void, ink?: string): Phaser.GameObjects.GameObject[] {
+export function drawPartyCharms(scene: Phaser.Scene, seats: string[], names: Record<string, string>, held: Record<string, string[]>, onName?: (seat: string) => void): Phaser.GameObjects.GameObject[] {
   const before = scene.children.list.length;
   const tooltip = new Tooltip(scene);
   const left = 1080; // clear of the map's boss, which sits at x 1020
   const colW = Math.min(200, 470 / Math.max(1, seats.length));
   seats.forEach((id, i) => {
     const x = left + i * colW;
-    const name = label(scene, x, 42, shorten(names[id] ?? id, Math.floor(colW / charmNameLetterWidth)), 20, { bold: true, color: ink ?? "#9fd1b8" });
+    const name = label(scene, x, 42, shorten(names[id] ?? id, Math.floor(colW / charmNameLetterWidth)), 20, { bold: true, color: "#9fd1b8" });
     if (onName) name.setInteractive({ useHandCursor: true }).on("pointerdown", () => onName(id));
     drawCharmRow(scene, tooltip, charmsByIds(held[id] ?? []), x, 78, 26, colW - 12);
   });
