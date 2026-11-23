@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 
 import circle as cc
+import convert
+import scroll
 from check import problems
 from palette import KEY, SEATS, SPARK_RAMPS
 from pix import H, W, area, sheet
@@ -60,7 +62,8 @@ def build_wizards():
                     "every tier is one design, so fade tiers within a variant), all looping; centre and radius place it; the beam's anchor "
                     "sits on the circle's centre. spells: drawn flying right, in the spark's colours; head is the flight's leading point and "
                     "impacts are centred in their frame. ward and finalSpell are drawn in keyRamp: the ward takes each spark's ramp, and "
-                    "the game scales and tints the final spell by tier.",
+                    "the game scales and tints the final spell by tier. scroll: the map's parchment, plain paper; mapArea is [x, y, w, h], "
+                    "where the game draws the map on it.",
         "scale": SCALE,
         "frame": {"w": W, "h": H},
         "keyRamp": KEY,
@@ -125,7 +128,7 @@ def build_spells():
 
 def update_manifest(files):
     listed = json.loads(MANIFEST.read_text())
-    keep = [f for f in listed if not f.startswith(("wizards/", "circle/", "spells/"))]
+    keep = [f for f in listed if not f.startswith(("wizards/", "circle/", "spells/", "enemies/", "backgrounds/", "map/", "ui/", "charms/"))]
     MANIFEST.write_text(json.dumps(keep + sorted(files), indent=2) + "\n", newline="\n")
 
 
@@ -135,9 +138,14 @@ if __name__ == "__main__":
     files += more
     data["spells"], data["ward"], data["finalSpell"], more = build_spells()
     files += more
+    files += convert.convert_all()
+    scroll.draw().save(ART / "map/scroll.png", optimize=False)
+    files.append("map/scroll.png")
+    w, h = scroll.size()
+    data["scroll"] = {"sheet": "map/scroll.png", "w": w, "h": h, "mapArea": scroll.map_area()}
     DATA.write_text(json.dumps(data, indent=2) + "\n", newline="\n")
     update_manifest(files)
-    print(f"wrote {len(files)} sheets, data/wizard-art.json and the manifest")
+    print(f"wrote {len(files)} files, data/wizard-art.json, data/enemy-art.json and the manifest")
     found = problems()
     for p in found:
         print("FAIL", p)

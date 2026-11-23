@@ -39,6 +39,12 @@ export class ArtBootScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Art converted onto the pixel grid (tools/art/convert.py) scales without smoothing, like the wizards.
+    for (const path of listed) {
+      if (/^(enemies|backgrounds|map|ui|charms)\//.test(path) && this.textures.exists(textureKey(keyOf(path)))) {
+        this.textures.get(textureKey(keyOf(path))).setFilter(Phaser.Textures.FilterMode.NEAREST);
+      }
+    }
     this.scene.start(this.scene.manager.scenes[1].sys.settings.key); // the first of the real scenes
   }
 }

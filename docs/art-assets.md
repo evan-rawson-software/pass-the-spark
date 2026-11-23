@@ -4,6 +4,7 @@ This is the list of images the game can use, for generating art locally. The gam
 
 ## Rules for every file
 
+- **0.3 (#300):** enemies, backgrounds, map stops, `ui/` icons and charms are now converted onto the pixel grid by `npm run art` (`tools/art/convert.py`). Their paintings live in `tools/art/sources/<folder>/`; put a new or redone painting there, not in `public/art/`. Backgrounds are PNG.
 - **Where:** `public/art/<folder>/<id>.<ext>`. Folders and ids are listed below. Ids match the data files (`data/enemies.json`, `data/charms.json`, `data/events.json`), so a renamed enemy keeps its art.
 - **Manifest:** `public/art/manifest.json` lists every file that exists, as paths relative to `public/art/`, for example `["enemies/ogre.png", "sparks/Ember.png"]`. The game loads only what's listed. Add each new file to it.
 - **Formats:**

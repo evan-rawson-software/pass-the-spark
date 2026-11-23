@@ -21,6 +21,7 @@ GEM = ["#ffffff", "#bff8ff", "#5fd8f0", "#2a8fc0", "#173f66"]
 BOOT = ["#8a6a5a", "#6a4a3e", "#4e3430", "#3a2426", "#22161c"]
 CLOTH = ["#fffaf0", "#f2e6cf", "#d9c6a5", "#a8916f", "#5a4a3a"]  # cream: sashes and patches
 ACCENTS = {"eye": "#2a1b2e", "cheek": "#ff9a9a"}
+PARCHMENT = ["#f4e2b8", "#e6cc98", "#cfae74", "#9c7448", "#4a2e1e"]  # the map's scroll
 ARCANE = ["#f1e6ff", "#c3a4ff", "#8f68e8", "#5a3d9e", "#352460"]  # the circle at rest; GOLD and white as it blazes
 WHITE = "#ffffff"
 
@@ -55,7 +56,7 @@ assert all(SPARK_RAMPS[k][2] == v for k, v in SPARKS.items())
 MIN_DELTA_E = 20  # CIE76 distance between any two seat colours, or a seat colour and a spark or the gold
 MIN_CONTRAST = 4.5  # the middle shade against the panel, as text
 
-PALETTE = ({hexrgb(c) for ramp in (KEY, SKIN, BEARD, WOOD, GOLD, GEM, BOOT, CLOTH, ARCANE, *SPARK_RAMPS.values()) for c in ramp}
+PALETTE = ({hexrgb(c) for ramp in (KEY, SKIN, BEARD, WOOD, GOLD, GEM, BOOT, CLOTH, ARCANE, PARCHMENT, *SPARK_RAMPS.values()) for c in ramp}
            | {hexrgb(c) for c in (*ACCENTS.values(), WHITE)})
 
 
